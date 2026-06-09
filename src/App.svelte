@@ -1,0 +1,445 @@
+<script>
+  import { ncm } from './lib/api/client.js'
+  import { player } from './lib/stores/player.svelte.js'
+  import { auth } from './lib/stores/auth.svelte.js'
+  import { extractColor } from './lib/player/colors.js'
+  import { formatDuration, formatPlayCount } from './lib/format.js'
+  import Sidebar from './lib/components/Sidebar.svelte'
+  import PlayerBar from './lib/components/PlayerBar.svelte'
+  import LyricsPage from './lib/components/LyricsPage.svelte'
+  import LoginOverlay from './lib/components/LoginOverlay.svelte'
+  import Spinner from './lib/components/Spinner.svelte'
+  import RankingCard from './lib/components/RankingCard.svelte'
+
+  let activeView = $state('home')
+  let sidebarCollapsed = $state(false)
+  let userPlaylists = $state([])
+  let subcount = $state(null)
+  let likedPlaylist = $state(null)
+  let weeklyPlaylist = $state(null)
+  let selectedId = $state(null)
+  let heroColor = $state('#141414')
+  let loading = $state(true)
+  let playlistDetail = $state(null)
+  let showSheet = $state(false)
+  let showLogin = $state(false)
+  let refreshKey = $state(Date.now())
+  let toplists = $state([])
+  let toplistsLoading = $state(false)
+  let theme = $state(
+    typeof window !== 'undefined' ? (localStorage.getItem('zheting-theme') || 'dark') : 'dark'
+  )
+
+  auth.init()
+
+  $effect(() => {
+    document.documentElement.style.backgroundColor = heroColor
+  })
+
+  $effect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    if (typeof window !== 'undefined') localStorage.setItem('zheting-theme', theme)
+  })
+
+  $effect(() => {
+    if (activeView === 'explore' && toplists.length === 0 && !toplistsLoading) {
+      loadToplists()
+    }
+  })
+
+  async function loadHome() {
+    loading = true
+    userPlaylists = []
+    subcount = null
+    likedPlaylist = null
+    weeklyPlaylist = null
+
+    if (auth.isLoggedIn) {
+      const uid = auth.user?.userId || auth.user?.id
+      if (!uid) { loading = false; return }
+
+      try {
+        const [plRes, subRes, detailRes] = await Promise.all([
+          ncm.userPlaylist(uid).catch(() => ({ playlist: [] })),
+          ncm.userSubcount().catch(() => null),
+          ncm.userDetail(uid).catch(() => null),
+        ])
+
+        // 优先用登录态接口获取真实头像（userDetail 可能返回默认头像）
+        let profile = null
+        try {
+          const loginRes = await ncm.loginStatus()
+          profile = loginRes?.data?.profile || loginRes?.profile
+        } catch {}
+        if (!profile) {
+          profile = detailRes?.profile || detailRes?.data?.profile
+        }
+        if (profile) {
+          auth.setUser({ ...auth.user, ...profile }, auth.loginMode || 'account')
+        }
+        refreshKey++
+
+        const allPls = (plRes.playlist || []).slice(0, 50)
+
+        userPlaylists = allPls.filter(pl => pl.creator?.userId !== uid && pl.special !== 2).map(pl => ({
+          id: pl.id,
+          name: pl.name,
+          picUrl: pl.coverImgUrl,
+          playCount: pl.playCount,
+          trackCount: pl.trackCount,
+        }))
+
+        subcount = subRes?.data || subRes
+
+        const likedPl = allPls.find(pl => pl.creator?.userId === uid && pl.special === 2)
+        if (likedPl) {
+          likedPlaylist = {
+            id: likedPl.id,
+            name: likedPl.name,
+            picUrl: likedPl.coverImgUrl,
+            trackCount: likedPl.trackCount,
+          }
+        }
+
+        const weeklyPl = allPls.find(pl => pl.creator?.userId === uid && pl.special === 0 && pl.name?.includes('听歌排行'))
+        if (weeklyPl) {
+          weeklyPlaylist = {
+            id: weeklyPl.id,
+            name: weeklyPl.name,
+            picUrl: weeklyPl.coverImgUrl,
+            trackCount: weeklyPl.trackCount,
+            playCount: weeklyPl.playCount,
+          }
+        }
+      } catch {}
+    }
+    loading = false
+  }
+
+  async function loadToplists() {
+    toplistsLoading = true
+    try {
+      const res = await ncm.toplist()
+      toplists = res?.list || res?.data?.list || []
+    } catch {
+      toplists = []
+    }
+    toplistsLoading = false
+  }
+
+  async function goPlaylist(id) {
+    activeView = 'playlist'
+    selectedId = id
+    heroColor = '#141414'
+    const d = await ncm.playlistDetail(id)
+    playlistDetail = d?.playlist || null
+    if (playlistDetail?.coverImgUrl) {
+      extractColor(playlistDetail.coverImgUrl + '?param=100y100').then(c => { if (c) heroColor = c })
+    }
+  }
+
+  function playTrack(id) {
+    const tracks = playlistDetail?.tracks || []
+    const idx = tracks.findIndex(t => t.id === id)
+    if (idx >= 0) player.playQueue(tracks, idx)
+    else player.playTrack(tracks.find(t => t.id === id) || { id }, 0)
+  }
+
+  function playAll() {
+    const tracks = playlistDetail?.tracks || []
+    if (tracks.length) player.playQueue(tracks, 0)
+  }
+
+  function handleNav(view, extra) {
+    if (view === 'profile') view = 'home'
+    activeView = view
+    selectedId = null
+    heroColor = '#141414'
+    playlistDetail = null
+
+    if (view === 'playlist' && extra) {
+      goPlaylist(extra)
+    } else if (view === 'home') {
+      loadHome()
+    }
+  }
+
+  function openSheet() { showSheet = true }
+  function closeSheet() { showSheet = false }
+
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark'
+  }
+
+  loadHome()
+</script>
+
+<main class="app-shell" data-theme={theme}>
+  <Sidebar
+    {activeView}
+    bind:collapsed={sidebarCollapsed}
+    {theme}
+    {refreshKey}
+    onNavigate={handleNav}
+    onToggleTheme={toggleTheme}
+    onOpenLogin={() => showLogin = true}
+  />
+
+  <div class="main-area">
+    <div class="content-scroll">
+      <div class="content-inner">
+        {#if activeView === 'home'}
+          <div class="fade-in">
+            {#if auth.isLoggedIn}
+              <div class="profile-header-banner">
+                <div class="profile-banner-bg" style="background-image:url({(auth.user?.avatarUrl || '') + `?param=600y300&_=${refreshKey}`})"></div>
+                <div class="profile-banner-overlay"></div>
+                <div class="profile-banner-content">
+                  <div class="profile-avatar-large">
+                    {#if auth.user?.avatarUrl}
+                      <img src={auth.user.avatarUrl + `?param=200y200&_=${refreshKey}`} alt="" referrerpolicy="no-referrer" />
+                    {:else}
+                      <div class="profile-avatar-placeholder-large">{auth.user?.nickname?.charAt(0) || '?'}</div>
+                    {/if}
+                  </div>
+                  <div class="profile-banner-info">
+                    <h1 class="profile-name">{auth.user?.nickname || '用户'}</h1>
+                    <div class="profile-stats-inline">
+                      <span class="stat-item"><strong>{subcount?.followeds ?? auth.user?.followeds ?? 0}</strong> 关注</span>
+                      <span class="stat-item"><strong>{subcount?.follows ?? auth.user?.follows ?? 0}</strong> 粉丝</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="music-taste-section">
+                <div class="playlist-section-header">
+                  <div class="playlist-section-title">音乐品味</div>
+                </div>
+                <div class="music-taste-grid">
+                  <div class="music-taste-card" onclick={() => weeklyPlaylist && goPlaylist(weeklyPlaylist.id)}>
+                    <div class="taste-cover" style="background-image:url({(weeklyPlaylist?.picUrl || likedPlaylist?.picUrl || auth.user?.avatarUrl || '') + '?param=400y400'})"></div>
+                    <div class="taste-overlay"></div>
+                    {#if weeklyPlaylist}
+                      <div class="taste-badge">
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        {formatPlayCount(weeklyPlaylist.playCount || 0)}
+                      </div>
+                    {/if}
+                    <div class="taste-info">
+                      <div class="taste-label">{auth.user?.nickname || '你'}的听歌排行</div>
+                      <div class="taste-sub">累计播放{subcount?.playedCount ? formatPlayCount(subcount.playedCount) : '0'}首歌曲</div>
+                    </div>
+                  </div>
+                  <div class="music-taste-card" onclick={() => likedPlaylist && goPlaylist(likedPlaylist.id)}>
+                    <div class="taste-cover" style="background-image:url({(likedPlaylist?.picUrl || '') + '?param=400y400'})"></div>
+                    <div class="taste-overlay"></div>
+                    <div class="taste-heart">
+                      <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity="0.15"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </div>
+                    <div class="taste-info">
+                      <div class="taste-label">{auth.user?.nickname || '你'}喜欢的音乐</div>
+                      <div class="taste-sub">{likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0}首歌曲</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {#if loading}
+                <div class="loading-state">
+                  <Spinner size="lg" label="加载中" />
+                </div>
+              {:else}
+                {#if userPlaylists.length > 0}
+                  <div class="playlist-section">
+                    <div class="playlist-section-header">
+                      <div class="playlist-section-title">收藏的歌单</div>
+                    </div>
+                    <div class="pl-square-scroll">
+                      <div class="pl-square-track">
+                        {#each userPlaylists as pl}
+                          <div class="pl-square-card" onclick={() => goPlaylist(pl.id)}>
+                            <div class="cover-wrap">
+                              {#if pl.picUrl}
+                                <img class="cover" src={pl.picUrl + '?param=200y200'} alt="" loading="lazy" />
+                              {:else}
+                                <div class="cover" style="background:linear-gradient(135deg,var(--accent),#8b5cf6)"></div>
+                              {/if}
+                              <div class="badge">
+                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                {formatPlayCount(pl.playCount)}
+                              </div>
+                            </div>
+                            <div class="pl-name">{pl.name}</div>
+                            <div class="pl-meta">{pl.trackCount} 首</div>
+                          </div>
+                        {/each}
+               </div>
+             </div>
+           </div>
+         {/if}
+
+                {#if userPlaylists.length === 0 && !loading}
+                  <div class="empty-state">
+                    <p>这里空空的，还没有任何歌单</p>
+                  </div>
+                {/if}
+              {/if}
+            {:else}
+              <div class="profile-logged-out">
+                <div class="large-icon">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <p>登录后查看个人主页和音乐品味</p>
+                <button class="login-prompt-btn" onclick={() => showLogin = true}>登录</button>
+              </div>
+            {/if}
+          </div>
+
+        {:else if activeView === 'playlist'}
+          <div class="fade-in">
+            {#key playlistDetail?.id || selectedId}
+            {#if playlistDetail}
+              <div class="hero-section" style="background: linear-gradient(135deg, {heroColor}44, transparent 70%);margin: -24px -32px 0;padding:32px;border-radius:0;">
+                {#if playlistDetail.coverImgUrl || playlistDetail.picUrl}
+                  <img class="hero-cover" src={playlistDetail.coverImgUrl || playlistDetail.picUrl} alt={playlistDetail.name} />
+                {:else}
+                  <div class="hero-cover" style="background:linear-gradient(135deg,{heroColor},#8b5cf6)"></div>
+                {/if}
+                <div class="hero-info">
+                  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:4px;">歌单</div>
+                  <h1>{playlistDetail.name}</h1>
+                  <div class="hero-meta">{playlistDetail.creator?.nickname ?? ''} · {playlistDetail.trackCount ?? 0} 首</div>
+                  {#if playlistDetail.description}
+                    <div class="hero-desc">{playlistDetail.description}</div>
+                  {/if}
+                  <button class="hero-play-btn" onclick={playAll}>播放全部</button>
+                </div>
+              </div>
+              <table class="track-table">
+                <thead>
+                  <tr>
+                    <th class="col-num">#</th>
+                    <th>标题</th>
+                    <th>歌手</th>
+                    <th class="col-album">专辑</th>
+                    <th class="col-dur">时长</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each playlistDetail.tracks ?? [] as track, i}
+                    <tr class:active={player.id === track.id} onclick={() => playTrack(track.id)}>
+                      <td class="col-num">{i + 1}</td>
+                      <td class="col-title">{track.name}</td>
+                      <td class="col-artist">{track.artists?.map(a => a.name).join(', ') || track.ar?.map(a => a.name).join(', ') || ''}</td>
+                      <td class="col-album">{track.album?.name || track.al?.name || ''}</td>
+                      <td class="col-dur">{formatDuration(track.duration || track.dt || 0)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+            {/key}
+          </div>
+
+        {:else if activeView === 'explore'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>排行榜</h1>
+              <div class="subtitle">发现最受欢迎的音乐</div>
+            </div>
+            {#if toplistsLoading}
+              <div class="loading-state">
+                <Spinner size="lg" label="加载排行榜中" />
+              </div>
+            {:else if toplists.length > 0}
+              <div class="ranking-grid">
+                {#each toplists as ranking (ranking.id)}
+                  <RankingCard {ranking} onViewDetail={() => goPlaylist(ranking.id)} />
+                {/each}
+              </div>
+            {:else}
+              <p style="color:var(--text-secondary);padding:40px 0;text-align:center;">暂无排行榜数据</p>
+            {/if}
+          </div>
+
+        {:else if activeView === 'library'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>我的收藏</h1>
+              <div class="subtitle">收藏的歌曲和歌单</div>
+            </div>
+            <p style="color:var(--text-secondary);">收藏页面开发中...</p>
+          </div>
+
+        {:else if activeView === 'fm'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>私人FM</h1>
+              <div class="subtitle">为你推荐</div>
+            </div>
+            <p style="color:var(--text-secondary);">私人FM页面开发中...</p>
+          </div>
+
+        {:else if activeView === 'cloud'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>音乐云盘</h1>
+              <div class="subtitle">我的音乐云盘</div>
+            </div>
+            <p style="color:var(--text-secondary);">音乐云盘页面开发中...</p>
+          </div>
+
+        {:else if activeView === 'recent'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>最近播放</h1>
+              <div class="subtitle">最近播放的歌曲</div>
+            </div>
+            <p style="color:var(--text-secondary);">最近播放页面开发中...</p>
+          </div>
+
+        {:else if activeView === 'liked'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>我喜欢的音乐</h1>
+              <div class="subtitle">我喜欢过的歌曲</div>
+            </div>
+            <p style="color:var(--text-secondary);">我喜欢的音乐页面开发中...</p>
+          </div>
+
+        {:else if activeView === 'settings'}
+          <div class="fade-in">
+            <div class="page-header">
+              <h1>设置</h1>
+              <div class="subtitle">主题和其他设置</div>
+            </div>
+            <div style="margin-top:16px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
+                <div>
+                  <div style="font-size:14px;font-weight:500;">主题模式</div>
+                  <div style="font-size:12px;color:var(--text-tertiary);">切换明暗主题</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <button
+                    style="padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;transition:all 0.15s;{theme === 'light' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}"
+                    onclick={() => theme = 'light'}
+                  >浅色</button>
+                  <button
+                    style="padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;transition:all 0.15s;{theme === 'dark' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}"
+                    onclick={() => theme = 'dark'}
+                  >深色</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
+      </div>
+    </div>
+
+    <PlayerBar onOpenSheet={openSheet} />
+  </div>
+</main>
+
+<LyricsPage show={showSheet} onClose={closeSheet} />
+<LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
