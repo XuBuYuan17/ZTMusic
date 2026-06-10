@@ -5,6 +5,7 @@
   import { extractColor } from './lib/player/colors.js'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
+  import QueuePanel from './lib/components/QueuePanel.svelte'
   import LyricsPage from './lib/components/LyricsPage.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import LibraryPage from './lib/pages/LibraryPage.svelte'
@@ -14,22 +15,6 @@
   import PlaylistPage from './lib/pages/PlaylistPage.svelte'
   import HomePage from './lib/pages/HomePage.svelte'
   import ExplorePage from './lib/pages/ExplorePage.svelte'
-
-  function pageTransition(node, { duration = 300 } = {}) {
-    return {
-      duration,
-      css: (t) => {
-        const scale = 0.94 + 0.06 * t
-        const opacity = t
-        const y = (1 - t) * 16
-        return `
-          opacity: ${opacity};
-          transform: scale(${scale}) translateY(${y}px);
-          transform-origin: center top;
-        `
-      }
-    }
-  }
 
   let activeView = $state('home')
   let previousView = $state('home')
@@ -415,6 +400,7 @@
 
   async function goPlaylist(id) {
     if (!id || id <= 0) return
+    previousView = activeView
     activeView = 'playlist'
     selectedId = id
     heroColor = '#141414'
@@ -473,8 +459,19 @@
   function openSheet() { showSheet = true }
   function closeSheet() { showSheet = false }
 
+  let showQueuePanel = $state(false)
+  function toggleQueue() { showQueuePanel = !showQueuePanel }
+  function closeQueue() { showQueuePanel = false }
+
   function toggleTheme() {
+    const shell = document.querySelector('.app-shell')
+    shell?.classList.add('theme-transitioning')
     theme = theme === 'dark' ? 'light' : 'dark'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        shell?.classList.remove('theme-transitioning')
+      })
+    })
   }
 
   loadHome()
@@ -495,7 +492,7 @@
     <div class="content-scroll">
       <div class="content-inner" style="padding-bottom: 72px;">
         {#key activeView}
-        <div transition:pageTransition>
+        <div class="page-enter">
           {#if activeView === 'home'}
           <HomePage
             {refreshKey}
@@ -577,11 +574,12 @@
       </div>
     </div>
 
-    <div class="player-bar-wrap">
-      <PlayerBar onOpenSheet={openSheet} />
+    <div class="player-bar-wrap" class:queue-open={showQueuePanel}>
+      <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} showQueuePanel={showQueuePanel} />
     </div>
   </div>
 </main>
 
 <LyricsPage show={showSheet} onClose={closeSheet} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
+<QueuePanel show={showQueuePanel} onClose={closeQueue} />

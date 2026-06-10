@@ -21,7 +21,6 @@
   let showPlaylistPicker = $state(false)
   let userPlaylists = $state([])
   let showCopied = $state(false)
-  let bgCoverStyle = $state('')
 
   $effect(() => {
     if (show) {
@@ -35,7 +34,7 @@
       setTimeout(() => {
         document.body.style.overflow = ''
         animating = false
-      }, 400)
+      }, 600)
       stopTimer()
       lyrics = []
       highlightIndex = 0
@@ -48,17 +47,9 @@
     if (show && player.id) fetchLyrics()
   })
 
-  $effect(() => {
-    if (show && player.cover) updateBackground()
-  })
-
   function onKeydown(e) {
     if (!show) return
     if (e.key === 'Escape') onClose?.()
-  }
-
-  function updateBackground() {
-    bgCoverStyle = player.cover ? `--bg-cover:url('${player.cover}')` : ''
   }
 
   function splitWords(text = '') {
@@ -205,17 +196,16 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-{#if show && animating}
+{#if animating}
   <div
     class="ly-fullscreen"
     class:mounted
-    style={bgCoverStyle}
     onclick={onClose}
   >
     <div class="ly-container" onclick={(e) => e.stopPropagation()}>
 
       <button class="ly-back-btn" onclick={onClose} aria-label="关闭">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7 15l5-5 5 5"/></svg>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
 
       <!-- Menu popup (fixed, top-level) -->

@@ -3,7 +3,7 @@
   import { player } from '../stores/player.svelte.js'
   import { parseLyricResponse } from '../utils/lyrics.js'
   import Spinner from './Spinner.svelte'
-  let { onOpenSheet } = $props()
+  let { onOpenSheet, onToggleQueue, showQueuePanel = false } = $props()
 
   let showVolume = $state(false)
   let isPressing = $state(false)
@@ -245,7 +245,7 @@
       </div>
     </div>
 
-    <button class="action-btn" aria-label="播放列表">
+    <button class="action-btn" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); onToggleQueue?.() }} aria-label="播放列表">
       <svg viewBox="0 0 48 48" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round">
         <path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32" />
         <path fill="currentColor" d="m8 10l8 5l-8 5z" />

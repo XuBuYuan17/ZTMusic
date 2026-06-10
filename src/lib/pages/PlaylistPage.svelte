@@ -34,9 +34,9 @@
 <div class="fade-in">
   {#key playlistDetail?.id || selectedId}
     {#if playlistDetail}
-      <div class="hero-section" style="background: linear-gradient(135deg, {heroColor}44, transparent 70%);margin: -24px -32px 0;padding:32px;border-radius:0;">
-        <button class="hero-back-btn" onclick={onBack} title="返回">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      <div class="hero-section" style="background: linear-gradient(135deg, {heroColor}44, transparent 70%);margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
+        <button class="hero-back-btn" onclick={onBack} aria-label="返回">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         {#if playlistDetail.coverImgUrl || playlistDetail.picUrl}
           <img class="hero-cover" src={playlistDetail.coverImgUrl || playlistDetail.picUrl} alt={playlistDetail.name} />
@@ -57,6 +57,7 @@
         <thead>
           <tr>
             <th class="col-num">#</th>
+            <th class="col-cover"></th>
             <th>标题</th>
             <th>歌手</th>
             <th class="col-album">专辑</th>
@@ -73,6 +74,15 @@
               onkeydown={(event) => handleRowKeydown(event, track)}
             >
               <td class="col-num">{i + 1}</td>
+              <td class="col-cover">
+                {#if track.al?.picUrl || track.album?.picUrl}
+                  <img class="track-cover-img" src={(track.al?.picUrl || track.album?.picUrl) + '?param=80y80'} alt="" loading="lazy" />
+                {:else}
+                  <div class="track-cover-placeholder">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  </div>
+                {/if}
+              </td>
               <td class="col-title">{track.name}</td>
               <td class="col-artist">{artistNames(track)}</td>
               <td class="col-album">{albumName(track)}</td>

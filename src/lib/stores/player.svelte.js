@@ -162,6 +162,38 @@ function setMode(m) {
   saveLS('mode', m)
 }
 
+function clearQueue() {
+  _queue = []
+  _queueIndex = -1
+  localStorage.removeItem('player_queue')
+  localStorage.removeItem('player_qi')
+}
+
+function removeFromQueue(index) {
+  if (index < 0 || index >= _queue.length) return
+  const wasCurrent = index === _queueIndex
+  _queue = _queue.filter((_, i) => i !== index)
+  if (wasCurrent) {
+    _queueIndex = Math.min(index, _queue.length - 1)
+    if (_queue.length > 0 && _queueIndex >= 0) {
+      playTrack(_queue[_queueIndex], _queueIndex)
+    } else {
+      _id = 0
+      _title = ''
+      _artist = ''
+      _cover = ''
+      _duration = 0
+      _playing = false
+      _queueIndex = -1
+      persistState()
+    }
+  } else if (index < _queueIndex) {
+    _queueIndex--
+  }
+  saveLS('player_queue', _queue)
+  saveLS('player_qi', _queueIndex)
+}
+
 function restore() {
   const savedId = parseInt(getLS('player_id', '0'))
   if (!savedId) return
@@ -217,5 +249,7 @@ export const player = {
   seek,
   setVolume,
   setMode,
+  clearQueue,
+  removeFromQueue,
   restore,
 }

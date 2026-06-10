@@ -1,0 +1,266 @@
+<script>
+  import { player } from '../stores/player.svelte.js'
+  import { formatDuration } from '../format.js'
+
+  let { show = false, onClose } = $props()
+
+  function handlePlayTrack(track, index) {
+    player.playTrack(track, index)
+  }
+
+  function handleClear() {
+    player.clearQueue()
+  }
+
+  function handleRemove(e, index) {
+    e.stopPropagation()
+    player.removeFromQueue(index)
+  }
+</script>
+
+{#if show}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="queue-panel-backdrop" onclick={onClose}></div>
+  <div class="queue-panel">
+    <div class="queue-header">
+      <div class="queue-title">待播清单</div>
+      <button class="queue-clear-btn" onclick={handleClear} disabled={player.queue.length === 0}>
+        清除
+      </button>
+    </div>
+    <div class="queue-list">
+      {#if player.queue.length === 0}
+        <div class="queue-empty">
+          <div class="queue-empty-icon">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+          </div>
+          <div class="queue-empty-text">暂无播放列表</div>
+        </div>
+      {:else}
+        {#each player.queue as track, i}
+          <button
+            class="queue-item"
+            class:active={player.queueIndex === i}
+            onclick={() => handlePlayTrack(track, i)}
+          >
+            <div class="queue-item-cover">
+              {#if track.al?.picUrl || track.album?.picUrl || track.picUrl}
+                <img
+                  src={(track.al?.picUrl || track.album?.picUrl || track.picUrl) + '?param=100y100'}
+                  alt={track.name}
+                  loading="lazy"
+                />
+              {:else}
+                <div class="queue-item-cover-placeholder">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+                  </svg>
+                </div>
+              {/if}
+            </div>
+            <div class="queue-item-info">
+              <div class="queue-item-title">{track.name}</div>
+              <div class="queue-item-artist">
+                {(track.ar || track.artists || []).map(a => a.name).join(' / ') || '未知歌手'}
+              </div>
+            </div>
+            <div class="queue-item-duration">
+              {formatDuration(track.dt || track.duration || 0)}
+            </div>
+          </button>
+        {/each}
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<style>
+  .queue-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+  }
+
+  .queue-panel {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 340px;
+    background: var(--bg-surface);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideIn 0.3s var(--ease-out);
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .queue-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .queue-clear-btn {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .queue-clear-btn:hover:not(:disabled) {
+    background: var(--accent-bg);
+  }
+
+  .queue-clear-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .queue-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .queue-list::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .queue-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .queue-list::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.15);
+    border-radius: 2px;
+  }
+
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.1s;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    color: inherit;
+  }
+
+  .queue-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .queue-item.active {
+    color: var(--accent);
+  }
+
+  .queue-item-cover {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--bg-layer);
+  }
+
+  .queue-item-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .queue-item-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+  }
+
+  .queue-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .queue-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .queue-item-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .queue-item-duration {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .queue-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .queue-empty-icon {
+    color: var(--text-tertiary);
+    opacity: 0.5;
+    margin-bottom: 12px;
+  }
+
+  .queue-empty-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+</style>
