@@ -81,7 +81,7 @@
 html, body { height: 100%; overflow: hidden; }
 
 html {
-  transition: background-color 1.2s var(--ease-in-out);
+  transition: background-color 0.3s var(--ease-in-out);
 }
 
 body {
@@ -90,7 +90,7 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 1.2s var(--ease-in-out);
+  transition: background-color 0.3s var(--ease-in-out);
 }
 
 ::-webkit-scrollbar { width: 4px; }

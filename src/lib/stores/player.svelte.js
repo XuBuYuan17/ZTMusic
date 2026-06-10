@@ -25,6 +25,7 @@ let _mode = $state(getLS('mode', 'list'))
 let _queue = $state(getLSJson('player_queue', []))
 let _queueIndex = $state(parseInt(getLS('player_qi', '-1')))
 
+let _restoreSeeking = false
 let _saveTimer = null
 engine.onTimeUpdate((t) => {
   _currentTime = t
@@ -160,8 +161,6 @@ function setMode(m) {
   _mode = m
   saveLS('mode', m)
 }
-
-let _restoreSeeking = false
 
 function restore() {
   const savedId = parseInt(getLS('player_id', '0'))
