@@ -10,7 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+
+# Local user-specific files
 *.local
+local.settings.json
+local.override.css
 
 # Editor directories and files
 .vscode/*
