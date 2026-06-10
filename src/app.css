@@ -453,14 +453,14 @@ img { display: block; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: rgba(245, 245, 247, 0.68);
-  backdrop-filter: saturate(220%) blur(18px);
-  -webkit-backdrop-filter: saturate(220%) blur(18px);
+  background: rgba(245, 245, 247, 0.82);
+  backdrop-filter: saturate(240%) blur(32px);
+  -webkit-backdrop-filter: saturate(240%) blur(32px);
   z-index: -1;
 }
 
 [data-theme="dark"] .player-bar::before {
-  background: rgba(40, 40, 40, 0.72);
+  background: rgba(35, 35, 38, 0.85);
 }
 
 /* Inner stroke border */
