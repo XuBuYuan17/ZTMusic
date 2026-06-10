@@ -495,8 +495,8 @@
     <div class="content-scroll">
       <div class="content-inner" style="padding-bottom: 72px;">
         {#key activeView}
+        <div transition:pageTransition>
           {#if activeView === 'home'}
-          <div transition:pageTransition>
           <HomePage
             {refreshKey}
             {loading}
@@ -510,10 +510,8 @@
             onOpenPlaylist={goPlaylist}
             onPlayRecentTrack={playRecentTrack}
           />
-          </div>
 
         {:else if activeView === 'playlist'}
-          <div transition:pageTransition>
           <PlaylistPage
             {playlistDetail}
             {selectedId}
@@ -522,10 +520,8 @@
             onPlayAll={playAll}
             onPlayTrack={playTrack}
           />
-          </div>
 
         {:else if activeView === 'explore'}
-          <div transition:pageTransition>
           <ExplorePage
             {exploreLoading}
             {exploreBanners}
@@ -537,20 +533,16 @@
             onOpenPlaylist={goPlaylist}
             onPlaySong={playExploreSong}
           />
-          </div>
 
         {:else if activeView === 'library'}
-          <div transition:pageTransition>
           <LibraryPage
             {libraryPlaylists}
             {libraryLoading}
             onOpenLogin={() => showLogin = true}
             onOpenPlaylist={goPlaylist}
           />
-          </div>
 
         {:else if activeView === 'cloud'}
-          <div transition:pageTransition>
           <CloudPage
             {cloudSongs}
             {cloudLoading}
@@ -559,20 +551,16 @@
             onPlayAll={playAllCloud}
             onPlaySong={playCloudSong}
           />
-          </div>
 
         {:else if activeView === 'recent'}
-          <div transition:pageTransition>
           <RecentPage
             {recentTracks}
             {recentLoading}
             onPlayAll={playRecentAll}
             onPlayTrack={playRecentTrack}
           />
-          </div>
 
         {:else if activeView === 'liked'}
-          <div transition:pageTransition>
           <div class="fade-in">
             <div class="page-header">
               <h1>我喜欢的音乐</h1>
@@ -580,13 +568,11 @@
             </div>
             <p style="color:var(--text-secondary);">我喜欢的音乐页面开发中...</p>
           </div>
-          </div>
 
         {:else if activeView === 'settings'}
-          <div transition:pageTransition>
           <SettingsPage {theme} onSetTheme={(value) => theme = value} />
-          </div>
         {/if}
+        </div>
         {/key}
       </div>
     </div>
