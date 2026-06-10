@@ -69,13 +69,6 @@
         </span>
         <span class="nav-label">浏览</span>
       </button>
-
-      <button class="nav-item" class:active={activeView === 'fm'} onclick={() => nav('fm')}>
-        <span class="nav-icon">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16"/><path d="M6 9h.01"/><path d="M18 9h.01"/><path d="M6 13h12"/><path d="M9 5h6"/></svg>
-        </span>
-        <span class="nav-label">广播</span>
-      </button>
     </div>
 
     <div class="nav-right">

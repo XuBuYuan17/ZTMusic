@@ -64,7 +64,7 @@
   .ranking-cover-placeholder {
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    background: linear-gradient(135deg, var(--accent), #ff6b5f);
     display: flex;
     align-items: center;
     justify-content: center;

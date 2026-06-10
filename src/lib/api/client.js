@@ -1,6 +1,6 @@
 let _base
 try { _base = localStorage.getItem('api_base') } catch {}
-let API_BASE = _base || 'http://localhost:3456'
+let API_BASE = _base || 'http://localhost:3000'
 
 let _cookie = ''
 try {
@@ -146,5 +146,33 @@ export const ncm = {
   },
   likelist(uid) {
     return request('/likelist', { uid })
+  },
+
+  // ===== 云音乐 \(Cloud\) =====
+  /** 获取云盘歌曲列表（POST 接口，需要时间戳防缓存 + cookie 放 query） */
+  async cloudSongs(limit = 30, offset = 0) {
+    const url = new URL(`${API_BASE}/user/cloud`)
+    // 加时间戳防止缓存
+    url.searchParams.set('timestamp', String(Date.now()))
+    if (_cookie) url.searchParams.set('cookie', _cookie)
+    const body = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    }).toString()
+    const res = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    })
+    if (!res.ok) throw new Error(`API error: ${res.status}`)
+    const data = await res.json()
+    // 更新 cookie
+    const raw = data.cookie || data.data?.cookie || ''
+    const ck = raw ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ') : ''
+    if (ck && ck !== _cookie) {
+      _cookie = ck
+      localStorage.setItem('api_cookie', _cookie)
+    }
+    return data
   },
 }

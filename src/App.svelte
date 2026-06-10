@@ -3,13 +3,17 @@
   import { player, getLocalHistory } from './lib/stores/player.svelte.js'
   import { auth } from './lib/stores/auth.svelte.js'
   import { extractColor } from './lib/player/colors.js'
-  import { formatDuration, formatPlayCount } from './lib/format.js'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
   import LyricsPage from './lib/components/LyricsPage.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
-  import Spinner from './lib/components/Spinner.svelte'
-  import { slide } from 'svelte/transition'
+  import LibraryPage from './lib/pages/LibraryPage.svelte'
+  import CloudPage from './lib/pages/CloudPage.svelte'
+  import RecentPage from './lib/pages/RecentPage.svelte'
+  import SettingsPage from './lib/pages/SettingsPage.svelte'
+  import PlaylistPage from './lib/pages/PlaylistPage.svelte'
+  import HomePage from './lib/pages/HomePage.svelte'
+  import ExplorePage from './lib/pages/ExplorePage.svelte'
 
   let activeView = $state('home')
   let previousView = $state('home')
@@ -37,6 +41,18 @@
   let exploreRecommendSongs = $state([])
   let exploreNewAlbums = $state([])
   let exploreLoading = $state(false)
+
+  // Library data
+  let libraryPlaylists = $state([])
+  let libraryLoading = $state(false)
+
+  // Cloud music data
+  let cloudSongs = $state([])
+  let cloudLoading = $state(false)
+  let cloudTotal = $state(0)
+
+
+
   let theme = $state(
     typeof window !== 'undefined' ? (localStorage.getItem('zheting-theme') || 'dark') : 'dark'
   )
@@ -140,6 +156,111 @@
     }
   }
 
+  function extractCloudSongId(song) {
+    // 云盘歌曲 ID 在 simpleSong.id 或 privateCloud.songId
+    const s = song.simpleSong || song
+    const pc = song.privateCloud || song
+    return s.id || pc.songId || song.songId || song.id || 0
+  }
+
+  function extractCloudTitle(song) {
+    const s = song.simpleSong || song
+    return s.name || s.songName || song.songName || song.name || '未知'
+  }
+
+  function extractCloudArtists(song) {
+    const s = song.simpleSong || song
+    const artists = s.ar || s.artists || song.ar || song.artists || []
+    if (Array.isArray(artists)) return artists
+    return []
+  }
+
+  function extractCloudDuration(song) {
+    const s = song.simpleSong || song
+    return s.dt || s.duration || song.dt || song.duration || 0
+  }
+
+  function extractCloudCover(song) {
+    // 云盘歌曲封面在 simpleSong.al.picUrl
+    const s = song.simpleSong || song
+    const album = s.al || s.album || song.al || song.album || {}
+    return album.picUrl || album.imgUrl || song.coverUrl || song.picUrl || ''
+  }
+
+  async function loadCloudData() {
+    if (!auth.isLoggedIn) return
+    cloudLoading = true
+    try {
+      const res = await ncm.cloudSongs(50, 0)
+      // API 返回: { data: [...], count: 712, ... }
+      const raw = res?.data || res?.songs || res?.list || []
+      cloudSongs = raw.map(song => ({
+        _raw: song,
+        id: extractCloudSongId(song),
+        name: extractCloudTitle(song),
+        picUrl: extractCloudCover(song),
+        artists: extractCloudArtists(song),
+        duration: extractCloudDuration(song),
+      }))
+      cloudTotal = res?.count || res?.total || cloudSongs.length
+    } catch {
+      cloudSongs = []
+      cloudTotal = 0
+    }
+    cloudLoading = false
+  }
+
+  function playCloudSong(song) {
+    if (song) {
+      const track = song._raw || song
+      // 归一化字段供播放器使用
+      track.id = song.id
+      track.picUrl = song.picUrl
+      track.name = song.name
+      track.ar = song.artists
+      track.dt = song.duration
+      player.playTrack(track, 0)
+    }
+  }
+
+  function playAllCloud() {
+    if (cloudSongs.length) {
+      const tracks = cloudSongs.map(s => {
+        const track = s._raw || s
+        track.id = s.id
+        track.picUrl = s.picUrl
+        track.name = s.name
+        track.ar = s.artists
+        track.dt = s.duration
+        return track
+      })
+      player.playQueue(tracks, 0)
+    }
+  }
+
+  async function loadLibrary() {
+    libraryLoading = true
+    libraryPlaylists = []
+    if (!auth.isLoggedIn) { libraryLoading = false; return }
+    const uid = auth.user?.userId || auth.user?.id
+    if (!uid) { libraryLoading = false; return }
+    try {
+      const plRes = await ncm.userPlaylist(uid).catch(() => ({ playlist: [] }))
+      const allPls = (plRes.playlist || []).slice(0, 100)
+      // 筛选收藏的歌单（非自己创建、非特殊歌单）
+      libraryPlaylists = allPls.filter(pl => pl.creator?.userId !== uid && pl.specialType !== 5).map(pl => ({
+        id: pl.id,
+        name: pl.name,
+        picUrl: pl.coverImgUrl,
+        playCount: pl.playCount,
+        trackCount: pl.trackCount,
+        creator: pl.creator?.nickname || '',
+        description: pl.description || pl.copywriter || '',
+      }))
+    } catch { libraryPlaylists = [] }
+    libraryLoading = false
+  }
+
   async function loadHome() {
     loading = true
     userPlaylists = []
@@ -174,7 +295,7 @@
 
         const allPls = (plRes.playlist || []).slice(0, 50)
 
-        userPlaylists = allPls.filter(pl => pl.creator?.userId !== uid && pl.special !== 2).map(pl => ({
+        userPlaylists = allPls.filter(pl => pl.creator?.userId !== uid && pl.specialType !== 5).map(pl => ({
           id: pl.id,
           name: pl.name,
           picUrl: pl.coverImgUrl,
@@ -184,7 +305,7 @@
 
         subcount = subRes?.data || subRes
 
-        const likedPl = allPls.find(pl => pl.creator?.userId === uid && pl.special === 2)
+        const likedPl = allPls.find(pl => pl.creator?.userId === uid && pl.specialType === 5)
         if (likedPl) {
           likedPlaylist = {
             id: likedPl.id,
@@ -194,7 +315,7 @@
           }
         }
 
-        const weeklyPl = allPls.find(pl => pl.creator?.userId === uid && pl.special === 0 && pl.name?.includes('听歌排行'))
+        const weeklyPl = allPls.find(pl => pl.creator?.userId === uid && pl.specialType === 0 && pl.name?.includes('听歌排行'))
         if (weeklyPl) {
           weeklyPlaylist = {
             id: weeklyPl.id,
@@ -314,6 +435,10 @@
       loadHome()
     } else if (view === 'recent') {
       loadRecent()
+    } else if (view === 'library') {
+      loadLibrary()
+    } else if (view === 'cloud') {
+      loadCloudData()
     }
   }
 
@@ -352,411 +477,71 @@
 
   <div class="main-area">
     <div class="content-scroll">
-      <div class="content-inner">
+      <div class="content-inner" style="padding-bottom: 72px;">
         {#key activeView}
           {#if activeView === 'home'}
-          <div transition:slide={{ duration: 280, axis: 'x' }}>
-            {#if auth.isLoggedIn}
-              <div class="profile-header-banner">
-                <div class="profile-banner-bg" style="background-image:url({(auth.user?.avatarUrl || '') + `?param=600y300&_=${refreshKey}`})"></div>
-                <div class="profile-banner-overlay"></div>
-                <div class="profile-banner-content">
-                  <div class="profile-avatar-large">
-                    {#if auth.user?.avatarUrl}
-                      <img src={auth.user.avatarUrl + `?param=200y200&_=${refreshKey}`} alt="" referrerpolicy="no-referrer" />
-                    {:else}
-                      <div class="profile-avatar-placeholder-large">{auth.user?.nickname?.charAt(0) || '?'}</div>
-                    {/if}
-                  </div>
-                  <div class="profile-banner-info">
-                    <h1 class="profile-name">{auth.user?.nickname || '用户'}</h1>
-                    <div class="profile-stats-inline">
-                      <span class="stat-item"><strong>{subcount?.followeds ?? auth.user?.followeds ?? 0}</strong> 关注</span>
-                      <span class="stat-item"><strong>{subcount?.follows ?? auth.user?.follows ?? 0}</strong> 粉丝</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="music-taste-section">
-                <div class="playlist-section-header">
-                  <div class="playlist-section-title">音乐品味</div>
-                </div>
-                <div class="music-taste-grid">
-                  <div class="music-taste-card" onclick={() => weeklyPlaylist && goPlaylist(weeklyPlaylist.id)}>
-                    <div class="taste-cover" style="background-image:url({(weeklyPlaylist?.picUrl || likedPlaylist?.picUrl || auth.user?.avatarUrl || '') + '?param=400y400'})"></div>
-                    <div class="taste-overlay"></div>
-                    {#if weeklyPlaylist}
-                      <div class="taste-badge">
-                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        {formatPlayCount(weeklyPlaylist.playCount || 0)}
-                      </div>
-                    {/if}
-                    <div class="taste-info">
-                      <div class="taste-label">{auth.user?.nickname || '你'}的听歌排行</div>
-                      <div class="taste-sub">累计播放{subcount?.playedCount ? formatPlayCount(subcount.playedCount) : '0'}首歌曲</div>
-                    </div>
-                  </div>
-                  <div class="music-taste-card" onclick={() => likedPlaylist && goPlaylist(likedPlaylist.id)}>
-                    <div class="taste-cover" style="background-image:url({(likedPlaylist?.picUrl || '') + '?param=400y400'})"></div>
-                    <div class="taste-overlay"></div>
-                    <div class="taste-heart">
-                      <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor" opacity="0.15"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                    </div>
-                    <div class="taste-info">
-                      <div class="taste-label">{auth.user?.nickname || '你'}喜欢的音乐</div>
-                      <div class="taste-sub">{likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0}首歌曲</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {#if loading}
-                <div class="loading-state">
-                  <Spinner size="lg" label="加载中" />
-                </div>
-              {:else}
-                {#if userPlaylists.length > 0}
-                  <div class="playlist-section">
-                    <div class="playlist-section-header">
-                      <div class="playlist-section-title">收藏的歌单</div>
-                    </div>
-                    <div class="pl-square-scroll">
-                      <div class="pl-square-track">
-                        {#each userPlaylists as pl}
-                          <div class="pl-square-card" onclick={() => goPlaylist(pl.id)}>
-                            <div class="cover-wrap">
-                              {#if pl.picUrl}
-                                <img class="cover" src={pl.picUrl + '?param=200y200'} alt="" loading="lazy" />
-                              {:else}
-                                <div class="cover" style="background:linear-gradient(135deg,var(--accent),#8b5cf6)"></div>
-                              {/if}
-                              <div class="badge">
-                                <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                                {formatPlayCount(pl.playCount)}
-                              </div>
-                            </div>
-                            <div class="pl-name">{pl.name}</div>
-                            <div class="pl-meta">{pl.trackCount} 首</div>
-                          </div>
-                        {/each}
-               </div>
-             </div>
-           </div>
-         {/if}
-
-                {#if userPlaylists.length === 0 && !loading}
-                  <div class="empty-state">
-                    <p>这里空空的，还没有任何歌单</p>
-                  </div>
-                {/if}
-              {/if}
-            {:else}
-              <div class="profile-logged-out">
-                <div class="large-icon">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                </div>
-                <p>登录后查看个人主页和音乐品味</p>
-                <button class="login-prompt-btn" onclick={() => showLogin = true}>登录</button>
-              </div>
-            {/if}
-          </div>
+          <HomePage
+            {refreshKey}
+            {loading}
+            {recentTracks}
+            {userPlaylists}
+            {subcount}
+            {likedPlaylist}
+            {weeklyPlaylist}
+            onNavigate={handleNav}
+            onOpenLogin={() => showLogin = true}
+            onOpenPlaylist={goPlaylist}
+            onPlayRecentTrack={playRecentTrack}
+          />
 
         {:else if activeView === 'playlist'}
-          <div class="fade-in">
-            {#key playlistDetail?.id || selectedId}
-            {#if playlistDetail}
-              <div class="hero-section" style="background: linear-gradient(135deg, {heroColor}44, transparent 70%);margin: -24px -32px 0;padding:32px;border-radius:0;">
-                <button class="hero-back-btn" onclick={goBack} title="返回">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-                </button>
-                {#if playlistDetail.coverImgUrl || playlistDetail.picUrl}
-                  <img class="hero-cover" src={playlistDetail.coverImgUrl || playlistDetail.picUrl} alt={playlistDetail.name} />
-                {:else}
-                  <div class="hero-cover" style="background:linear-gradient(135deg,{heroColor},#8b5cf6)"></div>
-                {/if}
-                <div class="hero-info">
-                  <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:4px;">歌单</div>
-                  <h1>{playlistDetail.name}</h1>
-                  <div class="hero-meta">{playlistDetail.creator?.nickname ?? ''} · {playlistDetail.trackCount ?? 0} 首</div>
-                  {#if playlistDetail.description}
-                    <div class="hero-desc">{playlistDetail.description}</div>
-                  {/if}
-                  <button class="hero-play-btn" onclick={playAll}>播放全部</button>
-                </div>
-              </div>
-              <table class="track-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th>标题</th>
-                    <th>歌手</th>
-                    <th class="col-album">专辑</th>
-                    <th class="col-dur">时长</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each playlistDetail.tracks ?? [] as track, i}
-                    <tr class:active={player.id === track.id} onclick={() => playTrack(track.id)}>
-                      <td class="col-num">{i + 1}</td>
-                      <td class="col-title">{track.name}</td>
-                      <td class="col-artist">{track.artists?.map(a => a.name).join(', ') || track.ar?.map(a => a.name).join(', ') || ''}</td>
-                      <td class="col-album">{track.album?.name || track.al?.name || ''}</td>
-                      <td class="col-dur">{formatDuration(track.duration || track.dt || 0)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {/if}
-            {/key}
-          </div>
+          <PlaylistPage
+            {playlistDetail}
+            {selectedId}
+            {heroColor}
+            onBack={goBack}
+            onPlayAll={playAll}
+            onPlayTrack={playTrack}
+          />
 
         {:else if activeView === 'explore'}
-          <div class="explore-page fade-in">
-            {#if exploreLoading && exploreBanners.length === 0}
-              <div class="loading-state" style="padding:80px 0">
-                <Spinner size="lg" label="加载中" />
-              </div>
-            {:else}
-              <!-- 1. 精品推荐 (Banner / 编辑推荐) -->
-              {#if exploreBanners.length > 0}
-                <div class="explore-section explore-banners">
-                  <div class="explore-section-header">
-                    <h2 class="explore-section-title">精品推荐</h2>
-                  </div>
-                  <div class="banner-scroll">
-                    {#each exploreBanners as banner (banner.id)}
-                      <div class="banner-card" onclick={() => handleBannerClick(banner)}>
-                        <div class="banner-cover">
-                          <img src={banner.pic + '?param=600y300'} alt={banner.title} loading="lazy" />
-                          <div class="banner-overlay"></div>
-                          <div class="banner-info">
-                            <div class="banner-title">{banner.title}</div>
-                          </div>
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- 2. 为你推荐 (个性化歌单) -->
-              {#if explorePersonalized.length > 0}
-                <div class="explore-section">
-                  <div class="explore-section-header">
-                    <h2 class="explore-section-title">为你推荐</h2>
-                  </div>
-                  <div class="card-scroll">
-                    {#each explorePersonalized as pl (pl.id)}
-                    <div class="explore-card" onclick={() => goPlaylist(pl.id)}>
-                      <div class="explore-card-cover">
-                        {#if pl.picUrl}
-                          <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />
-                        {:else}
-                          <div class="explore-card-placeholder">
-                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                          </div>
-                        {/if}
-                        <div class="explore-card-play-btn">
-                          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </div>
-                      <div class="explore-card-info">
-                        <div class="explore-card-name">{pl.name}</div>
-                        <div class="explore-card-meta">{pl.trackCount} 首</div>
-                      </div>
-                    </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- 3. 热门歌单 (Top Playlists) -->
-              {#if exploreTopPlaylists.length > 0}
-                <div class="explore-section">
-                  <div class="explore-section-header">
-                    <h2 class="explore-section-title">热门歌单</h2>
-                  </div>
-                  <div class="square-grid">
-                    {#each exploreTopPlaylists as pl (pl.id)}
-                    <div class="square-card" onclick={() => goPlaylist(pl.id)}>
-                      <div class="square-card-cover">
-                        {#if pl.picUrl}
-                          <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />
-                        {:else}
-                          <div class="square-card-placeholder">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                          </div>
-                        {/if}
-                        <div class="square-card-play-btn">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </div>
-                      <div class="square-card-info">
-                        <div class="square-card-name">{pl.name}</div>
-                        {#if pl.updateFrequency}
-                          <div class="square-card-meta">{pl.updateFrequency}</div>
-                        {/if}
-                      </div>
-                    </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- 4. 新歌精选 (推荐歌曲) -->
-              {#if exploreRecommendSongs.length > 0}
-                <div class="explore-section">
-                  <div class="explore-section-header">
-                    <h2 class="explore-section-title">新歌精选</h2>
-                  </div>
-                  <div class="card-scroll">
-                    {#each exploreRecommendSongs as track (track.id)}
-                    <div class="song-card" onclick={() => playExploreSong(track)}>
-                      <div class="song-card-cover">
-                        {#if track.picUrl}
-                          <img src={track.picUrl + '?param=200y200'} alt={track.name} loading="lazy" />
-                        {:else}
-                          <div class="song-card-placeholder">
-                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                          </div>
-                        {/if}
-                        <div class="song-card-play-btn">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </div>
-                      <div class="song-card-info">
-                        <div class="song-card-name">{track.name}</div>
-                        <div class="song-card-artist">{(track.ar || []).map(a => a.name).join(', ')}</div>
-                      </div>
-                    </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- 5. 排行榜 (Toplists) -->
-              {#if toplists.length > 0}
-                <div class="explore-section">
-                  <div class="explore-section-header">
-                    <h2 class="explore-section-title">排行榜</h2>
-                  </div>
-                  <div class="square-grid square-grid-sm">
-                    {#each toplists.slice(0, 8) as ranking (ranking.id)}
-                    <div class="square-card" onclick={() => goPlaylist(ranking.id)}>
-                      <div class="square-card-cover">
-                        {#if ranking.coverImgUrl}
-                          <img src={ranking.coverImgUrl + '?param=400y400'} alt={ranking.name} loading="lazy" />
-                        {:else}
-                          <div class="square-card-placeholder">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                          </div>
-                        {/if}
-                        <div class="square-card-play-btn">
-                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                        </div>
-                      </div>
-                      <div class="square-card-info">
-                        <div class="square-card-name">{ranking.name}</div>
-                        {#if ranking.updateFrequency}
-                          <div class="square-card-meta">{ranking.updateFrequency}</div>
-                        {/if}
-                      </div>
-                    </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-            {/if}
-          </div>
+          <ExplorePage
+            {exploreLoading}
+            {exploreBanners}
+            {explorePersonalized}
+            {exploreTopPlaylists}
+            {exploreRecommendSongs}
+            {toplists}
+            onBannerClick={handleBannerClick}
+            onOpenPlaylist={goPlaylist}
+            onPlaySong={playExploreSong}
+          />
 
         {:else if activeView === 'library'}
-          <div class="fade-in">
-            <div class="page-header">
-              <h1>我的收藏</h1>
-              <div class="subtitle">收藏的歌曲和歌单</div>
-            </div>
-            <p style="color:var(--text-secondary);">收藏页面开发中...</p>
-          </div>
-
-        {:else if activeView === 'fm'}
-          <div class="fade-in">
-            <div class="page-header">
-              <h1>私人FM</h1>
-              <div class="subtitle">为你推荐</div>
-            </div>
-            <p style="color:var(--text-secondary);">私人FM页面开发中...</p>
-          </div>
+          <LibraryPage
+            {libraryPlaylists}
+            {libraryLoading}
+            onOpenLogin={() => showLogin = true}
+            onOpenPlaylist={goPlaylist}
+          />
 
         {:else if activeView === 'cloud'}
-          <div class="fade-in">
-            <div class="page-header">
-              <h1>音乐云盘</h1>
-              <div class="subtitle">我的音乐云盘</div>
-            </div>
-            <p style="color:var(--text-secondary);">音乐云盘页面开发中...</p>
-          </div>
+          <CloudPage
+            {cloudSongs}
+            {cloudLoading}
+            {cloudTotal}
+            onOpenLogin={() => showLogin = true}
+            onPlayAll={playAllCloud}
+            onPlaySong={playCloudSong}
+          />
 
         {:else if activeView === 'recent'}
-          <div class="fade-in">
-            <div class="page-header">
-              <h1>最近播放</h1>
-              <div class="subtitle">共 {recentTracks.length} 首歌曲{#if !auth.isLoggedIn} · 本地记录{/if}</div>
-            </div>
-            {#if recentLoading}
-              <div class="loading-state">
-                <Spinner size="lg" label="加载最近播放" />
-              </div>
-            {:else if recentTracks.length > 0}
-              <div class="recent-actions">
-                <button class="play-all-btn" onclick={playRecentAll}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  播放全部
-                </button>
-              </div>
-              <table class="track-table">
-                <thead>
-                  <tr>
-                    <th class="col-num">#</th>
-                    <th class="col-cover"></th>
-                    <th>标题</th>
-                    <th>歌手</th>
-                    <th class="col-album">专辑</th>
-                    <th class="col-dur">时长</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each recentTracks as track, i}
-                    <tr class:active={player.id === track.id} onclick={() => playRecentTrack(track)}>
-                      <td class="col-num">{i + 1}</td>
-                      <td class="col-cover">
-                        {#if track.picUrl}
-                          <img class="track-cover-img" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />
-                        {:else}
-                          <div class="track-cover-placeholder">
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                          </div>
-                        {/if}
-                      </td>
-                      <td class="col-title">{track.name}</td>
-                      <td class="col-artist">{track.artists?.map(a => a.name).join(', ') || track.ar?.map(a => a.name).join(', ') || ''}</td>
-                      <td class="col-album">{track.album?.name || track.al?.name || ''}</td>
-                      <td class="col-dur">{formatDuration(track.duration || track.dt || 0)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            {:else}
-              <div class="empty-state">
-                <div class="large-icon">
-                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <p>还没有播放记录</p>
-                <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">去首页听听歌吧</p>
-              </div>
-            {/if}
-          </div>
+          <RecentPage
+            {recentTracks}
+            {recentLoading}
+            onPlayAll={playRecentAll}
+            onPlayTrack={playRecentTrack}
+          />
 
         {:else if activeView === 'liked'}
           <div class="fade-in">
@@ -768,36 +553,15 @@
           </div>
 
         {:else if activeView === 'settings'}
-          <div class="fade-in">
-            <div class="page-header">
-              <h1>设置</h1>
-              <div class="subtitle">主题和其他设置</div>
-            </div>
-            <div style="margin-top:16px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);">
-                <div>
-                  <div style="font-size:14px;font-weight:500;">主题模式</div>
-                  <div style="font-size:12px;color:var(--text-tertiary);">切换明暗主题</div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                  <button
-                    style="padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;transition:all 0.15s;{theme === 'light' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}"
-                    onclick={() => theme = 'light'}
-                  >浅色</button>
-                  <button
-                    style="padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;transition:all 0.15s;{theme === 'dark' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}"
-                    onclick={() => theme = 'dark'}
-                  >深色</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SettingsPage {theme} onSetTheme={(value) => theme = value} />
         {/if}
         {/key}
       </div>
     </div>
 
-    <PlayerBar onOpenSheet={openSheet} />
+    <div class="player-bar-wrap">
+      <PlayerBar onOpenSheet={openSheet} />
+    </div>
   </div>
 </main>
 
