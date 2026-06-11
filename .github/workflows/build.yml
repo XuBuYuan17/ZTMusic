@@ -34,15 +34,22 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
         with:
-          node-version: 22
+          workspaces: src-tauri -> target
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
           version: latest
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install Linux deps
         if: matrix.os == 'ubuntu-latest'
@@ -54,10 +61,7 @@ jobs:
             patchelf
 
       - name: Install dependencies
-        run: pnpm install
-
-      - name: Build frontend
-        run: pnpm build
+        run: pnpm install --frozen-lockfile
 
       - name: Build Tauri ${{ matrix.target }}
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
