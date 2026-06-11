@@ -4,8 +4,9 @@
   import { ncm } from '../api/client.js'
   import { parseLyricResponse } from '../utils/lyrics.js'
   import Spinner from './Spinner.svelte'
+  import QueuePanel from './QueuePanel.svelte'
 
-  let { show = false, onClose } = $props()
+  let { show = false, onClose, lyricsOrigin = null } = $props()
 
   let lyrics = $state([])
   let highlightIndex = $state(0)
@@ -13,38 +14,105 @@
   let timer
   let animating = $state(false)
   let mounted = $state(false)
+  let contentEntered = $state(false)
+  let closing = $state(false)
+  let containerEl = $state(null)
   let showMenu = $state(false)
   let menuBtnEl = $state(null)
-  let menuX = $state(0)
   let menuY = $state(0)
+  let menuRight = $state(0)
   let liked = $state(false)
   let showPlaylistPicker = $state(false)
   let userPlaylists = $state([])
   let showCopied = $state(false)
+  let volumeOpen = $state(false)
+  let showLocalQueue = $state(false)
+  let songComments = $state([])
+  let similarSongs = $state([])
+  let similarPlaylists = $state([])
+  let extrasLoading = $state(false)
+  let showContextStrip = $state(false)
+  let contextPanel = $state(null)
+  let selectedSimilarPlaylist = $state(null)
+  let selectedPlaylistTracks = $state([])
+  let selectedPlaylistLoading = $state(false)
 
   $effect(() => {
     if (show) {
       animating = true
+      contentEntered = false
+      closing = false
       document.body.style.overflow = 'hidden'
-      setTimeout(() => { mounted = true }, 10)
       startTimer()
       checkLiked()
-    } else {
-      mounted = false
-      setTimeout(() => {
+
+      if (containerEl && lyricsOrigin) {
+        const scale = 0.18
+        containerEl.style.transformOrigin = `${lyricsOrigin.x}px ${lyricsOrigin.y}px`
+        containerEl.style.transition = 'none'
+        containerEl.style.transform = `scale(${scale})`
+        containerEl.style.opacity = '0'
+        mounted = true
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            containerEl.style.transition = 'transform 0.6s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.3s ease'
+            containerEl.style.transform = 'scale(1)'
+            containerEl.style.opacity = '1'
+          })
+        })
+      } else {
+        mounted = true
+      }
+
+      setTimeout(() => { contentEntered = true }, 200)
+    } else if (!closing) {
+      closing = true
+      contentEntered = false
+
+      if (containerEl && lyricsOrigin) {
+        const scale = 0.18
+        containerEl.style.transition = 'transform 0.5s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.25s ease'
+        containerEl.style.transform = `scale(${scale})`
+        containerEl.style.opacity = '0'
+
+        containerEl.addEventListener('transitionend', function cleanup() {
+          containerEl.removeEventListener('transitionend', cleanup)
+          containerEl.style.transition = ''
+          containerEl.style.transform = ''
+          containerEl.style.opacity = ''
+          mounted = false
+          document.body.style.overflow = ''
+          animating = false
+        })
+      } else {
+        mounted = false
         document.body.style.overflow = ''
         animating = false
-      }, 600)
+      }
+
       stopTimer()
       lyrics = []
       highlightIndex = 0
       showMenu = false
       showPlaylistPicker = false
+      volumeOpen = false
+      songComments = []
+      similarSongs = []
+      similarPlaylists = []
+      showContextStrip = false
+      contextPanel = null
+      selectedSimilarPlaylist = null
+      selectedPlaylistTracks = []
+      selectedPlaylistLoading = false
     }
   })
 
   $effect(() => {
-    if (show && player.id) fetchLyrics()
+    if (show && player.id) {
+      fetchLyrics()
+      fetchSongExtras()
+    }
   })
 
   function onKeydown(e) {
@@ -63,6 +131,66 @@
       const parsed = parseLyricResponse(res)
       lyrics = parsed.map(l => ({ time: l.time, text: l.content, translation: l.translation, words: splitWords(l.content) }))
     } catch { lyrics = [] }
+  }
+
+  function normalizeTrack(track) {
+    if (!track) return null
+    return {
+      ...track,
+      id: track.id,
+      name: track.name,
+      ar: track.ar || track.artists || [],
+      al: track.al || track.album || {},
+      dt: track.dt || track.duration || 0,
+      picUrl: track.al?.picUrl || track.album?.picUrl || track.picUrl || track.coverImgUrl || '',
+    }
+  }
+
+  async function fetchSongExtras() {
+    if (!player.id) return
+    extrasLoading = true
+    try {
+      const [commentRes, simiSongRes, simiPlaylistRes] = await Promise.all([
+        ncm.commentMusic(player.id, 8).catch(() => ({ hotComments: [], comments: [] })),
+        ncm.simiSong(player.id).catch(() => ({ songs: [] })),
+        ncm.simiPlaylist(player.id).catch(() => ({ playlists: [] })),
+      ])
+      songComments = (commentRes?.hotComments?.length ? commentRes.hotComments : commentRes?.comments || []).slice(0, 6)
+      similarSongs = (simiSongRes?.songs || []).map(normalizeTrack).filter(Boolean).slice(0, 6)
+      similarPlaylists = (simiPlaylistRes?.playlists || []).slice(0, 6)
+    } catch {
+      songComments = []
+      similarSongs = []
+      similarPlaylists = []
+    }
+    extrasLoading = false
+  }
+
+  function playSimilarSong(track) {
+    const idx = similarSongs.findIndex(t => t.id === track.id)
+    if (idx >= 0) player.playQueue(similarSongs, idx)
+    else player.playTrack(track, 0)
+  }
+
+  async function loadSimilarPlaylist(pl) {
+    if (!pl?.id) return
+    selectedSimilarPlaylist = pl
+    selectedPlaylistTracks = []
+    selectedPlaylistLoading = true
+    try {
+      const res = await ncm.playlistTracks(pl.id, 20)
+      const tracks = res?.songs || res?.playlist?.tracks || res?.privileges?.map((_, index) => res?.songs?.[index]).filter(Boolean) || []
+      selectedPlaylistTracks = tracks.map(normalizeTrack).filter(Boolean)
+    } catch {
+      selectedPlaylistTracks = []
+    }
+    selectedPlaylistLoading = false
+  }
+
+  function playSelectedPlaylistTrack(track) {
+    const idx = selectedPlaylistTracks.findIndex(t => t.id === track.id)
+    if (idx >= 0) player.playQueue(selectedPlaylistTracks, idx)
+    else player.playTrack(track, 0)
   }
 
   async function checkLiked() {
@@ -105,7 +233,10 @@
     if (!lyricsEl) return
     const line = lyricsEl.querySelector(`[data-idx="${idx}"]`)
     if (line) {
-      line.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      lyricsEl.scrollTo({
+        top: line.offsetTop - lyricsEl.clientHeight / 3,
+        behavior: 'smooth'
+      })
       line.classList.remove('animate-words')
       void line.offsetWidth
       line.classList.add('animate-words')
@@ -153,6 +284,28 @@
     player.seek(pct * player.duration)
   }
 
+  function onProgressKeydown(e) {
+    if (!player.duration) return
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const step = e.key === 'ArrowRight' ? 5 : -5
+      player.seek(Math.max(0, Math.min(player.duration, player.currentTime + step)))
+    }
+  }
+
+  function setVolumeFromEvent(e) {
+    const pct = (e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.offsetWidth
+    player.setVolume(Math.max(0, Math.min(1, pct)))
+  }
+
+  function onVolumeKeydown(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const step = e.key === 'ArrowRight' ? 0.05 : -0.05
+      player.setVolume(Math.max(0, Math.min(1, player.volume + step)))
+    }
+  }
+
   async function loadPlaylists() {
     if (!auth.isLoggedIn) return
     const uid = auth.user?.userId || auth.user?.id
@@ -165,7 +318,7 @@
 
   async function addToPlaylist(plId) {
     try {
-      await fetch(`http://localhost:3456/playlist/tracks?op=add&id=${plId}&tracks=${player.id}${auth._getCookie ? '&cookie=' + auth._getCookie() : ''}`)
+      await ncm.playlistAddTrack(plId, player.id)
       showPlaylistPicker = false
       showMenu = false
       showCopied = true
@@ -192,6 +345,54 @@
       showPlaylistPicker = false
     }
   }
+
+  function closeMenuByKeyboard(e) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      showMenu = false
+      showPlaylistPicker = false
+    }
+  }
+
+  function onMenuBtnClick(e) {
+    const rect = menuBtnEl?.getBoundingClientRect() || e.currentTarget.getBoundingClientRect()
+    menuRight = Math.max(12, window.innerWidth - rect.right)
+    menuY = Math.max(12, rect.top - 8)
+    showMenu = !showMenu
+  }
+
+  function onMenuBackdropClick(e) {
+    if (e.target === e.currentTarget) showMenu = false
+  }
+
+  function toggleContextStrip() {
+    showContextStrip = !showContextStrip
+    if (!showContextStrip) contextPanel = null
+  }
+
+  function closeContextStrip() {
+    showContextStrip = false
+    contextPanel = null
+    selectedSimilarPlaylist = null
+    selectedPlaylistTracks = []
+    selectedPlaylistLoading = false
+  }
+
+  function openContextPanel(type) {
+    contextPanel = contextPanel === type ? null : type
+    if (type !== 'playlists') {
+      selectedSimilarPlaylist = null
+      selectedPlaylistTracks = []
+      selectedPlaylistLoading = false
+    }
+  }
+
+  function contextPanelTitle() {
+    if (contextPanel === 'songs') return '相似歌曲'
+    if (contextPanel === 'playlists') return '相似歌单'
+    if (contextPanel === 'comments') return '热评'
+    return '相关内容'
+  }
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -200,18 +401,39 @@
   <div
     class="ly-fullscreen"
     class:mounted
+    class:closing
+    class:entered={contentEntered}
+    style={player.cover ? `--ly-cover: url(${player.cover}?param=1080y1080)` : ''}
+    bind:this={containerEl}
+    role="presentation"
     onclick={onClose}
   >
-    <div class="ly-container" onclick={(e) => e.stopPropagation()}>
+    <div class="ly-container" role="presentation" onclick={(e) => e.stopPropagation()}>
 
+      <div class="ly-top-bar">
+        <button class="ly-queue-btn" onclick={() => { showLocalQueue = !showLocalQueue }} aria-label="播放列表" aria-expanded={showLocalQueue}>
+          <svg viewBox="0 0 48 48" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32"/><path fill="currentColor" d="m8 10l8 5l-8 5z"/></svg>
+        </button>
+        <div class="ly-volume-area" class:open={volumeOpen}>
+          <button class="ly-vol-btn" onclick={() => { volumeOpen = !volumeOpen }} aria-label="音量" aria-expanded={volumeOpen}>
+            <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </button>
+          <div class="ly-vol-track" role="slider" tabindex="0" aria-label="音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(player.volume * 100)} onclick={setVolumeFromEvent} onkeydown={onVolumeKeydown}>
+            <div class="ly-vol-fill" style="width:{player.volume * 100}%"></div>
+          </div>
+        </div>
+      </div>
       <button class="ly-back-btn" onclick={onClose} aria-label="关闭">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
+      {#if showLocalQueue}
+        <QueuePanel show={true} onClose={() => { showLocalQueue = false }} />
+      {/if}
 
       <!-- Menu popup (fixed, top-level) -->
       {#if showMenu}
-        <div class="ly-menu-backdrop" onclick={onMenuBackdropClick}>
-          <div class="ly-menu" style="left:{menuX}px;top:{menuY}px" onclick={(e) => e.stopPropagation()}>
+        <div class="ly-menu-backdrop" role="button" tabindex="0" aria-label="关闭菜单" onclick={onMenuBackdropClick} onkeydown={closeMenuByKeyboard}>
+          <div class="ly-menu" role="presentation" style="right:{menuRight}px;top:{menuY}px" onclick={(e) => e.stopPropagation()}>
             <div class="ly-menu-header">{player.title || '未知歌曲'}</div>
             <button class="ly-menu-item" onclick={openPlaylistPicker}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -274,7 +496,7 @@
         </div>
         <div class="ly-left-controls">
           <div class="ly-progress-row">
-            <div class="ly-progress-track" onclick={onProgressClick}>
+            <div class="ly-progress-track" role="slider" tabindex="0" aria-label="播放进度" aria-valuemin="0" aria-valuemax={Math.floor(player.duration || 0)} aria-valuenow={Math.floor(player.currentTime || 0)} onclick={onProgressClick} onkeydown={onProgressKeydown}>
               <div class="ly-progress-fill" style="width:{getProgress()}%"></div>
             </div>
             <div class="ly-time-row">
@@ -344,22 +566,141 @@
             <div class="ly-no-lyric">暂无歌词</div>
           {/if}
           </div>
+
+          {#if extrasLoading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0}
+            <button class="ly-context-toggle" class:open={showContextStrip} onclick={toggleContextStrip} aria-label="相关内容" aria-expanded={showContextStrip}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.31.22.65.22 1h.29a2 2 0 0 1 0 4h-.29c0 .35-.08.69-.22 1Z"/></svg>
+            </button>
+
+            {#if showContextStrip}
+              <button class="ly-context-scrim" aria-label="隐藏相关内容" onclick={closeContextStrip}></button>
+              <div class="ly-context-strip" aria-label="歌曲相关内容">
+                {#if extrasLoading}
+                  <div class="ly-context-card ly-context-loading">加载相关内容…</div>
+                {/if}
+
+                {#each similarSongs.slice(0, 1) as track (track.id)}
+                  <button class="ly-context-card ly-context-song" class:active={contextPanel === 'songs'} onclick={() => openContextPanel('songs')}>
+                    {#if track.picUrl}
+                      <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    {:else}
+                      <span class="ly-context-cover-ph">♫</span>
+                    {/if}
+                    <span class="ly-context-copy">
+                      <small>相似歌曲</small>
+                      <strong>{track.name}</strong>
+                      <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                    </span>
+                  </button>
+                {/each}
+
+                {#if similarPlaylists.length > 0}
+                  <button class="ly-context-card ly-context-playlists" class:active={contextPanel === 'playlists'} onclick={() => openContextPanel('playlists')}>
+                    <span class="ly-context-cover-stack">
+                      {#each similarPlaylists.slice(0, 3) as pl (pl.id)}
+                        {#if pl.coverImgUrl}
+                          <img src={pl.coverImgUrl + '?param=96y96'} alt="" loading="lazy" />
+                        {/if}
+                      {/each}
+                    </span>
+                    <span class="ly-context-copy">
+                      <small>相似歌单</small>
+                      <strong>{similarPlaylists[0]?.name}</strong>
+                      <em>{similarPlaylists.length} 个灵感歌单</em>
+                    </span>
+                  </button>
+                {/if}
+
+                {#each songComments.slice(0, 1) as comment, index (comment.commentId || index)}
+                  <button class="ly-context-card ly-context-comment" class:active={contextPanel === 'comments'} onclick={() => openContextPanel('comments')}>
+                    <span class="ly-context-copy">
+                      <small>热评 · {comment.user?.nickname || '听众'}</small>
+                      <strong>{comment.content}</strong>
+                    </span>
+                  </button>
+                {/each}
+              </div>
+
+              {#if contextPanel}
+                <section class="ly-context-detail" aria-label={contextPanelTitle()}>
+                  <div class="ly-context-detail-head">
+                    <span>{contextPanelTitle()}</span>
+                    <button onclick={() => { contextPanel = null; selectedSimilarPlaylist = null; selectedPlaylistTracks = [] }} aria-label="关闭详情">×</button>
+                  </div>
+
+                  {#if contextPanel === 'songs'}
+                    <div class="ly-context-detail-list">
+                      {#each similarSongs as track (track.id)}
+                        <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
+                          {#if track.picUrl}
+                            <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                          {:else}
+                            <span class="ly-context-cover-ph">♫</span>
+                          {/if}
+                          <span>
+                            <strong>{track.name}</strong>
+                            <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                          </span>
+                        </button>
+                      {/each}
+                    </div>
+                  {:else if contextPanel === 'playlists'}
+                    {#if selectedSimilarPlaylist}
+                      <div class="ly-context-subhead">
+                        <button onclick={() => { selectedSimilarPlaylist = null; selectedPlaylistTracks = [] }}>‹ 歌单</button>
+                        <span>{selectedSimilarPlaylist.name}</span>
+                      </div>
+                      {#if selectedPlaylistLoading}
+                        <div class="ly-context-empty">加载歌单歌曲…</div>
+                      {:else if selectedPlaylistTracks.length > 0}
+                        <div class="ly-context-detail-list">
+                          {#each selectedPlaylistTracks as track (track.id)}
+                            <button class="ly-context-detail-row" onclick={() => playSelectedPlaylistTrack(track)}>
+                              {#if track.picUrl}
+                                <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                              {:else}
+                                <span class="ly-context-cover-ph">♫</span>
+                              {/if}
+                              <span>
+                                <strong>{track.name}</strong>
+                                <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                              </span>
+                            </button>
+                          {/each}
+                        </div>
+                      {:else}
+                        <div class="ly-context-empty">这个歌单暂时没有可预览的歌曲</div>
+                      {/if}
+                    {:else}
+                      <div class="ly-context-detail-grid">
+                        {#each similarPlaylists as pl (pl.id)}
+                          <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
+                            {#if pl.coverImgUrl}
+                              <img src={pl.coverImgUrl + '?param=180y180'} alt="" loading="lazy" />
+                            {:else}
+                              <span class="ly-context-cover-ph">♫</span>
+                            {/if}
+                            <strong>{pl.name}</strong>
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  {:else if contextPanel === 'comments'}
+                    <div class="ly-context-comment-list">
+                      {#each songComments as comment, index (comment.commentId || index)}
+                        <article class="ly-context-comment-row">
+                          <strong>{comment.user?.nickname || '听众'}</strong>
+                          <p>{comment.content}</p>
+                        </article>
+                      {/each}
+                    </div>
+                  {/if}
+                </section>
+              {/if}
+            {/if}
+          {/if}
         </div>
       </div>
-
-      <!-- Top-right: Volume -->
-      <div class="ly-volume-area">
-        <button class="ly-vol-btn" onclick={() => player.setVolume(player.volume > 0 ? 0 : 1)} aria-label="音量">
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </button>
-        <div class="ly-vol-track" onclick={(e) => {
-          const pct = (e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.offsetWidth
-          player.setVolume(Math.max(0, Math.min(1, pct)))
-        }}>
-          <div class="ly-vol-fill" style="width:{player.volume * 100}%"></div>
-        </div>
-      </div>
-
 
     </div>
 
@@ -368,8 +709,8 @@
     {/if}
 
     {#if showPlaylistPicker}
-      <div class="ly-picker-overlay" onclick={closeMenu}>
-        <div class="ly-picker" onclick={(e) => e.stopPropagation()}>
+      <div class="ly-picker-overlay" role="button" tabindex="0" aria-label="关闭歌单选择" onclick={closeMenu} onkeydown={closeMenuByKeyboard}>
+        <div class="ly-picker" role="presentation" onclick={(e) => e.stopPropagation()}>
           <div class="ly-picker-header">
             <span>添加到歌单</span>
             <button onclick={() => showPlaylistPicker = false}>✕</button>

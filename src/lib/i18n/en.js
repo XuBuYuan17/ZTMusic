@@ -1,0 +1,18 @@
+export const en = {
+  'settings.language': 'Language',
+  'settings.languageDesc': 'Display language',
+  'settings.quality': 'Audio Quality',
+  'settings.qualityDesc': 'Preferred audio quality level',
+  'settings.defaultPage': 'Default Page',
+  'settings.defaultPageDesc': 'Page shown on startup',
+  'settings.restoreSession': 'Restore Session',
+  'settings.restoreSessionDesc': 'Resume playback on startup',
+  'settings.clearHistory': 'Clear Play History',
+  'settings.clearHistoryDesc': 'Delete all local play records',
+  'settings.clear': 'Clear',
+  'page.home': 'Home',
+  'page.explore': 'Explore',
+  'page.library': 'Library',
+  'common.on': 'On',
+  'common.off': 'Off',
+}

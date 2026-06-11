@@ -1,6 +1,7 @@
 <script>
   import { ncm } from '../api/client.js'
   import { player } from '../stores/player.svelte.js'
+  import { coverUrl } from '../utils/image.js'
   import { parseLyricResponse } from '../utils/lyrics.js'
   import Spinner from './Spinner.svelte'
   let { onOpenSheet, onToggleQueue, showQueuePanel = false } = $props()
@@ -119,6 +120,26 @@
   let showLyric = $derived(Boolean(player.playing && !player.loading && currentLyric?.text))
   let compactMode = $derived(Boolean(!player.id || player.loading || !player.playing || !showLyric))
 
+  function handleBarKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleClick(e)
+    }
+  }
+  function handleVolumeToggleKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      toggleVolume()
+    }
+  }
+  function handleVolumeTrackKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      onVolBarClick(e)
+    }
+  }
   // 点击外部关闭音量面板
   function handleOutsideClick(e) {
     if (showVolume && !e.target.closest('.player-bar__actions')) {
@@ -138,15 +159,19 @@
   class:pressing={isPressing}
   class:compact={compactMode}
   class:with-lyrics={showLyric}
+  role="button"
+  tabindex="0"
   onclick={handleClick}
   onmousedown={handleMouseDown}
+  onkeydown={handleBarKeyDown}
+  aria-label="打开歌词页"
   style="cursor: pointer;"
 >
   <!-- 左侧：歌曲信息 / 当前歌词 (LCD区域) -->
   <div class="player-bar__lcd">
     {#if player.cover}
       <div class="lcd-artwork">
-        <img class="lcd-artwork__img" src={player.cover + '?param=88y88'} alt="">
+        <img class="lcd-artwork__img" src={coverUrl(player.cover, 88)} alt="">
       </div>
     {:else}
       <div class="lcd-artwork lcd-artwork--empty">
@@ -220,7 +245,7 @@
   <!-- 右侧：音量 + 列表 -->
   <div class="player-bar__actions">
     <!-- 音量：未点击时只显示图标，点击后展开小 bar -->
-    <div class="volume-slider-inline" class:open={showVolume} onmousedown={blockPlayerBarClick} onclick={(e) => { e.stopPropagation(); toggleVolume() }}>
+    <div class="volume-slider-inline" class:open={showVolume} role="button" tabindex="0" aria-label="音量" onmousedown={blockPlayerBarClick} onclick={(e) => { e.stopPropagation(); toggleVolume() }} onkeydown={handleVolumeToggleKeyDown}>
       <div class="volume-slider-inline__bar">
         <div class="volume-slider-inline__icon">
           {#if player.volume > 0}
@@ -237,7 +262,7 @@
           {/if}
         </div>
         {#if showVolume}
-          <div class="volume-slider-inline__track" onclick={onVolBarClick}>
+          <div class="volume-slider-inline__track" role="slider" aria-valuenow={player.volume * 100} aria-valuemin="0" aria-valuemax="100" tabindex="0" onclick={onVolBarClick} onkeydown={handleVolumeTrackKeyDown}>
             <div class="volume-slider-inline__fill" style="width:{(player.volume * 100)}%"></div>
             <div class="volume-slider-inline__thumb" style="left:{(player.volume * 100)}%"></div>
           </div>

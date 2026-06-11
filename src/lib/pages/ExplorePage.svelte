@@ -7,176 +7,125 @@
     explorePersonalized = [],
     exploreTopPlaylists = [],
     exploreRecommendSongs = [],
+    exploreNewAlbums = [],
     toplists = [],
     onBannerClick,
     onOpenPlaylist,
+    onOpenAlbum,
     onPlaySong,
   } = $props()
 
-  function handleKeydown(event, action) {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      action?.()
-    }
-  }
+  const hero = $derived(exploreBanners[0])
+  const editorials = $derived(exploreBanners.slice(1, 4))
+  const playlists = $derived([...explorePersonalized, ...exploreTopPlaylists])
 </script>
 
-<div class="explore-page fade-in">
+<div class="music-discovery fade-in">
+  <header class="music-discovery-header">
+    <span>Browse</span>
+    <h1>发现</h1>
+  </header>
+
   {#if exploreLoading && exploreBanners.length === 0}
     <div class="loading-state" style="padding:80px 0">
       <Spinner size="lg" label="加载中" />
     </div>
   {:else}
-    <!-- 1. Hero Banner (精品推荐) -->
-    {#if exploreBanners.length > 0}
-      <div class="explore-hero">
-        <div class="explore-hero-inner">
-          {#each exploreBanners.slice(0, 3) as banner, i (banner.id)}
-            <div class="hero-banner-card" class:hero-main={i === 0} role="button" tabindex="0" onclick={() => onBannerClick?.(banner)} onkeydown={(event) => handleKeydown(event, () => onBannerClick?.(banner))}>
-              <div class="hero-banner-cover">
-                <img src={banner.pic + '?param=800y400'} alt={banner.title} loading="lazy" />
-                <div class="hero-banner-overlay"></div>
-                <div class="hero-banner-info">
-                  <div class="hero-banner-tag">推荐</div>
-                  <div class="hero-banner-title">{banner.title}</div>
-                </div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
+    <section class="music-discovery-feature">
+      {#if hero}
+        <button class="music-feature-card primary" onclick={() => onBannerClick?.(hero)}>
+          {#if hero.pic}<img src={hero.pic + '?param=1200y680'} alt={hero.title} loading="lazy" />{/if}
+          <span class="music-feature-copy">
+            <small>编辑精选</small>
+            <strong>{hero.title || '今日推荐'}</strong>
+            <em>今天值得打开的声音</em>
+          </span>
+        </button>
+      {/if}
 
-    <!-- 2. 为你推荐 (个性化歌单) -->
-    {#if explorePersonalized.length > 0}
-      <div class="explore-section">
-        <div class="explore-section-header">
-          <h2 class="explore-section-title">为你推荐</h2>
-          <span class="explore-section-action">更多</span>
-        </div>
-        <div class="card-scroll">
-          {#each explorePersonalized as pl (pl.id)}
-          <div class="explore-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id)} onkeydown={(event) => handleKeydown(event, () => onOpenPlaylist?.(pl.id))}>
-            <div class="explore-card-cover">
-              {#if pl.picUrl}
-                <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />
-              {:else}
-                <div class="explore-card-placeholder">
-                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                </div>
-              {/if}
-              <div class="explore-card-play-btn">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-            <div class="explore-card-info">
-              <div class="explore-card-name">{pl.name}</div>
-              <div class="explore-card-meta">{pl.trackCount} 首</div>
-            </div>
-          </div>
+      {#if editorials.length > 0}
+        <div class="music-feature-stack">
+          {#each editorials as item (item.id)}
+            <button class="music-feature-card compact" onclick={() => onBannerClick?.(item)}>
+              {#if item.pic}<img src={item.pic + '?param=520y300'} alt="" loading="lazy" />{/if}
+              <span class="music-feature-copy">
+                <small>推荐</small>
+                <strong>{item.title || '编辑推荐'}</strong>
+              </span>
+            </button>
           {/each}
         </div>
-      </div>
-    {/if}
+      {/if}
+    </section>
 
-    <!-- 3. 新歌精选 (推荐歌曲) -->
-    {#if exploreRecommendSongs.length > 0}
-      <div class="explore-section">
-        <div class="explore-section-header">
-          <h2 class="explore-section-title">新歌精选</h2>
-          <span class="explore-section-action">播放全部</span>
-        </div>
-        <div class="card-scroll">
-          {#each exploreRecommendSongs as track (track.id)}
-          <div class="song-card" role="button" tabindex="0" onclick={() => onPlaySong?.(track)} onkeydown={(event) => handleKeydown(event, () => onPlaySong?.(track))}>
-            <div class="song-card-cover">
-              {#if track.picUrl}
-                <img src={track.picUrl + '?param=200y200'} alt={track.name} loading="lazy" />
-              {:else}
-                <div class="song-card-placeholder">
-                  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                </div>
-              {/if}
-              <div class="song-card-play-btn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-            <div class="song-card-info">
-              <div class="song-card-name">{track.name}</div>
-              <div class="song-card-artist">{(track.ar || []).map(a => a.name).join(', ')}</div>
-            </div>
-          </div>
-          {/each}
-        </div>
+    <section class="music-discovery-section">
+      <div class="music-section-head">
+        <h2>新歌精选</h2>
       </div>
-    {/if}
+      <div class="music-song-list">
+        {#each exploreRecommendSongs.slice(0, 12) as track, index (track.id || index)}
+          <button class="music-song-item" onclick={() => onPlaySong?.(track)}>
+            <span class="music-song-index">{String(index + 1).padStart(2, '0')}</span>
+            {#if track.picUrl}<img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            <span class="music-item-copy">
+              <strong>{track.name}</strong>
+              <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ') || '未知艺人'}</em>
+            </span>
+          </button>
+        {/each}
+      </div>
+    </section>
 
-    <!-- 4. 热门歌单 (Top Playlists) -->
-    {#if exploreTopPlaylists.length > 0}
-      <div class="explore-section">
-        <div class="explore-section-header">
-          <h2 class="explore-section-title">热门歌单</h2>
-          <span class="explore-section-action">更多</span>
+    <section class="music-discovery-grid">
+      <div class="music-discovery-section compact-panel">
+        <div class="music-section-head">
+          <h2>本周新发行</h2>
         </div>
-        <div class="square-grid">
-          {#each exploreTopPlaylists as pl (pl.id)}
-          <div class="square-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id)} onkeydown={(event) => handleKeydown(event, () => onOpenPlaylist?.(pl.id))}>
-            <div class="square-card-cover">
-              {#if pl.picUrl}
-                <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />
-              {:else}
-                <div class="square-card-placeholder">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                </div>
-              {/if}
-              <div class="square-card-play-btn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-            <div class="square-card-info">
-              <div class="square-card-name">{pl.name}</div>
-              {#if pl.updateFrequency}
-                <div class="square-card-meta">{pl.updateFrequency}</div>
-              {/if}
-            </div>
-          </div>
+        <div class="music-vertical-list">
+          {#each exploreNewAlbums.slice(0, 6) as album (album.id)}
+            <button class="music-list-item" onclick={() => onOpenAlbum?.(album.id)}>
+              {#if album.picUrl}<img src={album.picUrl + '?param=112y112'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              <span>
+                <strong>{album.name}</strong>
+                <em>{album.artistName || '新专辑'}</em>
+              </span>
+            </button>
           {/each}
         </div>
       </div>
-    {/if}
 
-    <!-- 5. 排行榜 (Toplists) -->
-    {#if toplists.length > 0}
-      <div class="explore-section">
-        <div class="explore-section-header">
-          <h2 class="explore-section-title">排行榜</h2>
-          <span class="explore-section-action">查看全部</span>
+      <div class="music-discovery-section compact-panel">
+        <div class="music-section-head">
+          <h2>排行榜</h2>
         </div>
-        <div class="square-grid square-grid-sm">
-          {#each toplists.slice(0, 8) as ranking (ranking.id)}
-          <div class="square-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(ranking.id)} onkeydown={(event) => handleKeydown(event, () => onOpenPlaylist?.(ranking.id))}>
-            <div class="square-card-cover">
-              {#if ranking.coverImgUrl}
-                <img src={ranking.coverImgUrl + '?param=400y400'} alt={ranking.name} loading="lazy" />
-              {:else}
-                <div class="square-card-placeholder">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                </div>
-              {/if}
-              <div class="square-card-play-btn">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-            <div class="square-card-info">
-              <div class="square-card-name">{ranking.name}</div>
-              {#if ranking.updateFrequency}
-                <div class="square-card-meta">{ranking.updateFrequency}</div>
-              {/if}
-            </div>
-          </div>
+        <div class="music-vertical-list">
+          {#each toplists.slice(0, 6) as chart, index (chart.id)}
+            <button class="music-list-item" onclick={() => onOpenPlaylist?.(chart.id)}>
+              <span class="music-chart-index">{index + 1}</span>
+              {#if chart.coverImgUrl}<img src={chart.coverImgUrl + '?param=112y112'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              <span>
+                <strong>{chart.name}</strong>
+                <em>{chart.updateFrequency || '持续更新'}</em>
+              </span>
+            </button>
           {/each}
         </div>
       </div>
-    {/if}
+    </section>
+
+    <section class="music-discovery-section">
+      <div class="music-section-head">
+        <h2>推荐歌单</h2>
+      </div>
+      <div class="music-card-rail">
+        {#each playlists.slice(0, 14) as playlist (playlist.id)}
+          <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id)}>
+            {#if playlist.picUrl}<img src={playlist.picUrl + '?param=360y360'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            <strong>{playlist.name}</strong>
+            {#if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
+          </button>
+        {/each}
+      </div>
+    </section>
   {/if}
 </div>

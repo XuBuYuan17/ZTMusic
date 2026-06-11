@@ -82,12 +82,23 @@
     pollActive = false
     if (m === 'qr') startQr()
   }
+
+  function handleOverlayKeyDown(e) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClose?.()
+    }
+  }
+
+  function stopEvent(e) {
+    e.stopPropagation()
+  }
 </script>
 
 {#if showLogin}
-  <div class="login-overlay" transition:fade={{ duration: 200 }} onclick={onClose}>
-    <div class="login-card" onclick={(e) => e.stopPropagation()}>
-      <button class="close-btn" onclick={onClose}>✕</button>
+  <div class="login-overlay" transition:fade={{ duration: 200 }} role="button" tabindex="0" aria-label="关闭登录窗口" onclick={onClose} onkeydown={handleOverlayKeyDown}>
+    <div class="login-card" role="dialog" tabindex="-1" aria-modal="true" aria-label="登录" onclick={stopEvent} onkeydown={stopEvent}>
+      <button class="close-btn" onclick={onClose} aria-label="关闭">✕</button>
 
       <div class="login-header">
         <h2>登录</h2>

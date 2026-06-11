@@ -18,7 +18,7 @@
       </div>
       <h2>登录后查看收藏</h2>
       <p>你收藏的歌单都会在这里显示</p>
-      <button class="cloud-login-btn" onclick={onOpenLogin}>立即登录</button>
+      <button class="library-login-btn" onclick={onOpenLogin}>立即登录</button>
     </div>
   {:else}
     <div class="library-header">

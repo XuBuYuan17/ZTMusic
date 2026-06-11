@@ -36,12 +36,21 @@
     background: rgba(255,255,255,0.03);
     backdrop-filter: blur(8px);
     box-shadow: 0 20px 40px rgba(0,0,0,0.18);
-    transition: transform 0.22s, box-shadow 0.22s;
+    transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 
   .ranking-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 30px 60px rgba(0,0,0,0.24);
+    transform: scale(0.94);
+  }
+
+  .ranking-card:focus,
+  .ranking-card:focus-visible {
+    outline: none;
+  }
+
+  .ranking-card:active {
+    transform: scale(0.9);
+    transition: transform 0.15s ease-out;
   }
 
   .ranking-cover {

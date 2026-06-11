@@ -9,7 +9,12 @@
     recentLoading = false,
     onPlayAll,
     onPlayTrack,
+    onOpenArtist,
   } = $props()
+
+  function artistsOf(track) {
+    return track.artists || track.ar || []
+  }
 </script>
 
 <div class="fade-in">
@@ -53,7 +58,16 @@
               {/if}
             </td>
             <td class="col-title">{track.name}</td>
-            <td class="col-artist">{track.artists?.map(a => a.name).join(', ') || track.ar?.map(a => a.name).join(', ') || ''}</td>
+            <td class="col-artist artist-links">
+              {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                {#if index > 0}<span class="artist-sep">/</span>{/if}
+                {#if artist.id}
+                  <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+                {:else}
+                  <span>{artist.name}</span>
+                {/if}
+              {/each}
+            </td>
             <td class="col-album">{track.album?.name || track.al?.name || ''}</td>
             <td class="col-dur">{formatDuration(track.duration || track.dt || 0)}</td>
           </tr>

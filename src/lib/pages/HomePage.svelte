@@ -12,10 +12,12 @@
     subcount = null,
     likedPlaylist = null,
     weeklyPlaylist = null,
+    recommendPlaylists = [],
     onNavigate,
     onOpenLogin,
     onOpenPlaylist,
     onPlayRecentTrack,
+    onOpenArtist,
   } = $props()
 
   function handleCardKeydown(event, action) {
@@ -25,134 +27,181 @@
     }
   }
 
-  function openWeeklyOrRecent() {
-    weeklyPlaylist ? onOpenPlaylist?.(weeklyPlaylist.id) : onNavigate?.('recent')
-  }
-
   function openLiked() {
     if (likedPlaylist) onOpenPlaylist?.(likedPlaylist.id)
   }
+
+  function artistsOf(track) {
+    return track.ar || track.artists || []
+  }
+
+  function coverOf(track) {
+    return track.picUrl || track.al?.picUrl || track.album?.picUrl || ''
+  }
+
+  const heroPlaylist = $derived(recommendPlaylists[0] || likedPlaylist || userPlaylists[0] || null)
+  const heroImage = $derived(heroPlaylist?.picUrl || weeklyPlaylist?.picUrl || auth.user?.avatarUrl || '')
+  const quickPlaylists = $derived(recommendPlaylists.slice(1, 5))
+  const stationCards = $derived([
+    {
+      title: '听歌排行',
+      label: 'Replay Mix',
+      value: weeklyPlaylist?.topSongName || `${weeklyPlaylist?.trackCount || 0} 首常听`,
+      accent: 'rank',
+    },
+    {
+      title: '喜欢的音乐',
+      label: 'Favorites',
+      value: `${likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0} 首歌曲`,
+      accent: 'liked',
+      action: openLiked,
+    },
+    {
+      title: '最近播放',
+      label: 'Continue',
+      value: `${recentTracks.length} 首记录`,
+      accent: 'recent',
+      action: () => onNavigate?.('recent'),
+    },
+  ])
 </script>
 
-<div transition:slide={{ duration: 280, axis: 'x' }}>
+<div class="home-page" transition:slide={{ duration: 280, axis: 'x' }}>
   {#if auth.isLoggedIn}
-    <!-- Apple Music-style Hero -->
-    <div class="home-hero">
-      <div class="home-hero-bg" style="background-image:url({(auth.user?.avatarUrl || '') + `?param=800y400&_=${refreshKey}`})"></div>
-      <div class="home-hero-gradient"></div>
-      <div class="home-hero-content">
-        <div class="home-hero-avatar">
-          {#if auth.user?.avatarUrl}
-            <img src={auth.user.avatarUrl + `?param=200y200&_=${refreshKey}`} alt="" referrerpolicy="no-referrer" />
-          {:else}
-            <div class="home-hero-avatar-placeholder">{auth.user?.nickname?.charAt(0) || '?'}</div>
+    <section class="home-listen-hero">
+      <div class="home-listen-copy">
+        <div class="home-kicker">现在就听</div>
+        <h1>为 {auth.user?.nickname || '你'} 准备的声音</h1>
+        <p>继续你的播放习惯，或者从今天的推荐里挑一张开始。</p>
+        <div class="home-hero-actions">
+          {#if heroPlaylist}
+            <button class="home-primary-btn" onclick={() => onOpenPlaylist?.(heroPlaylist.id)}>打开今日推荐</button>
           {/if}
-        </div>
-        <div class="home-hero-text">
-          <div class="home-hero-greeting">你好，{auth.user?.nickname || '用户'}</div>
-          <div class="home-hero-sub">今天想听点什么？</div>
+          <button class="home-secondary-btn" onclick={() => onNavigate?.('explore')}>浏览发现</button>
         </div>
       </div>
-    </div>
 
-    <!-- Music Taste — Apple Music style cards -->
-    <div class="home-section">
-      <div class="home-section-header">
-        <h2 class="home-section-title">你的音乐品味</h2>
-      </div>
-      <div class="home-taste-grid">
-        <div class="home-taste-card home-taste-rank" role="button" tabindex="0" onclick={openWeeklyOrRecent} onkeydown={(event) => handleCardKeydown(event, openWeeklyOrRecent)}>
-          <div class="home-taste-card-bg" style="background-image:url({(weeklyPlaylist?.picUrl || likedPlaylist?.picUrl || auth.user?.avatarUrl || '') + '?param=400y400'})"></div>
-          <div class="home-taste-card-gradient"></div>
-          <div class="home-taste-card-body">
-            <div class="home-taste-card-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-            </div>
-            <div class="home-taste-card-title">听歌排行</div>
-            <div class="home-taste-card-sub">{weeklyPlaylist ? formatPlayCount(weeklyPlaylist.playCount) : (subcount?.playedCount ? formatPlayCount(subcount.playedCount) : '最近播放')}</div>
+      <button class="home-editorial-card" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id)} disabled={!heroPlaylist}>
+        <div class="home-editorial-bg" style={heroImage ? `background-image:url(${heroImage}?param=900y900)` : ''}></div>
+        <div class="home-editorial-shade"></div>
+        <div class="home-editorial-content">
+          <span>今日精选</span>
+          <strong>{heroPlaylist?.name || '你的私人首页'}</strong>
+          <em>{heroPlaylist?.copywriter || (heroPlaylist?.trackCount ? `${heroPlaylist.trackCount} 首歌曲` : 'Apple Music 风格推荐流')}</em>
+        </div>
+      </button>
+    </section>
+
+    <section class="home-quick-grid">
+      {#each stationCards as card}
+        <button class="home-station-card {card.accent}" onclick={() => card.action?.()} disabled={!card.action}>
+          <span>{card.label}</span>
+          <strong>{card.title}</strong>
+          <em>{card.value}</em>
+        </button>
+      {/each}
+    </section>
+
+    {#if quickPlaylists.length > 0}
+      <section class="home-section home-top-picks">
+        <div class="home-section-header">
+          <div>
+            <div class="home-section-eyebrow">Top Picks</div>
+            <h2 class="home-section-title">为你推荐</h2>
           </div>
         </div>
-        <div class="home-taste-card home-taste-liked" role="button" tabindex="0" onclick={openLiked} onkeydown={(event) => handleCardKeydown(event, openLiked)}>
-          <div class="home-taste-card-bg" style="background-image:url({(likedPlaylist?.picUrl || '') + '?param=400y400'})"></div>
-          <div class="home-taste-card-gradient"></div>
-          <div class="home-taste-card-body">
-            <div class="home-taste-card-icon">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-            </div>
-            <div class="home-taste-card-title">喜欢的音乐</div>
-            <div class="home-taste-card-sub">{likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0} 首歌曲</div>
-          </div>
+        <div class="home-feature-row">
+          {#each quickPlaylists as pl (pl.id)}
+            <button class="home-feature-card" onclick={() => onOpenPlaylist?.(pl.id)}>
+              {#if pl.picUrl}
+                <img src={pl.picUrl + '?param=420y420'} alt="" loading="lazy" />
+              {:else}
+                <span class="home-cover-placeholder">♫</span>
+              {/if}
+              <span>{pl.name}</span>
+              <em>{formatPlayCount(pl.playCount || 0)} 播放</em>
+            </button>
+          {/each}
         </div>
-      </div>
-    </div>
+      </section>
+    {/if}
 
     {#if loading}
       <div class="loading-state">
         <Spinner size="lg" label="加载中" />
       </div>
     {:else}
-      {#if recentTracks.length > 0}
-        <div class="home-section">
-          <div class="home-section-header">
-            <h2 class="home-section-title">最近播放</h2>
+      <section class="home-dashboard">
+        <div class="home-panel home-recent-panel">
+          <div class="home-section-header compact">
+            <div>
+              <div class="home-section-eyebrow">Recently Played</div>
+              <h2 class="home-section-title">继续播放</h2>
+            </div>
             <button class="home-section-more" onclick={() => onNavigate?.('recent')}>查看全部</button>
           </div>
-          <div class="home-scroll">
-            <div class="home-scroll-track">
-              {#each recentTracks.slice(0, 12) as track (track.id)}
-                <div class="home-song-card" role="button" tabindex="0" onclick={() => onPlayRecentTrack?.(track)} onkeydown={(event) => handleCardKeydown(event, () => onPlayRecentTrack?.(track))}>
-                  <div class="home-song-cover">
-                    {#if track.picUrl}
-                      <img src={track.picUrl + '?param=200y200'} alt="" loading="lazy" />
-                    {:else}
-                      <div class="home-song-cover-placeholder">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                      </div>
-                    {/if}
-                    <div class="home-song-play">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
-                  </div>
-                  <div class="home-song-name">{track.name}</div>
-                  <div class="home-song-artist">{(track.ar || []).map(a => a.name).join(', ') || ''}</div>
-                </div>
+
+          {#if recentTracks.length > 0}
+            <div class="home-track-list">
+              {#each recentTracks.slice(0, 8) as track, i (track.id)}
+                <button class="home-track-row" onclick={() => onPlayRecentTrack?.(track)}>
+                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
+                  {#if coverOf(track)}
+                    <img src={coverOf(track) + '?param=96y96'} alt="" loading="lazy" />
+                  {:else}
+                    <span class="home-track-cover-ph">♫</span>
+                  {/if}
+                  <span class="home-track-copy">
+                    <strong>{track.name}</strong>
+                    <em>
+                      {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                        {#if index > 0}<span class="artist-sep">/</span>{/if}
+                        {#if artist.id}
+                          <span class="artist-link" role="button" tabindex="0" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }} onkeydown={(event) => handleCardKeydown(event, () => onOpenArtist?.(artist.id))}>{artist.name}</span>
+                        {:else}
+                          <span>{artist.name}</span>
+                        {/if}
+                      {/each}
+                    </em>
+                  </span>
+                </button>
               {/each}
             </div>
-          </div>
+          {:else}
+            <div class="home-panel-empty">还没有最近播放</div>
+          {/if}
         </div>
-      {/if}
 
-      {#if userPlaylists.length > 0}
-        <div class="home-section">
-          <div class="home-section-header">
-            <h2 class="home-section-title">收藏的歌单</h2>
-          </div>
-          <div class="home-scroll">
-            <div class="home-scroll-track">
-              {#each userPlaylists as pl (pl.id)}
-                <div class="home-playlist-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenPlaylist?.(pl.id))}>
-                  <div class="home-playlist-cover">
-                    {#if pl.picUrl}
-                      <img src={pl.picUrl + '?param=400y400'} alt="" loading="lazy" />
-                    {:else}
-                      <div class="home-playlist-cover-placeholder">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                      </div>
-                    {/if}
-                    <div class="home-playlist-play">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                    </div>
-                  </div>
-                  <div class="home-playlist-name">{pl.name}</div>
-                  <div class="home-playlist-meta">{pl.trackCount} 首</div>
-                </div>
-              {/each}
+        <div class="home-panel home-library-panel">
+          <div class="home-section-header compact">
+            <div>
+              <div class="home-section-eyebrow">Library</div>
+              <h2 class="home-section-title">你的资料库</h2>
             </div>
           </div>
+          {#if userPlaylists.length > 0}
+            <div class="home-library-grid">
+              {#each userPlaylists.slice(0, 6) as pl (pl.id)}
+                <button class="home-library-item" onclick={() => onOpenPlaylist?.(pl.id)}>
+                  {#if pl.picUrl}
+                    <img src={pl.picUrl + '?param=140y140'} alt="" loading="lazy" />
+                  {:else}
+                    <span class="home-track-cover-ph">♫</span>
+                  {/if}
+                  <span>
+                    <strong>{pl.name}</strong>
+                    <em>{pl.trackCount} 首</em>
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <div class="home-panel-empty">收藏的歌单会显示在这里</div>
+          {/if}
         </div>
-      {/if}
+      </section>
 
-      {#if userPlaylists.length === 0 && !loading && recentTracks.length === 0}
+      {#if userPlaylists.length === 0 && recentTracks.length === 0}
         <div class="home-empty">
           <div class="home-empty-icon">
             <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

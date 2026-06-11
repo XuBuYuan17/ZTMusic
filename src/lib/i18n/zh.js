@@ -1,0 +1,18 @@
+export const zh = {
+  'settings.language': '语言',
+  'settings.languageDesc': '界面语言',
+  'settings.quality': '默认音质',
+  'settings.qualityDesc': '优先使用的音质等级',
+  'settings.defaultPage': '启动默认页面',
+  'settings.defaultPageDesc': '启动时自动打开的页面',
+  'settings.restoreSession': '记住上次播放',
+  'settings.restoreSessionDesc': '启动时恢复上次的播放进度',
+  'settings.clearHistory': '清除播放历史',
+  'settings.clearHistoryDesc': '删除所有本地播放记录',
+  'settings.clear': '清除',
+  'page.home': '主页',
+  'page.explore': '发现',
+  'page.library': '资料库',
+  'common.on': '开',
+  'common.off': '关',
+}

@@ -20,13 +20,20 @@ let _duration = $state(parseInt(getLS('player_duration', '0')) || 0)
 let _currentTime = $state(parseFloat(getLS('player_time', '0')))
 let _playing = $state(false)
 let _loading = $state(false)
-let _volume = $state(parseFloat(getLS('volume', '0.8')))
+const initialVolume = parseFloat(getLS('volume', '0.8'))
+let _volume = $state(initialVolume)
 let _mode = $state(getLS('mode', 'list'))
+let _preferredLevel = $state(getLS('preferred_quality', 'lossless'))
 let _queue = $state(getLSJson('player_queue', []))
 let _queueIndex = $state(parseInt(getLS('player_qi', '-1')))
 
 let _restoreSeeking = false
+let _shouldAutoPlay = false
 let _saveTimer = null
+let _playRequestId = 0
+let _playUrls = []
+let _playUrlIndex = 0
+const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
 engine.onTimeUpdate((t) => {
   _currentTime = t
   // 每 3 秒保存一次播放进度，避免频繁写入
@@ -38,15 +45,20 @@ engine.onLoadStart(() => { _loading = true })
 engine.onCanPlay(() => {
   _loading = false
   _duration = engine.duration
-  _playing = true
+  _playing = _shouldAutoPlay && !engine.paused
   // 恢复播放时跳转到上次进度
   if (_restoreSeeking && _currentTime > 0) {
     engine.seek(_currentTime)
     _restoreSeeking = false
   }
 })
-engine.onError(() => { _loading = false })
-engine.setVolume(_volume)
+engine.onError(() => {
+  if (tryNextPlayUrl()) return
+  _loading = false
+  _playing = false
+  _shouldAutoPlay = false
+})
+engine.setVolume(initialVolume)
 
 function persistState() {
   saveLS('player_id', _id)
@@ -57,8 +69,39 @@ function persistState() {
   saveLS('player_qi', _queueIndex)
 }
 
+async function getPlayableUrls(id) {
+  const urls = [`https://music.163.com/song/media/outer/url?id=${id}.mp3`]
+  const levels = [...PLAY_LEVELS]
+  const prefIdx = levels.indexOf(_preferredLevel)
+  if (prefIdx > 0) { levels.splice(prefIdx, 1); levels.unshift(_preferredLevel) }
+  for (const level of levels) {
+    try {
+      const res = await ncm.songUrl(id, level)
+      const item = res.data?.[0]
+      if (item?.url && !urls.includes(item.url)) urls.push(item.url)
+    } catch {}
+  }
+  return urls
+}
+
+function tryNextPlayUrl() {
+  if (!_shouldAutoPlay || _playUrlIndex >= _playUrls.length - 1) return false
+  _playUrlIndex += 1
+  _loading = true
+  engine.load(_playUrls[_playUrlIndex])
+  engine.play().catch(() => {
+    if (!tryNextPlayUrl()) {
+      _loading = false
+      _playing = false
+      _shouldAutoPlay = false
+    }
+  })
+  return true
+}
+
 function playTrack(track, index) {
   if (!track) return
+  const requestId = ++_playRequestId
   _id = track.id
   _title = track.name
   _artist = (track.ar || track.artists || []).map(a => a.name).join(' / ')
@@ -67,18 +110,38 @@ function playTrack(track, index) {
   _duration = track.dt || track.duration || 0
   _queueIndex = index >= 0 ? index : _queueIndex
   _loading = true
+  _playing = false
+  _shouldAutoPlay = true
   persistState()
   addLocalHistory(track)
 
-  ncm.songUrl(track.id).then(res => {
-    const url = res.data?.[0]?.url
-    if (url) {
-      engine.load(url)
-      engine.play()
+  getPlayableUrls(track.id).then(urls => {
+    if (requestId !== _playRequestId) return
+    _playUrls = urls
+    _playUrlIndex = 0
+    if (urls.length > 0) {
+      engine.load(urls[0])
+      engine.play().then(() => {
+        if (requestId === _playRequestId) _playing = true
+      }).catch(() => {
+        if (requestId !== _playRequestId) return
+        if (!tryNextPlayUrl()) {
+          _playing = false
+          _loading = false
+          _shouldAutoPlay = false
+        }
+      })
     } else {
       _loading = false
+      _playing = false
+      _shouldAutoPlay = false
     }
-  }).catch(() => { _loading = false })
+  }).catch(() => {
+    if (requestId !== _playRequestId) return
+    _loading = false
+    _playing = false
+    _shouldAutoPlay = false
+  })
 }
 
 function addLocalHistory(track) {
@@ -112,6 +175,10 @@ export function getLocalHistory() {
   } catch { return [] }
 }
 
+export function clearHistory() {
+  try { localStorage.removeItem('local_history') } catch {}
+}
+
 function playQueue(tracks, startIndex = 0) {
   _queue = tracks
   _queueIndex = startIndex
@@ -141,8 +208,21 @@ function prev() {
 
 function togglePlay() {
   if (!_id) return
-  engine.toggle()
-  _playing = !engine.paused
+  const result = engine.toggle()
+  if (result?.catch) {
+    _shouldAutoPlay = true
+    result.then(() => {
+      _playing = !engine.paused
+    }).catch(() => {
+      if (!tryNextPlayUrl()) {
+        _playing = false
+        _shouldAutoPlay = false
+      }
+    })
+  } else {
+    _playing = !engine.paused
+    _shouldAutoPlay = _playing
+  }
 }
 
 function seek(time) {
@@ -160,6 +240,13 @@ function setVolume(v) {
 function setMode(m) {
   _mode = m
   saveLS('mode', m)
+}
+
+function setPreferredLevel(level) {
+  if (PLAY_LEVELS.includes(level)) {
+    _preferredLevel = level
+    saveLS('preferred_quality', level)
+  }
 }
 
 function clearQueue() {
@@ -195,6 +282,7 @@ function removeFromQueue(index) {
 }
 
 function restore() {
+  if (getLS('restore_session', 'true') !== 'true') return
   const savedId = parseInt(getLS('player_id', '0'))
   if (!savedId) return
   const savedQueue = getLSJson('player_queue', [])
@@ -217,15 +305,24 @@ function restore() {
     saveLS('player_queue', savedQueue)
   }
 
-  // 重新加载歌曲并恢复进度
+  // 重新加载音频地址并恢复进度，但不自动播放，避免触发浏览器/WebView 自动播放限制
+  const requestId = ++_playRequestId
   _restoreSeeking = savedTime > 0
-  ncm.songUrl(savedId).then(res => {
-    const url = res.data?.[0]?.url
-    if (url) {
-      engine.load(url)
-      engine.play()
+  _shouldAutoPlay = false
+  _playing = false
+  getPlayableUrls(savedId).then(urls => {
+    if (requestId !== _playRequestId) return
+    _playUrls = urls
+    _playUrlIndex = 0
+    if (urls.length > 0) {
+      engine.load(urls[0])
+    } else {
+      _loading = false
     }
-  }).catch(() => {})
+  }).catch(() => {
+    if (requestId !== _playRequestId) return
+    _loading = false
+  })
 }
 
 export const player = {
@@ -239,6 +336,7 @@ export const player = {
   get loading() { return _loading },
   get volume() { return _volume },
   get mode() { return _mode },
+  get preferredLevel() { return _preferredLevel },
   get queue() { return _queue },
   get queueIndex() { return _queueIndex },
   playTrack,
@@ -249,6 +347,7 @@ export const player = {
   seek,
   setVolume,
   setMode,
+  setPreferredLevel,
   clearQueue,
   removeFromQueue,
   restore,

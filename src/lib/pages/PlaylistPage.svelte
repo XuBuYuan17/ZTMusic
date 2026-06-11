@@ -6,13 +6,15 @@
     playlistDetail = null,
     selectedId = null,
     heroColor = '#141414',
+    detailType = '歌单',
     onBack,
     onPlayAll,
     onPlayTrack,
+    onOpenArtist,
   } = $props()
 
-  function artistNames(track) {
-    return track.artists?.map(a => a.name).join(', ') || track.ar?.map(a => a.name).join(', ') || ''
+  function artistsOf(track) {
+    return track.artists || track.ar || []
   }
 
   function albumName(track) {
@@ -34,7 +36,7 @@
 <div class="fade-in">
   {#key playlistDetail?.id || selectedId}
     {#if playlistDetail}
-      <div class="hero-section" style="background: linear-gradient(135deg, {heroColor}44, transparent 70%);margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
+      <div class="hero-section" style="margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
         <button class="hero-back-btn" onclick={onBack} aria-label="返回">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
@@ -44,7 +46,7 @@
           <div class="hero-cover" style="background:linear-gradient(135deg,{heroColor},#ff6b5f)"></div>
         {/if}
         <div class="hero-info">
-          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:4px;">歌单</div>
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-secondary);margin-bottom:4px;">{detailType}</div>
           <h1>{playlistDetail.name}</h1>
           <div class="hero-meta">{playlistDetail.creator?.nickname ?? ''} · {playlistDetail.trackCount ?? 0} 首</div>
           {#if playlistDetail.description}
@@ -84,7 +86,16 @@
                 {/if}
               </td>
               <td class="col-title">{track.name}</td>
-              <td class="col-artist">{artistNames(track)}</td>
+              <td class="col-artist artist-links">
+                {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                  {#if index > 0}<span class="artist-sep">/</span>{/if}
+                  {#if artist.id}
+                    <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+                  {:else}
+                    <span>{artist.name}</span>
+                  {/if}
+                {/each}
+              </td>
               <td class="col-album">{albumName(track)}</td>
               <td class="col-dur">{duration(track)}</td>
             </tr>

@@ -16,11 +16,18 @@
     e.stopPropagation()
     player.removeFromQueue(index)
   }
+
+  function handleBackdropKeyDown(e) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClose?.()
+    }
+  }
 </script>
 
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="queue-panel-backdrop" onclick={onClose}></div>
+  <div class="queue-panel-backdrop" role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
   <div class="queue-panel">
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
