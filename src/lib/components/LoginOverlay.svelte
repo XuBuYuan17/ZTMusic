@@ -1,4 +1,5 @@
 <script>
+  import QRCode from 'qrcode'
   import { auth } from '../stores/auth.svelte.js'
   import { fade } from 'svelte/transition'
   import Spinner from './Spinner.svelte'
@@ -16,13 +17,15 @@
   let error = $state('')
   let qrCancel
   let pollActive = $state(false)
+  let qrRequestId = 0
 
   $effect(() => {
     if (showLogin && mode === 'qr') startQr()
-    return () => { qrCancel?.(); pollActive = false }
+    return () => { qrCancel?.(); pollActive = false; qrRequestId += 1 }
   })
 
   async function startQr() {
+    const requestId = ++qrRequestId
     qrImg = ''
     qrStatus = '获取二维码...'
     error = ''
@@ -31,24 +34,33 @@
     qrCancel = undefined
     try {
       const { key, qrurl, qrimg } = await auth.getQrCode()
-      if (!qrimg) { error = '二维码生成失败，请切换手机号登录'; return }
-      qrImg = qrimg
+      if (requestId !== qrRequestId || mode !== 'qr' || !showLogin) return
+      if (!qrurl && !qrimg) { error = '二维码生成失败，请切换手机号登录'; return }
       qrUrl = qrurl
+      qrImg = qrurl
+        ? await QRCode.toDataURL(qrurl, { width: 256, margin: 2, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } })
+        : qrimg
+      if (requestId !== qrRequestId || mode !== 'qr' || !showLogin) return
       qrStatus = '请使用网易云音乐APP扫码'
       pollActive = true
 
       const { promise, cancel } = auth.startQrPolling(key, (code) => {
-          if (code === 801) qrStatus = '已扫码，请在手机上确认'
-          else if (code === 802) qrStatus = '登录成功，正在保存信息...'
-          else if (code === 800) { qrStatus = '二维码已过期，重新获取...'; startQr() }
+        if (requestId !== qrRequestId) return
+        if (code === 801) qrStatus = '请使用网易云音乐APP扫码'
+        else if (code === 802) qrStatus = '已扫码，请在手机上确认'
+        else if (code === 803) qrStatus = '授权登录成功，正在获取账号信息...'
+        else if (code === 800) qrStatus = '二维码已过期，请点击重新获取'
       })
       qrCancel = cancel
-      await promise
+      const cookie = await promise
+      if (requestId !== qrRequestId) return
       pollActive = false
-      await auth.qrLogin()
+      await auth.qrLogin(cookie)
+      if (requestId !== qrRequestId) return
       onLoginSuccess?.()
       onClose?.()
     } catch (e) {
+      if (requestId !== qrRequestId) return
       pollActive = false
       error = e.message || '二维码登录失败'
       qrStatus = ''
@@ -79,6 +91,7 @@
     error = ''
     qrStatus = ''
     qrCancel?.()
+    qrRequestId += 1
     pollActive = false
     if (m === 'qr') startQr()
   }
@@ -194,8 +207,8 @@
   }
   .tab.active { background: var(--bg-surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .qr-section { text-align: center; padding: 8px 0; }
-  .qr-img { width: 200px; height: 200px; border-radius: 8px; margin: 0 auto; display: block; }
-  .qr-placeholder { width: 200px; height: 200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+  .qr-img { width: 220px; height: 220px; border-radius: 8px; margin: 0 auto; display: block; background: #fff; padding: 10px; }
+  .qr-placeholder { width: 220px; height: 220px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
 
   .qr-status { margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
   .qr-hint { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }

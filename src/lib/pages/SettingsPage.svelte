@@ -1,7 +1,8 @@
 <script>
-  import { ncm } from '../api/client.js'
+  import { DEFAULT_API_BASE, ncm } from '../api/client.js'
   import { player, clearHistory } from '../stores/player.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
+  import { getStorage, setStorage } from '../utils/storage.js'
 
   let { theme = 'dark', onSetTheme } = $props()
 
@@ -11,17 +12,34 @@
   let testTime = $state(0)
 
   let clearMsg = $state('')
-  let defaultPage = $state(getLS('default_page', 'home'))
-  let restoreSession = $state(getLS('restore_session', 'true') === 'true')
+  let clearCacheMsg = $state('')
+  let cacheSizeText = $state('0 B')
+  let defaultPage = $state(getStorage('default_page', 'home'))
+  let restoreSession = $state(getStorage('restore_session', 'true') === 'true')
   let preferredQuality = $state(player.preferredLevel)
   let currentLocale = $state(i18n.locale)
 
-  function getLS(key, def) {
-    try { return localStorage.getItem(key) || def } catch { return def }
+  function formatBytes(bytes) {
+    if (!bytes) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    let value = bytes
+    let unitIndex = 0
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024
+      unitIndex += 1
+    }
+    const precision = value >= 10 || unitIndex === 0 ? 0 : 1
+    return `${value.toFixed(precision)} ${units[unitIndex]}`
   }
-  function setLS(key, val) {
-    try { localStorage.setItem(key, val) } catch {}
+
+  function refreshCacheSize() {
+    const stats = ncm.getCacheStats()
+    cacheSizeText = stats.entries > 0 ? `${formatBytes(stats.bytes)} · ${stats.entries} 项` : '0 B'
   }
+
+  $effect(() => {
+    refreshCacheSize()
+  })
 
   function saveUrl() {
     let url = apiUrl.trim().replace(/\/+$/, '')
@@ -61,14 +79,21 @@
     setTimeout(() => clearMsg = '', 2000)
   }
 
+  function handleClearCache() {
+    ncm.clearCache()
+    refreshCacheSize()
+    clearCacheMsg = '已清除'
+    setTimeout(() => clearCacheMsg = '', 2000)
+  }
+
   function handleDefaultPage(val) {
     defaultPage = val
-    setLS('default_page', val)
+    setStorage('default_page', val)
   }
 
   function handleRestoreSession(val) {
     restoreSession = val
-    setLS('restore_session', val ? 'true' : 'false')
+    setStorage('restore_session', val ? 'true' : 'false')
   }
 
   function handleQuality(val) {
@@ -89,13 +114,20 @@
   }
 </script>
 
-<div class="fade-in">
-  <div class="page-header">
-    <h1>设置</h1>
-    <div class="subtitle">主题和后端 API 配置</div>
+<div class="settings-page fade-in">
+  <div class="settings-header">
+    <div>
+      <span class="settings-kicker">Preferences</span>
+      <h1>设置</h1>
+      <p>调整播放、启动和服务连接，让哲听更贴近你的使用习惯。</p>
+    </div>
+    <div class="settings-status-card">
+      <span>当前服务</span>
+      <strong>{apiUrl || DEFAULT_API_BASE}</strong>
+    </div>
   </div>
 
-  <div style="margin-top:16px;">
+  <div class="settings-panel">
 
     <!-- 主题 -->
     <div class="settings-row">
@@ -103,44 +135,46 @@
         <div class="settings-label">主题模式</div>
         <div class="settings-desc">切换明暗主题</div>
       </div>
-      <div style="display:flex;gap:8px;">
+      <div class="segmented-control">
         <button
-          class="settings-toggle"
-          style={theme === 'light' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}
+          class:active={theme === 'light'}
           onclick={() => onSetTheme?.('light')}
         >浅色</button>
         <button
-          class="settings-toggle"
-          style={theme === 'dark' ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'}
+          class:active={theme === 'dark'}
           onclick={() => onSetTheme?.('dark')}
         >深色</button>
       </div>
     </div>
 
     <!-- API 地址 -->
-    <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px;">
-      <div>
-        <div class="settings-label">后端 API 地址</div>
-        <div class="settings-desc">NeteaseCloudMusicApi 服务地址，修改后自动保存</div>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <input
-          class="settings-input"
-          type="text"
-          placeholder="http://localhost:3000"
-          bind:value={apiUrl}
-          onchange={saveUrl}
-        />
-        <button class="settings-test-btn" onclick={testConnection} disabled={testStatus === 'testing'}>
+    <div class="settings-row stacked">
+      <div class="settings-row-head">
+        <div>
+          <div class="settings-label">后端 API 地址</div>
+          <div class="settings-desc">NeteaseCloudMusicApi 服务地址，修改后自动保存</div>
+        </div>
+        <button class="settings-primary-btn" onclick={testConnection} disabled={testStatus === 'testing'}>
           {testStatus === 'testing' ? '测试中...' : '测试连接'}
         </button>
       </div>
+      <div class="settings-input-row">
+        <input
+          class="settings-input"
+          type="text"
+          placeholder={DEFAULT_API_BASE}
+          bind:value={apiUrl}
+          onchange={saveUrl}
+        />
+      </div>
       {#if testStatus === 'ok'}
-        <div class="settings-test-ok">✅ {testMsg}</div>
+        <div class="settings-test-message ok">{testMsg}</div>
       {:else if testStatus === 'fail'}
-        <div class="settings-test-fail">❌ {testMsg}</div>
+        <div class="settings-test-message fail">{testMsg}</div>
       {/if}
     </div>
+
+    <div class="settings-group-label">界面与播放</div>
 
     <!-- 语言 -->
     <div class="settings-row">
@@ -186,10 +220,12 @@
         <div class="settings-label">{t('settings.restoreSession', '记住上次播放')}</div>
         <div class="settings-desc">{t('settings.restoreSessionDesc', '启动时恢复上次的播放进度')}</div>
       </div>
-      <button class="settings-toggle" style={restoreSession ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-hover);color:var(--text-secondary);'} onclick={() => handleRestoreSession(!restoreSession)}>
-        {restoreSession ? t('common.on', '开') : t('common.off', '关')}
+      <button class="switch-control" class:on={restoreSession} aria-pressed={restoreSession} onclick={() => handleRestoreSession(!restoreSession)}>
+        <span>{restoreSession ? t('common.on', '开') : t('common.off', '关')}</span>
       </button>
     </div>
+
+    <div class="settings-group-label">本地数据</div>
 
     <!-- 清除历史 -->
     <div class="settings-row">
@@ -197,8 +233,18 @@
         <div class="settings-label">{t('settings.clearHistory', '清除播放历史')}</div>
         <div class="settings-desc">{t('settings.clearHistoryDesc', '删除所有本地播放记录')}</div>
       </div>
-      <button class="settings-test-btn" onclick={handleClearHistory}>
+      <button class="settings-secondary-btn" onclick={handleClearHistory}>
         {clearMsg || t('settings.clear', '清除')}
+      </button>
+    </div>
+
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">清除接口缓存</div>
+        <div class="settings-desc">当前缓存 {cacheSizeText}，清除后下次访问会重新请求</div>
+      </div>
+      <button class="settings-secondary-btn" onclick={handleClearCache}>
+        {clearCacheMsg || t('settings.clear', '清除')}
       </button>
     </div>
 
@@ -206,83 +252,211 @@
 </div>
 
 <style>
+  .settings-page {
+    display: grid;
+    gap: 18px;
+  }
+
+  .settings-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+    align-items: end;
+    gap: 18px;
+    padding-bottom: 6px;
+  }
+
+  .settings-kicker,
+  .settings-group-label,
+  .settings-status-card span {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .settings-kicker,
+  .settings-group-label {
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .settings-header h1 {
+    margin: 6px 0;
+    font-size: clamp(34px, 4vw, 46px);
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  .settings-header p {
+    max-width: 560px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .settings-status-card {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+  }
+
+  .settings-status-card strong {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-panel {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+  }
+
   .settings-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 0;
+    gap: 18px;
+    min-height: 68px;
+    padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
 
+  .settings-row:last-child {
+    border-bottom: none;
+  }
+
+  .settings-row.stacked {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-row-head,
+  .settings-input-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .settings-group-label {
+    padding: 18px 18px 8px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg-layer) 32%, transparent);
+  }
+
   .settings-label {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 700;
   }
 
   .settings-desc {
-    font-size: 12px;
     color: var(--text-tertiary);
-    margin-top: 2px;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
-  .settings-toggle {
-    padding: 6px 16px;
-    border-radius: 16px;
+  .segmented-control {
+    display: inline-flex;
+    gap: 3px;
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg-layer);
+  }
+
+  .segmented-control button {
+    min-width: 64px;
+    min-height: 32px;
+    padding: 0 14px;
+    border-radius: var(--r-md);
+    color: var(--text-secondary);
     font-size: 13px;
-    font-weight: 500;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
+    font-weight: 700;
+    transition: background 0.16s, color 0.16s, box-shadow 0.16s;
+  }
+
+  .segmented-control button.active {
+    background: var(--bg-elevated);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
   }
 
   .settings-input {
     flex: 1;
-    padding: 8px 14px;
-    border-radius: 10px;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 13px;
+    border-radius: var(--r-lg);
     font-size: 14px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     color: var(--text);
-    outline: none;
-    transition: border-color 0.15s;
-    min-width: 0;
+    transition: border-color 0.15s, background 0.15s;
   }
 
   .settings-input:focus {
     border-color: var(--accent);
+    background: var(--bg-elevated);
   }
 
-  .settings-test-btn {
-    padding: 8px 18px;
-    border-radius: 10px;
+  .settings-primary-btn,
+  .settings-secondary-btn {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: var(--r-lg);
     font-size: 13px;
-    font-weight: 600;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    cursor: pointer;
+    font-weight: 750;
     white-space: nowrap;
     transition: background 0.15s, transform 0.15s;
   }
 
-  .settings-test-btn:hover:not(:disabled) {
+  .settings-primary-btn {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .settings-primary-btn:hover:not(:disabled) {
     background: var(--accent-hover);
   }
 
-  .settings-test-btn:active:not(:disabled) {
+  .settings-secondary-btn {
+    background: var(--accent-bg);
+    color: var(--accent);
+  }
+
+  .settings-secondary-btn:hover {
+    background: var(--accent-bg-hover);
+  }
+
+  .settings-primary-btn:active:not(:disabled),
+  .settings-secondary-btn:active {
     transform: scale(0.96);
   }
 
-  .settings-test-btn:disabled {
+  .settings-primary-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
 
   .settings-select {
-    padding: 6px 14px;
-    border-radius: 10px;
+    min-width: 138px;
+    min-height: 36px;
+    padding: 0 34px 0 12px;
+    border-radius: var(--r-lg);
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 650;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     color: var(--text);
@@ -294,15 +468,79 @@
     border-color: var(--accent);
   }
 
-  .settings-test-ok {
-    font-size: 13px;
-    color: #34c759;
-    font-weight: 500;
+  .switch-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 58px;
+    height: 32px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--bg-hover);
+    color: transparent;
+    transition: background 0.18s;
   }
 
-  .settings-test-fail {
+  .switch-control::after {
+    content: '';
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.18s var(--ease-out);
+  }
+
+  .switch-control.on {
+    background: var(--accent);
+  }
+
+  .switch-control.on::after {
+    transform: translateX(20px);
+  }
+
+  .switch-control span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .settings-test-message {
     font-size: 13px;
+    font-weight: 650;
+  }
+
+  .settings-test-message.ok {
+    color: #34c759;
+  }
+
+  .settings-test-message.fail {
     color: var(--accent);
-    font-weight: 500;
+  }
+
+  @media (max-width: 760px) {
+    .settings-header {
+      grid-template-columns: 1fr;
+    }
+
+    .settings-row,
+    .settings-row-head,
+    .settings-input-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .segmented-control,
+    .settings-select,
+    .settings-primary-btn,
+    .settings-secondary-btn {
+      width: 100%;
+    }
+
+    .segmented-control button {
+      flex: 1;
+    }
   }
 </style>

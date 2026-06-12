@@ -2,7 +2,7 @@
   import { slide } from 'svelte/transition'
   import { auth } from '../stores/auth.svelte.js'
   import { formatPlayCount } from '../format.js'
-  import Spinner from '../components/Spinner.svelte'
+  import { extractCover } from '../utils/normalize.js'
 
   let {
     refreshKey = 0,
@@ -28,7 +28,7 @@
   }
 
   function openLiked() {
-    if (likedPlaylist) onOpenPlaylist?.(likedPlaylist.id)
+    if (likedPlaylist) onOpenPlaylist?.(likedPlaylist.id, true, likedPlaylist)
   }
 
   function artistsOf(track) {
@@ -36,11 +36,12 @@
   }
 
   function coverOf(track) {
-    return track.picUrl || track.al?.picUrl || track.album?.picUrl || ''
+    return track?.picUrl || extractCover(track)
   }
 
-  const heroPlaylist = $derived(recommendPlaylists[0] || likedPlaylist || userPlaylists[0] || null)
-  const heroImage = $derived(heroPlaylist?.picUrl || weeklyPlaylist?.picUrl || auth.user?.avatarUrl || '')
+  const heroReady = $derived(recommendPlaylists.length > 0)
+  const heroPlaylist = $derived(heroReady ? recommendPlaylists[0] : null)
+  const heroImage = $derived(auth.user?.avatarUrl || '')
   const quickPlaylists = $derived(recommendPlaylists.slice(1, 5))
   const stationCards = $derived([
     {
@@ -74,14 +75,14 @@
         <h1>为 {auth.user?.nickname || '你'} 准备的声音</h1>
         <p>继续你的播放习惯，或者从今天的推荐里挑一张开始。</p>
         <div class="home-hero-actions">
-          {#if heroPlaylist}
-            <button class="home-primary-btn" onclick={() => onOpenPlaylist?.(heroPlaylist.id)}>打开今日推荐</button>
+          {#if heroReady && heroPlaylist}
+            <button class="home-primary-btn" onclick={() => onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>打开今日推荐</button>
           {/if}
           <button class="home-secondary-btn" onclick={() => onNavigate?.('explore')}>浏览发现</button>
         </div>
       </div>
 
-      <button class="home-editorial-card" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id)} disabled={!heroPlaylist}>
+      <button class="home-editorial-card" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)} disabled={!heroPlaylist}>
         <div class="home-editorial-bg" style={heroImage ? `background-image:url(${heroImage}?param=900y900)` : ''}></div>
         <div class="home-editorial-shade"></div>
         <div class="home-editorial-content">
@@ -112,7 +113,7 @@
         </div>
         <div class="home-feature-row">
           {#each quickPlaylists as pl (pl.id)}
-            <button class="home-feature-card" onclick={() => onOpenPlaylist?.(pl.id)}>
+            <button class="home-feature-card" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
               {#if pl.picUrl}
                 <img src={pl.picUrl + '?param=420y420'} alt="" loading="lazy" />
               {:else}
@@ -126,12 +127,7 @@
       </section>
     {/if}
 
-    {#if loading}
-      <div class="loading-state">
-        <Spinner size="lg" label="加载中" />
-      </div>
-    {:else}
-      <section class="home-dashboard">
+    <section class="home-dashboard">
         <div class="home-panel home-recent-panel">
           <div class="home-section-header compact">
             <div>
@@ -141,7 +137,20 @@
             <button class="home-section-more" onclick={() => onNavigate?.('recent')}>查看全部</button>
           </div>
 
-          {#if recentTracks.length > 0}
+          {#if loading && recentTracks.length === 0}
+            <div class="home-track-list" aria-label="加载最近播放">
+              {#each Array(6) as _}
+                <div class="home-track-row skeleton-row">
+                  <span class="home-track-index skeleton-line short"></span>
+                  <span class="home-track-cover-ph skeleton-block"></span>
+                  <span class="home-track-copy">
+                    <strong class="skeleton-line"></strong>
+                    <em class="skeleton-line narrow"></em>
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {:else if recentTracks.length > 0}
             <div class="home-track-list">
               {#each recentTracks.slice(0, 8) as track, i (track.id)}
                 <button class="home-track-row" onclick={() => onPlayRecentTrack?.(track)}>
@@ -179,10 +188,22 @@
               <h2 class="home-section-title">你的资料库</h2>
             </div>
           </div>
-          {#if userPlaylists.length > 0}
+          {#if loading && userPlaylists.length === 0}
+            <div class="home-library-grid" aria-label="加载资料库">
+              {#each Array(5) as _}
+                <div class="home-library-item skeleton-row">
+                  <span class="home-track-cover-ph skeleton-block"></span>
+                  <span>
+                    <strong class="skeleton-line"></strong>
+                    <em class="skeleton-line narrow"></em>
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {:else if userPlaylists.length > 0}
             <div class="home-library-grid">
               {#each userPlaylists.slice(0, 6) as pl (pl.id)}
-                <button class="home-library-item" onclick={() => onOpenPlaylist?.(pl.id)}>
+                <button class="home-library-item" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
                   {#if pl.picUrl}
                     <img src={pl.picUrl + '?param=140y140'} alt="" loading="lazy" />
                   {:else}
@@ -201,7 +222,7 @@
         </div>
       </section>
 
-      {#if userPlaylists.length === 0 && recentTracks.length === 0}
+      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0}
         <div class="home-empty">
           <div class="home-empty-icon">
             <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -209,8 +230,7 @@
           <p class="home-empty-text">开始探索音乐吧</p>
           <button class="home-empty-btn" onclick={() => onNavigate?.('explore')}>去发现</button>
         </div>
-      {/if}
-    {/if}
+          {/if}
   {:else}
     <div class="home-logged-out">
       <div class="home-logged-out-icon">

@@ -5,10 +5,13 @@
   import { parseLyricResponse } from '../utils/lyrics.js'
   import Spinner from './Spinner.svelte'
   import QueuePanel from './QueuePanel.svelte'
+  import ArtistNames from './ArtistNames.svelte'
 
-  let { show = false, onClose, lyricsOrigin = null } = $props()
+  let { show = false, onClose, lyricsOrigin = null, onOpenArtist } = $props()
 
   let lyrics = $state([])
+  let currentTrack = $derived(player.currentTrack || player.queue?.find(track => track?.id === player.id) || player.queue?.[player.queueIndex])
+  let currentArtists = $derived(currentTrack?.ar || currentTrack?.artists || [])
   let highlightIndex = $state(0)
   let lyricsEl = $state(null)
   let timer
@@ -339,6 +342,13 @@
     loadPlaylists()
   }
 
+  function openCurrentArtist(id) {
+    showMenu = false
+    if (!id) return
+    onOpenArtist?.(id)
+    onClose?.()
+  }
+
   function closeMenu(e) {
     if (e.target === e.currentTarget) {
       showMenu = false
@@ -439,10 +449,10 @@
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               添加到歌单
             </button>
-            <button class="ly-menu-item" onclick={() => { showMenu = false }}>
+            <div class="ly-menu-item ly-menu-item--artists">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-              演奏者：{player.artist || '未知'}
-            </button>
+              <span>演奏者：</span><ArtistNames artists={currentArtists} onOpenArtist={openCurrentArtist} fallback={player.artist || '未知'} />
+            </div>
             <button class="ly-menu-item" onclick={() => { showMenu = false }}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               专辑：{player.album || '未知'}
@@ -471,7 +481,7 @@
             </div>
             <div class="ly-track-sub">
               <div class="ly-track-info">
-                <span class="ly-artist">{player.artist || ''}</span>
+                <span class="ly-artist"><ArtistNames artists={currentArtists} onOpenArtist={openCurrentArtist} fallback={player.artist || ''} /></span>
                 {#if player.artist && player.album}
                   <span class="ly-sep">—</span>
                 {/if}
@@ -589,7 +599,7 @@
                     <span class="ly-context-copy">
                       <small>相似歌曲</small>
                       <strong>{track.name}</strong>
-                      <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                      <em><ArtistNames artists={track.ar || track.artists || []} onOpenArtist={(id) => { onOpenArtist?.(id); onClose?.() }} /></em>
                     </span>
                   </button>
                 {/each}
@@ -639,7 +649,7 @@
                           {/if}
                           <span>
                             <strong>{track.name}</strong>
-                            <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                            <em><ArtistNames artists={track.ar || track.artists || []} onOpenArtist={(id) => { onOpenArtist?.(id); onClose?.() }} /></em>
                           </span>
                         </button>
                       {/each}
@@ -663,7 +673,7 @@
                               {/if}
                               <span>
                                 <strong>{track.name}</strong>
-                                <em>{(track.ar || track.artists || []).map(a => a.name).join(' / ')}</em>
+                                <em><ArtistNames artists={track.ar || track.artists || []} onOpenArtist={(id) => { onOpenArtist?.(id); onClose?.() }} /></em>
                               </span>
                             </button>
                           {/each}

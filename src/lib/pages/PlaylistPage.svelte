@@ -4,6 +4,8 @@
 
   let {
     playlistDetail = null,
+    loading = false,
+    error = '',
     selectedId = null,
     heroColor = '#141414',
     detailType = '歌单',
@@ -33,9 +35,51 @@
   }
 </script>
 
-<div class="fade-in">
-  {#key playlistDetail?.id || selectedId}
-    {#if playlistDetail}
+{#key `${selectedId}:${loading ? 'loading' : 'ready'}:${error ? 'error' : 'ok'}`}
+  <div class="fade-in">
+    {#if loading && !playlistDetail}
+      <div class="hero-section" style="margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
+        <button class="hero-back-btn" onclick={onBack} aria-label="返回">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="hero-cover skeleton-block"></div>
+        <div class="hero-info">
+          <div class="skeleton-line short" style="margin-bottom:10px"></div>
+          <div class="skeleton-line medium" style="height:52px;margin-bottom:12px"></div>
+          <div class="hero-meta skeleton-line narrow"></div>
+          <div class="hero-desc skeleton-line"></div>
+        </div>
+      </div>
+      <table class="track-table" aria-label="加载详情歌曲">
+        <thead>
+          <tr>
+            <th class="col-num">#</th>
+            <th class="col-cover"></th>
+            <th>标题</th>
+            <th>歌手</th>
+            <th class="col-album">专辑</th>
+            <th class="col-dur">时长</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each Array(10) as _, i}
+            <tr class="skeleton-table-row">
+              <td class="col-num">{i + 1}</td>
+              <td class="col-cover"><div class="track-cover-placeholder skeleton-block"></div></td>
+              <td class="col-title"><span class="skeleton-line"></span></td>
+              <td class="col-artist"><span class="skeleton-line medium"></span></td>
+              <td class="col-album"><span class="skeleton-line narrow"></span></td>
+              <td class="col-dur"><span class="skeleton-line short"></span></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {:else if error}
+      <div class="detail-state">
+        <p>{error}</p>
+        <button onclick={onBack}>返回</button>
+      </div>
+    {:else if playlistDetail}
       <div class="hero-section" style="margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
         <button class="hero-back-btn" onclick={onBack} aria-label="返回">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -52,7 +96,7 @@
           {#if playlistDetail.description}
             <div class="hero-desc">{playlistDetail.description}</div>
           {/if}
-          <button class="hero-play-btn" onclick={onPlayAll}>播放全部</button>
+          <button class="hero-play-btn" onclick={onPlayAll} disabled={loading || !(playlistDetail.tracks?.length)}>播放全部</button>
         </div>
       </div>
       <table class="track-table">
@@ -67,41 +111,90 @@
           </tr>
         </thead>
         <tbody>
-          {#each playlistDetail.tracks ?? [] as track, i}
-            <tr
-              class:active={player.id === track.id}
-              role="button"
-              tabindex="0"
-              onclick={() => onPlayTrack?.(track.id)}
-              onkeydown={(event) => handleRowKeydown(event, track)}
-            >
-              <td class="col-num">{i + 1}</td>
-              <td class="col-cover">
-                {#if track.al?.picUrl || track.album?.picUrl}
-                  <img class="track-cover-img" src={(track.al?.picUrl || track.album?.picUrl) + '?param=80y80'} alt="" loading="lazy" />
-                {:else}
-                  <div class="track-cover-placeholder">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                  </div>
-                {/if}
-              </td>
-              <td class="col-title">{track.name}</td>
-              <td class="col-artist artist-links">
-                {#each artistsOf(track) as artist, index (artist.id || artist.name)}
-                  {#if index > 0}<span class="artist-sep">/</span>{/if}
-                  {#if artist.id}
-                    <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+          {#if loading}
+            {#each Array(10) as _, i}
+              <tr class="skeleton-table-row">
+                <td class="col-num">{i + 1}</td>
+                <td class="col-cover"><div class="track-cover-placeholder skeleton-block"></div></td>
+                <td class="col-title"><span class="skeleton-line"></span></td>
+                <td class="col-artist"><span class="skeleton-line medium"></span></td>
+                <td class="col-album"><span class="skeleton-line narrow"></span></td>
+                <td class="col-dur"><span class="skeleton-line short"></span></td>
+              </tr>
+            {/each}
+          {:else}
+            {#each playlistDetail.tracks ?? [] as track, i}
+              <tr
+                class:active={player.id === track.id}
+                role="button"
+                tabindex="0"
+                onclick={() => onPlayTrack?.(track.id)}
+                onkeydown={(event) => handleRowKeydown(event, track)}
+              >
+                <td class="col-num">{i + 1}</td>
+                <td class="col-cover">
+                  {#if track.al?.picUrl || track.album?.picUrl}
+                    <img class="track-cover-img" src={(track.al?.picUrl || track.album?.picUrl) + '?param=80y80'} alt="" loading="lazy" />
                   {:else}
-                    <span>{artist.name}</span>
+                    <div class="track-cover-placeholder">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    </div>
                   {/if}
-                {/each}
-              </td>
-              <td class="col-album">{albumName(track)}</td>
-              <td class="col-dur">{duration(track)}</td>
-            </tr>
-          {/each}
+                </td>
+                <td class="col-title">{track.name}</td>
+                <td class="col-artist artist-links">
+                  {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                    {#if index > 0}<span class="artist-sep">/</span>{/if}
+                    {#if artist.id}
+                      <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+                    {:else}
+                      <span>{artist.name}</span>
+                    {/if}
+                  {/each}
+                </td>
+                <td class="col-album">{albumName(track)}</td>
+                <td class="col-dur">{duration(track)}</td>
+              </tr>
+            {/each}
+          {/if}
         </tbody>
       </table>
+    {:else}
+      <div class="detail-state">
+        <p>没有找到详情信息</p>
+        <button onclick={onBack}>返回</button>
+      </div>
     {/if}
-  {/key}
-</div>
+  </div>
+{/key}
+
+<style>
+  .detail-state {
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--text-secondary);
+  }
+
+  .detail-state p {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .detail-state button {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: var(--r-lg);
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 750;
+  }
+
+  .detail-state button:hover {
+    background: var(--accent-bg-hover);
+  }
+</style>

@@ -1,6 +1,5 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
-  import Spinner from '../components/Spinner.svelte'
 
   let {
     libraryPlaylists = [],
@@ -27,12 +26,22 @@
         <span class="library-count">{libraryPlaylists.length} 个歌单</span>
       </div>
     </div>
-    {#if libraryLoading}
-      <div class="loading-state" style="padding:60px 0"><Spinner size="lg" label="加载收藏歌单" /></div>
+    {#if libraryLoading && libraryPlaylists.length === 0}
+      <div class="library-grid" aria-label="加载收藏歌单">
+        {#each Array(10) as _}
+          <div class="library-card library-card-skeleton">
+            <div class="library-card-cover skeleton-block"></div>
+            <div class="library-card-info">
+              <div class="library-card-name skeleton-line"></div>
+              <div class="library-card-meta skeleton-line narrow"></div>
+            </div>
+          </div>
+        {/each}
+      </div>
     {:else if libraryPlaylists.length > 0}
       <div class="library-grid">
         {#each libraryPlaylists as pl (pl.id)}
-          <div class="library-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id) } }}>
+          <div class="library-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
             <div class="library-card-cover">
               {#if pl.picUrl}
                 <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />

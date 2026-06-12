@@ -1,8 +1,10 @@
 <script>
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { extractCover } from '../utils/normalize.js'
+  import ArtistNames from './ArtistNames.svelte'
 
-  let { show = false, onClose } = $props()
+  let { show = false, onClose, onOpenArtist } = $props()
 
   function handlePlayTrack(track, index) {
     player.playTrack(track, index)
@@ -17,11 +19,22 @@
     player.removeFromQueue(index)
   }
 
+  function handleItemKeyDown(e, track, index) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handlePlayTrack(track, index)
+    }
+  }
+
   function handleBackdropKeyDown(e) {
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onClose?.()
     }
+  }
+
+  function coverOf(track) {
+    return extractCover(track)
   }
 </script>
 
@@ -47,15 +60,18 @@
         </div>
       {:else}
         {#each player.queue as track, i}
-          <button
+          <div
             class="queue-item"
             class:active={player.queueIndex === i}
+            role="button"
+            tabindex="0"
             onclick={() => handlePlayTrack(track, i)}
+            onkeydown={(e) => handleItemKeyDown(e, track, i)}
           >
             <div class="queue-item-cover">
-              {#if track.al?.picUrl || track.album?.picUrl || track.picUrl}
+              {#if coverOf(track)}
                 <img
-                  src={(track.al?.picUrl || track.album?.picUrl || track.picUrl) + '?param=100y100'}
+                  src={coverOf(track) + '?param=100y100'}
                   alt={track.name}
                   loading="lazy"
                 />
@@ -70,13 +86,13 @@
             <div class="queue-item-info">
               <div class="queue-item-title">{track.name}</div>
               <div class="queue-item-artist">
-                {(track.ar || track.artists || []).map(a => a.name).join(' / ') || '未知歌手'}
+                <ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />
               </div>
             </div>
             <div class="queue-item-duration">
               {formatDuration(track.dt || track.duration || 0)}
             </div>
-          </button>
+          </div>
         {/each}
       {/if}
     </div>

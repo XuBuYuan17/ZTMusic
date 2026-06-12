@@ -13,8 +13,14 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/user': 'http://localhost:3000',
-      '/api': 'http://localhost:3000',
+      '/ncm-api': {
+        target: 'https://music.xubuyuan.top',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/ncm-api/, '')
+      },
+      '/user': 'https://music.xubuyuan.top',
+      '/api': 'https://music.xubuyuan.top',
     }
   }
 })

@@ -1,4 +1,5 @@
 import { ncm } from '../api/client.js'
+import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 
 const { setCookie, clearCookie } = ncm
 
@@ -45,11 +46,11 @@ export const auth = {
   get isLooseLoggedIn() { return !!_loginMode },
 
   init() {
-    const stored = localStorage.getItem('auth_user')
-    const mode = localStorage.getItem('auth_mode')
+    const stored = getStorageJson('auth_user', null)
+    const mode = getStorage('auth_mode', '')
     if (stored && mode) {
       try {
-        _user = normalizeUser(JSON.parse(stored))
+        _user = normalizeUser(stored)
         _loginMode = mode
       } catch { this.clear() }
     }
@@ -58,15 +59,15 @@ export const auth = {
   setUser(user, mode) {
     _user = normalizeUser(user)
     _loginMode = mode
-    localStorage.setItem('auth_user', JSON.stringify(_user))
-    localStorage.setItem('auth_mode', mode)
+    setStorage('auth_user', _user)
+    setStorage('auth_mode', mode)
   },
 
   clear() {
     _user = null
     _loginMode = null
-    localStorage.removeItem('auth_user')
-    localStorage.removeItem('auth_mode')
+    removeStorage('auth_user')
+    removeStorage('auth_mode')
   },
 
   async login(mode, credentials) {
@@ -84,36 +85,44 @@ export const auth = {
     return profile
   },
 
-  async qrLogin() {
+  async qrLogin(cookie = '') {
+    if (cookie) setCookie(cookie)
     await new Promise(r => setTimeout(r, 500))
     let lastErr
-    for (const fn of ['loginStatus', 'userAccount']) {
-      try {
-        const res = await ncm[fn]()
-        console.log(`qrLogin /${fn}:`, JSON.stringify(res).slice(0, 500))
-        const ok = res.code === 200 || res.data?.code === 200
-        if (ok) {
-          // 跳过匿名用户（登录失败）
-          const account = res.account || res.data?.account || {}
-          if (account.anonimousUser) {
-            lastErr = '/login/qr/check returned 803 but cookie not accepted'
-            continue
-          }
-          let p = res.profile || res.data?.profile || res.account || res.data?.account
-          if (p?.userId || p?.id) return this.setUser(p, 'account'), p
-          const uid = res.account?.id || res.data?.account?.id
-          if (uid) {
-            try {
-              const detail = await ncm.userDetail(uid)
-              p = detail.profile || detail.user || detail.data?.profile || detail.data?.user || { userId: uid, nickname: '用户', avatarUrl: '' }
-            } catch {}
-          }
-          if (p) return this.setUser(p, 'account'), p
+    try {
+      const res = await ncm.loginStatus(cookie)
+      const ok = res.code === 200 || res.data?.code === 200
+      if (ok) {
+        const account = res.account || res.data?.account || {}
+        if (account.anonimousUser) {
+          throw new Error('/login/status returned anonymous account')
         }
-        lastErr = `/${fn} code=${res.code ?? res.data?.code ?? 'none'}`
-      } catch (e) {
-        lastErr = `/${fn} ${e.message}`
+        let p = res.profile || res.data?.profile || res.account || res.data?.account
+        if (p?.userId || p?.id) return this.setUser(p, 'account'), p
+        const uid = res.account?.id || res.data?.account?.id
+        if (uid) {
+          try {
+            const detail = await ncm.userDetail(uid)
+            p = detail.profile || detail.user || detail.data?.profile || detail.data?.user || { userId: uid, nickname: '用户', avatarUrl: '' }
+          } catch {}
+        }
+        if (p) return this.setUser(p, 'account'), p
       }
+      lastErr = `/login/status code=${res.code ?? res.data?.code ?? 'none'}`
+    } catch (e) {
+      lastErr = `/login/status ${e.message}`
+    }
+
+    try {
+      const res = await ncm.userAccount()
+      const ok = res.code === 200 || res.data?.code === 200
+      if (ok) {
+        let p = res.profile || res.data?.profile || res.account || res.data?.account
+        if (p) return this.setUser(p, 'account'), p
+      }
+      lastErr = `/user/account code=${res.code ?? res.data?.code ?? 'none'}`
+    } catch (e) {
+      lastErr = `/user/account ${e.message}`
     }
     throw new Error('获取用户信息失败 (' + lastErr + ')')
   },
@@ -129,37 +138,38 @@ export const auth = {
     const keyRes = await ncm.loginQrKey()
     if (keyRes.code !== 200) throw new Error('获取二维码失败')
     const key = keyRes.data.unikey
-    const chainId = `v1_${Math.random().toString(36).slice(2, 10)}_web_login_${Date.now()}`
-    const imgRes = await ncm.loginQrCreate(key, true, chainId)
+    const imgRes = await ncm.loginQrCreate(key, true)
     if (imgRes.code !== 200) throw new Error('生成二维码失败')
-    return { key, chainId, qrurl: imgRes.data.qrurl, qrimg: imgRes.data.qrimg }
+    return { key, qrurl: imgRes.data.qrurl, qrimg: imgRes.data.qrimg }
   },
 
   startQrPolling(key, onStatus) {
+    let canceled = false
     let timer
     const promise = new Promise((resolve, reject) => {
-      timer = setInterval(async () => {
+      const poll = async () => {
         try {
           const check = await ncm.loginQrCheck(key)
-          onStatus?.(check.code)
-          if (check.code === 803) {
-            clearInterval(timer)
-            console.log('QR 803 full response:', JSON.stringify(check))
+          const code = check.code ?? check.data?.code
+          onStatus?.(code)
+          if (code === 803) {
             const raw = check.cookie || check.data?.cookie || ''
             const ck = raw ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ') : ''
-            console.log('QR 803 extracted cookie:', ck)
             if (ck) setCookie(ck)
-            resolve()
-          } else if (check.code === 800) {
-            clearInterval(timer)
-            reject(new Error('二维码已过期'))
+            resolve(ck)
+            return
           }
+          if (code === 800) {
+            reject(new Error('二维码已过期'))
+            return
+          }
+          if (!canceled) timer = setTimeout(poll, 1500)
         } catch (e) {
-          clearInterval(timer)
           reject(e)
         }
-      }, 1500)
+      }
+      poll()
     })
-    return { promise, cancel: () => clearInterval(timer) }
+    return { promise, cancel: () => { canceled = true; clearTimeout(timer) } }
   }
 }

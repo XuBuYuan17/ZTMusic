@@ -1,15 +1,15 @@
 import { engine } from '../player/engine.js'
 import { ncm } from '../api/client.js'
+import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 
 function getLS(key, def) {
-  try { return localStorage.getItem(key) || def }
-  catch { return def }
+  return getStorage(key, def)
 }
 function saveLS(key, val) {
-  try { localStorage.setItem(key, typeof val === 'object' ? JSON.stringify(val) : val) } catch {}
+  setStorage(key, val)
 }
 function getLSJson(key, def) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def } catch { return def }
+  return getStorageJson(key, def)
 }
 
 let _id = $state(parseInt(getLS('player_id', '0')) || 0)
@@ -17,6 +17,7 @@ let _title = $state(getLS('player_title', ''))
 let _artist = $state(getLS('player_artist', ''))
 let _cover = $state(getLS('player_cover', ''))
 let _duration = $state(parseInt(getLS('player_duration', '0')) || 0)
+let _currentTrack = $state(null)
 let _currentTime = $state(parseFloat(getLS('player_time', '0')))
 let _playing = $state(false)
 let _loading = $state(false)
@@ -70,7 +71,8 @@ function persistState() {
 }
 
 async function getPlayableUrls(id) {
-  const urls = [`https://music.163.com/song/media/outer/url?id=${id}.mp3`]
+  const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
+  const urls = []
   const levels = [...PLAY_LEVELS]
   const prefIdx = levels.indexOf(_preferredLevel)
   if (prefIdx > 0) { levels.splice(prefIdx, 1); levels.unshift(_preferredLevel) }
@@ -81,6 +83,7 @@ async function getPlayableUrls(id) {
       if (item?.url && !urls.includes(item.url)) urls.push(item.url)
     } catch {}
   }
+  if (!urls.includes(fallbackUrl)) urls.push(fallbackUrl)
   return urls
 }
 
@@ -105,6 +108,7 @@ function playTrack(track, index) {
   _id = track.id
   _title = track.name
   _artist = (track.ar || track.artists || []).map(a => a.name).join(' / ')
+  _currentTrack = track
   const album = track.al || track.album || {}
   _cover = album.picUrl || track.coverImgUrl || track.picUrl || ''
   _duration = track.dt || track.duration || 0
@@ -148,7 +152,7 @@ function addLocalHistory(track) {
   if (!track || !track.id) return
   try {
     const key = 'local_history'
-    let list = JSON.parse(localStorage.getItem(key) || '[]')
+    let list = getStorageJson(key, [])
     // 去重：移除同 id 的旧记录
     list = list.filter(t => t.id !== track.id)
     // 插入到头部
@@ -165,18 +169,16 @@ function addLocalHistory(track) {
     list.unshift(entry)
     // 最多保留 200 条
     if (list.length > 200) list.length = 200
-    localStorage.setItem(key, JSON.stringify(list))
+    setStorage(key, list)
   } catch {}
 }
 
 export function getLocalHistory() {
-  try {
-    return JSON.parse(localStorage.getItem('local_history') || '[]')
-  } catch { return [] }
+  return getStorageJson('local_history', [])
 }
 
 export function clearHistory() {
-  try { localStorage.removeItem('local_history') } catch {}
+  removeStorage('local_history')
 }
 
 function playQueue(tracks, startIndex = 0) {
@@ -252,8 +254,8 @@ function setPreferredLevel(level) {
 function clearQueue() {
   _queue = []
   _queueIndex = -1
-  localStorage.removeItem('player_queue')
-  localStorage.removeItem('player_qi')
+  removeStorage('player_queue')
+  removeStorage('player_qi')
 }
 
 function removeFromQueue(index) {
@@ -270,6 +272,7 @@ function removeFromQueue(index) {
       _artist = ''
       _cover = ''
       _duration = 0
+      _currentTrack = null
       _playing = false
       _queueIndex = -1
       persistState()
@@ -299,6 +302,7 @@ function restore() {
   _cover = getLS('player_cover', '')
   _duration = parseInt(getLS('player_duration', '0'))
   _currentTime = savedTime
+  _currentTrack = savedQueue.find(track => track?.id === savedId) || savedQueue[idx] || null
 
   // 恢复播放列表到 UI
   if (savedQueue.length > 0) {
@@ -329,6 +333,7 @@ export const player = {
   get id() { return _id },
   get title() { return _title },
   get artist() { return _artist },
+  get currentTrack() { return _currentTrack },
   get cover() { return _cover },
   get duration() { return _duration },
   get currentTime() { return _currentTime },

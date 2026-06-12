@@ -15,9 +15,7 @@
   let chatError = $state('')
   let chatScrollEl = $state(null)
   let shouldScrollToBottom = $state(false)
-  let originRect = $state(null)
   let originMsgId = $state(null)
-  let dialogPos = $state({ left: '50%', top: '50%' })
 
   async function loadMessages() {
     if (!auth.isLoggedIn) return
@@ -55,7 +53,7 @@
     return user.userId || user.id || msg.fromUserId || msg.toUserId || msg.userId
   }
 
-  async function openChat(msg, event) {
+  async function openChat(msg) {
     selectedMsg = msg
     originMsgId = msg.userId || msg.fromUserId || msg.id
     chatMessages = []
@@ -64,23 +62,6 @@
     if (!uid) {
       chatError = '无法获取用户 ID'
       return
-    }
-    if (event?.currentTarget) {
-      originRect = event.currentTarget.getBoundingClientRect()
-      const vw = window.innerWidth
-      const vh = window.innerHeight
-      const dw = Math.min(680, vw - 32)
-      const dh = Math.min(720, vh - 40)
-      let left = originRect.left + originRect.width / 2
-      let top = originRect.top + originRect.height / 2
-      // 限制弹窗完整显示在屏幕内
-      const halfW = dw / 2
-      const halfH = dh / 2
-      if (left < halfW + 16) left = halfW + 16
-      if (left > vw - halfW - 16) left = vw - halfW - 16
-      if (top < halfH + 16) top = halfH + 16
-      if (top > vh - halfH - 16) top = vh - halfH - 16
-      dialogPos = { left: left + 'px', top: top + 'px' }
     }
     chatLoading = true
     try {
@@ -98,6 +79,7 @@
     selectedMsg = null
     chatMessages = []
     chatError = ''
+    originMsgId = null
   }
 
   function parseMsg(raw) {
@@ -200,7 +182,7 @@
     {:else}
       <div class="messages-list">
         {#each messages as msg}
-          <button class="message-item" onclick={(e) => openChat(msg, e)}>
+          <button class="message-item" onclick={() => openChat(msg)}>
             <div class="msg-avatar">
               {#if getAvatar(msg)}
                 <img src={getAvatar(msg) + '?param=80y80'} alt="" referrerpolicy="no-referrer" />
@@ -229,8 +211,8 @@
   </section>
 
   {#if selectedMsg}
-    <div class="chat-modal-backdrop" onclick={closeChat} role="presentation" class:from-item={!!originRect}>
-      <div class="chat-dialog" role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getNickname(selectedMsg)} 的私信" onclick={stopEvent} onkeydown={stopEvent} style="left: {dialogPos.left}; top: {dialogPos.top}; transform: translate(-50%, -50%);">
+    <div class="chat-modal-backdrop" onclick={closeChat} role="presentation" class:from-item={!!originMsgId}>
+      <div class="chat-dialog" role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getNickname(selectedMsg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
         <div class="chat-titlebar">
           <div class="dialog-user">
             {#if getAvatar(selectedMsg)}
@@ -564,7 +546,7 @@
   }
 
   .chat-dialog {
-    position: fixed;
+    position: relative;
     width: min(680px, calc(100vw - 32px));
     height: min(720px, calc(100vh - 40px));
     min-height: 420px;
@@ -599,36 +581,36 @@
   @keyframes chat-dialog-pop {
     0% {
       opacity: 0;
-      transform: translate(-50%, -50%) scale(0.92);
+      transform: scale(0.92);
     }
     56% {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1.015);
+      transform: scale(1.015);
     }
     76% {
-      transform: translate(-50%, -50%) scale(0.995);
+      transform: scale(0.995);
     }
     100% {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
+      transform: scale(1);
     }
   }
 
   @keyframes chat-dialog-from-item {
     0% {
       opacity: 0;
-      transform: translate(-50%, -50%) scale(0.2);
+      transform: scale(0.86);
     }
     55% {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1.025);
+      transform: scale(1.025);
     }
     75% {
-      transform: translate(-50%, -50%) scale(0.992);
+      transform: scale(0.992);
     }
     100% {
       opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
+      transform: scale(1);
     }
   }
 
@@ -749,13 +731,13 @@
     padding: 0;
     font: inherit;
     cursor: pointer;
-    transition: transform 0.16s, box-shadow 0.16s, filter 0.16s;
+    transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.16s, filter 0.16s;
   }
 
   .shared-card.song-card:hover,
   .shared-card.album-card:hover,
   .shared-card.playlist-card:hover {
-    transform: translateY(-1px);
+    transform: scale(0.94);
     filter: brightness(1.02);
     box-shadow: 0 14px 32px rgba(0, 0, 0, 0.15);
   }

@@ -3,8 +3,9 @@
   import { player } from '../stores/player.svelte.js'
   import { coverUrl } from '../utils/image.js'
   import { parseLyricResponse } from '../utils/lyrics.js'
+  import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
-  let { onOpenSheet, onToggleQueue, showQueuePanel = false } = $props()
+  let { onOpenSheet, onToggleQueue, showQueuePanel = false, onOpenArtist } = $props()
 
   let showVolume = $state(false)
   let isPressing = $state(false)
@@ -119,6 +120,8 @@
 
   let showLyric = $derived(Boolean(player.playing && !player.loading && currentLyric?.text))
   let compactMode = $derived(Boolean(!player.id || player.loading || !player.playing || !showLyric))
+  let currentTrack = $derived(player.currentTrack || player.queue?.find(track => track?.id === player.id) || player.queue?.[player.queueIndex])
+  let currentArtists = $derived(currentTrack?.ar || currentTrack?.artists || [])
 
   function handleBarKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -140,6 +143,7 @@
       onVolBarClick(e)
     }
   }
+
   // 点击外部关闭音量面板
   function handleOutsideClick(e) {
     if (showVolume && !e.target.closest('.player-bar__actions')) {
@@ -192,7 +196,11 @@
         {/key}
       {:else}
         <div class="lcd-meta__title">{player.title || '未在播放'}</div>
-        <div class="lcd-meta__artist">{player.loading ? '正在载入…' : lyricLoading ? '正在同步歌词…' : player.artist || ''}</div>
+        {#if player.artist && !player.loading && !lyricLoading}
+          <div class="lcd-meta__artist"><ArtistNames artists={currentArtists} {onOpenArtist} fallback={player.artist} /></div>
+        {:else}
+          <div class="lcd-meta__artist">{player.loading ? '正在载入…' : lyricLoading ? '正在同步歌词…' : player.artist || ''}</div>
+        {/if}
       {/if}
     </div>
   </div>

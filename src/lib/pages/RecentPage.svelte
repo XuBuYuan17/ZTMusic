@@ -2,7 +2,6 @@
   import { auth } from '../stores/auth.svelte.js'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
-  import Spinner from '../components/Spinner.svelte'
 
   let {
     recentTracks = [],
@@ -22,10 +21,31 @@
     <h1>最近播放</h1>
     <div class="subtitle">共 {recentTracks.length} 首歌曲{#if !auth.isLoggedIn} · 本地记录{/if}</div>
   </div>
-  {#if recentLoading}
-    <div class="loading-state">
-      <Spinner size="lg" label="加载最近播放" />
-    </div>
+  {#if recentLoading && recentTracks.length === 0}
+    <table class="track-table" aria-label="加载最近播放">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th class="col-cover"></th>
+          <th>标题</th>
+          <th>歌手</th>
+          <th class="col-album">专辑</th>
+          <th class="col-dur">时长</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each Array(9) as _, i}
+          <tr class="skeleton-table-row">
+            <td class="col-num">{i + 1}</td>
+            <td class="col-cover"><div class="track-cover-placeholder skeleton-block"></div></td>
+            <td class="col-title"><span class="skeleton-line"></span></td>
+            <td class="col-artist"><span class="skeleton-line medium"></span></td>
+            <td class="col-album"><span class="skeleton-line narrow"></span></td>
+            <td class="col-dur"><span class="skeleton-line short"></span></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
   {:else if recentTracks.length > 0}
     <div class="recent-actions">
       <button class="play-all-btn" onclick={onPlayAll}>

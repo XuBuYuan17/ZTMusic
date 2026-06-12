@@ -1,15 +1,60 @@
+import { getStorage, removeStorage, setStorage } from '../utils/storage.js'
+import { clearCache, createCacheKey, getCacheStats, readCache, writeCache } from '../utils/cache.js'
+
+export const DEFAULT_API_BASE = 'https://music.xubuyuan.top'
+const DEV_PROXY_API_BASE = '/ncm-api'
+const LEGACY_LOCAL_API_BASES = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
+
 let _base
-try { _base = localStorage.getItem('api_base') } catch {}
-let API_BASE = _base || 'http://localhost:3000'
+_base = getStorage('api_base', '')
+if (LEGACY_LOCAL_API_BASES.has(_base)) {
+  removeStorage('api_base')
+  _base = ''
+}
+let API_BASE = _base || DEFAULT_API_BASE
 let tauriInvokePromise
 
+function isBrowserDevRuntime() {
+  return typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1' && !isTauriRuntime()
+}
+
+function getRequestBase() {
+  return isBrowserDevRuntime() && API_BASE === DEFAULT_API_BASE ? DEV_PROXY_API_BASE : API_BASE
+}
+
 let _cookie = ''
-try {
-  const saved = localStorage.getItem('api_cookie')
-  if (saved) _cookie = saved
-} catch {}
+const savedCookie = getStorage('api_cookie', '')
+if (savedCookie) _cookie = savedCookie
 
 const DEFAULT_TIMEOUT = 15000
+const MINUTE = 60 * 1000
+const CACHE_TTL = {
+  '/song/url/v1': 10 * MINUTE,
+  '/lyric': 7 * 24 * 60 * MINUTE,
+  '/lyric/new': 7 * 24 * 60 * MINUTE,
+  '/song/detail': 24 * 60 * MINUTE,
+  '/playlist/detail': 30 * MINUTE,
+  '/playlist/track/all': 30 * MINUTE,
+  '/album': 6 * 60 * MINUTE,
+  '/artist/detail': 12 * 60 * MINUTE,
+  '/artist/songs': 2 * 60 * MINUTE,
+  '/artist/album': 12 * 60 * MINUTE,
+  '/banner': 30 * MINUTE,
+  '/personalized': 30 * MINUTE,
+  '/top/playlist': 30 * MINUTE,
+  '/personalized/newsong': 30 * MINUTE,
+  '/recommend/songs': 10 * MINUTE,
+  '/album/newest': 2 * 60 * MINUTE,
+  '/homepage/block/page': 20 * MINUTE,
+  '/recommend/resource': 15 * MINUTE,
+  '/user/playlist': 5 * MINUTE,
+  '/user/record': 5 * MINUTE,
+  '/user/subcount': 5 * MINUTE,
+  '/toplist': 60 * MINUTE,
+  '/toplist/detail': 30 * MINUTE,
+  '/history/recommend/songs': 15 * MINUTE,
+  '/history/recommend/songs/detail': 15 * MINUTE,
+}
 
 function isTauriRuntime() {
   return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
@@ -36,7 +81,7 @@ function saveCookieFromResponse(data, rawCookie = '') {
   const ck = extractCookie(raw)
   if (ck && ck !== _cookie) {
     _cookie = ck
-    localStorage.setItem('api_cookie', _cookie)
+    setStorage('api_cookie', _cookie)
   }
 }
 
@@ -53,51 +98,84 @@ async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
   }
 }
 
-async function request(endpoint, params = {}, method = 'GET', body = null) {
+async function request(endpoint, params = {}, method = 'GET', body = null, options = {}) {
   const invoke = await getTauriInvoke()
+  const cookie = options.noCookie ? '' : _cookie
+  const withRandomCNIP = options.randomCNIP !== false
+  const requestParams = withRandomCNIP ? { randomCNIP: true, ...params } : params
+  const requestBody = body ? (withRandomCNIP ? { randomCNIP: true, ...body } : body) : body
+  const cacheTtl = method === 'GET' && options.cache !== false ? options.cacheTtl ?? CACHE_TTL[endpoint] : 0
+  const cacheKey = cacheTtl
+    ? createCacheKey([API_BASE, endpoint, requestParams, requestBody, cookie ? cookie.slice(0, 48) : 'public'])
+    : ''
+  if (cacheKey && !options.refresh) {
+    const cached = readCache(cacheKey)
+    if (cached) return cached
+  }
   if (invoke) {
-    const result = await invoke('ncm_request', {
-      request: {
-        base: API_BASE,
-        endpoint,
-        params,
-        method,
-        body,
-        cookie: _cookie,
-      },
-    })
-    saveCookieFromResponse(result.data, result.cookie)
-    return result.data
+    try {
+      const result = await invoke('ncm_request', {
+        request: {
+          base: API_BASE,
+          endpoint,
+          params: requestParams,
+          method,
+          body: requestBody,
+          cookie,
+          allowErrorBody: !!options.allowErrorBody,
+        },
+      })
+      if (options.saveCookie !== false) saveCookieFromResponse(result.data, result.cookie)
+      writeCache(cacheKey, result.data, cacheTtl)
+      return result.data
+    } catch (error) {
+      const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null
+      if (stale) return stale
+      throw error
+    }
   }
 
-  const url = new URL(`${API_BASE}${endpoint}`)
+  const requestBase = getRequestBase()
+  const url = requestBase.startsWith('http')
+    ? new URL(`${requestBase}${endpoint}`)
+    : new URL(`${requestBase}${endpoint}`, window.location.origin)
   if (method === 'GET') {
-    Object.entries(params).forEach(([k, v]) => {
+    Object.entries(requestParams).forEach(([k, v]) => {
       if (v !== undefined && v !== null) url.searchParams.set(k, v)
     })
-    if (_cookie) url.searchParams.set('cookie', _cookie)
+    if (cookie) url.searchParams.set('cookie', cookie)
   }
-  const opts = { method }
-  if (body) {
+  const opts = { method, credentials: options.browserCredentials || 'same-origin' }
+  if (requestBody) {
     opts.headers = { 'Content-Type': 'application/x-www-form-urlencoded' }
-    if (_cookie) body.cookie = _cookie
-    opts.body = new URLSearchParams(body).toString()
+    const formBody = { ...requestBody }
+    if (cookie) formBody.cookie = cookie
+    opts.body = new URLSearchParams(formBody).toString()
   }
-  const res = await fetchWithTimeout(url, opts)
-  if (!res.ok) throw new Error(`API error: ${res.status}`)
-  const data = await res.json()
-  saveCookieFromResponse(data)
-  return data
+  try {
+    const res = await fetchWithTimeout(url, opts)
+    if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
+    const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
+    if (options.saveCookie !== false) saveCookieFromResponse(data)
+    writeCache(cacheKey, data, cacheTtl)
+    return data
+  } catch (error) {
+    const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null
+    if (stale) return stale
+    throw error
+  }
 }
 
 export const ncm = {
   setBase(url) {
-    localStorage.setItem('api_base', url)
+    setStorage('api_base', url)
     API_BASE = url
   },
   getBase() { return API_BASE },
-  setCookie(c) { _cookie = c; localStorage.setItem('api_cookie', _cookie) },
-  clearCookie() { _cookie = ''; localStorage.removeItem('api_cookie') },
+  setCookie(c) { _cookie = c; setStorage('api_cookie', _cookie) },
+  clearCookie() { _cookie = ''; removeStorage('api_cookie') },
+  clearCache,
+  getCacheStats,
 
   search(keywords, limit = 30, offset = 0, type = 1) {
     return request('/search', { keywords, limit, offset, type })
@@ -215,6 +293,9 @@ export const ncm = {
   artistAlbums(id, limit = 50, offset = 0) {
     return request('/artist/album', { id, limit, offset })
   },
+  artistSub(id, subscribe = true) {
+    return request('/artist/sub', { id, t: subscribe ? 1 : 0 })
+  },
   album(id) {
     return request('/album', { id })
   },
@@ -234,25 +315,26 @@ export const ncm = {
   },
 
   loginQrKey() {
-    return request('/login/qr/key')
+    return request('/login/qr/key', { timestamp: Date.now(), noCookie: true }, 'GET', null, { randomCNIP: false, noCookie: true, saveCookie: false, browserCredentials: 'omit' })
   },
-  loginQrCreate(key, qrimg = true, chainId) {
-    return request('/login/qr/create', { key, qrimg, platform: 'web', ...chainId && { chainId }, ua: 'pc' })
+  loginQrCreate(key, qrimg = true) {
+    // 不传 platform=web，避免后端基于空 cookie 生成无效 chainId 污染 qrurl
+    return request('/login/qr/create', { key, qrimg, timestamp: Date.now() }, 'GET', null, { randomCNIP: false, noCookie: true, saveCookie: false, browserCredentials: 'omit' })
   },
   loginQrCheck(key) {
-    return request('/login/qr/check', { key, ua: 'pc' })
+    return request('/login/qr/check', { key, timestamp: Date.now(), noCookie: true }, 'GET', null, { noCookie: true, allowErrorBody: true, randomCNIP: false, saveCookie: false, browserCredentials: 'omit' })
   },
   loginCellphone(phone, password) {
-    return request('/login/cellphone', { phone, password })
+    return request('/login/cellphone', { phone, password }, 'GET', null, { randomCNIP: false })
   },
   loginEmail(email, password) {
-    return request('/login', { email, password })
+    return request('/login', { email, password }, 'GET', null, { randomCNIP: false })
   },
   logout() {
-    return request('/logout')
+    return request('/logout', {}, 'GET', null, { randomCNIP: false })
   },
-  loginStatus() {
-    return request('/login/status', {}, 'POST', {})
+  loginStatus(cookie) {
+    return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })
   },
 
   like(id, like = true) {
