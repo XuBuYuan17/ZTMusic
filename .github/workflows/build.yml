@@ -13,7 +13,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  desktop:
+    name: Build ${{ matrix.artifact }}
     strategy:
       fail-fast: false
       matrix:
@@ -30,14 +31,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             bundle: msi
             artifact: msi
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundle: nsis
-            artifact: nsis
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            bundle: dmg
-            artifact: dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -80,13 +73,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri ${{ matrix.target }}
+      - name: Build Tauri ${{ matrix.artifact }}
         run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
 
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: zheting-${{ matrix.target }}-${{ matrix.artifact }}
+          name: zheting-${{ matrix.artifact }}
           path: src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/
           if-no-files-found: error
 
@@ -95,3 +88,77 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/*
+
+  android:
+    name: Build apk
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;27.2.12479018"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Init Android project
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: pnpm tauri android init --ci
+
+      - name: Build Tauri apk
+        env:
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: pnpm tauri android build --apk --target aarch64
+
+      - name: Upload apk
+        uses: actions/upload-artifact@v4
+        with:
+          name: zheting-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
