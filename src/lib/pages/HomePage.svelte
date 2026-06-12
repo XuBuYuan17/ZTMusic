@@ -3,6 +3,7 @@
   import { auth } from '../stores/auth.svelte.js'
   import { formatPlayCount } from '../format.js'
   import { extractCover } from '../utils/normalize.js'
+  import SongListActions from '../components/SongListActions.svelte'
 
   let {
     refreshKey = 0,
@@ -18,7 +19,11 @@
     onOpenPlaylist,
     onPlayRecentTrack,
     onOpenArtist,
+    onOpenAlbum,
+    onOpenFollows,
   } = $props()
+
+  let songActions = $state(null)
 
   function handleCardKeydown(event, action) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -45,10 +50,11 @@
   const quickPlaylists = $derived(recommendPlaylists.slice(1, 5))
   const stationCards = $derived([
     {
-      title: '听歌排行',
-      label: 'Replay Mix',
-      value: weeklyPlaylist?.topSongName || `${weeklyPlaylist?.trackCount || 0} 首常听`,
+      title: '关注列表',
+      label: 'Social',
+      value: '查看关注与粉丝',
       accent: 'rank',
+      action: () => onOpenFollows?.(),
     },
     {
       title: '喜欢的音乐',
@@ -138,12 +144,11 @@
           </div>
 
           {#if loading && recentTracks.length === 0}
-            <div class="home-track-list" aria-label="加载最近播放">
+            <div class="home-library-grid" aria-label="加载最近播放">
               {#each Array(6) as _}
-                <div class="home-track-row skeleton-row">
-                  <span class="home-track-index skeleton-line short"></span>
+                <div class="home-library-item skeleton-row">
                   <span class="home-track-cover-ph skeleton-block"></span>
-                  <span class="home-track-copy">
+                  <span>
                     <strong class="skeleton-line"></strong>
                     <em class="skeleton-line narrow"></em>
                   </span>
@@ -151,16 +156,15 @@
               {/each}
             </div>
           {:else if recentTracks.length > 0}
-            <div class="home-track-list">
+            <div class="home-library-grid">
               {#each recentTracks.slice(0, 8) as track, i (track.id)}
-                <button class="home-track-row" onclick={() => onPlayRecentTrack?.(track)}>
-                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
+                <button class="home-library-item" onclick={() => onPlayRecentTrack?.(track)} {...songActions?.bindRow(track)}>
                   {#if coverOf(track)}
                     <img src={coverOf(track) + '?param=96y96'} alt="" loading="lazy" />
                   {:else}
                     <span class="home-track-cover-ph">♫</span>
                   {/if}
-                  <span class="home-track-copy">
+                  <span>
                     <strong>{track.name}</strong>
                     <em>
                       {#each artistsOf(track) as artist, index (artist.id || artist.name)}
@@ -189,11 +193,12 @@
             </div>
           </div>
           {#if loading && userPlaylists.length === 0}
-            <div class="home-library-grid" aria-label="加载资料库">
+            <div class="home-track-list" aria-label="加载资料库">
               {#each Array(5) as _}
-                <div class="home-library-item skeleton-row">
+                <div class="home-track-row skeleton-row">
+                  <span class="home-track-index skeleton-line short"></span>
                   <span class="home-track-cover-ph skeleton-block"></span>
-                  <span>
+                  <span class="home-track-copy">
                     <strong class="skeleton-line"></strong>
                     <em class="skeleton-line narrow"></em>
                   </span>
@@ -201,15 +206,16 @@
               {/each}
             </div>
           {:else if userPlaylists.length > 0}
-            <div class="home-library-grid">
-              {#each userPlaylists.slice(0, 6) as pl (pl.id)}
-                <button class="home-library-item" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
+            <div class="home-track-list">
+              {#each userPlaylists.slice(0, 6) as pl, i (pl.id)}
+                <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
+                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
                   {#if pl.picUrl}
-                    <img src={pl.picUrl + '?param=140y140'} alt="" loading="lazy" />
+                    <img src={pl.picUrl + '?param=96y96'} alt="" loading="lazy" />
                   {:else}
                     <span class="home-track-cover-ph">♫</span>
                   {/if}
-                  <span>
+                  <span class="home-track-copy">
                     <strong>{pl.name}</strong>
                     <em>{pl.trackCount} 首</em>
                   </span>
@@ -241,4 +247,5 @@
       <button class="home-logged-out-btn" onclick={onOpenLogin}>立即登录</button>
     </div>
   {/if}
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>

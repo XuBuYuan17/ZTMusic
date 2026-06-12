@@ -2,6 +2,7 @@
   import { slide } from 'svelte/transition'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import SongListActions from '../components/SongListActions.svelte'
 
   let {
     artist = null,
@@ -18,6 +19,7 @@
   } = $props()
 
   let showAllSongs = $state(false)
+  let songActions = $state(null)
 
   function coverOf(track) {
     return track?.picUrl || track?.al?.picUrl || track?.album?.picUrl || ''
@@ -53,6 +55,11 @@
       event.preventDefault()
       onPlayTrack?.(track)
     }
+  }
+
+  function handleSongContext(track, event) {
+    event.preventDefault()
+    songActions?.bindRow(track)?.oncontextmenu?.(event)
   }
 
   function handleCardKeydown(event, action) {
@@ -215,6 +222,7 @@
                 tabindex="0"
                 onclick={() => onPlayTrack?.(track)}
                 onkeydown={(event) => handleRowKeydown(event, track)}
+                oncontextmenu={(e) => handleSongContext(track, e)}
               >
                 <td class="col-num">{i + 1}</td>
                 <td class="col-cover">
@@ -273,6 +281,7 @@
       <p>没有找到歌手信息</p>
     </div>
   {/if}
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>
 
 <style>

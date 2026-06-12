@@ -220,7 +220,12 @@ export const ncm = {
     return request('/playlist/track/all', { id, limit, offset })
   },
   playlistAddTrack(id, tracks) {
-    return request('/playlist/tracks', { op: 'add', id, tracks })
+    const trackIds = Array.isArray(tracks) ? tracks.join(',') : tracks
+    return request('/playlist/tracks', { op: 'add', pid: id, tracks: trackIds, timestamp: Date.now() })
+  },
+  playlistRemoveTrack(id, tracks) {
+    const trackIds = Array.isArray(tracks) ? tracks.join(',') : tracks
+    return request('/playlist/tracks', { op: 'del', pid: id, tracks: trackIds, timestamp: Date.now() })
   },
   userPlaylist(uid) {
     return request('/user/playlist', { uid })
@@ -239,6 +244,12 @@ export const ncm = {
   },
   userSubcount() {
     return request('/user/subcount')
+  },
+  userFollows(uid, limit = 30, offset = 0) {
+    return request('/user/follows', { uid, limit, offset })
+  },
+  userFolloweds(uid, limit = 30, offset = 0) {
+    return request('/user/followeds', { uid, limit, offset })
   },
 
   personalized(limit = 10) {
@@ -337,11 +348,17 @@ export const ncm = {
     return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })
   },
 
-  like(id, like = true) {
-    return request('/like', { id, like })
+  like(id, like = true, uid) {
+    const timestamp = Date.now()
+    if (uid) return request('/song/like', { id, uid, like, timestamp })
+    return request('/like', { id, like, timestamp })
   },
   likelist(uid) {
     return request('/likelist', { uid })
+  },
+  songLikeCheck(ids) {
+    const list = Array.isArray(ids) ? ids : [ids]
+    return request('/song/like/check', { ids: JSON.stringify(list), timestamp: Date.now() }, 'GET', null, { cache: false })
   },
 
   // ===== 私信 & 通知 =====

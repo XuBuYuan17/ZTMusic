@@ -26,6 +26,11 @@ class AudioEngine {
 
   load(url) {
     if (!url) return
+    if (this.audio.src && this.audio.src !== url) {
+      this.audio.pause()
+      this.audio.removeAttribute('src')
+      this.audio.load()
+    }
     this.audio.src = url
     this.audio.load()
   }
@@ -65,7 +70,8 @@ class AudioEngine {
 
   destroy() {
     this.pause()
-    this.audio.src = ''
+    this.audio.removeAttribute('src')
+    this.audio.load()
     this._onTimeUpdate = null
     this._onEnded = null
     this._onLoadStart = null

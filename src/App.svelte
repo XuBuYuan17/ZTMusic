@@ -5,13 +5,16 @@
   import { auth } from './lib/stores/auth.svelte.js'
   import { extractColor } from './lib/player/colors.js'
   import { loadDailyHistoryData, loadDailyHistoryDetailData } from './lib/services/dailyHistory.js'
-  import { loadAlbumDetail, loadArtistDetail, loadPlaylistDetail } from './lib/services/details.js'
+  import { completePlaylistTracks, loadAlbumDetail, loadArtistDetail, loadPlaylistDetail } from './lib/services/details.js'
   import { loadExploreData as fetchExploreData } from './lib/services/explore.js'
   import { loadHomeData, loadLibraryData, loadRecentData, loadToplistsData } from './lib/services/home.js'
   import { getStorage, setStorage } from './lib/utils/storage.js'
   import Sidebar from './lib/components/Sidebar.svelte'
+  import MobileShell from './lib/components/MobileShell.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
   import QueuePanel from './lib/components/QueuePanel.svelte'
+  import MobileQueuePanel from './lib/components/MobileQueuePanel.svelte'
+  import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPage from './lib/components/LyricsPage.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import LibraryPage from './lib/pages/LibraryPage.svelte'
@@ -19,6 +22,7 @@
   import SettingsPage from './lib/pages/SettingsPage.svelte'
   import PlaylistPage from './lib/pages/PlaylistPage.svelte'
   import HomePage from './lib/pages/HomePage.svelte'
+  import MobileHomePage from './lib/pages/MobileHomePage.svelte'
   import ExplorePage from './lib/pages/ExplorePage.svelte'
   import DailyHistoryPage from './lib/pages/DailyHistoryPage.svelte'
   import SearchPage from './lib/pages/SearchPage.svelte'
@@ -44,6 +48,8 @@
   let showSheet = $state(false)
   let lyricsOrigin = $state(null)
   let showLogin = $state(false)
+  let showFollowDialog = $state(false)
+  let messageTargetUser = $state(null)
   let refreshKey = $state(Date.now())
   let toplists = $state([])
   let toplistsLoading = $state(false)
@@ -280,6 +286,11 @@
     playlistDetail = data.detail
     heroColor = data.heroColor
     playlistDetailLoading = false
+    if (data.detail?.tracksPartial) {
+      completePlaylistTracks(ncm, data.detail).then((fullDetail) => {
+        if (requestId === detailRequestId && selectedId === id) playlistDetail = fullDetail
+      }).catch(() => {})
+    }
   }
 
   async function goAlbum(id, shouldPushRoute = true) {
@@ -397,15 +408,15 @@
     else player.playTrack(track, 0)
   }
 
-  function playTrack(id) {
-    const tracks = playlistDetail?.tracks || []
+  function playTrack(id, visibleTracks) {
+    const tracks = visibleTracks?.length ? visibleTracks : playlistDetail?.tracks || []
     const idx = tracks.findIndex(t => t.id === id)
     if (idx >= 0) player.playQueue(tracks, idx)
     else player.playTrack(tracks.find(t => t.id === id) || { id }, 0)
   }
 
-  function playAll() {
-    const tracks = playlistDetail?.tracks || []
+  function playAll(visibleTracks) {
+    const tracks = visibleTracks?.length ? visibleTracks : playlistDetail?.tracks || []
     if (tracks.length) player.playQueue(tracks, 0)
   }
 
@@ -499,10 +510,10 @@
     else if (backView === 'dailyHistory') loadDailyHistory()
   }
 
-  function openSheet() {
-    const img = document.querySelector('.lcd-artwork__img')
-    if (img) {
-      const r = img.getBoundingClientRect()
+  function openSheet(originEl) {
+    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.mobile-mini-player__art') || document.querySelector('.mobile-mini-player')
+    if (source) {
+      const r = source.getBoundingClientRect()
       lyricsOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 }
     } else {
       lyricsOrigin = null
@@ -510,6 +521,24 @@
     showSheet = true
   }
   function closeSheet() { showSheet = false }
+
+  function openFollows() {
+    if (!auth.isLoggedIn) {
+      showLogin = true
+      return
+    }
+    showFollowDialog = true
+  }
+
+  function openMessageWithUser(user) {
+    if (!auth.isLoggedIn) {
+      showLogin = true
+      return
+    }
+    showFollowDialog = false
+    messageTargetUser = user
+    handleNav('messages')
+  }
 
   let showQueuePanel = $state(false)
   function toggleQueue() { showQueuePanel = !showQueuePanel }
@@ -560,6 +589,23 @@
     finish()
   }
 
+  const viewTitles = {
+    home: '哲听',
+    search: '搜索',
+    explore: '发现',
+    dailyHistory: '历史日推',
+    library: '我的收藏',
+    recent: '最近播放',
+    messages: '私信',
+    settings: '我的',
+    about: '关于',
+    playlist: '歌单',
+    album: '专辑',
+    artist: '歌手',
+  }
+
+  let mobileTitle = $derived(viewTitles[activeView] || '哲听')
+
   const defaultPage = getStorage('default_page', 'home')
   if (defaultPage === 'library') {
     loadLibrary()
@@ -582,13 +628,43 @@
   />
 
   <div class="main-area">
-    <div class="content-scroll" bind:this={contentScrollEl}>
-      <div class="content-inner" style="padding-bottom: 120px;">
+    <MobileShell
+      {activeView}
+      title={mobileTitle}
+      {theme}
+      isLoggedIn={auth.isLoggedIn}
+      {showQueuePanel}
+      bind:contentScrollEl
+      onNavigate={handleNav}
+      onToggleTheme={toggleTheme}
+      onOpenLogin={() => showLogin = true}
+      onOpenSheet={openSheet}
+      onToggleQueue={toggleQueue}
+      onOpenArtist={goArtist}
+    >
         {#key activeView}
         <div class="page-enter" class:book-turn={routeTransition === 'book-turn'}>
           {#if activeView === 'home'}
-          <HomePage
-            {refreshKey}
+          <div class="desktop-page-only">
+            <HomePage
+              {refreshKey}
+              {loading}
+              {recentTracks}
+              {userPlaylists}
+              {subcount}
+              {likedPlaylist}
+              {weeklyPlaylist}
+              {recommendPlaylists}
+              onNavigate={handleNav}
+              onOpenLogin={() => showLogin = true}
+              onOpenPlaylist={goPlaylist}
+              onPlayRecentTrack={playRecentTrack}
+              onOpenArtist={goArtist}
+              onOpenAlbum={goAlbum}
+              onOpenFollows={openFollows}
+            />
+          </div>
+          <MobileHomePage
             {loading}
             {recentTracks}
             {userPlaylists}
@@ -601,6 +677,7 @@
             onOpenPlaylist={goPlaylist}
             onPlayRecentTrack={playRecentTrack}
             onOpenArtist={goArtist}
+            onOpenFollows={openFollows}
           />
 
         {:else if activeView === 'playlist' || activeView === 'album'}
@@ -615,10 +692,11 @@
             onPlayAll={playAll}
             onPlayTrack={playTrack}
             onOpenArtist={goArtist}
+            onOpenAlbum={goAlbum}
           />
 
         {:else if activeView === 'search'}
-          <SearchPage onOpenArtist={goArtist} onOpenPlaylist={goPlaylist} />
+          <SearchPage onOpenArtist={goArtist} onOpenAlbum={goAlbum} onOpenPlaylist={goPlaylist} />
 
         {:else if activeView === 'artist'}
           <ArtistPage
@@ -662,6 +740,7 @@
             onPlayAll={playDailyHistoryAll}
             onPlayTrack={playDailyHistoryTrack}
             onOpenArtist={goArtist}
+            onOpenAlbum={goAlbum}
           />
 
         {:else if activeView === 'library'}
@@ -679,10 +758,11 @@
             onPlayAll={playRecentAll}
             onPlayTrack={playRecentTrack}
             onOpenArtist={goArtist}
+            onOpenAlbum={goAlbum}
           />
 
         {:else if activeView === 'messages'}
-          <MessagesPage onNavigate={handleNav} />
+          <MessagesPage onNavigate={handleNav} targetUser={messageTargetUser} />
 
         {:else if activeView === 'liked'}
           <div class="fade-in">
@@ -701,15 +781,12 @@
         {/if}
         </div>
         {/key}
-      </div>
-    </div>
-
-    <div class="player-bar-wrap" class:queue-open={showQueuePanel}>
-      <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} showQueuePanel={showQueuePanel} onOpenArtist={goArtist} />
-    </div>
+    </MobileShell>
   </div>
 </main>
 
 <LyricsPage show={showSheet} lyricsOrigin={lyricsOrigin} onClose={closeSheet} onOpenArtist={goArtist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
+<FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={goArtist} />
+<MobileQueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={goArtist} />

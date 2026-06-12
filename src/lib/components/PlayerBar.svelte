@@ -21,21 +21,19 @@
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  let clickTarget
-  let suppressClick = $state(false)
   function handleClick(e) {
-    if (suppressClick) { suppressClick = false; return }
-    if (e.target === clickTarget && player.id) {
+    if (player.id) {
+      const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
+      const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
+      if (!originEl) return
       isPressing = true
       
       setTimeout(() => {
         isPressing = false
-        onOpenSheet?.()
+        onOpenSheet?.(originEl)
       }, 150)
     }
   }
-  function handleMouseDown(e) { clickTarget = e.target }
-  function blockPlayerBarClick() { suppressClick = true }
 
   function onVolBarClick(e) {
     e.stopPropagation()
@@ -163,16 +161,11 @@
   class:pressing={isPressing}
   class:compact={compactMode}
   class:with-lyrics={showLyric}
-  role="button"
-  tabindex="0"
-  onclick={handleClick}
-  onmousedown={handleMouseDown}
-  onkeydown={handleBarKeyDown}
-  aria-label="打开歌词页"
   style="cursor: pointer;"
 >
+  <button type="button" class="player-bar__open-hit" onpointerdown={handleClick} onclick={(e) => e.stopPropagation()} aria-label="打开歌词页"></button>
   <!-- 左侧：歌曲信息 / 当前歌词 (LCD区域) -->
-  <div class="player-bar__lcd">
+  <div class="player-bar__lcd" aria-hidden="true">
     {#if player.cover}
       <div class="lcd-artwork">
         <img class="lcd-artwork__img" src={coverUrl(player.cover, 88)} alt="">
@@ -253,7 +246,7 @@
   <!-- 右侧：音量 + 列表 -->
   <div class="player-bar__actions">
     <!-- 音量：未点击时只显示图标，点击后展开小 bar -->
-    <div class="volume-slider-inline" class:open={showVolume} role="button" tabindex="0" aria-label="音量" onmousedown={blockPlayerBarClick} onclick={(e) => { e.stopPropagation(); toggleVolume() }} onkeydown={handleVolumeToggleKeyDown}>
+    <div class="volume-slider-inline" class:open={showVolume} role="button" tabindex="0" aria-label="音量" onclick={(e) => { e.stopPropagation(); toggleVolume() }} onkeydown={handleVolumeToggleKeyDown}>
       <div class="volume-slider-inline__bar">
         <div class="volume-slider-inline__icon">
           {#if player.volume > 0}

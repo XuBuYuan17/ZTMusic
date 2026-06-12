@@ -2,6 +2,7 @@
   import { auth } from '../stores/auth.svelte.js'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import SongListActions from '../components/SongListActions.svelte'
 
   let {
     recentTracks = [],
@@ -9,7 +10,10 @@
     onPlayAll,
     onPlayTrack,
     onOpenArtist,
+    onOpenAlbum,
   } = $props()
+
+  let songActions = $state(null)
 
   function artistsOf(track) {
     return track.artists || track.ar || []
@@ -65,8 +69,8 @@
         </tr>
       </thead>
       <tbody>
-        {#each recentTracks as track, i}
-          <tr class:active={player.id === track.id} onclick={() => onPlayTrack?.(track)}>
+        {#each recentTracks as track, i (track.id)}
+          <tr class:active={player.id === track.id} onclick={() => onPlayTrack?.(track)} {...songActions?.bindRow(track)}>
             <td class="col-num">{i + 1}</td>
             <td class="col-cover">
               {#if track.picUrl}
@@ -103,4 +107,5 @@
       <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">去首页听听歌吧</p>
     </div>
   {/if}
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>

@@ -4,21 +4,27 @@
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
   import ArtistNames from '../components/ArtistNames.svelte'
+  import SongListActions from '../components/SongListActions.svelte'
 
-  let { onOpenArtist, onOpenPlaylist } = $props()
+  let { onOpenArtist, onOpenAlbum, onOpenPlaylist } = $props()
 
   let keyword = $state('')
   let loading = $state(false)
   let results = $state({ songs: [], artists: [], playlists: [] })
   let hotList = $state([])
   let hotSongs = $state([])
+  let hotLoading = $state(true)
+  let hotSongsLoading = $state(true)
   let activeCategory = $state('all')
   let requestId = 0
+  let songActions = $state(null)
 
   $effect(() => {
+    hotLoading = true
+    hotSongsLoading = true
     ncm.searchHot().then(res => {
       hotList = res?.result?.hots || res?.data || []
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { hotLoading = false })
     ncm.topSongs(0).then(res => {
       const songs = res?.data || []
       hotSongs = songs.slice(0, 12).map(song => ({
@@ -29,7 +35,7 @@
         dt: song.dt || song.duration || 0,
         picUrl: song.al?.picUrl || song.album?.picUrl || '',
       }))
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { hotSongsLoading = false })
   })
 
   async function doSearch() {
@@ -138,6 +144,15 @@
       <section class="search-chart-panel">
         <div class="search-section-header"><h2>热搜榜</h2><span>实时趋势</span></div>
         <div class="search-hot-list">
+          {#if hotLoading}
+            {#each Array(10) as _, i}
+              <div class="search-hot-row search-chart-skeleton" class:top={i < 3} aria-hidden="true">
+                <span>{String(i + 1).padStart(2, '0')}</span>
+                <strong class="skeleton-line"></strong>
+                <em class="skeleton-line tiny"></em>
+              </div>
+            {/each}
+          {:else}
           {#each hotList.slice(0, 10) as item, i}
             <button class="search-hot-row" class:top={i < 3} onclick={() => chooseHot(item)}>
               <span>{String(i + 1).padStart(2, '0')}</span>
@@ -145,12 +160,22 @@
               <em>{i < 3 ? '热门' : '趋势'}</em>
             </button>
           {/each}
+          {/if}
         </div>
       </section>
 
       <section class="search-chart-panel search-song-chart-panel">
         <div class="search-section-header"><h2>热歌榜</h2><span>新歌热度</span></div>
         <div class="search-chart-songs">
+          {#if hotSongsLoading}
+            {#each Array(10) as _, i}
+              <div class="search-chart-song-row search-chart-skeleton" aria-hidden="true">
+                <span class="search-chart-rank">{String(i + 1).padStart(2, '0')}</span>
+                <span class="search-song-info"><strong class="skeleton-line"></strong><em class="skeleton-line narrow"></em></span>
+                <span class="search-song-dur skeleton-line tiny"></span>
+              </div>
+            {/each}
+          {:else}
           {#each hotSongs.slice(0, 10) as track, i (track.id)}
             <button class="search-chart-song-row" onclick={() => playSong(track)}>
               <span class="search-chart-rank">{String(i + 1).padStart(2, '0')}</span>
@@ -158,6 +183,7 @@
               <span class="search-song-dur">{formatDuration(track.dt)}</span>
             </button>
           {/each}
+          {/if}
         </div>
       </section>
     </div>
@@ -184,7 +210,7 @@
             <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
             <div class="search-songs">
               {#each results.songs.slice(0, 8) as track (track.id)}
-                <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)}>
+                <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                   {#if track.picUrl}<img class="search-song-cover" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                   <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                   <span class="search-song-dur">{formatDuration(track.dt)}</span>
@@ -227,7 +253,7 @@
           <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
           <div class="search-songs">
             {#each results.songs as track (track.id)}
-              <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)}>
+              <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                 {#if track.picUrl}<img class="search-song-cover" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                 <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                 <span class="search-song-dur">{formatDuration(track.dt)}</span>
@@ -263,6 +289,7 @@
       {/if}
     </div>
   {/if}
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>
 
 <style>
@@ -311,6 +338,11 @@
   .search-chart-songs { display: grid; gap: 5px; }
   .search-chart-song-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 58px; gap: 12px; align-items: center; min-height: 44px; width: 100%; padding: 0 12px; border: none; border-radius: 14px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
   .search-chart-song-row:hover { background: var(--bg-hover); }
+  .search-chart-skeleton { cursor: default; pointer-events: none; }
+  .search-chart-skeleton .skeleton-line { display: block; width: 100%; height: 12px; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--bg-hover) 70%, transparent), color-mix(in srgb, var(--border) 72%, transparent), color-mix(in srgb, var(--bg-hover) 70%, transparent)); background-size: 220% 100%; animation: searchSkeleton 1.15s ease-in-out infinite; }
+  .search-chart-skeleton .skeleton-line.narrow { width: 48%; height: 10px; margin-top: 6px; }
+  .search-chart-skeleton .skeleton-line.tiny { width: 38px; height: 10px; }
+  @keyframes searchSkeleton { 0% { background-position: 100% 0; } 100% { background-position: -120% 0; } }
   .search-chart-rank { color: var(--text-tertiary); font-size: 13px; font-weight: 850; text-align: center; }
   .search-chart-song-row:nth-child(-n + 3) .search-chart-rank { color: var(--accent); }
   .search-feature-song { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 17px; align-items: end; width: 100%; text-align: left; color: var(--text); cursor: pointer; border: none; background: transparent; }
@@ -333,5 +365,36 @@
   .search-playlist-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
   .search-empty { display: grid; place-items: center; gap: 10px; min-height: 280px; color: var(--text-tertiary); border-radius: 24px; background: color-mix(in srgb, var(--bg-layer) 72%, transparent); }
   @media (max-width: 980px) { .search-command, .search-empty-layout { grid-template-columns: 1fr; } .search-command { min-height: auto; padding: 24px; } }
-  @media (max-width: 560px) { .search-command h1 { font-size: 40px; } .search-input-wrap { min-height: auto; flex-wrap: wrap; } .search-submit { width: 100%; } .search-feature-song { grid-template-columns: 86px minmax(0, 1fr); } .search-feature-song img, .search-feature-cover { width: 86px; height: 86px; } .search-playlist-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .search-page { gap: 16px; }
+    .search-command { gap: 14px; padding: 16px; border-radius: 18px; box-shadow: 0 14px 38px rgba(0,0,0,0.13); }
+    .search-kicker { margin-bottom: 6px; font-size: 11px; }
+    .search-command h1 { font-size: 30px; }
+    .search-command p { margin-top: 6px; font-size: 13px; line-height: 1.45; }
+    .search-input-wrap { min-height: 48px; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 16px; }
+    .search-input { font-size: 15px; }
+    .search-submit { width: auto; min-width: 64px; height: 36px; padding: 0 14px; border-radius: 12px; }
+    .search-category-tabs { width: 100%; }
+    .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { padding: 12px; border-radius: 18px; box-shadow: 0 10px 28px rgba(0,0,0,0.1); }
+    .search-empty-layout { gap: 12px; }
+    .search-song-chart-panel { padding-bottom: 10px; }
+    .search-section-header { margin-bottom: 10px; }
+    .search-section-header h2 { font-size: 16px; }
+    .search-section-header span, .search-section-header button { font-size: 11px; }
+    .search-chart-songs, .search-hot-list, .search-songs, .search-compact-list { gap: 3px; }
+    .search-hot-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .search-hot-row { grid-template-columns: 26px minmax(0, 1fr); min-height: 36px; padding: 0 8px; background: color-mix(in srgb, var(--bg-surface) 58%, transparent); }
+    .search-hot-row em { display: none; }
+    .search-chart-song-row { grid-template-columns: 30px minmax(0, 1fr); gap: 8px; min-height: 40px; padding: 0 8px; }
+    .search-chart-rank { font-size: 12px; }
+    .search-chart-song-row .search-song-dur { display: none; }
+    .search-feature-song { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; }
+    .search-feature-song img, .search-feature-cover { width: 72px; height: 72px; border-radius: 14px; }
+    .search-feature-song strong { font-size: 18px; }
+    .search-song-row { grid-template-columns: 42px minmax(0, 1fr); min-height: 54px; }
+    .search-song-cover { width: 42px; height: 42px; }
+    .search-song-dur { display: none; }
+    .search-playlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+    .search-playlist-grid img, .search-playlist-grid .search-cover-placeholder { border-radius: 12px; }
+  }
 </style>

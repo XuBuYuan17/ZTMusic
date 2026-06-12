@@ -16,6 +16,8 @@
   let cacheSizeText = $state('0 B')
   let defaultPage = $state(getStorage('default_page', 'home'))
   let restoreSession = $state(getStorage('restore_session', 'true') === 'true')
+  let lyricsBlur = $state(getStorage('lyrics_blur_effect', 'true') === 'true')
+  let lyricsTextBlur = $state(getStorage('lyrics_text_blur_effect', 'true') === 'true')
   let preferredQuality = $state(player.preferredLevel)
   let currentLocale = $state(i18n.locale)
 
@@ -94,6 +96,18 @@
   function handleRestoreSession(val) {
     restoreSession = val
     setStorage('restore_session', val ? 'true' : 'false')
+  }
+
+  function handleLyricsBlur(val) {
+    lyricsBlur = val
+    setStorage('lyrics_blur_effect', val ? 'true' : 'false')
+    window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: val }))
+  }
+
+  function handleLyricsTextBlur(val) {
+    lyricsTextBlur = val
+    setStorage('lyrics_text_blur_effect', val ? 'true' : 'false')
+    window.dispatchEvent(new CustomEvent('lyrics-text-blur-change', { detail: val }))
   }
 
   function handleQuality(val) {
@@ -222,6 +236,28 @@
       </div>
       <button class="switch-control" class:on={restoreSession} aria-pressed={restoreSession} onclick={() => handleRestoreSession(!restoreSession)}>
         <span>{restoreSession ? t('common.on', '开') : t('common.off', '关')}</span>
+      </button>
+    </div>
+
+    <!-- 歌词背景模糊 -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">歌词背景模糊</div>
+        <div class="settings-desc">关闭后歌词页不再使用专辑封面模糊背景，减少视觉干扰和 GPU 开销</div>
+      </div>
+      <button class="switch-control" class:on={lyricsBlur} aria-pressed={lyricsBlur} onclick={() => handleLyricsBlur(!lyricsBlur)}>
+        <span>{lyricsBlur ? t('common.on', '开') : t('common.off', '关')}</span>
+      </button>
+    </div>
+
+    <!-- 歌词文字模糊 -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">歌词文字模糊</div>
+        <div class="settings-desc">非当前播放行的文字模糊效果，关闭后所有歌词都以清晰样式显示</div>
+      </div>
+      <button class="switch-control" class:on={lyricsTextBlur} aria-pressed={lyricsTextBlur} onclick={() => handleLyricsTextBlur(!lyricsTextBlur)}>
+        <span>{lyricsTextBlur ? t('common.on', '开') : t('common.off', '关')}</span>
       </button>
     </div>
 
@@ -521,26 +557,127 @@
   }
 
   @media (max-width: 760px) {
-    .settings-header {
-      grid-template-columns: 1fr;
+    .settings-page {
+      gap: 12px;
     }
 
-    .settings-row,
+    .settings-header {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+      gap: 10px;
+      padding-bottom: 0;
+    }
+
+    .settings-kicker,
+    .settings-group-label,
+    .settings-status-card span {
+      font-size: 10px;
+    }
+
+    .settings-header h1 {
+      margin: 4px 0;
+      font-size: 28px;
+      line-height: 1.08;
+    }
+
+    .settings-header p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .settings-status-card {
+      gap: 5px;
+      padding: 12px 13px;
+      border-radius: 16px;
+    }
+
+    .settings-status-card strong {
+      font-size: 12px;
+    }
+
+    .settings-panel {
+      border-radius: 18px;
+    }
+
+    .settings-row {
+      gap: 12px;
+      min-height: 58px;
+      padding: 12px 14px;
+    }
+
+    .settings-row.stacked,
     .settings-row-head,
     .settings-input-row {
       align-items: stretch;
       flex-direction: column;
     }
 
-    .segmented-control,
-    .settings-select,
+    .settings-row-head {
+      gap: 10px;
+    }
+
+    .settings-group-label {
+      padding: 14px 14px 7px;
+    }
+
+    .settings-label {
+      font-size: 14px;
+    }
+
+    .settings-desc {
+      font-size: 11px;
+    }
+
+    .settings-input {
+      min-height: 38px;
+      font-size: 13px;
+    }
+
     .settings-primary-btn,
     .settings-secondary-btn {
       width: 100%;
     }
 
+    .segmented-control {
+      width: min(100%, 180px);
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+
     .segmented-control button {
       flex: 1;
+      min-width: 0;
+      min-height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .settings-select {
+      min-width: 116px;
+      min-height: 34px;
+      font-size: 12px;
+    }
+
+    .settings-primary-btn,
+    .settings-secondary-btn {
+      min-height: 34px;
+      font-size: 12px;
+    }
+
+    .switch-control {
+      width: 52px;
+      height: 30px;
+      padding: 0 6px;
+      flex-shrink: 0;
+    }
+
+    .switch-control::after {
+      width: 22px;
+      height: 22px;
+    }
+
+    .switch-control.on::after {
+      transform: translateX(18px);
     }
   }
 </style>

@@ -64,13 +64,37 @@
 
     <section class="music-discovery-section">
       <div class="music-section-head">
+        <h2>推荐歌单</h2>
+      </div>
+      <div class="music-card-rail">
+        {#if exploreLoading && playlists.length === 0}
+          {#each Array(8) as _}
+            <div class="music-cover-card skeleton-row">
+              <span class="music-cover-placeholder skeleton-block"></span>
+              <strong class="skeleton-line"></strong>
+              <em class="skeleton-line narrow"></em>
+            </div>
+          {/each}
+        {:else}
+        {#each playlists.slice(0, 14) as playlist (playlist.id)}
+          <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
+            {#if playlist.picUrl}<img src={playlist.picUrl + '?param=360y360'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            <strong>{playlist.name}</strong>
+            {#if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
+          </button>
+        {/each}
+        {/if}
+      </div>
+    </section>
+
+    <section class="music-discovery-section music-new-songs-section">
+      <div class="music-section-head">
         <h2>新歌精选</h2>
       </div>
       <div class="music-song-list">
         {#if exploreLoading && exploreRecommendSongs.length === 0}
           {#each Array(10) as _, index}
             <div class="music-song-item skeleton-row">
-              <span class="music-song-index">{String(index + 1).padStart(2, '0')}</span>
               <span class="music-cover-placeholder skeleton-block"></span>
               <span class="music-item-copy">
                 <strong class="skeleton-line"></strong>
@@ -81,7 +105,6 @@
         {:else}
         {#each exploreRecommendSongs.slice(0, 12) as track, index (track.id || index)}
           <button class="music-song-item" onclick={() => onPlaySong?.(track)}>
-            <span class="music-song-index">{String(index + 1).padStart(2, '0')}</span>
             {#if track.picUrl}<img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <span class="music-item-copy">
               <strong>{track.name}</strong>
@@ -131,7 +154,6 @@
           {#if exploreLoading && toplists.length === 0}
             {#each Array(6) as _, index}
               <div class="music-list-item skeleton-row">
-                <span class="music-chart-index">{index + 1}</span>
                 <span class="music-cover-placeholder skeleton-block"></span>
                 <span>
                   <strong class="skeleton-line"></strong>
@@ -142,7 +164,6 @@
           {:else}
           {#each toplists.slice(0, 6) as chart, index (chart.id)}
             <button class="music-list-item" onclick={() => onOpenPlaylist?.(chart.id, true, chart)}>
-              <span class="music-chart-index">{index + 1}</span>
               {#if chart.coverImgUrl}<img src={chart.coverImgUrl + '?param=112y112'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <span>
                 <strong>{chart.name}</strong>
@@ -155,28 +176,4 @@
       </div>
     </section>
 
-    <section class="music-discovery-section">
-      <div class="music-section-head">
-        <h2>推荐歌单</h2>
-      </div>
-      <div class="music-card-rail">
-        {#if exploreLoading && playlists.length === 0}
-          {#each Array(8) as _}
-            <div class="music-cover-card skeleton-row">
-              <span class="music-cover-placeholder skeleton-block"></span>
-              <strong class="skeleton-line"></strong>
-              <em class="skeleton-line narrow"></em>
-            </div>
-          {/each}
-        {:else}
-        {#each playlists.slice(0, 14) as playlist (playlist.id)}
-          <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-            {#if playlist.picUrl}<img src={playlist.picUrl + '?param=360y360'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
-            <strong>{playlist.name}</strong>
-            {#if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
-          </button>
-        {/each}
-        {/if}
-      </div>
-    </section>
 </div>

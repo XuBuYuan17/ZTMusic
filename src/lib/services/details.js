@@ -1,10 +1,62 @@
 import { coverUrl } from '../utils/image.js'
 
+const SONG_DETAIL_BATCH_SIZE = 500
+const INITIAL_PLAYLIST_DETAIL_LIMIT = 500
+
+async function loadSongsByIds(ncm, ids) {
+  const uniqueIds = [...new Set(ids.filter(Boolean))]
+  if (!uniqueIds.length) return []
+  const chunks = []
+  for (let index = 0; index < uniqueIds.length; index += SONG_DETAIL_BATCH_SIZE) {
+    chunks.push(uniqueIds.slice(index, index + SONG_DETAIL_BATCH_SIZE))
+  }
+  const results = await Promise.all(chunks.map(chunk => ncm.songDetail(chunk).catch(() => ({ songs: [] }))))
+  const songMap = new Map(results.flatMap(result => result?.songs || []).map(song => [song.id, song]))
+  return uniqueIds.map(id => songMap.get(id)).filter(Boolean)
+}
+
 export async function loadPlaylistDetail(ncm, extractColor, id) {
   const response = await ncm.playlistDetail(id)
   const detail = response?.playlist || null
+  if (detail?.trackIds?.length) {
+    const fallbackMap = new Map((detail.tracks || []).map(track => [track.id, track]))
+    const shouldDeferFullLoad = detail.trackIds.length > INITIAL_PLAYLIST_DETAIL_LIMIT
+    const idsToLoad = shouldDeferFullLoad
+      ? detail.trackIds.slice(0, INITIAL_PLAYLIST_DETAIL_LIMIT).map(track => track.id)
+      : detail.trackIds.map(track => track.id)
+    const songs = await loadSongsByIds(ncm, idsToLoad)
+    const songMap = new Map(songs.map(song => [song.id, song]))
+    const tracks = detail.trackIds.map((track, index) => {
+      const detailTrack = songMap.get(track.id) || fallbackMap.get(track.id) || (shouldDeferFullLoad ? { id: track.id, name: `歌曲 ${track.id}`, ar: [], al: {}, dt: 0 } : null)
+      if (!detailTrack) return null
+      return {
+        ...detailTrack,
+        addTime: track.at || track.addTime || track.time || detailTrack.addTime || 0,
+        playlistIndex: index,
+      }
+    }).filter(Boolean)
+    if (tracks.length) detail.tracks = tracks
+    detail.tracksPartial = shouldDeferFullLoad
+  }
   const heroColor = await extractHeroColor(extractColor, detail?.coverImgUrl)
   return { detail, heroColor }
+}
+
+export async function completePlaylistTracks(ncm, detail) {
+  if (!detail?.tracksPartial || !detail?.trackIds?.length) return detail
+  const fallbackMap = new Map((detail.tracks || []).map(track => [track.id, track]))
+  const songs = await loadSongsByIds(ncm, detail.trackIds.map(track => track.id))
+  const songMap = new Map(songs.map(song => [song.id, song]))
+  const tracks = detail.trackIds.map((track, index) => {
+    const detailTrack = songMap.get(track.id) || fallbackMap.get(track.id)
+    if (!detailTrack) return null
+    return {
+      ...detailTrack,
+      addTime: track.at || track.addTime || track.time || detailTrack.addTime || 0,
+      playlistIndex: index,
+    }
+  }).filter(Boolean)
+  return { ...detail, tracks, tracksPartial: false }
 }
 
 export async function loadAlbumDetail(ncm, extractColor, id) {

@@ -4,7 +4,7 @@
   import { extractCover } from '../utils/normalize.js'
   import ArtistNames from './ArtistNames.svelte'
 
-  let { show = false, onClose, onOpenArtist } = $props()
+  let { show = false, onClose, onOpenArtist, mobileVisible = false } = $props()
 
   function handlePlayTrack(track, index) {
     player.playTrack(track, index)
@@ -40,8 +40,8 @@
 
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="queue-panel-backdrop" role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
-  <div class="queue-panel">
+  <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
+  <div class="queue-panel" class:queue-panel-mobile-visible={mobileVisible}>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
       <button class="queue-clear-btn" onclick={handleClear} disabled={player.queue.length === 0}>
@@ -285,5 +285,42 @@
   .queue-empty-text {
     color: var(--text-secondary);
     font-size: 14px;
+  }
+
+  @media (max-width: 760px) {
+    .queue-panel-backdrop,
+    .queue-panel {
+      display: none;
+    }
+
+    .queue-panel-backdrop.queue-panel-mobile-visible {
+      display: block;
+    }
+
+    .queue-panel.queue-panel-mobile-visible {
+      display: flex;
+    }
+  }
+
+  @keyframes queue-slide-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes queue-drop-down {
+    from {
+      transform: translateY(-22px) scale(0.98);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
   }
 </style>

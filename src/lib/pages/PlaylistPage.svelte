@@ -1,6 +1,7 @@
 <script>
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import SongListActions from '../components/SongListActions.svelte'
 
   let {
     playlistDetail = null,
@@ -13,14 +14,74 @@
     onPlayAll,
     onPlayTrack,
     onOpenArtist,
+    onOpenAlbum,
   } = $props()
+
+  let songActions = $state(null)
+  let trackSearch = $state('')
+  let trackSort = $state('added')
+  let trackSortDir = $state('desc')
+  let lastSelectedId = $state(null)
+
+  let visibleTracks = $derived(filterAndSortTracks(playlistDetail?.tracks || [], trackSearch, trackSort, trackSortDir))
+
+  $effect(() => {
+    if (lastSelectedId !== selectedId) {
+      lastSelectedId = selectedId
+      trackSearch = ''
+      trackSort = 'added'
+      trackSortDir = 'desc'
+    }
+  })
+
+  function setSort(sort) {
+    if (trackSort === sort) {
+      trackSortDir = trackSortDir === 'asc' ? 'desc' : 'asc'
+      return
+    }
+    trackSort = sort
+    trackSortDir = sort === 'alpha' ? 'asc' : 'desc'
+  }
 
   function artistsOf(track) {
     return track.artists || track.ar || []
   }
 
+  function artistText(track) {
+    return artistsOf(track).map(artist => artist.name).join(' / ')
+  }
+
   function albumName(track) {
     return track.album?.name || track.al?.name || ''
+  }
+
+  function searchText(track) {
+    return [track.name, artistText(track), albumName(track)].filter(Boolean).join(' ').toLowerCase()
+  }
+
+  function firstLetter(track) {
+    return (track.name || '').trim().localeCompare ? (track.name || '').trim() : ''
+  }
+
+  function addedTime(track) {
+    return track.addTime || track.addedAt || 0
+  }
+
+  function filterAndSortTracks(tracks, search, sort, direction) {
+    const keyword = search.trim().toLowerCase()
+    const filtered = keyword ? tracks.filter(track => searchText(track).includes(keyword)) : [...tracks]
+    const dir = direction === 'asc' ? 1 : -1
+    if (sort === 'alpha') {
+      return filtered.sort((a, b) => firstLetter(a).localeCompare(firstLetter(b), 'zh-Hans-CN', { numeric: true, sensitivity: 'base' }) * dir)
+    }
+    return filtered.sort((a, b) => {
+      const aTime = addedTime(a)
+      const bTime = addedTime(b)
+      const diff = aTime - bTime
+      if (diff !== 0) return diff
+      if (!aTime && !bTime) return (a.playlistIndex ?? 0) - (b.playlistIndex ?? 0)
+      return ((a.playlistIndex ?? 0) - (b.playlistIndex ?? 0)) * dir
+    })
   }
 
   function duration(track) {
@@ -30,7 +91,7 @@
   function handleRowKeydown(event, track) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onPlayTrack?.(track.id)
+      onPlayTrack?.(track.id, visibleTracks)
     }
   }
 </script>
@@ -96,8 +157,24 @@
           {#if playlistDetail.description}
             <div class="hero-desc">{playlistDetail.description}</div>
           {/if}
-          <button class="hero-play-btn" onclick={onPlayAll} disabled={loading || !(playlistDetail.tracks?.length)}>播放全部</button>
+          <button class="hero-play-btn" onclick={() => onPlayAll?.(visibleTracks)} disabled={loading || !visibleTracks.length}>播放全部</button>
         </div>
+      </div>
+      <div class="playlist-toolbar">
+        <label class="playlist-search" aria-label="搜索歌单歌曲">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input bind:value={trackSearch} placeholder="搜索歌单内歌曲、歌手、专辑" />
+          {#if trackSearch}
+            <button type="button" onclick={() => trackSearch = ''} aria-label="清空搜索">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          {/if}
+        </label>
+        <div class="playlist-sort" aria-label="歌曲排序">
+          <button class:active={trackSort === 'added'} onclick={() => setSort('added')}>添加时间 {trackSort === 'added' ? (trackSortDir === 'asc' ? '↑' : '↓') : ''}</button>
+          <button class:active={trackSort === 'alpha'} onclick={() => setSort('alpha')}>首字母 {trackSort === 'alpha' ? (trackSortDir === 'asc' ? '↑' : '↓') : ''}</button>
+        </div>
+        <span class="playlist-toolbar-count">{visibleTracks.length} / {playlistDetail.tracks?.length || 0}</span>
       </div>
       <table class="track-table">
         <thead>
@@ -123,13 +200,19 @@
               </tr>
             {/each}
           {:else}
-            {#each playlistDetail.tracks ?? [] as track, i}
+            {#if visibleTracks.length === 0}
+              <tr class="track-empty-row">
+                <td colspan="6">没有匹配的歌曲</td>
+              </tr>
+            {/if}
+            {#each visibleTracks as track, i (track.id)}
               <tr
                 class:active={player.id === track.id}
                 role="button"
                 tabindex="0"
-                onclick={() => onPlayTrack?.(track.id)}
+                onclick={() => onPlayTrack?.(track.id, visibleTracks)}
                 onkeydown={(event) => handleRowKeydown(event, track)}
+                {...songActions?.bindRow(track)}
               >
                 <td class="col-num">{i + 1}</td>
                 <td class="col-cover">
@@ -166,6 +249,7 @@
       </div>
     {/if}
   </div>
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 {/key}
 
 <style>

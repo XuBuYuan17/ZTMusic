@@ -4,7 +4,7 @@
   import { ncm } from '../api/client.js'
   import Spinner from '../components/Spinner.svelte'
 
-  let { onNavigate = () => {} } = $props()
+  let { onNavigate = () => {}, targetUser = null } = $props()
 
   let messages = $state([])
   let loading = $state(false)
@@ -16,6 +16,7 @@
   let chatScrollEl = $state(null)
   let shouldScrollToBottom = $state(false)
   let originMsgId = $state(null)
+  let handledTargetUserId = $state(null)
 
   async function loadMessages() {
     if (!auth.isLoggedIn) return
@@ -53,6 +54,19 @@
     return user.userId || user.id || msg.fromUserId || msg.toUserId || msg.userId
   }
 
+  function createMessageFromUser(user) {
+    return {
+      userId: user.userId || user.id,
+      user: {
+        userId: user.userId || user.id,
+        nickname: user.nickname || user.name || '用户',
+        avatarUrl: user.avatarUrl || user.avatar || '',
+      },
+      lastMsgTime: Date.now(),
+      lastMsg: JSON.stringify({ msg: '从关注列表打开会话' }),
+    }
+  }
+
   async function openChat(msg) {
     selectedMsg = msg
     originMsgId = msg.userId || msg.fromUserId || msg.id
@@ -80,6 +94,10 @@
     chatMessages = []
     chatError = ''
     originMsgId = null
+  }
+
+  function stopEvent(e) {
+    e.stopPropagation()
   }
 
   function parseMsg(raw) {
@@ -139,6 +157,14 @@
   $effect(() => {
     if (auth.isLoggedIn) {
       loadMessages()
+    }
+  })
+
+  $effect(() => {
+    const targetId = targetUser?.userId || targetUser?.id
+    if (auth.isLoggedIn && targetUser && targetId !== handledTargetUserId) {
+      handledTargetUserId = targetId
+      openChat(createMessageFromUser(targetUser))
     }
   })
 

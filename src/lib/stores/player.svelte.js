@@ -35,6 +35,37 @@ let _playRequestId = 0
 let _playUrls = []
 let _playUrlIndex = 0
 const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
+const MAX_QUEUE_SIZE = 500
+
+function compactArtist(artist) {
+  if (!artist) return null
+  return {
+    id: artist.id,
+    name: artist.name || '',
+  }
+}
+
+function compactTrack(track) {
+  if (!track) return null
+  const album = track.al || track.album || {}
+  return {
+    id: track.id,
+    name: track.name || '',
+    ar: (track.ar || track.artists || []).map(compactArtist).filter(Boolean),
+    al: {
+      id: album.id,
+      name: album.name || '',
+      picUrl: album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '',
+    },
+    dt: track.dt || track.duration || 0,
+    picUrl: album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '',
+  }
+}
+
+function compactQueue(tracks) {
+  return (Array.isArray(tracks) ? tracks : []).slice(0, MAX_QUEUE_SIZE).map(compactTrack).filter(Boolean)
+}
+
 engine.onTimeUpdate((t) => {
   _currentTime = t
   // 每 3 秒保存一次播放进度，避免频繁写入
@@ -97,6 +128,7 @@ function tryNextPlayUrl() {
       _loading = false
       _playing = false
       _shouldAutoPlay = false
+      if (_queue.length > 1) next()
     }
   })
   return true
@@ -104,22 +136,23 @@ function tryNextPlayUrl() {
 
 function playTrack(track, index) {
   if (!track) return
+  const playableTrack = compactTrack(track)
+  if (!playableTrack) return
   const requestId = ++_playRequestId
-  _id = track.id
-  _title = track.name
-  _artist = (track.ar || track.artists || []).map(a => a.name).join(' / ')
-  _currentTrack = track
-  const album = track.al || track.album || {}
-  _cover = album.picUrl || track.coverImgUrl || track.picUrl || ''
-  _duration = track.dt || track.duration || 0
+  _id = playableTrack.id
+  _title = playableTrack.name
+  _artist = playableTrack.ar.map(a => a.name).join(' / ')
+  _currentTrack = playableTrack
+  _cover = playableTrack.picUrl || playableTrack.al.picUrl || ''
+  _duration = playableTrack.dt || 0
   _queueIndex = index >= 0 ? index : _queueIndex
   _loading = true
   _playing = false
   _shouldAutoPlay = true
   persistState()
-  addLocalHistory(track)
+  addLocalHistory(playableTrack)
 
-  getPlayableUrls(track.id).then(urls => {
+  getPlayableUrls(playableTrack.id).then(urls => {
     if (requestId !== _playRequestId) return
     _playUrls = urls
     _playUrlIndex = 0
@@ -182,11 +215,11 @@ export function clearHistory() {
 }
 
 function playQueue(tracks, startIndex = 0) {
-  _queue = tracks
-  _queueIndex = startIndex
-  saveLS('player_queue', tracks)
-  saveLS('player_qi', startIndex)
-  if (tracks[startIndex]) playTrack(tracks[startIndex], startIndex)
+  _queue = compactQueue(tracks)
+  _queueIndex = Math.min(Math.max(startIndex, 0), Math.max(_queue.length - 1, 0))
+  saveLS('player_queue', _queue)
+  saveLS('player_qi', _queueIndex)
+  if (_queue[_queueIndex]) playTrack(_queue[_queueIndex], _queueIndex)
 }
 
 function next() {
@@ -288,7 +321,7 @@ function restore() {
   if (getLS('restore_session', 'true') !== 'true') return
   const savedId = parseInt(getLS('player_id', '0'))
   if (!savedId) return
-  const savedQueue = getLSJson('player_queue', [])
+  const savedQueue = compactQueue(getLSJson('player_queue', []))
   const savedTime = parseFloat(getLS('player_time', '0'))
   const savedIndex = parseInt(getLS('player_qi', '-1'))
   const idx = savedIndex >= 0 ? savedIndex : 0

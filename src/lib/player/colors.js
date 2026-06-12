@@ -1,4 +1,13 @@
+const MAX_COLOR_CACHE_ENTRIES = 80
 let cache = new Map()
+
+function rememberColor(imgUrl, color) {
+  cache.delete(imgUrl)
+  cache.set(imgUrl, color)
+  if (cache.size > MAX_COLOR_CACHE_ENTRIES) {
+    cache.delete(cache.keys().next().value)
+  }
+}
 
 export function extractColor(imgUrl) {
   if (cache.has(imgUrl)) return cache.get(imgUrl)
@@ -28,7 +37,7 @@ export function extractColor(imgUrl) {
         b = Math.round(b / count)
 
         const color = `rgb(${r},${g},${b})`
-        cache.set(imgUrl, color)
+        rememberColor(imgUrl, color)
         resolve(color)
       } catch {
         resolve(null)

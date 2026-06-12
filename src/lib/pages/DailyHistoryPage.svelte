@@ -2,6 +2,7 @@
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
   import { extractCover } from '../utils/normalize.js'
+  import SongListActions from '../components/SongListActions.svelte'
 
   let {
     dailyHistoryDates = [],
@@ -12,7 +13,10 @@
     onPlayAll,
     onPlayTrack,
     onOpenArtist,
+    onOpenAlbum,
   } = $props()
+
+  let songActions = $state(null)
 
   function artistsOf(track) {
     return track.artists || track.ar || []
@@ -121,7 +125,7 @@
           </div>
           <div class="daily-song-list">
             {#each dailyHistorySongs as track, i (track.id)}
-              <div class="daily-song-row" class:active={player.id === track.id} style={`--row-index:${Math.min(i, 12)}`} role="button" tabindex="0" onclick={() => onPlayTrack?.(track)} onkeydown={(event) => handleSongKeydown(event, track)}>
+              <div class="daily-song-row" class:active={player.id === track.id} style={`--row-index:${Math.min(i, 12)}`} role="button" tabindex="0" onclick={() => onPlayTrack?.(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
                 <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
                 {#if coverOf(track)}
                   <img class="daily-song-cover" src={coverOf(track) + '?param=96y96'} alt="" loading="lazy" />
@@ -155,6 +159,7 @@
         <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">需要登录后获取</p>
       </div>
     {/if}
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>
 
 <style>

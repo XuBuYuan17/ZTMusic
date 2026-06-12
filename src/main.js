@@ -1,5 +1,13 @@
 import './app.css'
 
+const isAndroidRuntime = /Android/i.test(navigator.userAgent)
+
+if (isAndroidRuntime) {
+  document.documentElement.classList.add('mobile-runtime')
+  const viewport = document.querySelector('meta[name="viewport"]')
+  viewport?.setAttribute('content', 'width=390, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover')
+}
+
 ;(async () => {
   try {
     const { mount } = await import('svelte')
