@@ -6,6 +6,8 @@ class AudioEngine {
     this._onLoadStart = null
     this._onCanPlay = null
     this._onError = null
+    this._onPlay = null
+    this._onPause = null
 
     this.audio.addEventListener('timeupdate', () => {
       if (this._onTimeUpdate) this._onTimeUpdate(this.audio.currentTime)
@@ -21,6 +23,12 @@ class AudioEngine {
     })
     this.audio.addEventListener('error', (e) => {
       if (this._onError) this._onError(e)
+    })
+    this.audio.addEventListener('play', () => {
+      if (this._onPlay) this._onPlay()
+    })
+    this.audio.addEventListener('pause', () => {
+      if (this._onPause) this._onPause()
     })
   }
 
@@ -67,6 +75,8 @@ class AudioEngine {
   onLoadStart(fn) { this._onLoadStart = fn }
   onCanPlay(fn) { this._onCanPlay = fn }
   onError(fn) { this._onError = fn }
+  onPlay(fn) { this._onPlay = fn }
+  onPause(fn) { this._onPause = fn }
 
   destroy() {
     this.pause()
@@ -77,6 +87,8 @@ class AudioEngine {
     this._onLoadStart = null
     this._onCanPlay = null
     this._onError = null
+    this._onPlay = null
+    this._onPause = null
   }
 }
 

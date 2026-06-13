@@ -46,6 +46,11 @@
   let queueLength = $derived(player.queue?.length || 0)
   let hasPlayableTrack = $derived(Boolean(player.id))
 
+  let lyricsMode = $state(false)
+  function toggleLyricsMode() {
+    lyricsMode = !lyricsMode
+  }
+
   $effect(() => {
     const handleLyricsBlurChange = (event) => {
       lyricsBlur = Boolean(event.detail)
@@ -278,17 +283,19 @@
   }
 
   function clearLyricAnimations() {
-    lyricsEl?.querySelectorAll('.ly-line.animate-words').forEach(line => {
+    const el = lyricsEl
+    el?.querySelectorAll('.ly-line.animate-words').forEach(line => {
       line.classList.remove('animate-words')
     })
   }
 
   function scrollToLine(idx) {
-    if (!lyricsEl) return
-    const line = lyricsEl.querySelector(`[data-idx="${idx}"]`)
+    const el = lyricsEl
+    if (!el) return
+    const line = el.querySelector(`[data-idx="${idx}"]`)
     if (line) {
-      lyricsEl.scrollTo({
-        top: line.offsetTop - lyricsEl.clientHeight / 3,
+      el.scrollTo({
+        top: line.offsetTop - el.clientHeight / 3,
         behavior: 'smooth'
       })
       line.classList.remove('animate-words')
@@ -512,6 +519,8 @@
     event?.stopPropagation()
     volumeOpen = !volumeOpen
   }
+
+  // ---
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -584,9 +593,9 @@
       {/if}
 
       <!-- Left: Cover + Track info + Controls -->
-      <div class="ly-left">
+      {#snippet leftPanel()}
         <div class="ly-left-cover">
-          <div class="ly-cover-wrap">
+          <div class="ly-cover-wrap" role="button" tabindex="0" onclick={toggleLyricsMode} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode() } }}>
             <img class="ly-cover" src={(player.cover || '') + '?param=600y600'} alt="" />
           </div>
           <div class="ly-track-wrap">
@@ -669,6 +678,10 @@
             </button>
           </div>
         </div>
+      {/snippet}
+
+      <div class="ly-left">
+        {@render leftPanel()}
       </div>
 
       <!-- Right: Lyrics -->
@@ -839,6 +852,44 @@
             {/if}
           {/if}
         </div>
+      </div>
+
+      <!-- Mobile: single .ly-left with lyrics toggle -->
+      <div class="ly-left ly-mobile-player" class:lyrics-mode={lyricsMode}>
+        {@render leftPanel()}
+        {#if lyricsMode}
+          <div class="ly-mobile-lyrics" bind:this={lyricsEl}>
+            {#if lyrics.length > 0}
+              <div class="ly-lyrics-inner">
+              {#each lyrics as line, i}
+                <button
+                  class="ly-line"
+                  class:active={i === highlightIndex}
+                  class:sung={i < highlightIndex}
+                  data-idx={i}
+                  aria-current={i === highlightIndex ? 'true' : undefined}
+                  onclick={(event) => onLyricLineClick(event, line.time)}
+                >
+                  <span class="ly-line-text">
+                    {#if line.words?.length}
+                      {#each line.words as w, wi}
+                        <span class="ly-word" style="--i:{wi}">{w}</span>{wi < line.words.length - 1 ? '\u00A0' : ''}
+                      {/each}
+                    {:else}
+                      {line.text || '...'}
+                    {/if}
+                  </span>
+                  {#if line.translation}
+                    <span class="ly-line-trans">{line.translation}</span>
+                  {/if}
+                </button>
+              {/each}
+              </div>
+            {:else}
+              <div class="ly-no-lyric">暂无歌词</div>
+            {/if}
+          </div>
+        {/if}
       </div>
 
     </div>

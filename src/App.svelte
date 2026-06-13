@@ -5,7 +5,7 @@
   import { auth } from './lib/stores/auth.svelte.js'
   import { extractColor } from './lib/player/colors.js'
   import { loadDailyHistoryData, loadDailyHistoryDetailData } from './lib/services/dailyHistory.js'
-  import { completePlaylistTracks, loadAlbumDetail, loadArtistDetail, loadPlaylistDetail } from './lib/services/details.js'
+  import { loadAlbumDetail, loadArtistDetail, loadPlaylistDetail } from './lib/services/details.js'
   import { loadExploreData as fetchExploreData } from './lib/services/explore.js'
   import { loadHomeData, loadLibraryData, loadRecentData, loadToplistsData } from './lib/services/home.js'
   import { getStorage, setStorage } from './lib/utils/storage.js'
@@ -44,6 +44,7 @@
   let loading = $state(true)
   let playlistDetail = $state(null)
   let playlistDetailLoading = $state(false)
+  let playlistLoadingMore = $state(false)
   let playlistDetailError = $state('')
   let showSheet = $state(false)
   let lyricsOrigin = $state(null)
@@ -123,6 +124,22 @@
   // 恢复上次播放状态
   $effect(() => {
     player.restore()
+  })
+
+  $effect(() => {
+    if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+      import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+        getCurrentWindow().onCloseRequested(async (event) => {
+          if (showSheet) { event.preventDefault(); closeSheet(); return }
+          if (showQueuePanel) { event.preventDefault(); closeQueue(); return }
+          if (showLogin) { event.preventDefault(); showLogin = false; return }
+          if (showFollowDialog) { event.preventDefault(); showFollowDialog = false; return }
+          if (activeView !== 'home' && activeView !== 'playlist' && activeView !== 'album' && activeView !== 'settings') {
+            event.preventDefault(); goBack(); return
+          }
+        })
+      })
+    }
   })
 
   $effect(() => {
@@ -275,9 +292,21 @@
     playlistDetail = createPlaylistPreview(preview, id)
     playlistDetailError = ''
     playlistDetailLoading = true
-    let data
+    let loadedFirstBatch = false
     try {
-      data = await loadPlaylistDetail(ncm, extractColor, id)
+      data = await loadPlaylistDetail(ncm, extractColor, id, (partial) => {
+        if (requestId === detailRequestId) {
+          playlistDetail = partial.detail
+          heroColor = partial.heroColor
+          if (!loadedFirstBatch) {
+            loadedFirstBatch = true
+            playlistDetailLoading = false
+            const total = partial.detail?.trackIds?.length || 0
+            const have = partial.detail?.tracks?.length || 0
+            if (have < total) playlistLoadingMore = true
+          }
+        }
+      })
     } catch (error) {
       data = { detail: null, heroColor: '#141414' }
       playlistDetailError = error?.message || '歌单详情加载失败'
@@ -286,11 +315,7 @@
     playlistDetail = data.detail
     heroColor = data.heroColor
     playlistDetailLoading = false
-    if (data.detail?.tracksPartial) {
-      completePlaylistTracks(ncm, data.detail).then((fullDetail) => {
-        if (requestId === detailRequestId && selectedId === id) playlistDetail = fullDetail
-      }).catch(() => {})
-    }
+    playlistLoadingMore = false
   }
 
   async function goAlbum(id, shouldPushRoute = true) {
@@ -684,6 +709,7 @@
           <PlaylistPage
             {playlistDetail}
             loading={playlistDetailLoading}
+            loadingMore={playlistLoadingMore}
             error={playlistDetailError}
             {selectedId}
             {heroColor}

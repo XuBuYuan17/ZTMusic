@@ -196,8 +196,8 @@ export const ncm = {
     return request('/search/hot')
   },
 
-  songUrl(id, level = 'lossless') {
-    return request('/song/url/v1', { id, level })
+  songUrl(id, level = 'lossless', unblock = false) {
+    return request('/song/url/v1', { id, level, unblock: unblock ? 'true' : 'false' })
   },
   lyric(id) {
     return request('/lyric', { id })

@@ -1,6 +1,7 @@
 import { engine } from '../player/engine.js'
 import { ncm } from '../api/client.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
+import { coverUrl } from '../utils/image.js'
 
 function getLS(key, def) {
   return getStorage(key, def)
@@ -36,6 +37,26 @@ let _playUrls = []
 let _playUrlIndex = 0
 const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
 const MAX_QUEUE_SIZE = 500
+
+let _mediaSessionInited = false
+
+function initMediaSession() {
+  if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
+  if (_mediaSessionInited) return
+  _mediaSessionInited = true
+
+  const setPlaybackState = (state) => {
+    try { navigator.mediaSession.playbackState = state } catch {}
+  }
+
+  engine.onPlay(() => setPlaybackState('playing'))
+  engine.onPause(() => setPlaybackState('paused'))
+
+  navigator.mediaSession.setActionHandler('play', () => { engine.play() })
+  navigator.mediaSession.setActionHandler('pause', () => { engine.pause() })
+  navigator.mediaSession.setActionHandler('nexttrack', () => next())
+  navigator.mediaSession.setActionHandler('previoustrack', () => prev())
+}
 
 function compactArtist(artist) {
   if (!artist) return null
@@ -109,10 +130,19 @@ async function getPlayableUrls(id) {
   if (prefIdx > 0) { levels.splice(prefIdx, 1); levels.unshift(_preferredLevel) }
   for (const level of levels) {
     try {
-      const res = await ncm.songUrl(id, level)
+      const res = await ncm.songUrl(id, level, false)
       const item = res.data?.[0]
       if (item?.url && !urls.includes(item.url)) urls.push(item.url)
     } catch {}
+  }
+  if (urls.length === 0) {
+    for (const level of levels) {
+      try {
+        const res = await ncm.songUrl(id, level, true)
+        const item = res.data?.[0]
+        if (item?.url && !urls.includes(item.url)) urls.push(item.url)
+      } catch {}
+    }
   }
   if (!urls.includes(fallbackUrl)) urls.push(fallbackUrl)
   return urls
@@ -149,6 +179,17 @@ function playTrack(track, index) {
   _loading = true
   _playing = false
   _shouldAutoPlay = true
+
+  if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+    initMediaSession()
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: _title,
+      artist: _artist,
+      album: '',
+      artwork: [{ src: coverUrl(_cover, 512), sizes: '512x512', type: 'image/jpeg' }],
+    })
+  }
+
   persistState()
   addLocalHistory(playableTrack)
 

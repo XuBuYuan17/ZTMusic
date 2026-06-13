@@ -6,6 +6,7 @@
   let {
     playlistDetail = null,
     loading = false,
+    loadingMore = false,
     error = '',
     selectedId = null,
     heroColor = '#141414',
@@ -96,7 +97,7 @@
   }
 </script>
 
-{#key `${selectedId}:${loading ? 'loading' : 'ready'}:${error ? 'error' : 'ok'}`}
+{#key selectedId}
   <div class="fade-in">
     {#if loading && !playlistDetail}
       <div class="hero-section" style="margin: -24px -32px 0;padding:32px;border-radius:0;position:relative;">
@@ -188,7 +189,7 @@
           </tr>
         </thead>
         <tbody>
-          {#if loading}
+          {#if loading && (!playlistDetail?.tracks || playlistDetail.tracks.length === 0)}
             {#each Array(10) as _, i}
               <tr class="skeleton-table-row">
                 <td class="col-num">{i + 1}</td>
@@ -200,7 +201,7 @@
               </tr>
             {/each}
           {:else}
-            {#if visibleTracks.length === 0}
+            {#if visibleTracks.length === 0 && !loading}
               <tr class="track-empty-row">
                 <td colspan="6">没有匹配的歌曲</td>
               </tr>
@@ -239,6 +240,14 @@
                 <td class="col-dur">{duration(track)}</td>
               </tr>
             {/each}
+            {#if loadingMore && playlistDetail?.tracks?.length}
+              <tr class="loading-more-row">
+                <td colspan="6">
+                  <span class="loading-more-spinner"></span>
+                  正在加载更多歌曲…
+                </td>
+              </tr>
+            {/if}
           {/if}
         </tbody>
       </table>
@@ -280,5 +289,28 @@
 
   .detail-state button:hover {
     background: var(--accent-bg-hover);
+  }
+
+  .loading-more-row td {
+    text-align: center;
+    padding: 16px !important;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .loading-more-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>

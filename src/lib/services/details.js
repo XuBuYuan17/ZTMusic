@@ -15,7 +15,7 @@ async function loadSongsByIds(ncm, ids) {
   return uniqueIds.map(id => songMap.get(id)).filter(Boolean)
 }
 
-export async function loadPlaylistDetail(ncm, extractColor, id) {
+export async function loadPlaylistDetail(ncm, extractColor, id, onProgress) {
   const response = await ncm.playlistDetail(id)
   const detail = response?.playlist || null
   if (detail?.trackIds?.length) {
@@ -24,19 +24,42 @@ export async function loadPlaylistDetail(ncm, extractColor, id) {
     const idsToLoad = shouldDeferFullLoad
       ? detail.trackIds.slice(0, INITIAL_PLAYLIST_DETAIL_LIMIT).map(track => track.id)
       : detail.trackIds.map(track => track.id)
-    const songs = await loadSongsByIds(ncm, idsToLoad)
-    const songMap = new Map(songs.map(song => [song.id, song]))
-    const tracks = detail.trackIds.map((track, index) => {
-      const detailTrack = songMap.get(track.id) || fallbackMap.get(track.id) || (shouldDeferFullLoad ? { id: track.id, name: `歌曲 ${track.id}`, ar: [], al: {}, dt: 0 } : null)
-      if (!detailTrack) return null
-      return {
-        ...detailTrack,
-        addTime: track.at || track.addTime || track.time || detailTrack.addTime || 0,
-        playlistIndex: index,
-      }
-    }).filter(Boolean)
+
+    async function buildTracks(songMap) {
+      return detail.trackIds.map((track, index) => {
+        const detailTrack = songMap.get(track.id) || fallbackMap.get(track.id) || (shouldDeferFullLoad ? { id: track.id, name: `歌曲 ${track.id}`, ar: [], al: {}, dt: 0 } : null)
+        if (!detailTrack) return null
+        return {
+          ...detailTrack,
+          addTime: track.at || track.addTime || track.time || detailTrack.addTime || 0,
+          playlistIndex: index,
+        }
+      }).filter(Boolean)
+    }
+
+    const firstBatch = idsToLoad.slice(0, 10)
+    const [firstSongs, heroColor] = await Promise.all([
+      firstBatch.length ? loadSongsByIds(ncm, firstBatch) : Promise.resolve([]),
+      extractHeroColor(extractColor, detail?.coverImgUrl),
+    ])
+    const songMap = new Map(firstSongs.map(song => [song.id, song]))
+    let tracks = await buildTracks(songMap)
     if (tracks.length) detail.tracks = tracks
+    if (onProgress) onProgress({ detail, heroColor })
+
+    const remainingIds = idsToLoad.slice(10)
+    for (let i = 0; i < remainingIds.length; i += 50) {
+      const batch = remainingIds.slice(i, i + 50)
+      if (!batch.length) continue
+      const songs = await loadSongsByIds(ncm, batch)
+      for (const song of songs) songMap.set(song.id, song)
+      tracks = await buildTracks(songMap)
+      if (tracks.length) detail.tracks = tracks
+      if (onProgress) onProgress({ detail, heroColor })
+    }
+
     detail.tracksPartial = shouldDeferFullLoad
+    return { detail, heroColor }
   }
   const heroColor = await extractHeroColor(extractColor, detail?.coverImgUrl)
   return { detail, heroColor }
