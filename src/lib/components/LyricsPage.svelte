@@ -546,7 +546,7 @@
     role="presentation"
     onclick={onClose}
   >
-    <div class="ly-container" role="presentation" onclick={(e) => e.stopPropagation()}>
+    <div class="ly-container" class:ly-mobile-lyrics-mode={lyricsMode} role="presentation" onclick={(e) => e.stopPropagation()}>
 
       <div class="ly-top-bar">
         <button class="ly-queue-btn" onclick={toggleLocalQueue} aria-label="播放列表" aria-expanded={showLocalQueue} disabled={!hasPlayableTrack}>

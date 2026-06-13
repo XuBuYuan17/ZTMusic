@@ -5939,7 +5939,12 @@ button.ly-context-card.active {
     pointer-events: none;
   }
 
+  .ly-container.ly-mobile-lyrics-mode .ly-top-bar {
+    display: none;
+  }
+
   .ly-mobile-player.lyrics-mode .ly-left-controls {
+    display: none;
     opacity: 0;
     transform: translateY(16px);
     pointer-events: none;
@@ -5953,7 +5958,7 @@ button.ly-context-card.active {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    padding: 0 20px 20px;
+    padding: 14px 20px 28px;
     width: 100%;
   }
   .ly-mobile-lyrics::-webkit-scrollbar { display: none; }
