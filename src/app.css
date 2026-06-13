@@ -6115,6 +6115,87 @@ button.ly-context-card.active {
     max-height: min(42vh, 340px);
   }
 
+  .ly-mobile-player.context-open {
+    justify-content: flex-start;
+    transform: translateY(clamp(8px, 2vh, 22px));
+  }
+
+  .ly-mobile-context {
+    width: 100%;
+    min-height: 0;
+    margin-top: 16px;
+    padding: 0 2px;
+    overflow-y: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ly-mobile-context::-webkit-scrollbar { display: none; }
+
+  .ly-mobile-context .ly-context-strip {
+    position: static;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 0;
+    transform-origin: center top;
+  }
+
+  .ly-mobile-context .ly-context-strip button.ly-context-card,
+  .ly-mobile-context .ly-context-strip .ly-context-comment {
+    grid-template-columns: 46px minmax(0, 1fr);
+    grid-template-rows: none;
+    justify-items: stretch;
+    align-items: center;
+    min-height: 64px;
+    padding: 9px 11px;
+    border-radius: 18px;
+    text-align: left;
+  }
+
+  .ly-mobile-context .ly-context-card img,
+  .ly-mobile-context .ly-context-cover-ph {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+  }
+
+  .ly-mobile-context .ly-context-copy {
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .ly-mobile-context .ly-context-copy small {
+    writing-mode: horizontal-tb;
+    position: static;
+    max-height: none;
+  }
+
+  .ly-mobile-context .ly-context-copy strong {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    text-align: left;
+  }
+
+  .ly-mobile-context .ly-context-detail {
+    position: static;
+    width: 100%;
+    max-height: min(32vh, 280px);
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .ly-mobile-context .ly-context-detail-list,
+  .ly-mobile-context .ly-context-comment-list,
+  .ly-mobile-context .ly-context-detail-grid {
+    max-height: calc(min(32vh, 280px) - 54px);
+  }
+
   .player-bar-wrap.queue-open {
     right: 10px !important;
   }
