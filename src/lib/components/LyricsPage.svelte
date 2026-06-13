@@ -863,9 +863,9 @@
       </div>
 
       <!-- Mobile: single .ly-left with lyrics toggle -->
-      <div class="ly-left ly-mobile-player" class:lyrics-mode={lyricsMode} class:context-open={showContextStrip && !lyricsMode}>
+      <div class="ly-left ly-mobile-player" class:lyrics-mode={lyricsMode} class:context-open={contextPanel && !lyricsMode}>
         {@render leftPanel()}
-        {#if showContextStrip && !lyricsMode && (extrasLoading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)}
+        {#if !lyricsMode && (extrasLoading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)}
           <div class="ly-mobile-context" aria-label="歌曲相关内容">
             <div class="ly-context-strip" aria-label="歌曲相关内容">
               {#if extrasLoading}
