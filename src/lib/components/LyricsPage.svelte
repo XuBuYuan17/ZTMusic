@@ -152,6 +152,14 @@
     }
   })
 
+  $effect(() => {
+    if (lyricsMode) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToLine(highlightIndex))
+      })
+    }
+  })
+
   function onKeydown(e) {
     if (!show) return
     if (e.key === 'Escape') onClose?.()
@@ -293,7 +301,7 @@
     const el = lyricsEl
     if (!el) return
     const line = el.querySelector(`[data-idx="${idx}"]`)
-    if (line) {
+    if (line && el.clientHeight > 0) {
       el.scrollTo({
         top: line.offsetTop - el.clientHeight / 3,
         behavior: 'smooth'
