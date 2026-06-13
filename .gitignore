@@ -16,6 +16,11 @@ dist-ssr
 local.settings.json
 local.override.css
 
+# Android signing secrets
+*.jks
+*.keystore
+src-tauri/gen/android/keystore.properties
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

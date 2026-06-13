@@ -189,7 +189,9 @@
         {/key}
       {:else}
         <div class="lcd-meta__title">{player.title || '未在播放'}</div>
-        {#if player.artist && !player.loading && !lyricLoading}
+        {#if player.error}
+          <div class="lcd-meta__artist">{player.error}</div>
+        {:else if player.artist && !player.loading && !lyricLoading}
           <div class="lcd-meta__artist"><ArtistNames artists={currentArtists} {onOpenArtist} fallback={player.artist} /></div>
         {:else}
           <div class="lcd-meta__artist">{player.loading ? '正在载入…' : lyricLoading ? '正在同步歌词…' : player.artist || ''}</div>

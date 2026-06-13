@@ -1,7 +1,6 @@
 <script>
   import { slide } from 'svelte/transition'
   import { auth } from '../stores/auth.svelte.js'
-  import { formatPlayCount } from '../format.js'
   import { extractCover } from '../utils/normalize.js'
   import SongListActions from '../components/SongListActions.svelte'
 
@@ -47,7 +46,6 @@
   const heroReady = $derived(recommendPlaylists.length > 0)
   const heroPlaylist = $derived(heroReady ? recommendPlaylists[0] : null)
   const heroImage = $derived(auth.user?.avatarUrl || '')
-  const quickPlaylists = $derived(recommendPlaylists.slice(1, 5))
   const stationCards = $derived([
     {
       title: '关注列表',
@@ -109,31 +107,49 @@
       {/each}
     </section>
 
-    {#if quickPlaylists.length > 0}
-      <section class="home-section home-top-picks">
-        <div class="home-section-header">
-          <div>
-            <div class="home-section-eyebrow">Top Picks</div>
-            <h2 class="home-section-title">为你推荐</h2>
-          </div>
-        </div>
-        <div class="home-feature-row">
-          {#each quickPlaylists as pl (pl.id)}
-            <button class="home-feature-card" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
-              {#if pl.picUrl}
-                <img src={pl.picUrl + '?param=420y420'} alt="" loading="lazy" />
-              {:else}
-                <span class="home-cover-placeholder">♫</span>
-              {/if}
-              <span>{pl.name}</span>
-              <em>{formatPlayCount(pl.playCount || 0)} 播放</em>
-            </button>
-          {/each}
-        </div>
-      </section>
-    {/if}
-
     <section class="home-dashboard">
+        <div class="home-panel home-library-panel">
+          <div class="home-section-header compact">
+            <div>
+              <div class="home-section-eyebrow">Library</div>
+              <h2 class="home-section-title">你的资料库</h2>
+            </div>
+          </div>
+          {#if loading && userPlaylists.length === 0}
+            <div class="home-track-list" aria-label="加载资料库">
+              {#each Array(6) as _, i}
+                <div class="home-track-row skeleton-row" style={`--skeleton-delay:${i * 90}ms`}>
+                  <span class="home-track-index skeleton-line short"></span>
+                  <span class="home-track-cover-ph skeleton-block"></span>
+                  <span class="home-track-copy">
+                    <strong class="skeleton-line"></strong>
+                    <em class="skeleton-line narrow"></em>
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {:else if userPlaylists.length > 0}
+            <div class="home-track-list">
+              {#each userPlaylists.slice(0, 6) as pl, i (pl.id)}
+                <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
+                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
+                  {#if pl.picUrl}
+                    <img src={pl.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                  {:else}
+                    <span class="home-track-cover-ph">♫</span>
+                  {/if}
+                  <span class="home-track-copy">
+                    <strong>{pl.name}</strong>
+                    <em>{pl.trackCount} 首</em>
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <div class="home-panel-empty">收藏的歌单会显示在这里</div>
+          {/if}
+        </div>
+
         <div class="home-panel home-recent-panel">
           <div class="home-section-header compact">
             <div>
@@ -145,8 +161,8 @@
 
           {#if loading && recentTracks.length === 0}
             <div class="home-library-grid" aria-label="加载最近播放">
-              {#each Array(6) as _}
-                <div class="home-library-item skeleton-row">
+              {#each Array(6) as _, i}
+                <div class="home-library-item skeleton-row" style={`--skeleton-delay:${i * 90}ms`}>
                   <span class="home-track-cover-ph skeleton-block"></span>
                   <span>
                     <strong class="skeleton-line"></strong>
@@ -182,48 +198,6 @@
             </div>
           {:else}
             <div class="home-panel-empty">还没有最近播放</div>
-          {/if}
-        </div>
-
-        <div class="home-panel home-library-panel">
-          <div class="home-section-header compact">
-            <div>
-              <div class="home-section-eyebrow">Library</div>
-              <h2 class="home-section-title">你的资料库</h2>
-            </div>
-          </div>
-          {#if loading && userPlaylists.length === 0}
-            <div class="home-track-list" aria-label="加载资料库">
-              {#each Array(5) as _}
-                <div class="home-track-row skeleton-row">
-                  <span class="home-track-index skeleton-line short"></span>
-                  <span class="home-track-cover-ph skeleton-block"></span>
-                  <span class="home-track-copy">
-                    <strong class="skeleton-line"></strong>
-                    <em class="skeleton-line narrow"></em>
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {:else if userPlaylists.length > 0}
-            <div class="home-track-list">
-              {#each userPlaylists.slice(0, 6) as pl, i (pl.id)}
-                <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
-                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
-                  {#if pl.picUrl}
-                    <img src={pl.picUrl + '?param=96y96'} alt="" loading="lazy" />
-                  {:else}
-                    <span class="home-track-cover-ph">♫</span>
-                  {/if}
-                  <span class="home-track-copy">
-                    <strong>{pl.name}</strong>
-                    <em>{pl.trackCount} 首</em>
-                  </span>
-                </button>
-              {/each}
-            </div>
-          {:else}
-            <div class="home-panel-empty">收藏的歌单会显示在这里</div>
           {/if}
         </div>
       </section>

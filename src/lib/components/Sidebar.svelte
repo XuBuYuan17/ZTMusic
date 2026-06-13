@@ -4,7 +4,7 @@
 
   let {
     activeView = 'home',
-    collapsed = false,
+    collapsed = $bindable(false),
     theme = 'dark',
     refreshKey = 0,
     onNavigate,
@@ -17,11 +17,24 @@
   function nav(id) {
     onNavigate?.(id)
   }
+
+  function toggleCollapsed() {
+    collapsed = !collapsed
+  }
 </script>
 
 <aside class="sidebar" class:collapsed>
   <div class="sidebar-header">
     <span class="sidebar-logo">ZT Music</span>
+    <button class="sidebar-toggle" type="button" onclick={toggleCollapsed} aria-label={collapsed ? '展开侧栏' : '收起侧栏'}>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        {#if collapsed}
+          <path d="M9 18l6-6-6-6" />
+        {:else}
+          <path d="M15 18l-6-6 6-6" />
+        {/if}
+      </svg>
+    </button>
   </div>
 
   <nav class="sidebar-nav">
@@ -40,13 +53,6 @@
           <span class="nav-title">主页</span>
         {/if}
       </span>
-    </button>
-
-    <button class="nav-item" class:active={activeView === 'search'} onclick={() => nav('search')}>
-      <span class="nav-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      </span>
-      <span class="nav-label">搜索</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'explore'} onclick={() => nav('explore')}>

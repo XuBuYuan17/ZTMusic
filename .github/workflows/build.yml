@@ -83,18 +83,34 @@ jobs:
           path: src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/
           if-no-files-found: error
 
-      - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/*
-
   android:
     name: Build apk
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Android signing secrets
+        id: android_signing
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          has_signing=false
+          if [[ -n "$ANDROID_KEY_BASE64" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEY_PASSWORD" && -n "$ANDROID_STORE_PASSWORD" ]]; then
+            has_signing=true
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$has_signing" != true ]]; then
+            echo "Android release builds require signing secrets."
+            echo "Required secrets: ANDROID_KEY_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD"
+            exit 1
+          fi
+
+          echo "has_signing=$has_signing" >> "$GITHUB_OUTPUT"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -145,10 +161,82 @@ jobs:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: pnpm tauri android init --ci
 
+      - name: Setup Android signing
+        if: steps.android_signing.outputs.has_signing == 'true'
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          base64 --decode <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/zheting-release.jks"
+          printf '%s\n' \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            "storePassword=$ANDROID_STORE_PASSWORD" \
+            "storeFile=$RUNNER_TEMP/zheting-release.jks" \
+            > src-tauri/gen/android/keystore.properties
+
+      - name: Patch Android release signing
+        if: steps.android_signing.outputs.has_signing == 'true'
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src-tauri/gen/android/app/build.gradle.kts')
+          text = path.read_text()
+
+          imports = []
+          if 'import java.io.FileInputStream' not in text:
+              imports.append('import java.io.FileInputStream')
+          if 'import java.util.Properties' not in text:
+              imports.append('import java.util.Properties')
+          if imports:
+              text = '\n'.join(imports) + '\n' + text
+
+          if 'signingConfigs.create("release")' not in text:
+              marker = 'android {'
+              signing = '''android {
+              signingConfigs {
+                  create("release") {
+                      val keystorePropertiesFile = rootProject.file("keystore.properties")
+                      val keystoreProperties = Properties()
+                      if (keystorePropertiesFile.exists()) {
+                          keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+                      }
+
+                      keyAlias = keystoreProperties["keyAlias"] as String
+                      keyPassword = keystoreProperties["keyPassword"] as String
+                      storeFile = file(keystoreProperties["storeFile"] as String)
+                      storePassword = keystoreProperties["storePassword"] as String
+                  }
+              }
+          '''
+              if marker not in text:
+                  raise SystemExit('Could not find android block in generated build.gradle.kts')
+              text = text.replace(marker, signing, 1)
+
+          if 'signingConfig = signingConfigs.getByName("release")' not in text:
+              pattern = r'(getByName\("release"\)\s*\{)'
+              if not re.search(pattern, text):
+                  raise SystemExit('Could not find release buildType in generated build.gradle.kts')
+              text = re.sub(pattern, '\\1\n            signingConfig = signingConfigs.getByName("release")', text, count=1)
+
+          path.write_text(text)
+          PY
+
       - name: Build Tauri apk
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: pnpm tauri android build --apk --target aarch64
+
+      - name: Verify Android apk signature
+        if: steps.android_signing.outputs.has_signing == 'true'
+        run: |
+          set -euo pipefail
+          find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -print -exec apksigner verify --verbose {} \;
 
       - name: Upload apk
         uses: actions/upload-artifact@v4
@@ -157,8 +245,25 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [desktop, android]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.msi
+            artifacts/**/*.apk

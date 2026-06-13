@@ -1,0 +1,151 @@
+name: Prepare Release
+
+"on":
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version, e.g. 0.1.1'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Update version and create tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must be semver like 0.1.1"
+            exit 1
+          fi
+
+          git fetch --tags --force
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists"
+            exit 1
+          fi
+
+      - name: Update version files
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          node <<'JS'
+          const fs = require('node:fs')
+          const version = process.env.VERSION
+
+          const updateJsonVersion = (filePath) => {
+            const text = fs.readFileSync(filePath, 'utf8')
+            const next = text.replace(/"version"\s*:\s*"[^"]+"/, `"version": "${version}"`)
+            if (next === text) {
+              throw new Error(`Could not update version in ${filePath}`)
+            }
+            fs.writeFileSync(filePath, next)
+          }
+
+          updateJsonVersion('package.json')
+          updateJsonVersion('src-tauri/tauri.conf.json')
+          JS
+
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ['VERSION']
+
+          cargo_toml = Path('src-tauri/Cargo.toml')
+          text = cargo_toml.read_text()
+          text, count = re.subn(
+              r'(?m)^version = "[^"]+"$',
+              f'version = "{version}"',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit('Could not update package version in src-tauri/Cargo.toml')
+          cargo_toml.write_text(text)
+
+          cargo_lock = Path('src-tauri/Cargo.lock')
+          text = cargo_lock.read_text()
+          pattern = r'(?ms)(\[\[package\]\]\nname = "zheting"\nversion = ")[^"]+("\n)'
+          text, count = re.subn(pattern, rf'\g<1>{version}\2', text, count=1)
+          if count != 1:
+              raise SystemExit('Could not update zheting version in src-tauri/Cargo.lock')
+          cargo_lock.write_text(text)
+          PY
+
+      - name: Verify version sync
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          node <<'JS'
+          const fs = require('node:fs')
+          const version = process.env.VERSION
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'))
+
+          if (pkg.version !== version) {
+            throw new Error(`package.json version mismatch: ${pkg.version}`)
+          }
+          if (tauri.version !== version) {
+            throw new Error(`tauri.conf.json version mismatch: ${tauri.version}`)
+          }
+          JS
+
+          grep -q "^version = \"$VERSION\"$" src-tauri/Cargo.toml
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ['VERSION']
+          text = Path('src-tauri/Cargo.lock').read_text()
+          if not re.search(rf'(?ms)\[\[package\]\]\nname = "zheting"\nversion = "{re.escape(version)}"\n', text):
+              raise SystemExit('Cargo.lock zheting version mismatch')
+          PY
+
+      - name: Commit and tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock; then
+            echo "No version changes detected"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
+          git commit -m "chore: release v$VERSION"
+          git tag "v$VERSION"
+          git push origin HEAD:main
+          git push origin "v$VERSION"
+
+      - name: Trigger build release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh workflow run build.yml --ref "v$VERSION"

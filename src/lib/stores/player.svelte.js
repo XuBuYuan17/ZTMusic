@@ -22,6 +22,7 @@ let _currentTrack = $state(null)
 let _currentTime = $state(parseFloat(getLS('player_time', '0')))
 let _playing = $state(false)
 let _loading = $state(false)
+let _error = $state('')
 const initialVolume = parseFloat(getLS('volume', '0.8'))
 let _volume = $state(initialVolume)
 let _mode = $state(getLS('mode', 'list'))
@@ -36,9 +37,17 @@ let _playRequestId = 0
 let _playUrls = []
 let _playUrlIndex = 0
 const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
+const FAST_PLAY_TIMEOUT = 3500
+const FALLBACK_PLAY_TIMEOUT = 5000
 const MAX_QUEUE_SIZE = 500
+const SHOULD_LOG_PLAY_URLS = typeof import.meta !== 'undefined' && import.meta.env?.DEV
 
 let _mediaSessionInited = false
+
+function logPlayUrlAttempt(type, payload) {
+  if (!SHOULD_LOG_PLAY_URLS || typeof console === 'undefined') return
+  console.debug(`[play-url:${type}]`, payload)
+}
 
 function initMediaSession() {
   if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
@@ -110,6 +119,7 @@ engine.onError(() => {
   _loading = false
   _playing = false
   _shouldAutoPlay = false
+  _error = '当前歌曲暂无可用音源'
 })
 engine.setVolume(initialVolume)
 
@@ -125,39 +135,95 @@ function persistState() {
 async function getPlayableUrls(id) {
   const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
   const urls = []
+  const levels = orderedPlayLevels()
+  const fastLevels = uniqueLevels([_preferredLevel, 'standard', 'higher']).filter(level => levels.includes(level))
+
+  const fastResults = await Promise.all(fastLevels.map(level => fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)))
+  fastResults.forEach(url => addUrl(urls, url))
+
+  if (urls.length === 0) {
+    const unblockResults = await Promise.all(fastLevels.map(level => fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)))
+    unblockResults.forEach(url => addUrl(urls, url))
+  }
+
+  if (urls.length === 0) addUrl(urls, fallbackUrl)
+
+  const remainingLevels = levels.filter(level => !fastLevels.includes(level))
+  const fallbackResults = await Promise.all([
+    ...remainingLevels.map(level => fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)),
+    ...remainingLevels.map(level => fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)),
+  ])
+  fallbackResults.forEach(url => addUrl(urls, url))
+  addUrl(urls, fallbackUrl)
+  return urls
+}
+
+function orderedPlayLevels() {
   const levels = [...PLAY_LEVELS]
   const prefIdx = levels.indexOf(_preferredLevel)
   if (prefIdx > 0) { levels.splice(prefIdx, 1); levels.unshift(_preferredLevel) }
-  for (const level of levels) {
-    try {
-      const res = await ncm.songUrl(id, level, false)
-      const item = res.data?.[0]
-      if (item?.url && !urls.includes(item.url)) urls.push(item.url)
-    } catch {}
+  return levels
+}
+
+function uniqueLevels(levels) {
+  return [...new Set(levels.filter(Boolean))]
+}
+
+function addUrl(urls, url) {
+  const playableUrl = normalizePlayUrl(url)
+  if (playableUrl && !urls.includes(playableUrl)) urls.push(playableUrl)
+}
+
+function normalizePlayUrl(url) {
+  if (!url) return ''
+  return url.replace(/^http:\/\/(m\d+\.music\.126\.net)\//i, 'https://$1/')
+}
+
+function withTimeout(promise, timeout) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('play url timeout')), timeout)),
+  ])
+}
+
+async function fetchSongUrl(id, level, unblock, timeout) {
+  try {
+    const res = await withTimeout(ncm.songUrl(id, level, unblock), timeout)
+    const item = res?.data?.[0]
+    logPlayUrlAttempt('result', {
+      id,
+      level,
+      unblock,
+      code: item?.code ?? res?.code,
+      hasUrl: Boolean(item?.url),
+      freeTrial: Boolean(item?.freeTrialInfo),
+      message: item?.message || res?.message || res?.msg || '',
+    })
+    if (!item?.url || item.code === 404 || item.freeTrialInfo) return ''
+    return normalizePlayUrl(item.url)
+  } catch (error) {
+    logPlayUrlAttempt('error', {
+      id,
+      level,
+      unblock,
+      message: error?.message || 'play url request failed',
+    })
+    return ''
   }
-  if (urls.length === 0) {
-    for (const level of levels) {
-      try {
-        const res = await ncm.songUrl(id, level, true)
-        const item = res.data?.[0]
-        if (item?.url && !urls.includes(item.url)) urls.push(item.url)
-      } catch {}
-    }
-  }
-  if (!urls.includes(fallbackUrl)) urls.push(fallbackUrl)
-  return urls
 }
 
 function tryNextPlayUrl() {
   if (!_shouldAutoPlay || _playUrlIndex >= _playUrls.length - 1) return false
   _playUrlIndex += 1
   _loading = true
+  _error = ''
   engine.load(_playUrls[_playUrlIndex])
   engine.play().catch(() => {
     if (!tryNextPlayUrl()) {
       _loading = false
       _playing = false
       _shouldAutoPlay = false
+      _error = '当前歌曲暂无可用音源'
       if (_queue.length > 1) next()
     }
   })
@@ -179,6 +245,7 @@ function playTrack(track, index) {
   _loading = true
   _playing = false
   _shouldAutoPlay = true
+  _error = ''
 
   if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
     initMediaSession()
@@ -207,18 +274,21 @@ function playTrack(track, index) {
           _playing = false
           _loading = false
           _shouldAutoPlay = false
+          _error = '当前歌曲暂无可用音源'
         }
       })
     } else {
       _loading = false
       _playing = false
       _shouldAutoPlay = false
+      _error = '当前歌曲暂无可用音源'
     }
   }).catch(() => {
     if (requestId !== _playRequestId) return
     _loading = false
     _playing = false
     _shouldAutoPlay = false
+    _error = '当前歌曲暂无可用音源'
   })
 }
 
@@ -293,6 +363,7 @@ function togglePlay() {
       if (!tryNextPlayUrl()) {
         _playing = false
         _shouldAutoPlay = false
+        _error = '当前歌曲暂无可用音源'
       }
     })
   } else {
@@ -349,6 +420,7 @@ function removeFromQueue(index) {
       _currentTrack = null
       _playing = false
       _queueIndex = -1
+      _error = ''
       persistState()
     }
   } else if (index < _queueIndex) {
@@ -413,6 +485,7 @@ export const player = {
   get currentTime() { return _currentTime },
   get playing() { return _playing },
   get loading() { return _loading },
+  get error() { return _error },
   get volume() { return _volume },
   get mode() { return _mode },
   get preferredLevel() { return _preferredLevel },

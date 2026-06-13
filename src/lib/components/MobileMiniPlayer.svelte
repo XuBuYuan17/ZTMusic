@@ -49,7 +49,9 @@
   <div class="mobile-mini-player__meta">
     <div class="mobile-mini-player__title">{player.title || '未在播放'}</div>
     <div class="mobile-mini-player__artist">
-      {#if player.artist && !player.loading}
+      {#if player.error}
+        {player.error}
+      {:else if player.artist && !player.loading}
         <ArtistNames artists={currentArtists} {onOpenArtist} fallback={player.artist} />
       {:else}
         {player.loading ? '正在载入…' : player.artist || '选择一首歌开始'}

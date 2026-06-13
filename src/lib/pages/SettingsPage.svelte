@@ -1,15 +1,10 @@
 <script>
-  import { DEFAULT_API_BASE, ncm } from '../api/client.js'
+  import { ncm } from '../api/client.js'
   import { player, clearHistory } from '../stores/player.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
   import { getStorage, setStorage } from '../utils/storage.js'
 
   let { theme = 'dark', onSetTheme } = $props()
-
-  let apiUrl = $state(ncm.getBase())
-  let testStatus = $state('')
-  let testMsg = $state('')
-  let testTime = $state(0)
 
   let clearMsg = $state('')
   let clearCacheMsg = $state('')
@@ -42,38 +37,6 @@
   $effect(() => {
     refreshCacheSize()
   })
-
-  function saveUrl() {
-    let url = apiUrl.trim().replace(/\/+$/, '')
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'http://' + url
-    }
-    apiUrl = url
-    ncm.setBase(url)
-  }
-
-  async function testConnection() {
-    saveUrl()
-    testStatus = 'testing'
-    testMsg = ''
-    testTime = 0
-    const start = performance.now()
-    try {
-      const res = await ncm.banner()
-      const elapsed = Math.round(performance.now() - start)
-      if (res && (res.code === 200 || res.banners || res.code === undefined)) {
-        testStatus = 'ok'
-        testTime = elapsed
-        testMsg = `连接成功 (${elapsed}ms)`
-      } else {
-        testStatus = 'fail'
-        testMsg = `返回异常 code=${res?.code ?? 'unknown'}`
-      }
-    } catch (e) {
-      testStatus = 'fail'
-      testMsg = e.message || '连接失败'
-    }
-  }
 
   function handleClearHistory() {
     clearHistory()
@@ -133,11 +96,7 @@
     <div>
       <span class="settings-kicker">Preferences</span>
       <h1>设置</h1>
-      <p>调整播放、启动和服务连接，让哲听更贴近你的使用习惯。</p>
-    </div>
-    <div class="settings-status-card">
-      <span>当前服务</span>
-      <strong>{apiUrl || DEFAULT_API_BASE}</strong>
+      <p>调整播放、启动和界面偏好，让哲听更贴近你的使用习惯。</p>
     </div>
   </div>
 
@@ -159,33 +118,6 @@
           onclick={() => onSetTheme?.('dark')}
         >深色</button>
       </div>
-    </div>
-
-    <!-- API 地址 -->
-    <div class="settings-row stacked">
-      <div class="settings-row-head">
-        <div>
-          <div class="settings-label">后端 API 地址</div>
-          <div class="settings-desc">NeteaseCloudMusicApi 服务地址，修改后自动保存</div>
-        </div>
-        <button class="settings-primary-btn" onclick={testConnection} disabled={testStatus === 'testing'}>
-          {testStatus === 'testing' ? '测试中...' : '测试连接'}
-        </button>
-      </div>
-      <div class="settings-input-row">
-        <input
-          class="settings-input"
-          type="text"
-          placeholder={DEFAULT_API_BASE}
-          bind:value={apiUrl}
-          onchange={saveUrl}
-        />
-      </div>
-      {#if testStatus === 'ok'}
-        <div class="settings-test-message ok">{testMsg}</div>
-      {:else if testStatus === 'fail'}
-        <div class="settings-test-message fail">{testMsg}</div>
-      {/if}
     </div>
 
     <div class="settings-group-label">界面与播放</div>
@@ -295,22 +227,15 @@
 
   .settings-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-    align-items: end;
     gap: 18px;
     padding-bottom: 6px;
   }
 
   .settings-kicker,
-  .settings-group-label,
-  .settings-status-card span {
+  .settings-group-label {
     color: var(--accent);
     font-size: 12px;
     font-weight: 800;
-  }
-
-  .settings-kicker,
-  .settings-group-label {
     letter-spacing: 0.4px;
     text-transform: uppercase;
   }
@@ -327,25 +252,6 @@
     color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.7;
-  }
-
-  .settings-status-card {
-    display: grid;
-    gap: 8px;
-    min-width: 0;
-    padding: 14px 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
-  }
-
-  .settings-status-card strong {
-    overflow: hidden;
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 650;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .settings-panel {
@@ -369,20 +275,6 @@
 
   .settings-row:last-child {
     border-bottom: none;
-  }
-
-  .settings-row.stacked {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .settings-row-head,
-  .settings-input-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
   }
 
   .settings-group-label {
@@ -429,25 +321,6 @@
     box-shadow: var(--shadow-sm);
   }
 
-  .settings-input {
-    flex: 1;
-    min-width: 0;
-    min-height: 40px;
-    padding: 0 13px;
-    border-radius: var(--r-lg);
-    font-size: 14px;
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    transition: border-color 0.15s, background 0.15s;
-  }
-
-  .settings-input:focus {
-    border-color: var(--accent);
-    background: var(--bg-elevated);
-  }
-
-  .settings-primary-btn,
   .settings-secondary-btn {
     min-height: 36px;
     padding: 0 16px;
@@ -456,15 +329,6 @@
     font-weight: 750;
     white-space: nowrap;
     transition: background 0.15s, transform 0.15s;
-  }
-
-  .settings-primary-btn {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .settings-primary-btn:hover:not(:disabled) {
-    background: var(--accent-hover);
   }
 
   .settings-secondary-btn {
@@ -476,14 +340,8 @@
     background: var(--accent-bg-hover);
   }
 
-  .settings-primary-btn:active:not(:disabled),
   .settings-secondary-btn:active {
     transform: scale(0.96);
-  }
-
-  .settings-primary-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
 
   .settings-select {
@@ -543,34 +401,18 @@
     overflow: hidden;
   }
 
-  .settings-test-message {
-    font-size: 13px;
-    font-weight: 650;
-  }
-
-  .settings-test-message.ok {
-    color: #34c759;
-  }
-
-  .settings-test-message.fail {
-    color: var(--accent);
-  }
-
   @media (max-width: 760px) {
     .settings-page {
       gap: 12px;
     }
 
     .settings-header {
-      grid-template-columns: 1fr;
-      align-items: stretch;
       gap: 10px;
       padding-bottom: 0;
     }
 
     .settings-kicker,
-    .settings-group-label,
-    .settings-status-card span {
+    .settings-group-label {
       font-size: 10px;
     }
 
@@ -585,16 +427,6 @@
       line-height: 1.5;
     }
 
-    .settings-status-card {
-      gap: 5px;
-      padding: 12px 13px;
-      border-radius: 16px;
-    }
-
-    .settings-status-card strong {
-      font-size: 12px;
-    }
-
     .settings-panel {
       border-radius: 18px;
     }
@@ -603,17 +435,6 @@
       gap: 12px;
       min-height: 58px;
       padding: 12px 14px;
-    }
-
-    .settings-row.stacked,
-    .settings-row-head,
-    .settings-input-row {
-      align-items: stretch;
-      flex-direction: column;
-    }
-
-    .settings-row-head {
-      gap: 10px;
     }
 
     .settings-group-label {
@@ -628,12 +449,6 @@
       font-size: 11px;
     }
 
-    .settings-input {
-      min-height: 38px;
-      font-size: 13px;
-    }
-
-    .settings-primary-btn,
     .settings-secondary-btn {
       width: 100%;
     }
@@ -658,7 +473,6 @@
       font-size: 12px;
     }
 
-    .settings-primary-btn,
     .settings-secondary-btn {
       min-height: 34px;
       font-size: 12px;

@@ -17,6 +17,7 @@
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPage from './lib/components/LyricsPage.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
+  import SearchOverlay from './lib/components/SearchOverlay.svelte'
   import LibraryPage from './lib/pages/LibraryPage.svelte'
   import RecentPage from './lib/pages/RecentPage.svelte'
   import SettingsPage from './lib/pages/SettingsPage.svelte'
@@ -30,9 +31,12 @@
   import MessagesPage from './lib/pages/MessagesPage.svelte'
   import AboutPage from './lib/pages/AboutPage.svelte'
 
+  const isMobileRuntime = () => typeof document !== 'undefined' && document.documentElement.classList.contains('mobile-runtime')
+  const isAndroidRuntime = () => typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
+
   let activeView = $state('home')
   let previousView = $state('home')
-  let sidebarCollapsed = $state(false)
+  let sidebarCollapsed = $state(isMobileRuntime())
   let userPlaylists = $state([])
   let subcount = $state(null)
   let likedPlaylist = $state(null)
@@ -49,6 +53,7 @@
   let showSheet = $state(false)
   let lyricsOrigin = $state(null)
   let showLogin = $state(false)
+  let showSearch = $state(false)
   let showFollowDialog = $state(false)
   let messageTargetUser = $state(null)
   let refreshKey = $state(Date.now())
@@ -130,15 +135,81 @@
     if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
       import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
         getCurrentWindow().onCloseRequested(async (event) => {
-          if (showSheet) { event.preventDefault(); closeSheet(); return }
-          if (showQueuePanel) { event.preventDefault(); closeQueue(); return }
-          if (showLogin) { event.preventDefault(); showLogin = false; return }
-          if (showFollowDialog) { event.preventDefault(); showFollowDialog = false; return }
-          if (activeView !== 'home' && activeView !== 'playlist' && activeView !== 'album' && activeView !== 'settings') {
-            event.preventDefault(); goBack(); return
-          }
+          if (handleAppBack()) event.preventDefault()
         })
       })
+    }
+  })
+
+  $effect(() => {
+    if (typeof window === 'undefined' || !isAndroidRuntime() || !isMobileRuntime()) return
+
+    const state = { zhetingBackGuard: true }
+    history.replaceState(state, '', location.href)
+    history.pushState(state, '', location.href)
+
+    const handlePopState = () => {
+      if (!handleAppBack()) return
+      history.pushState(state, '', location.href)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  })
+
+  $effect(() => {
+    if (typeof window === 'undefined' || !isAndroidRuntime() || !isMobileRuntime()) return
+
+    const edgeWidth = 28
+    const triggerDistance = 82
+    const maxVerticalDrift = 56
+    let startX = 0
+    let startY = 0
+    let tracking = false
+    let triggered = false
+
+    const shouldIgnoreTarget = (target) => target?.closest?.('input, textarea, select, [contenteditable="true"], .progress-bar, .progress-container, .volume-slider-inline, .home-quick-grid, .home-feature-row, .card-scroll')
+
+    const onPointerDown = (event) => {
+      if (event.pointerType === 'mouse' || event.button !== 0) return
+      if (!hasAppBackTarget() || event.clientX > edgeWidth || shouldIgnoreTarget(event.target)) return
+      startX = event.clientX
+      startY = event.clientY
+      tracking = true
+      triggered = false
+    }
+
+    const onPointerMove = (event) => {
+      if (!tracking || triggered) return
+      const dx = event.clientX - startX
+      const dy = Math.abs(event.clientY - startY)
+      if (dx < 0 || dy > maxVerticalDrift) {
+        tracking = false
+        return
+      }
+      if (dx >= triggerDistance) {
+        triggered = true
+        tracking = false
+        event.preventDefault()
+        handleAppBack()
+      }
+    }
+
+    const stopTracking = () => {
+      tracking = false
+      triggered = false
+    }
+
+    window.addEventListener('pointerdown', onPointerDown, { passive: true })
+    window.addEventListener('pointermove', onPointerMove, { passive: false })
+    window.addEventListener('pointerup', stopTracking, { passive: true })
+    window.addEventListener('pointercancel', stopTracking, { passive: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', stopTracking)
+      window.removeEventListener('pointercancel', stopTracking)
     }
   })
 
@@ -293,6 +364,7 @@
     playlistDetailError = ''
     playlistDetailLoading = true
     let loadedFirstBatch = false
+    let data
     try {
       data = await loadPlaylistDetail(ncm, extractColor, id, (partial) => {
         if (requestId === detailRequestId) {
@@ -535,6 +607,21 @@
     else if (backView === 'dailyHistory') loadDailyHistory()
   }
 
+  function handleAppBack() {
+    if (showSheet) { closeSheet(); return true }
+    if (showQueuePanel) { closeQueue(); return true }
+    if (showSearch) { showSearch = false; return true }
+    if (showLogin) { showLogin = false; return true }
+    if (showFollowDialog) { showFollowDialog = false; return true }
+    if (routeStack.length > 0) { goBack(); return true }
+    if (activeView !== 'home') { handleNav('home'); return true }
+    return false
+  }
+
+  function hasAppBackTarget() {
+    return showSheet || showQueuePanel || showSearch || showLogin || showFollowDialog || routeStack.length > 0 || activeView !== 'home'
+  }
+
   function openSheet(originEl) {
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.mobile-mini-player__art') || document.querySelector('.mobile-mini-player')
     if (source) {
@@ -653,15 +740,17 @@
   />
 
   <div class="main-area">
+    <button class="global-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
     <MobileShell
       {activeView}
       title={mobileTitle}
-      {theme}
       isLoggedIn={auth.isLoggedIn}
       {showQueuePanel}
       bind:contentScrollEl
       onNavigate={handleNav}
-      onToggleTheme={toggleTheme}
+      onOpenSearch={() => showSearch = true}
       onOpenLogin={() => showLogin = true}
       onOpenSheet={openSheet}
       onToggleQueue={toggleQueue}
@@ -812,6 +901,7 @@
 </main>
 
 <LyricsPage show={showSheet} lyricsOrigin={lyricsOrigin} onClose={closeSheet} onOpenArtist={goArtist} />
+<SearchOverlay show={showSearch} onClose={() => showSearch = false} onOpenArtist={goArtist} onOpenAlbum={goAlbum} onOpenPlaylist={goPlaylist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={goArtist} />

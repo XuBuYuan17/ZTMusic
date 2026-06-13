@@ -1,6 +1,5 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
-  import { formatPlayCount } from '../format.js'
   import { extractCover } from '../utils/normalize.js'
   import ArtistNames from '../components/ArtistNames.svelte'
 
@@ -21,7 +20,6 @@
   } = $props()
 
   const heroPlaylist = $derived(recommendPlaylists[0] || null)
-  const quickPlaylists = $derived(recommendPlaylists.slice(1, 7))
   const recentPreview = $derived(recentTracks.slice(0, 6))
   const libraryPreview = $derived(userPlaylists.slice(0, 5))
 
@@ -68,28 +66,6 @@
         <strong>{recentTracks.length} 首</strong>
       </button>
     </section>
-
-    {#if quickPlaylists.length > 0}
-      <section class="mobile-home-section">
-        <div class="mobile-home-section-head">
-          <h2>为你推荐</h2>
-          <button type="button" onclick={() => onNavigate?.('explore')}>更多</button>
-        </div>
-        <div class="mobile-home-playlists">
-          {#each quickPlaylists as playlist (playlist.id)}
-            <button type="button" class="mobile-home-playlist" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-              {#if playlist.picUrl}
-                <img src={`${playlist.picUrl}?param=220y220`} alt="" loading="lazy" />
-              {:else}
-                <span class="mobile-home-cover-ph">♫</span>
-              {/if}
-              <strong>{playlist.name}</strong>
-              <em>{formatPlayCount(playlist.playCount || 0)} 播放</em>
-            </button>
-          {/each}
-        </div>
-      </section>
-    {/if}
 
     <section class="mobile-home-section">
       <div class="mobile-home-section-head">
@@ -184,7 +160,7 @@
   @media (max-width: 760px) {
     .mobile-home-page {
       display: grid;
-      gap: 18px;
+      gap: 16px;
       padding-bottom: 8px;
     }
 
@@ -210,24 +186,24 @@
 
     .mobile-home-hero h1 {
       margin-top: 4px;
-      font-size: 28px;
-      line-height: 1.08;
+      font-size: 25px;
+      line-height: 1.1;
       letter-spacing: -0.05em;
     }
 
     .mobile-home-hero-card {
       position: relative;
       display: grid;
-      grid-template-columns: 76px minmax(0, 1fr);
+      grid-template-columns: 64px minmax(0, 1fr);
       grid-template-rows: auto auto;
       align-items: center;
       gap: 6px 12px;
       width: 100%;
-      min-height: 102px;
-      padding: 14px;
+      min-height: 88px;
+      padding: 12px;
       overflow: hidden;
       border: 0;
-      border-radius: 24px;
+      border-radius: 18px;
       color: #fff;
       text-align: left;
       background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 72%, #111), #1d1d22);
@@ -241,9 +217,9 @@
     .mobile-home-hero-card img,
     .mobile-home-hero-card > span {
       grid-row: 1 / 3;
-      width: 76px;
-      height: 76px;
-      border-radius: 18px;
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
       object-fit: cover;
       background: rgba(255,255,255,0.16);
     }
@@ -256,8 +232,6 @@
 
     .mobile-home-hero-card strong,
     .mobile-home-hero-card em,
-    .mobile-home-playlist strong,
-    .mobile-home-playlist em,
     .mobile-home-row-main strong,
     .mobile-home-row-main em,
     .mobile-home-library strong,
@@ -288,10 +262,10 @@
     .mobile-home-actions button {
       display: grid;
       gap: 5px;
-      min-height: 72px;
-      padding: 12px;
+      min-height: 58px;
+      padding: 10px;
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: 14px;
       color: var(--text-primary);
       text-align: left;
       background: var(--bg-elevated);
@@ -335,54 +309,6 @@
       background: transparent;
       font-size: 13px;
       font-weight: 800;
-    }
-
-    .mobile-home-playlists {
-      display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: 128px;
-      gap: 12px;
-      margin: 0 -14px;
-      padding: 0 14px 4px;
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      scroll-snap-type: x proximity;
-    }
-
-    .mobile-home-playlists::-webkit-scrollbar {
-      display: none;
-    }
-
-    .mobile-home-playlist {
-      display: grid;
-      gap: 7px;
-      width: 128px;
-      border: 0;
-      padding: 0;
-      color: var(--text-primary);
-      text-align: left;
-      background: transparent;
-      scroll-snap-align: start;
-    }
-
-    .mobile-home-playlist img,
-    .mobile-home-playlist .mobile-home-cover-ph {
-      width: 128px;
-      height: 128px;
-      border-radius: 20px;
-      object-fit: cover;
-      background: var(--bg-layer);
-    }
-
-    .mobile-home-playlist strong {
-      font-size: 13px;
-      line-height: 1.22;
-    }
-
-    .mobile-home-playlist em {
-      color: var(--text-tertiary);
-      font-size: 11px;
-      font-style: normal;
     }
 
     .mobile-home-list,

@@ -366,15 +366,15 @@
   .search-empty { display: grid; place-items: center; gap: 10px; min-height: 280px; color: var(--text-tertiary); border-radius: 24px; background: color-mix(in srgb, var(--bg-layer) 72%, transparent); }
   @media (max-width: 980px) { .search-command, .search-empty-layout { grid-template-columns: 1fr; } .search-command { min-height: auto; padding: 24px; } }
   @media (max-width: 560px) {
-    .search-page { gap: 16px; }
-    .search-command { gap: 14px; padding: 16px; border-radius: 18px; box-shadow: 0 14px 38px rgba(0,0,0,0.13); }
-    .search-kicker { margin-bottom: 6px; font-size: 11px; }
-    .search-command h1 { font-size: 30px; }
-    .search-command p { margin-top: 6px; font-size: 13px; line-height: 1.45; }
+    .search-page { gap: 14px; }
+    .search-command { gap: 0; padding: 0; border: none; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+    .search-command-bg,
+    .search-command-copy { display: none; }
+    .search-input-panel { position: sticky; top: 0; z-index: 12; padding-bottom: 2px; background: var(--bg); }
     .search-input-wrap { min-height: 48px; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 16px; }
     .search-input { font-size: 15px; }
     .search-submit { width: auto; min-width: 64px; height: 36px; padding: 0 14px; border-radius: 12px; }
-    .search-category-tabs { width: 100%; }
+    .search-category-tabs { position: sticky; top: 0; z-index: 11; width: 100%; background: color-mix(in srgb, var(--bg-layer) 92%, transparent); }
     .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { padding: 12px; border-radius: 18px; box-shadow: 0 10px 28px rgba(0,0,0,0.1); }
     .search-empty-layout { gap: 12px; }
     .search-song-chart-panel { padding-bottom: 10px; }

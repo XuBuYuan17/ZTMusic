@@ -7,12 +7,11 @@
   let {
     activeView = 'home',
     title = '哲听',
-    theme = 'dark',
     isLoggedIn = false,
     showQueuePanel = false,
     contentScrollEl = $bindable(null),
     onNavigate,
-    onToggleTheme,
+    onOpenSearch,
     onOpenLogin,
     onOpenSheet,
     onToggleQueue,
@@ -22,7 +21,7 @@
 </script>
 
 <div class="mobile-shell">
-  <MobileTopBar {title} {theme} {isLoggedIn} {onToggleTheme} {onOpenLogin} />
+  <MobileTopBar {title} {isLoggedIn} {onOpenSearch} {onOpenLogin} />
 
   <div class="content-scroll" bind:this={contentScrollEl}>
     <div class="content-inner">

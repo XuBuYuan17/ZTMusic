@@ -6,8 +6,15 @@
 
   const overviewItems = [
     ['版本', `v${appVersion}`],
-    ['形态', 'Svelte + Tauri 桌面客户端'],
-    ['服务', '网易云音乐第三方 API'],
+    ['形态', '桌面 + 手机端适配'],
+    ['服务', DEFAULT_API_BASE],
+  ]
+
+  const productNotes = [
+    ['日常听歌优先', '首页聚焦继续播放和资料库，减少干扰性的推荐堆叠。'],
+    ['播放链路可靠', '多音质 fallback、VIP cookie、no-referrer 与网易 CDN HTTPS 兼容都在播放层处理。'],
+    ['移动端轻量化', '手机端使用顶部搜索、悬浮 mini player 和悬浮底部 tabs，保留足够安全区。'],
+    ['可替换后端', '默认连接公开 API，也可以在设置页切换到自己的 NeteaseCloudMusicApi Enhanced 服务。'],
   ]
 
   const projectLinks = [
@@ -47,9 +54,9 @@
   <section class="about-hero" aria-labelledby="about-title">
     <div class="about-brand-mark" aria-hidden="true">ZT</div>
     <div class="about-hero-copy">
-      <span class="about-kicker">About</span>
+      <span class="about-kicker">About ZTmusic</span>
       <h1 id="about-title">哲听</h1>
-      <p>一个简洁、安静的网易云音乐第三方桌面客户端，专注歌单、推荐、播放和日常听歌体验。</p>
+      <p>一个面向日常使用的网易云音乐第三方客户端。它把重点放在播放稳定性、资料库访问、最近播放和轻量界面上，而不是做一个复杂的信息流平台。</p>
     </div>
   </section>
 
@@ -60,6 +67,22 @@
         <strong>{value}</strong>
       </div>
     {/each}
+  </section>
+
+  <section class="about-panel about-product-panel" aria-labelledby="about-product-title">
+    <div class="about-section-head">
+      <span>Design</span>
+      <h2 id="about-product-title">设计取向</h2>
+    </div>
+
+    <div class="about-note-grid">
+      {#each productNotes as [title, desc]}
+        <article class="about-note-card">
+          <strong>{title}</strong>
+          <p>{desc}</p>
+        </article>
+      {/each}
+    </div>
   </section>
 
   <section class="about-panel" aria-labelledby="about-tech-title">
@@ -127,13 +150,13 @@
   <section class="about-note" aria-labelledby="about-note-title">
     <div class="about-section-head">
       <span>Note</span>
-      <h2 id="about-note-title">一点说明</h2>
+      <h2 id="about-note-title">使用说明</h2>
     </div>
     <p>
-      哲听的目标不是做一个很重的音乐平台，而是做一个打开就能听、切换顺手、信息不打扰音乐本身的桌面窗口。
+      哲听依赖社区维护的网易云接口项目，不提供音乐内容本身，也不会绕过账号权限。VIP、灰色歌曲和地区限制最终仍以账号和接口返回为准。
     </p>
     <p>
-      项目仍在持续整理体验细节，包括登录、缓存、播放失败兜底、歌词和资料库等部分。第三方接口能力来自社区项目，使用时请尊重对应服务和版权规则。
+      项目仍在持续整理体验细节，包括播放失败兜底、歌词、移动端布局和资料库。使用时请尊重对应服务条款和版权规则，仅用于学习与个人使用。
     </p>
   </section>
 </div>
@@ -141,28 +164,28 @@
 <style>
   .about-page {
     display: grid;
-    gap: 16px;
+    gap: 18px;
   }
 
   .about-hero {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 18px;
-    padding: 22px 0 18px;
+    gap: 20px;
+    padding: 18px 0 20px;
     border-bottom: 1px solid var(--border);
   }
 
   .about-brand-mark {
     display: grid;
     place-items: center;
-    width: 76px;
-    height: 76px;
+    width: 82px;
+    height: 82px;
     border-radius: var(--r-lg);
     background: var(--accent);
     color: #fff;
     box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 24%, transparent);
-    font-size: 25px;
+    font-size: 26px;
     font-weight: 850;
     letter-spacing: 0;
   }
@@ -179,24 +202,24 @@
   }
 
   .about-hero-copy h1 {
-    margin: 5px 0 8px;
+    margin: 6px 0 10px;
     font-size: clamp(34px, 4vw, 48px);
     line-height: 1;
     letter-spacing: 0;
   }
 
   .about-hero-copy p,
-  .about-section-head p,
   .about-note p,
   .about-tech-item span,
-  .about-link-card em {
+  .about-link-card em,
+  .about-note-card p {
     color: var(--text-secondary);
   }
 
   .about-hero-copy p {
-    max-width: 600px;
-    font-size: 14px;
-    line-height: 1.75;
+    max-width: 720px;
+    font-size: 15px;
+    line-height: 1.8;
   }
 
   .about-overview {
@@ -238,7 +261,7 @@
   }
 
   .about-panel {
-    padding: 18px;
+    padding: 20px;
   }
 
   .about-section-head {
@@ -260,15 +283,34 @@
     letter-spacing: 0;
   }
 
-  .about-section-head p {
+  .about-link-card:hover {
+    text-decoration: none;
+  }
+
+  .about-note-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .about-note-card {
+    display: grid;
+    gap: 7px;
+    min-height: 112px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: color-mix(in srgb, var(--bg-layer) 54%, transparent);
+  }
+
+  .about-note-card strong {
+    font-size: 15px;
+  }
+
+  .about-note-card p {
     margin: 0;
     font-size: 13px;
     line-height: 1.65;
-    text-align: right;
-  }
-
-  .about-link-card:hover {
-    text-decoration: none;
   }
 
   .about-tech-list {
@@ -444,16 +486,13 @@
   }
 
   @media (max-width: 980px) {
-    .about-link-grid {
+    .about-link-grid,
+    .about-note-grid {
       grid-template-columns: 1fr;
     }
 
     .about-section-head.inline {
       grid-template-columns: 1fr;
-    }
-
-    .about-section-head p {
-      text-align: left;
     }
   }
 
