@@ -2687,6 +2687,9 @@ button.lcd-meta__artist:hover {
   .ly-mobile-swipe {
     display: none !important;
   }
+  .ly-mobile-player {
+    display: none !important;
+  }
 }
 
 html.mobile-runtime,
