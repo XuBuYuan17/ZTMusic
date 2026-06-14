@@ -1,5 +1,6 @@
 import { engine } from '../player/engine.js'
 import { ncm } from '../api/client.js'
+import { auth } from './auth.svelte.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 import { coverUrl, normalizeImageUrl } from '../utils/image.js'
 
@@ -477,7 +478,15 @@ async function fetchSongUrl(id, level, unblock, timeout) {
     })
     // URL 存在即可播放，不需要检查 item.code
     // code 可能是 200 / -105 / -110 等，但只要有 url 就说明可以播放
-    if (!item?.url) return null
+    if (!item?.url) {
+      // 已登录但无音源 → cookie 可能已过期，异步检查
+      if (auth.isLoggedIn) auth.checkLoginStatus()
+      return null
+    }
+    if (item.freeTrialInfo && auth.isLoggedIn) {
+      // 已登录却返回试听片段 → cookie 可能已过期，异步检查
+      auth.checkLoginStatus()
+    }
     return {
       url: normalizePlayUrl(item.url),
       isTrial: Boolean(item.freeTrialInfo),

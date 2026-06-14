@@ -5,6 +5,7 @@ const { setCookie, clearCookie } = ncm
 
 let _user = $state(null)
 let _loginMode = $state(null)
+let _cookieOk = $state(true)
 
 function deepFind(obj, key) {
   if (!obj || typeof obj !== 'object') return undefined
@@ -27,6 +28,29 @@ function deepFind(obj, key) {
   return search(obj)
 }
 
+/** 检测登录 cookie 是否仍然有效，无效则自动清除登录状态 */
+async function checkLoginStatus() {
+  if (!_loginMode) return true
+  try {
+    const res = await ncm.loginStatus()
+    const ok = res.code === 200 || res.data?.code === 200
+    const isAnon = res.account?.anonimousUser || res.data?.account?.anonimousUser
+    if (!ok || isAnon) {
+      _cookieOk = false
+      clearCookie()
+      _user = null
+      _loginMode = null
+      removeStorage('auth_user')
+      removeStorage('auth_mode')
+      return false
+    }
+    _cookieOk = true
+    return true
+  } catch {
+    return _cookieOk
+  }
+}
+
 function normalizeUser(user) {
   if (!user) return null
   return {
@@ -44,6 +68,8 @@ export const auth = {
   get isLoggedIn() { return !!_user && !!_loginMode },
   get isAccountLoggedIn() { return _loginMode === 'account' },
   get isLooseLoggedIn() { return !!_loginMode },
+  get cookieOk() { return _cookieOk },
+  checkLoginStatus,
 
   init() {
     const stored = getStorageJson('auth_user', null)
