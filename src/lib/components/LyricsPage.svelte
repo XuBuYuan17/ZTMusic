@@ -28,6 +28,7 @@
     return -1
   })
   let _prevHighlightIdx = -2
+  let _clearLyricsTimer = null
   let lyricsEl = $state(null)
   let animating = $state(false)
   let mounted = $state(false)
@@ -237,6 +238,8 @@
     if (show) {
       animating = true; contentEntered = false; closing = false
       document.body.style.overflow = 'hidden'
+      // 取消关闭时的歌词延迟清除
+      if (_clearLyricsTimer) { clearTimeout(_clearLyricsTimer); _clearLyricsTimer = null }
       checkLiked()
       if (containerEl && lyricsOrigin) {
         containerEl.style.transformOrigin = `${lyricsOrigin.x}px ${lyricsOrigin.y}px`
@@ -261,8 +264,7 @@
       } else { mounted = false; document.body.style.overflow = ''; animating = false }
       lyricsEl?.querySelectorAll('.ly-line.animate-words').forEach(l => l.classList.remove('animate-words'))
       yrcLines = []
-      // 延迟清除歌词，让关闭动画期间歌词保持可见
-      setTimeout(() => { lyrics = [] }, 500)
+      _clearLyricsTimer = setTimeout(() => { lyrics = [] }, 500)
       showMenu = false; showPlaylistPicker = false
       songComments = []; similarSongs = []; similarPlaylists = []; showContextStrip = false; contextPanel = null
       selectedSimilarPlaylist = null; selectedPlaylistTracks = []; selectedPlaylistLoading = false
