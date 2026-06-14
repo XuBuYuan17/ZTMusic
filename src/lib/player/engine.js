@@ -3,6 +3,10 @@ class AudioEngine {
     this.audio = new Audio()
     this.audio.preload = 'auto'
     this.currentUrl = ''
+    // 隐藏预加载器：用于后台加载下一首歌的音频
+    this.preloadAudio = new Audio()
+    this.preloadAudio.preload = 'auto'
+    this.preloadedUrl = ''
     this._onTimeUpdate = null
     this._onEnded = null
     this._onLoadStart = null
@@ -34,6 +38,44 @@ class AudioEngine {
     })
   }
 
+  /** 后台预加载一首歌的音频到隐藏元素（不播放） */
+  preload(url) {
+    if (!url) return
+    const u = String(url).trim()
+    if (!u || u === this.preloadedUrl) return
+    this.cancelPreload()
+    this.preloadedUrl = u
+    this.preloadAudio.src = u
+    this.preloadAudio.load()
+  }
+
+  /** 取消预加载并释放资源 */
+  cancelPreload() {
+    this.preloadedUrl = ''
+    this.preloadAudio.pause()
+    this.preloadAudio.removeAttribute('src')
+    this.preloadAudio.load()
+  }
+
+  /** 交换主播放器与预加载器：预加载的音频变为当前播放 */
+  swapToPreloaded() {
+    if (!this.preloadedUrl) return false
+    const oldAudio = this.audio
+    const oldUrl = this.currentUrl
+    this.audio = this.preloadAudio
+    this.currentUrl = this.preloadedUrl
+    this.preloadAudio = oldAudio
+    this.preloadedUrl = ''
+    // 清理旧 audio
+    this.preloadAudio.pause()
+    this.preloadAudio.removeAttribute('src')
+    this.preloadAudio.load()
+    return true
+  }
+
+  /** 预加载的 URL（用于 playTrack 判断命中） */
+  get preloadedSrc() { return this.preloadedUrl }
+
   getState() {
     return {
       src: this.audio.currentSrc || this.audio.src || this.currentUrl,
@@ -60,6 +102,11 @@ class AudioEngine {
     if (!url) return
     const nextUrl = String(url).trim()
     if (!nextUrl) return
+    // 如果是预加载命中，直接 swap
+    if (this.preloadedUrl && this.preloadedUrl === nextUrl) {
+      this.swapToPreloaded()
+      return
+    }
     if (this.currentUrl && this.currentUrl !== nextUrl) {
       this.audio.pause()
       this.audio.removeAttribute('src')
@@ -107,6 +154,7 @@ class AudioEngine {
 
   destroy() {
     this.pause()
+    this.cancelPreload()
     this.audio.removeAttribute('src')
     this.audio.load()
     this.currentUrl = ''

@@ -3,12 +3,15 @@
   import { player, clearHistory } from '../stores/player.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
   import { getStorage, setStorage } from '../utils/storage.js'
+  import { dbGetStats, dbClearAll } from '../utils/dbcache.js'
 
   let { theme = 'dark', onSetTheme } = $props()
 
   let clearMsg = $state('')
   let clearCacheMsg = $state('')
   let cacheSizeText = $state('0 B')
+  let idbCacheText = $state('计算中…')
+  let idbCleared = $state('')
   let defaultPage = $state(getStorage('default_page', 'home'))
   let restoreSession = $state(getStorage('restore_session', 'true') === 'true')
   let lyricsBlur = $state(getStorage('lyrics_blur_effect', 'true') === 'true')
@@ -34,8 +37,18 @@
     cacheSizeText = stats.entries > 0 ? `${formatBytes(stats.bytes)} · ${stats.entries} 项` : '0 B'
   }
 
+  async function refreshIdbCache() {
+    try {
+      const stats = await dbGetStats()
+      idbCacheText = stats.available
+        ? `API ${stats.apiCache} 项 · 歌曲 ${stats.urlCache} 首`
+        : '不可用'
+    } catch { idbCacheText = '不可用' }
+  }
+
   $effect(() => {
     refreshCacheSize()
+    refreshIdbCache()
   })
 
   function handleClearHistory() {
@@ -49,6 +62,13 @@
     refreshCacheSize()
     clearCacheMsg = '已清除'
     setTimeout(() => clearCacheMsg = '', 2000)
+  }
+
+  async function handleClearIdbCache() {
+    await dbClearAll()
+    await refreshIdbCache()
+    idbCleared = '已清除'
+    setTimeout(() => idbCleared = '', 2000)
   }
 
   function handleDefaultPage(val) {
@@ -206,6 +226,7 @@
       </button>
     </div>
 
+    <!-- 清除接口缓存 (localStorage) -->
     <div class="settings-row">
       <div>
         <div class="settings-label">清除接口缓存</div>
@@ -213,6 +234,17 @@
       </div>
       <button class="settings-secondary-btn" onclick={handleClearCache}>
         {clearCacheMsg || t('settings.clear', '清除')}
+      </button>
+    </div>
+
+    <!-- 数据库缓存 (IndexedDB) -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">数据库缓存</div>
+        <div class="settings-desc">{idbCacheText} · 包含歌曲 URL 和 API 响应</div>
+      </div>
+      <button class="settings-secondary-btn" onclick={handleClearIdbCache}>
+        {idbCleared || '清除'}
       </button>
     </div>
 

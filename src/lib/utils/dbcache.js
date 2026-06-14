@@ -1,0 +1,180 @@
+/**
+ * IndexedDB 缓存层
+ * - API 缓存: 带 TTL 的 HTTP 响应缓存（替代 localStorage）
+ * - URL 缓存: 持久化歌曲播放 URL（跨会话，LRU 淘汰）
+ *
+ * 自动降级: IndexedDB 不可用时（隐私模式等）静默失败，
+ * 调用方应回退到 localStorage。
+ */
+
+const DB_NAME = 'zheting_cache'
+const DB_VERSION = 3
+const STORE_API = 'api_cache'
+const STORE_URL = 'song_urls'
+const MAX_URL_ENTRIES = 500
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.open(DB_NAME, DB_VERSION)
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result
+        if (!db.objectStoreNames.contains(STORE_API)) {
+          const s = db.createObjectStore(STORE_API, { keyPath: 'key' })
+          s.createIndex('expiresAt', 'expiresAt', { unique: false })
+        } else {
+          // 升级旧 store
+          const tx = e.target.transaction
+          const store = tx.objectStore(STORE_API)
+          if (!store.indexNames.contains('expiresAt')) {
+            store.createIndex('expiresAt', 'expiresAt', { unique: false })
+          }
+        }
+        if (!db.objectStoreNames.contains(STORE_URL)) {
+          const s = db.createObjectStore(STORE_URL, { keyPath: 'id' })
+          s.createIndex('savedAt', 'savedAt', { unique: false })
+        }
+      }
+      req.onsuccess = (e) => resolve(e.target.result)
+      req.onerror = () => reject(req.error)
+    } catch {
+      reject(new Error('indexedDB not available'))
+    }
+  })
+}
+
+// ===== API 缓存 =====
+
+export async function dbApiRead(key) {
+  let db
+  try { db = await openDB() } catch { return null }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_API, 'readonly')
+      const req = tx.objectStore(STORE_API).get(key)
+      req.onsuccess = () => {
+        const entry = req.result
+        if (!entry) return resolve(null)
+        if (entry.expiresAt < Date.now()) {
+          // 过期，后台删除
+          dbApiDelete(key).catch(() => {})
+          return resolve(null)
+        }
+        resolve(entry.value)
+      }
+      req.onerror = () => resolve(null)
+    } catch { resolve(null) }
+  })
+}
+
+export async function dbApiWrite(key, value, ttl) {
+  if (!ttl || ttl <= 0) return
+  let db
+  try { db = await openDB() } catch { return }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_API, 'readwrite')
+      tx.objectStore(STORE_API).put({ key, value, expiresAt: Date.now() + ttl, savedAt: Date.now() })
+      tx.oncomplete = resolve
+      tx.onerror = () => resolve()
+    } catch { resolve() }
+  })
+}
+
+async function dbApiDelete(key) {
+  let db
+  try { db = await openDB() } catch { return }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_API, 'readwrite')
+      tx.objectStore(STORE_API).delete(key)
+      tx.oncomplete = resolve
+    } catch { resolve() }
+  })
+}
+
+// ===== 歌曲 URL 缓存（持久化） =====
+
+export async function dbUrlGet(id) {
+  let db
+  try { db = await openDB() } catch { return null }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_URL, 'readonly')
+      const req = tx.objectStore(STORE_URL).get(String(id))
+      req.onsuccess = () => resolve(req.result?.urls || null)
+      req.onerror = () => resolve(null)
+    } catch { resolve(null) }
+  })
+}
+
+export async function dbUrlSet(id, urls) {
+  if (!id || !urls?.length) return
+  let db
+  try { db = await openDB() } catch { return }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_URL, 'readwrite')
+      tx.objectStore(STORE_URL).put({ id: String(id), urls, savedAt: Date.now() })
+      tx.oncomplete = () => { trimUrlCache(); resolve(true) }
+      tx.onerror = () => resolve(false)
+    } catch { resolve(false) }
+  })
+}
+
+async function trimUrlCache() {
+  let db
+  try { db = await openDB() } catch { return }
+  const tx = db.transaction(STORE_URL, 'readwrite')
+  const store = tx.objectStore(STORE_URL)
+  try {
+    const count = await new Promise((r) => { const c = store.count(); c.onsuccess = () => r(c.result) })
+    if (count <= MAX_URL_ENTRIES) return
+    const idx = store.index('savedAt')
+    const excess = count - MAX_URL_ENTRIES
+    let deleted = 0
+    idx.openCursor(IDBKeyRange.lowerBound(0)).onsuccess = (e) => {
+      const cursor = e.target.result
+      if (!cursor || deleted >= excess) return
+      cursor.delete()
+      deleted++
+      cursor.continue()
+    }
+  } catch {}
+}
+
+// ===== 统计 & 管理 =====
+
+export async function dbGetStats() {
+  let db
+  try { db = await openDB() } catch { return { apiCache: 0, urlCache: 0, available: false } }
+  try {
+    const apiCount = await new Promise((r) => { const c = db.transaction(STORE_API).objectStore(STORE_API).count(); c.onsuccess = () => r(c.result); c.onerror = () => r(0) })
+    const urlCount = await new Promise((r) => { const c = db.transaction(STORE_URL).objectStore(STORE_URL).count(); c.onsuccess = () => r(c.result); c.onerror = () => r(0) })
+    return { apiCache: apiCount, urlCache: urlCount, available: true }
+  } catch { return { apiCache: 0, urlCache: 0, available: false } }
+}
+
+export async function dbClearAll() {
+  let db
+  try { db = await openDB() } catch { return }
+  try {
+    await Promise.all([
+      new Promise((r) => { const t = db.transaction(STORE_API, 'readwrite'); t.objectStore(STORE_API).clear(); t.oncomplete = r; t.onerror = r }),
+      new Promise((r) => { const t = db.transaction(STORE_URL, 'readwrite'); t.objectStore(STORE_URL).clear(); t.oncomplete = r; t.onerror = r }),
+    ])
+  } catch {}
+}
+
+export async function dbCleanExpired() {
+  let db
+  try { db = await openDB() } catch { return }
+  try {
+    const tx = db.transaction(STORE_API, 'readwrite')
+    const idx = tx.objectStore(STORE_API).index('expiresAt')
+    idx.openCursor(IDBKeyRange.upperBound(Date.now())).onsuccess = (e) => {
+      const cursor = e.target.result
+      if (cursor) { cursor.delete(); cursor.continue() }
+    }
+  } catch {}
+}

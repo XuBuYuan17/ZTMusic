@@ -1,5 +1,6 @@
 import { getStorage, removeStorage, setStorage } from '../utils/storage.js'
 import { clearCache, createCacheKey, getCacheStats, readCache, writeCache } from '../utils/cache.js'
+import { dbApiRead, dbApiWrite, dbCleanExpired } from '../utils/dbcache.js'
 
 export const DEFAULT_API_BASE = 'https://music.xubuyuan.top'
 const DEV_PROXY_API_BASE = '/ncm-api'
@@ -110,8 +111,15 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     ? createCacheKey([API_BASE, endpoint, requestParams, requestBody, cookie ? cookie.slice(0, 48) : 'public'])
     : ''
   if (cacheKey && !options.refresh) {
-    const cached = readCache(cacheKey)
-    if (cached) return cached
+    // 优先 IndexedDB（异步），降级 localStorage
+    const idbCached = await dbApiRead(cacheKey).catch(() => null)
+    if (idbCached) return idbCached
+    const lsCached = readCache(cacheKey)
+    if (lsCached) {
+      // 同步到 IndexedDB 以便后续使用（不阻塞）
+      dbApiWrite(cacheKey, lsCached, cacheTtl).catch(() => {})
+      return lsCached
+    }
   }
   if (invoke) {
     try {
@@ -128,6 +136,7 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
       })
       if (options.saveCookie !== false) saveCookieFromResponse(result.data, result.cookie)
       writeCache(cacheKey, result.data, cacheTtl)
+      dbApiWrite(cacheKey, result.data, cacheTtl).catch(() => {})
       return result.data
     } catch (error) {
       const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null
@@ -159,6 +168,7 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
     if (options.saveCookie !== false) saveCookieFromResponse(data)
     writeCache(cacheKey, data, cacheTtl)
+    dbApiWrite(cacheKey, data, cacheTtl).catch(() => {})
     return data
   } catch (error) {
     const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null

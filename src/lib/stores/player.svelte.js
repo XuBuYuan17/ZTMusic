@@ -3,6 +3,7 @@ import { ncm } from '../api/client.js'
 import { auth } from './auth.svelte.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 import { coverUrl, normalizeImageUrl } from '../utils/image.js'
+import { dbUrlGet, dbUrlSet } from '../utils/dbcache.js'
 
 // ===== 原生媒体会话（Android 通知栏 + 桌面系统媒体控件） =====
 let _tauriInvoke = null
@@ -262,7 +263,7 @@ function persistState() {
 }
 
 async function getPlayableUrls(id) {
-  // 检查预取缓存
+  // 0. 检查预取缓存（内存，当前歌单的下一首）
   const cached = _prefetchCache.get(id)
   if (cached) {
     _prefetchCache.delete(id)
@@ -270,13 +271,24 @@ async function getPlayableUrls(id) {
     return cached
   }
 
+  // 1. 检查 IndexedDB 持久 URL 缓存（跨会话，秒开）
+  try {
+    const persisted = await dbUrlGet(id)
+    if (persisted && Array.isArray(persisted) && persisted.length > 0) {
+      logPlayback('url-cache-hit', { id })
+      // 后台刷新，不阻塞播放
+      refreshSongUrlsBg(id)
+      return persisted
+    }
+  } catch {}
+
   const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
   const urls = []
   const trialUrls = []
   const reqId = _playRequestId
   _firstUrlLevel = ''
 
-  // Phase 1: 快速出声 — 优先完整版 URL，找不到才收集试听片段
+  // Phase 1: 快速出声
   const fastTiers = uniqueLevels(['standard', 'higher', _preferredLevel])
   for (const level of fastTiers) {
     const result = await fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)
@@ -290,7 +302,6 @@ async function getPlayableUrls(id) {
     }
   }
 
-  // 降级尝试带 unblock 的版本
   if (urls.length === 0) {
     for (const level of fastTiers) {
       const result = await fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)
@@ -305,16 +316,14 @@ async function getPlayableUrls(id) {
     }
   }
 
-  // 没有完整版时 fallback 试听片段
-  if (urls.length === 0 && trialUrls.length > 0) {
-    urls.push(...trialUrls)
-  }
-
-  // 兜底
+  if (urls.length === 0 && trialUrls.length > 0) urls.push(...trialUrls)
   if (urls.length === 0) addUrl(urls, fallbackUrl)
 
-  // Phase 2: 后台获取偏好音质并补全 fallback 链
-  // 不 await — 让播放先开始
+  // 持久化 URL 到 IndexedDB（非 fallback 兜底）
+  if (urls.length > 0 && urls[0] !== fallbackUrl) {
+    dbUrlSet(id, urls).catch(() => {})
+  }
+
   fillFallbackUrls(id, reqId)
 
   return urls
@@ -411,7 +420,30 @@ async function fillFallbackUrls(id, reqId) {
   }
 }
 
-/** 后台预取下一首歌的 URL，切歌时零等待 */
+/**
+ * 后台刷新 IndexedDB 中的 URL 缓存（不阻塞播放，不改变当前播放）
+ */
+async function refreshSongUrlsBg(id) {
+  const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
+  const fastTiers = uniqueLevels(['standard', 'higher', _preferredLevel])
+  for (const level of fastTiers) {
+    const result = await fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)
+    if (result && result.url && !result.isTrial) {
+      dbUrlSet(id, [result.url]).catch(() => {})
+      return
+    }
+  }
+  // unblock fallback
+  for (const level of fastTiers) {
+    const result = await fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)
+    if (result && result.url) {
+      dbUrlSet(id, [result.url]).catch(() => {})
+      return
+    }
+  }
+}
+
+/** 后台预取下一首歌的 URL + 音频，切歌时零等待 */
 async function prefetchNextTrackUrl(reqId) {
   if (_queue.length < 2 || _queueIndex < 0) return
   const nextIdx = (_queueIndex + 1) % _queue.length
@@ -429,10 +461,15 @@ async function prefetchNextTrackUrl(reqId) {
   const tiers = uniqueLevels(['standard', 'higher', _preferredLevel])
   for (const level of tiers) {
     if (_playRequestId !== reqId) return
-    const url = await fetchSongUrl(nextTrack.id, level, false, FAST_PLAY_TIMEOUT)
-    if (url) {
-      _prefetchCache.set(nextTrack.id, [url])
-      logPlayback('prefetch-cached', { id: nextTrack.id, level, url })
+    const result = await fetchSongUrl(nextTrack.id, level, false, FAST_PLAY_TIMEOUT)
+    if (result) {
+      const urlStr = typeof result === 'string' ? result : result.url
+      _prefetchCache.set(nextTrack.id, [urlStr])
+      logPlayback('prefetch-cached', { id: nextTrack.id, level, url: urlStr })
+      // 持久化到 IndexedDB
+      dbUrlSet(nextTrack.id, [urlStr]).catch(() => {})
+      // 预加载音频到隐藏 Audio 元素
+      engine.preload(urlStr)
       return
     }
   }
@@ -677,6 +714,7 @@ function playQueue(tracks, startIndex = 0) {
 }
 
 function next() {
+  engine.cancelPreload()
   if (_queue.length === 0) {
     logPlayback('next-empty-queue')
     return
@@ -699,6 +737,7 @@ function next() {
 }
 
 function prev() {
+  engine.cancelPreload()
   if (_queue.length === 0) {
     logPlayback('prev-empty-queue')
     return
