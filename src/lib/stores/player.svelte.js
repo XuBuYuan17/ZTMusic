@@ -127,6 +127,7 @@ let _playRequestId = 0
 let _playUrls = []
 let _playUrlIndex = 0
 let _advanceLock = false
+let _fillFallbackPending = false
 let _prefetchCache = new Map()
 const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
 const FAST_PLAY_TIMEOUT = 3500
@@ -242,11 +243,10 @@ function handleEnded(state) {
   _advanceLock = true
   _shouldAutoPlay = true
   setTimeout(() => {
-    try {
-      next()
-    } finally {
-      _advanceLock = false
-    }
+    // 如果用户在此期间已经主动切歌（_advanceLock 已被清除），则不再重复切歌
+    if (!_advanceLock) return
+    _advanceLock = false
+    next()
   }, 80)
 }
 
@@ -316,73 +316,78 @@ async function getPlayableUrls(id) {
 }
 
 async function fillFallbackUrls(id, reqId) {
-  const allLevels = orderedPlayLevels()
-  let upgraded = false
+  _fillFallbackPending = true
+  try {
+    const allLevels = orderedPlayLevels()
+    let upgraded = false
 
-  // Step 1: 优先获取用户偏好的音质，作为主播放 URL
-  for (const level of allLevels) {
-    if (_playRequestId !== reqId) return
-    const result = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
-    if (!result || _playUrls.includes(result.url)) continue
+    // Step 1: 优先获取用户偏好的音质，作为主播放 URL
+    for (const level of allLevels) {
+      if (_playRequestId !== reqId) return
+      const result = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
+      if (!result || _playUrls.includes(result.url)) continue
 
-    if (!upgraded && _playUrls.length > 0) {
-      // 升级到偏好音质：插入到 _playUrls[0] 并切换播放
-      _playUrls.unshift(result.url)
-      _playUrlIndex = 0
-      upgraded = true
-      logPlayback('quality-upgrade', { level, url: result.url })
-      if (_playing && _playRequestId === reqId && !engine.paused) {
-        const savedTime = engine.currentTime
-        _currentTime = savedTime
-        _restoreSeeking = savedTime > 0
-        engine.load(result.url)
-        engine.play().catch(() => {
-          if (_playRequestId !== reqId) return
-          // 升级失败：移除刚插入的 URL，并继续 fallback
-          const badIdx = _playUrls.indexOf(result.url)
-          if (badIdx >= 0) _playUrls.splice(badIdx, 1)
-          _playUrlIndex = 0
-          tryNextPlayUrl()
-        })
-      }
-    } else {
-      _playUrls.push(result.url)
-    }
-  }
-
-  // Step 2: 获取带 unblock 的版本
-  for (const level of allLevels) {
-    if (_playRequestId !== reqId) return
-    const result = await fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)
-    if (result && !_playUrls.includes(result.url)) _playUrls.push(result.url)
-  }
-
-  // Step 3: 补充网易官方 fallback
-  const fbUrl = normalizePlayUrl(`https://music.163.com/song/media/outer/url?id=${id}.mp3`)
-  if (_playRequestId === reqId && fbUrl && !_playUrls.includes(fbUrl)) {
-    _playUrls.push(fbUrl)
-  }
-
-  // Step 4: 最终兜底 — 使用 UnblockNeteaseMusic 直接解灰
-  if (_playRequestId === reqId && _playUrls.length <= 1) {
-    try {
-      const matchRes = await ncm.songUrlMatch(id)
-      const matchUrl = matchRes?.data?.[0]?.url || matchRes?.data?.url || matchRes?.url || ''
-      if (matchUrl) {
-        const normalized = normalizePlayUrl(matchUrl)
-        if (normalized && !_playUrls.includes(normalized)) {
-          _playUrls.push(normalized)
-          logPlayback('unblock-fallback', { url: normalized })
+      if (!upgraded && _playUrls.length > 0) {
+        // 升级到偏好音质：插入到 _playUrls[0] 并切换播放
+        _playUrls.unshift(result.url)
+        _playUrlIndex = 0
+        upgraded = true
+        logPlayback('quality-upgrade', { level, url: result.url })
+        if (_playing && _playRequestId === reqId && !engine.paused) {
+          const savedTime = engine.currentTime
+          _currentTime = savedTime
+          _restoreSeeking = savedTime > 0
+          engine.load(result.url)
+          engine.play().catch(() => {
+            if (_playRequestId !== reqId) return
+            // 升级失败：移除刚插入的 URL，并继续 fallback
+            const badIdx = _playUrls.indexOf(result.url)
+            if (badIdx >= 0) _playUrls.splice(badIdx, 1)
+            _playUrlIndex = 0
+            tryNextPlayUrl()
+          })
         }
+      } else {
+        _playUrls.push(result.url)
       }
-    } catch {}
-  }
+    }
 
-  logPlayback('fallback-urls-filled', { totalUrls: _playUrls.length, id, upgraded })
+    // Step 2: 获取带 unblock 的版本
+    for (const level of allLevels) {
+      if (_playRequestId !== reqId) return
+      const result = await fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)
+      if (result && !_playUrls.includes(result.url)) _playUrls.push(result.url)
+    }
 
-  // Step 5: 后台预取下一首歌的 URL（批量预取）
-  if (_playRequestId === reqId && _queue.length > 1 && _queueIndex >= 0) {
-    prefetchNextTrackUrl(reqId)
+    // Step 3: 补充网易官方 fallback
+    const fbUrl = normalizePlayUrl(`https://music.163.com/song/media/outer/url?id=${id}.mp3`)
+    if (_playRequestId === reqId && fbUrl && !_playUrls.includes(fbUrl)) {
+      _playUrls.push(fbUrl)
+    }
+
+    // Step 4: 最终兜底 — 使用 UnblockNeteaseMusic 直接解灰
+    if (_playRequestId === reqId && _playUrls.length <= 1) {
+      try {
+        const matchRes = await ncm.songUrlMatch(id)
+        const matchUrl = matchRes?.data?.[0]?.url || matchRes?.data?.url || matchRes?.url || ''
+        if (matchUrl) {
+          const normalized = normalizePlayUrl(matchUrl)
+          if (normalized && !_playUrls.includes(normalized)) {
+            _playUrls.push(normalized)
+            logPlayback('unblock-fallback', { url: normalized })
+          }
+        }
+      } catch {}
+    }
+
+    logPlayback('fallback-urls-filled', { totalUrls: _playUrls.length, id, upgraded })
+
+    // Step 5: 后台预取下一首歌的 URL（批量预取）
+    if (_playRequestId === reqId && _queue.length > 1 && _queueIndex >= 0) {
+      prefetchNextTrackUrl(reqId)
+    }
+  } finally {
+    _fillFallbackPending = false
   }
 }
 
@@ -473,11 +478,34 @@ async function fetchSongUrl(id, level, unblock, timeout) {
 
 function tryNextPlayUrl() {
   if (_playUrlIndex >= _playUrls.length - 1) {
+    // 如果 fillFallbackUrls 还在跑，等等它
+    if (_fillFallbackPending) {
+      _loading = true
+      setTimeout(() => {
+        // 此时 _playUrls 可能已有新 URL
+        if (_playUrlIndex < _playUrls.length - 1) {
+          tryNextPlayUrl()
+        } else if (_shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
+          _advanceLock = true
+          setTimeout(() => {
+            _advanceLock = false
+            next()
+          }, 120)
+        } else {
+          _loading = false
+          _playing = false
+          _shouldAutoPlay = false
+          _error = '当前歌曲暂无可用音源'
+        }
+      }, 3000)
+      return true
+    }
     // 当前歌曲没有更多可用 URL，自动切到下一首
     if (_shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
       _advanceLock = true
       setTimeout(() => {
-        try { next() } finally { _advanceLock = false }
+        _advanceLock = false
+        next()
       }, 120)
     }
     return false
@@ -611,9 +639,10 @@ function next() {
     logPlayback('next-empty-queue')
     return
   }
+  // 用户主动点击下一首时，清除自动切歌锁，避免响应延迟
   if (_advanceLock) {
-    logPlayback('next-locked')
-    return
+    logPlayback('next-user-override')
+    _advanceLock = false
   }
   let idx
   if (_mode === 'shuffle') {
@@ -628,8 +657,16 @@ function next() {
 }
 
 function prev() {
-  if (_queue.length === 0) return
+  if (_queue.length === 0) {
+    logPlayback('prev-empty-queue')
+    return
+  }
+  if (_advanceLock) {
+    logPlayback('prev-user-override')
+    _advanceLock = false
+  }
   const idx = _queueIndex <= 0 ? _queue.length - 1 : _queueIndex - 1
+  logPlayback('prev', { fromIndex: _queueIndex, toIndex: idx })
   playTrack(_queue[idx], idx)
 }
 
