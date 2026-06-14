@@ -1,7 +1,7 @@
 import { normalizeAlbum, normalizePlaylist, normalizeSong, parseHomepageBlocks } from '../utils/normalize.js'
 
 export async function loadExploreData(ncm) {
-  const [bannerRes, personalizedRes, topPlaylistRes, newSongRes, recommendRes, albumNewestRes, homepageRes] = await Promise.all([
+  const [bannerRes, personalizedRes, topPlaylistRes, newSongRes, recommendRes, albumNewestRes, homepageRes] = await Promise.allSettled([
     ncm.banner().catch(() => ({ banners: [] })),
     ncm.personalized(10).catch(() => ({ result: [] })),
     ncm.topPlaylist('全部', 12).catch(() => ({ playlists: [] })),
@@ -11,7 +11,7 @@ export async function loadExploreData(ncm) {
     ncm.homepageBlockPage(false).catch(() => null),
   ])
 
-  const banners = (bannerRes?.banners || []).map((banner, index) => ({
+  const banners = ((bannerRes.status === 'fulfilled' ? bannerRes.value : {})?.banners || []).map((banner, index) => ({
     id: banner.targetId || banner.id || index,
     title: banner.typeTitle || banner.title || '',
     pic: banner.imageUrl || banner.bigImageUrl || banner.pic || '',
@@ -19,19 +19,23 @@ export async function loadExploreData(ncm) {
     targetType: banner.targetType || 0,
   }))
 
-  const personalized = (personalizedRes?.result || personalizedRes?.playlists || []).map(normalizePlaylist).filter(Boolean)
+  const personalized = ((personalizedRes.status === 'fulfilled' ? personalizedRes.value : {})?.result || []).map(normalizePlaylist).filter(Boolean)
 
-  const topPlaylists = (topPlaylistRes?.playlists || topPlaylistRes?.list || []).map(normalizePlaylist).filter(Boolean)
+  const topPlaylists = ((topPlaylistRes.status === 'fulfilled' ? topPlaylistRes.value : {})?.playlists || []).map(normalizePlaylist).filter(Boolean)
 
-  const newSongData = newSongRes?.result || []
-  const recData = recommendRes?.data || recommendRes?.songs || []
-  const dailySongs = recData.dailySongs || recData.songs || recData || []
-  const preferredSongs = newSongData.length ? newSongData : dailySongs
-  const recommendSongs = (Array.isArray(preferredSongs) ? preferredSongs : []).map(normalizeSong).filter(Boolean)
+  const newSongVal = newSongRes.status === 'fulfilled' ? newSongRes.value : {}
+  const recVal = recommendRes.status === 'fulfilled' ? recommendRes.value : {}
+  const newSongData = newSongVal?.result || []
+  const recSongs = recVal?.data?.dailySongs || recVal?.data?.songs || recVal?.data || recVal?.songs || []
+  const preferredSongs = newSongData.length ? newSongData : (Array.isArray(recSongs) ? recSongs : [])
+  const recommendSongs = preferredSongs.map(normalizeSong).filter(Boolean)
 
-  const albumData = albumNewestRes?.albums || albumNewestRes?.data?.albums || []
+  const albumVal = albumNewestRes.status === 'fulfilled' ? albumNewestRes.value : {}
+  const albumData = albumVal?.albums || albumVal?.data?.albums || []
   const newAlbums = (Array.isArray(albumData) ? albumData : []).map(normalizeAlbum).filter(Boolean).slice(0, 12)
-  const blocks = parseHomepageBlocks(homepageRes)
+
+  const homepageVal = homepageRes.status === 'fulfilled' ? homepageRes.value : null
+  const blocks = parseHomepageBlocks(homepageVal)
 
   return { banners, personalized, topPlaylists, recommendSongs, newAlbums, blocks }
 }
