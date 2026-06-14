@@ -3,17 +3,23 @@ name: Prepare Release
 "on":
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release version, e.g. 0.1.1'
+      version_bump:
+        description: 'Version bump strategy'
         required: true
-        type: string
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
 
 permissions:
   contents: write
 
 jobs:
   prepare:
-    name: Update version and create tag
+    name: Calculate version and create release tag
     runs-on: ubuntu-latest
 
     steps:
@@ -22,26 +28,113 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate version
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Calculate next version and changelog
+        id: release
         env:
-          VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.version_bump }}
         run: |
           set -euo pipefail
 
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Version must be semver like 0.1.1"
-            exit 1
-          fi
+          node <<'JS'
+          const { execSync } = require('node:child_process')
+          const fs = require('node:fs')
 
-          git fetch --tags --force
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "Tag v$VERSION already exists"
-            exit 1
-          fi
+          function run(cmd) {
+            return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim()
+          }
+
+          const latestTag = run('git describe --tags --abbrev=0 2>/dev/null') || 'v0.0.0'
+          const latestVersion = latestTag.replace(/^v/, '')
+          const [major, minor, patch] = latestVersion.split('.').map(Number)
+
+          const log = run(`git log ${latestTag}..HEAD --pretty=format:%s`)
+          const commits = log ? log.split('\n').filter(Boolean) : []
+
+          const groups = {
+            feat: [],
+            fix: [],
+            docs: [],
+            style: [],
+            refactor: [],
+            perf: [],
+            test: [],
+            chore: [],
+            other: []
+          }
+
+          let hasBreaking = false
+
+          for (const msg of commits) {
+            const line = msg.replace(/\r?\n/g, ' ')
+            const match = line.match(/^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?!?:\s*(.+)/)
+            if (line.includes('BREAKING CHANGE') || line.includes('BREAKING-CHANGE')) hasBreaking = true
+            if (match) {
+              const [, type, , body] = match
+              if (type === 'feat' && (match[0].includes('!:') || line.includes('BREAKING'))) hasBreaking = true
+              if (type === 'fix' && (match[0].includes('!:') || line.includes('BREAKING'))) hasBreaking = true
+              ;(groups[type] || groups.other).push(body)
+            } else {
+              groups.other.push(line)
+            }
+          }
+
+          const bump = process.env.BUMP === 'auto'
+            ? (hasBreaking ? 'major' : commits.some(c => c.startsWith('feat')) ? 'minor' : 'patch')
+            : process.env.BUMP
+
+          let nextMajor = major, nextMinor = minor, nextPatch = patch
+          if (bump === 'major') { nextMajor++; nextMinor = 0; nextPatch = 0 }
+          else if (bump === 'minor') { nextMinor++; nextPatch = 0 }
+          else { nextPatch++ }
+
+          const version = `${nextMajor}.${nextMinor}.${nextPatch}`
+          const tag = `v${version}`
+          const date = new Date().toISOString().split('T')[0]
+
+          const sections = []
+          if (groups.feat.length) sections.push(`### 新增\n${groups.feat.map(c => `- ${c}`).join('\n')}`)
+          if (groups.fix.length) sections.push(`### 修复\n${groups.fix.map(c => `- ${c}`).join('\n')}`)
+          if (groups.perf.length) sections.push(`### 优化\n${groups.perf.map(c => `- ${c}`).join('\n')}`)
+          if (groups.refactor.length) sections.push(`### 重构\n${groups.refactor.map(c => `- ${c}`).join('\n')}`)
+          if (groups.docs.length) sections.push(`### 文档\n${groups.docs.map(c => `- ${c}`).join('\n')}`)
+          if (groups.chore.length || groups.style.length || groups.test.length || groups.other.length) {
+            const others = [...groups.chore, ...groups.style, ...groups.test, ...groups.other]
+            sections.push(`### 其他\n${others.map(c => `- ${c}`).join('\n')}`)
+          }
+
+          const releaseNotes = sections.length ? sections.join('\n\n') : '### 其他\n- 日常维护与优化'
+
+          let changelog = ''
+          if (fs.existsSync('CHANGELOG.md')) {
+            changelog = fs.readFileSync('CHANGELOG.md', 'utf8')
+          } else {
+            changelog = '# Changelog\n\n## [Unreleased]\n'
+          }
+
+          const newEntry = `## [${version}] - ${date}\n\n${releaseNotes}`
+          changelog = changelog.replace('## [Unreleased]', `## [Unreleased]\n\n${newEntry}`)
+
+          fs.writeFileSync('CHANGELOG.md', changelog)
+
+          const ghOutput = process.env.GITHUB_OUTPUT
+          fs.appendFileSync(ghOutput, `version=${version}\n`)
+          fs.appendFileSync(ghOutput, `tag=${tag}\n`)
+          fs.appendFileSync(ghOutput, `release_notes<<EOF\n${releaseNotes}\nEOF\n`)
+
+          console.log(`Latest: ${latestTag}`)
+          console.log(`Next: ${tag}`)
+          console.log('--- Release Notes ---')
+          console.log(releaseNotes)
+          JS
 
       - name: Update version files
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -52,9 +145,7 @@ jobs:
           const updateJsonVersion = (filePath) => {
             const text = fs.readFileSync(filePath, 'utf8')
             const next = text.replace(/"version"\s*:\s*"[^"]+"/, `"version": "${version}"`)
-            if (next === text) {
-              throw new Error(`Could not update version in ${filePath}`)
-            }
+            if (next === text) throw new Error(`Could not update version in ${filePath}`)
             fs.writeFileSync(filePath, next)
           }
 
@@ -63,89 +154,53 @@ jobs:
           JS
 
           python3 <<'PY'
-          import os
-          import re
+          import os, re
           from pathlib import Path
-
           version = os.environ['VERSION']
 
           cargo_toml = Path('src-tauri/Cargo.toml')
           text = cargo_toml.read_text()
-          text, count = re.subn(
-              r'(?m)^version = "[^"]+"$',
-              f'version = "{version}"',
-              text,
-              count=1,
-          )
-          if count != 1:
-              raise SystemExit('Could not update package version in src-tauri/Cargo.toml')
+          text, count = re.subn(r'(?m)^version = "[^"]+"$', f'version = "{version}"', text, count=1)
+          if count != 1: raise SystemExit('Could not update Cargo.toml')
           cargo_toml.write_text(text)
 
           cargo_lock = Path('src-tauri/Cargo.lock')
           text = cargo_lock.read_text()
           pattern = r'(?ms)(\[\[package\]\]\nname = "zheting"\nversion = ")[^"]+("\n)'
           text, count = re.subn(pattern, rf'\g<1>{version}\2', text, count=1)
-          if count != 1:
-              raise SystemExit('Could not update zheting version in src-tauri/Cargo.lock')
+          if count != 1: raise SystemExit('Could not update Cargo.lock')
           cargo_lock.write_text(text)
           PY
 
       - name: Verify version sync
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-
           node <<'JS'
           const fs = require('node:fs')
           const version = process.env.VERSION
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
-          const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'))
-
-          if (pkg.version !== version) {
-            throw new Error(`package.json version mismatch: ${pkg.version}`)
-          }
-          if (tauri.version !== version) {
-            throw new Error(`tauri.conf.json version mismatch: ${tauri.version}`)
-          }
+          const pkg = JSON.parse(fs.readFileSync('package.json'))
+          const tauri = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json'))
+          if (pkg.version !== version) throw new Error('package.json mismatch')
+          if (tauri.version !== version) throw new Error('tauri.conf.json mismatch')
           JS
-
           grep -q "^version = \"$VERSION\"$" src-tauri/Cargo.toml
-          python3 <<'PY'
-          import os
-          import re
-          from pathlib import Path
 
-          version = os.environ['VERSION']
-          text = Path('src-tauri/Cargo.lock').read_text()
-          if not re.search(rf'(?ms)\[\[package\]\]\nname = "zheting"\nversion = "{re.escape(version)}"\n', text):
-              raise SystemExit('Cargo.lock zheting version mismatch')
-          PY
-
-      - name: Commit and tag
+      - name: Commit, tag and push
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-
-          if git diff --quiet -- package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock; then
-            echo "No version changes detected"
-            exit 1
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-          git commit -m "chore: release v$VERSION"
-          git tag "v$VERSION"
-          git push origin HEAD:main
-          git push origin "v$VERSION"
+          git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md
+          git diff --cached --quiet && { echo "No changes"; exit 1; }
 
-      - name: Trigger build release workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
+          git commit -m "chore(release): $TAG"
+          git tag "$TAG"
+          git push origin HEAD:main
+          git push origin "$TAG"
           gh workflow run build.yml --ref "v$VERSION"

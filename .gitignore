@@ -21,6 +21,12 @@ local.override.css
 *.keystore
 src-tauri/gen/android/keystore.properties
 
+# Tauri build outputs
+src-tauri/target
+src-tauri/gen/android/app/build
+src-tauri/gen/android/build
+src-tauri/gen/android/.gradle
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
