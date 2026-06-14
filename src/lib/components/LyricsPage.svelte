@@ -384,7 +384,7 @@
             mode={player.mode}
             playing={player.playing}
             loading={player.loading}
-            disabled={!hasPlayableTrack || queueLength === 0}
+            disabled={!hasPlayableTrack}
             onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
             onprev={() => player.prev()}
             onplaypause={() => player.togglePlay()}
@@ -514,7 +514,7 @@
         <div class="ly-left-controls">
           <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!hasPlayableTrack} onseek={(t) => { player.seek(t) }} />
           <PlaybackControls variant="lyrics" mode={player.mode} playing={player.playing} loading={player.loading}
-            disabled={!hasPlayableTrack || queueLength === 0}
+            disabled={!hasPlayableTrack}
             onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
             onprev={() => player.prev()} onplaypause={() => player.togglePlay()} onnext={() => player.next()}
             onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')} />
