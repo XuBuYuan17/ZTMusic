@@ -12,9 +12,13 @@ const DB_VERSION = 3
 const STORE_API = 'api_cache'
 const STORE_URL = 'song_urls'
 const MAX_URL_ENTRIES = 500
+const DB_TIMEOUT = 3000 // 3s timeout for IndexedDB operations
+let _idbFailed = false // fast-failure flag
 
 function openDB() {
+  if (_idbFailed) return Promise.reject(new Error('indexedDB previously failed'))
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('indexedDB timeout')), DB_TIMEOUT)
     try {
       const req = indexedDB.open(DB_NAME, DB_VERSION)
       req.onupgradeneeded = (e) => {
@@ -35,10 +39,12 @@ function openDB() {
           s.createIndex('savedAt', 'savedAt', { unique: false })
         }
       }
-      req.onsuccess = (e) => resolve(e.target.result)
-      req.onerror = () => reject(req.error)
-    } catch {
-      reject(new Error('indexedDB not available'))
+      req.onsuccess = (e) => { clearTimeout(timer); resolve(e.target.result) }
+      req.onerror = () => { clearTimeout(timer); _idbFailed = true; reject(req.error) }
+    } catch (err) {
+      clearTimeout(timer)
+      _idbFailed = true
+      reject(err instanceof Error ? err : new Error('indexedDB not available'))
     }
   })
 }
