@@ -58,6 +58,13 @@
   let messageTargetUser = $state(null)
   let refreshKey = $state(Date.now())
   let toplists = $state([])
+
+  // cookie 过期自动弹出登录
+  $effect(() => {
+    if (!auth.cookieOk && auth.isLoggedIn) {
+      showLogin = true
+    }
+  })
   let toplistsLoading = $state(false)
   let recentTracks = $state([])
   let recentLoading = $state(false)

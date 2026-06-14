@@ -37,11 +37,14 @@ async function checkLoginStatus() {
     const isAnon = res.account?.anonimousUser || res.data?.account?.anonimousUser
     if (!ok || isAnon) {
       _cookieOk = false
-      clearCookie()
-      _user = null
-      _loginMode = null
-      removeStorage('auth_user')
-      removeStorage('auth_mode')
+      // 延迟一点清除登录态，让 UI 可以捕捉到 cookieOk 变化
+      setTimeout(() => {
+        clearCookie()
+        _user = null
+        _loginMode = null
+        removeStorage('auth_user')
+        removeStorage('auth_mode')
+      }, 100)
       return false
     }
     _cookieOk = true
@@ -85,6 +88,7 @@ export const auth = {
   setUser(user, mode) {
     _user = normalizeUser(user)
     _loginMode = mode
+    _cookieOk = true
     setStorage('auth_user', _user)
     setStorage('auth_mode', mode)
   },
