@@ -87,7 +87,7 @@
       try {
         const res = await ncm.lyric(id)
         if (player.id !== id) return
-        barLyrics = parseLyricResponse(res)
+        barLyrics = parseLyricResponse(res).lines
           .map(normalizeLyricLine)
           .filter((line) => line.text)
       } catch (err) {
