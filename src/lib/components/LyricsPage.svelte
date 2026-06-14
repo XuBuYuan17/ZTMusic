@@ -379,20 +379,18 @@
         <div class="ly-left-controls">
           <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!hasPlayableTrack} onseek={(t) => { player.seek(t) }} />
 
-          <div class="ly-play-row">
-            <PlaybackControls
-              size="lg"
-              mode={player.mode}
-              playing={player.playing}
-              loading={player.loading}
-              disabled={!hasPlayableTrack || queueLength === 0}
-              onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
-              onprev={() => player.prev()}
-              onplaypause={() => player.togglePlay()}
-              onnext={() => player.next()}
-              onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')}
-            />
-          </div>
+          <PlaybackControls
+            variant="lyrics"
+            mode={player.mode}
+            playing={player.playing}
+            loading={player.loading}
+            disabled={!hasPlayableTrack || queueLength === 0}
+            onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
+            onprev={() => player.prev()}
+            onplaypause={() => player.togglePlay()}
+            onnext={() => player.next()}
+            onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')}
+          />
 
           <div class="ly-mobile-volume-row">
             <VolumeSlider volume={player.volume} disabled={false} onvolumechange={(v) => player.setVolume(v)} />
@@ -515,13 +513,11 @@
         </div>
         <div class="ly-left-controls">
           <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!hasPlayableTrack} onseek={(t) => { player.seek(t) }} />
-          <div class="ly-play-row">
-            <PlaybackControls size="lg" mode={player.mode} playing={player.playing} loading={player.loading}
-              disabled={!hasPlayableTrack || queueLength === 0}
-              onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
-              onprev={() => player.prev()} onplaypause={() => player.togglePlay()} onnext={() => player.next()}
-              onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')} />
-          </div>
+          <PlaybackControls variant="lyrics" mode={player.mode} playing={player.playing} loading={player.loading}
+            disabled={!hasPlayableTrack || queueLength === 0}
+            onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
+            onprev={() => player.prev()} onplaypause={() => player.togglePlay()} onnext={() => player.next()}
+            onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')} />
           <div class="ly-mobile-volume-row">
             <VolumeSlider volume={player.volume} onvolumechange={(v) => player.setVolume(v)} />
           </div>
