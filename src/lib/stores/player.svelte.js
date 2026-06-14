@@ -365,8 +365,23 @@ async function fillFallbackUrls(id, reqId) {
       _playUrls.push(fbUrl)
     }
 
+    // Step 3.5: 老版 /song/url 兜底（v1 新版可能对某些歌曲返回空，老版反而有）
+    if (_playRequestId === reqId && _playUrls.length <= 2) {
+      try {
+        const oldRes = await withTimeout(ncm.songUrlOld(id, 320000), FALLBACK_PLAY_TIMEOUT)
+        const oldItem = oldRes?.data?.[0]
+        if (oldItem?.url) {
+          const url = normalizePlayUrl(oldItem.url)
+          if (url && !_playUrls.includes(url)) {
+            _playUrls.push(url)
+            logPlayback('old-api-fallback', { url })
+          }
+        }
+      } catch {}
+    }
+
     // Step 4: 最终兜底 — 使用 UnblockNeteaseMusic 直接解灰
-    if (_playRequestId === reqId && _playUrls.length <= 1) {
+    if (_playRequestId === reqId && _playUrls.length <= 2) {
       try {
         const matchRes = await ncm.songUrlMatch(id)
         const matchUrl = matchRes?.data?.[0]?.url || matchRes?.data?.url || matchRes?.url || ''
@@ -460,7 +475,9 @@ async function fetchSongUrl(id, level, unblock, timeout) {
       freeTrial: Boolean(item?.freeTrialInfo),
       message: item?.message || res?.message || res?.msg || '',
     })
-    if (!item?.url || item.code !== 200) return null
+    // URL 存在即可播放，不需要检查 item.code
+    // code 可能是 200 / -105 / -110 等，但只要有 url 就说明可以播放
+    if (!item?.url) return null
     return {
       url: normalizePlayUrl(item.url),
       isTrial: Boolean(item.freeTrialInfo),

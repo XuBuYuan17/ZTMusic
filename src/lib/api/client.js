@@ -199,6 +199,10 @@ export const ncm = {
   songUrl(id, level = 'lossless', unblock = false) {
     return request('/song/url/v1', { id, level, unblock: unblock ? 'true' : 'false' })
   },
+  /** 老版 /song/url — 用 br 码率，作 fallback 兜底 */
+  songUrlOld(id, br = 320000) {
+    return request('/song/url', { id, br })
+  },
   /** 直接获取灰色歌曲链接（UnblockNeteaseMusic） */
   songUrlMatch(id) {
     return request('/song/url/match', { id })
