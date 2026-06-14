@@ -1,6 +1,7 @@
 <script>
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl } from '../utils/image.js'
   import SongListActions from '../components/SongListActions.svelte'
 
   let {
@@ -147,7 +148,7 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
         {#if playlistDetail.coverImgUrl || playlistDetail.picUrl}
-          <img class="hero-cover" src={playlistDetail.coverImgUrl || playlistDetail.picUrl} alt={playlistDetail.name} />
+          <img class="hero-cover" src={coverUrl(playlistDetail.coverImgUrl || playlistDetail.picUrl, 420)} alt={playlistDetail.name} referrerpolicy="no-referrer" />
         {:else}
           <div class="hero-cover" style="background:linear-gradient(135deg,{heroColor},#ff6b5f)"></div>
         {/if}
@@ -218,7 +219,7 @@
                 <td class="col-num">{i + 1}</td>
                 <td class="col-cover">
                   {#if track.al?.picUrl || track.album?.picUrl}
-                    <img class="track-cover-img" src={(track.al?.picUrl || track.album?.picUrl) + '?param=80y80'} alt="" loading="lazy" />
+                    <img class="track-cover-img" src={coverUrl(track.al?.picUrl || track.album?.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <div class="track-cover-placeholder">
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

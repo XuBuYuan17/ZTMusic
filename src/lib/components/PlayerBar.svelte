@@ -168,7 +168,7 @@
   <div class="player-bar__lcd" aria-hidden="true">
     {#if player.cover}
       <div class="lcd-artwork">
-        <img class="lcd-artwork__img" src={coverUrl(player.cover, 88)} alt="">
+        <img class="lcd-artwork__img" src={coverUrl(player.cover, 88)} alt="" referrerpolicy="no-referrer">
       </div>
     {:else}
       <div class="lcd-artwork lcd-artwork--empty">

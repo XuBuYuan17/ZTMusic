@@ -40,7 +40,7 @@
 <div class="mobile-mini-player" class:empty={!player.id} role="button" tabindex="0" aria-label="打开歌词页" onclick={openSheet} onkeydown={handleKeydown}>
   <div class="mobile-mini-player__art">
     {#if player.cover}
-      <img src={coverUrl(player.cover, 96)} alt="" />
+      <img src={coverUrl(player.cover, 96)} alt="" referrerpolicy="no-referrer" />
     {:else}
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
     {/if}

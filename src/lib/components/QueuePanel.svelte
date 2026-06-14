@@ -1,6 +1,7 @@
 <script>
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
   import ArtistNames from './ArtistNames.svelte'
 
@@ -71,9 +72,10 @@
             <div class="queue-item-cover">
               {#if coverOf(track)}
                 <img
-                  src={coverOf(track) + '?param=100y100'}
+                  src={coverUrl(coverOf(track), 100)}
                   alt={track.name}
                   loading="lazy"
+                  referrerpolicy="no-referrer"
                 />
               {:else}
                 <div class="queue-item-cover-placeholder">

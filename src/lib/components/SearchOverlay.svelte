@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import { ncm } from '../api/client.js'
   import { player } from '../stores/player.svelte.js'
+  import { coverUrl } from '../utils/image.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
 
@@ -20,6 +21,7 @@
   let error = $state('')
   let inputEl = $state(null)
   let requestId = 0
+  let _debounceTimer = null
 
   const categories = $derived([
     { id: 'songs', label: '歌曲', count: results.songs.length },
@@ -39,12 +41,23 @@
   $effect(() => {
     if (show) {
       tick().then(() => inputEl?.focus())
+    } else {
+      // 关闭时清理防抖和结果
+      if (_debounceTimer) clearTimeout(_debounceTimer)
+      keyword = ''
+      results = { songs: [], artists: [], playlists: [] }
+      error = ''
     }
   })
 
+  function handleInput() {
+    if (_debounceTimer) clearTimeout(_debounceTimer)
+    _debounceTimer = setTimeout(() => doSearch(), 250)
+  }
+
   async function doSearch() {
     const query = keyword.trim()
-    if (!query) return
+    if (!query) { results = { songs: [], artists: [], playlists: [] }; return }
     const currentRequest = ++requestId
     loading = true
     error = ''
@@ -64,8 +77,7 @@
         songs: songs.map(song => {
         const detail = detailMap.get(song.id) || {}
         const album = detail.al || song.album || song.al || {}
-        const picId = album.picId || album.picId_str || album.picIdStr || album.imgId || 0
-        const picUrl = album.picUrl || album.imgUrl || song.album?.picUrl || song.al?.picUrl || (picId ? `https://p1.music.126.net/${picId}.jpg` : '')
+        const picUrl = album.picUrl || album.imgUrl || song.album?.picUrl || song.al?.picUrl || ''
         return { ...detail, id: song.id, name: song.name, ar: detail.ar || song.artists || song.ar || [], al: album, dt: detail.dt || song.duration || song.dt || 0, picUrl }
         }),
         artists: (artistRes?.result?.artists || []).map(artist => ({
@@ -78,7 +90,7 @@
         playlists: (playlistRes?.result?.playlists || []).map(playlist => ({
           id: playlist.id,
           name: playlist.name,
-          picUrl: playlist.coverImgUrl || playlist.picUrl || (playlist.coverImgIdStr ? `https://p1.music.126.net/${playlist.coverImgIdStr}.jpg` : ''),
+          picUrl: playlist.coverImgUrl || playlist.picUrl || '',
           trackCount: playlist.trackCount || 0,
           creator: playlist.creator?.nickname || '',
         })),
@@ -92,7 +104,10 @@
   }
 
   function handleKeydown(event) {
-    if (event.key === 'Enter') doSearch()
+    if (event.key === 'Enter') {
+      if (_debounceTimer) clearTimeout(_debounceTimer)
+      doSearch()
+    }
     if (event.key === 'Escape') onClose?.()
   }
 
@@ -130,7 +145,7 @@
       <div class="search-overlay__head">
         <label class="search-overlay__input-wrap" aria-label="搜索音乐">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input bind:this={inputEl} bind:value={keyword} onkeydown={handleKeydown} placeholder="搜索歌曲" />
+          <input bind:this={inputEl} bind:value={keyword} oninput={handleInput} onkeydown={handleKeydown} placeholder="搜索歌曲" />
           {#if keyword}
             <button type="button" class="search-overlay__clear" aria-label="清空搜索" onclick={() => { keyword = ''; results = { songs: [], artists: [], playlists: [] }; error = '' }}>
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -164,7 +179,7 @@
               {#each activeItems as track (track.id)}
                 <button type="button" class="search-overlay__row" class:active={player.id === track.id} onclick={() => playTrack(track)}>
                   {#if track.picUrl}
-                    <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="search-overlay__cover-ph">♫</span>
                   {/if}
@@ -178,7 +193,7 @@
               {#each activeItems as artist (artist.id)}
                 <button type="button" class="search-overlay__row" onclick={() => openArtist(artist)}>
                   {#if artist.picUrl}
-                    <img class="search-overlay__avatar" src={artist.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    <img class="search-overlay__avatar" src={coverUrl(artist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="search-overlay__avatar search-overlay__cover-ph">{artist.name?.charAt(0) || '?'}</span>
                   {/if}
@@ -192,7 +207,7 @@
               {#each activeItems as playlist (playlist.id)}
                 <button type="button" class="search-overlay__row" onclick={() => openPlaylist(playlist)}>
                   {#if playlist.picUrl}
-                    <img src={playlist.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    <img src={coverUrl(playlist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="search-overlay__cover-ph">♫</span>
                   {/if}

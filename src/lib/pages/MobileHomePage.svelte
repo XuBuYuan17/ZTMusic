@@ -1,5 +1,6 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
+  import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
   import ArtistNames from '../components/ArtistNames.svelte'
 
@@ -41,9 +42,9 @@
       </div>
       <button type="button" class="mobile-home-hero-card" disabled={!heroPlaylist} onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>
         {#if heroPlaylist?.picUrl}
-          <img src={`${heroPlaylist.picUrl}?param=180y180`} alt="" loading="lazy" />
+          <img src={coverUrl(heroPlaylist.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />
         {:else if auth.user?.avatarUrl}
-          <img src={`${auth.user.avatarUrl}?param=180y180`} alt="" loading="lazy" />
+          <img src={coverUrl(auth.user.avatarUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />
         {:else}
           <span>♫</span>
         {/if}
@@ -89,7 +90,7 @@
           {#each recentPreview as track (track.id)}
             <button type="button" onclick={() => onPlayRecentTrack?.(track)}>
               {#if coverOf(track)}
-                <img src={`${coverOf(track)}?param=96y96`} alt="" loading="lazy" />
+                <img src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <span class="mobile-home-cover-ph">♫</span>
               {/if}
@@ -127,7 +128,7 @@
           {#each libraryPreview as playlist (playlist.id)}
             <button type="button" class="mobile-home-row" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
               {#if playlist.picUrl}
-                <img class="mobile-home-row-cover" src={`${playlist.picUrl}?param=96y96`} alt="" loading="lazy" />
+                <img class="mobile-home-row-cover" src={coverUrl(playlist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <span class="mobile-home-row-cover mobile-home-cover-ph">♫</span>
               {/if}

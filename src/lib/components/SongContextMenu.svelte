@@ -1,6 +1,7 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
   import { ncm } from '../api/client.js'
+  import { coverUrl } from '../utils/image.js'
 
   let {
     show = false,
@@ -269,7 +270,7 @@
     <header class="song-menu__header">
       <div class="song-menu__cover">
         {#if albumOf(track)?.picUrl || track.picUrl}
-          <img src={(albumOf(track)?.picUrl || track.picUrl) + '?param=96y96'} alt="" loading="lazy" />
+          <img src={coverUrl(albumOf(track)?.picUrl || track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
         {:else}
           <span>♫</span>
         {/if}
@@ -332,7 +333,7 @@
           {#each userPlaylists as playlist (playlist.id)}
             <button class="song-menu__playlist" onclick={() => applyPlaylist(playlist.id)} disabled={playlistApplyingId !== null}>
               {#if playlist.coverImgUrl || playlist.picUrl}
-                <img src={(playlist.coverImgUrl || playlist.picUrl) + '?param=72y72'} alt="" loading="lazy" />
+                <img src={coverUrl(playlist.coverImgUrl || playlist.picUrl, 72)} alt="" loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <span class="song-menu__playlist-cover">♫</span>
               {/if}

@@ -1,6 +1,7 @@
 <script>
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
   import SongListActions from '../components/SongListActions.svelte'
 
@@ -51,7 +52,7 @@
 <div class="daily-page fade-in">
   <section class="daily-hero">
     {#key selectedDailyDate + heroCover}
-      <div class="daily-hero-bg" style={heroCover ? `background-image:url(${heroCover}?param=900y900)` : ''}></div>
+      <div class="daily-hero-bg" style={heroCover ? `background-image:url(${coverUrl(heroCover, 900)})` : ''}></div>
     {/key}
     <div class="daily-hero-shade"></div>
     <div class="daily-hero-copy">
@@ -128,7 +129,7 @@
               <div class="daily-song-row" class:active={player.id === track.id} style={`--row-index:${Math.min(i, 12)}`} role="button" tabindex="0" onclick={() => onPlayTrack?.(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
                 <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
                 {#if coverOf(track)}
-                  <img class="daily-song-cover" src={coverOf(track) + '?param=96y96'} alt="" loading="lazy" />
+                  <img class="daily-song-cover" src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                 {:else}
                   <span class="daily-song-cover daily-cover-placeholder">♫</span>
                 {/if}

@@ -1,5 +1,6 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
+  import { coverUrl } from '../utils/image.js'
   import ConfirmDialog from './ConfirmDialog.svelte'
 
   let {
@@ -41,7 +42,7 @@
     <button class="nav-item" class:active={activeView === 'home'} onclick={() => nav('home')}>
       <span class="nav-icon">
         {#if auth.isLoggedIn && auth.user?.avatarUrl}
-          <img class="user-avatar-nav" src={auth.user.avatarUrl + `?param=48y48&_=${refreshKey}`} alt="" referrerpolicy="no-referrer" />
+          <img class="user-avatar-nav" src={`${coverUrl(auth.user.avatarUrl, 48)}&_=${refreshKey}`} alt="" referrerpolicy="no-referrer" />
         {:else}
           <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
         {/if}

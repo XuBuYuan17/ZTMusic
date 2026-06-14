@@ -1,4 +1,6 @@
 <script>
+  import { coverUrl } from '../utils/image.js'
+
   let {
     ranking = {},
     onViewDetail
@@ -8,7 +10,7 @@
 <div class="ranking-card" onclick={() => onViewDetail?.(ranking)}>
   <div class="ranking-cover">
     {#if ranking.coverImgUrl}
-      <img src={ranking.coverImgUrl + '?param=200y200'} alt={ranking.name} />
+      <img src={coverUrl(ranking.coverImgUrl, 200)} alt={ranking.name} referrerpolicy="no-referrer" />
     {:else}
       <div class="ranking-cover-placeholder">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

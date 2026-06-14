@@ -3,6 +3,7 @@
   import { player } from '../stores/player.svelte.js'
   import { ncm } from '../api/client.js'
   import Spinner from '../components/Spinner.svelte'
+  import { coverUrl } from '../utils/image.js'
 
   let { onNavigate = () => {}, targetUser = null } = $props()
 
@@ -211,7 +212,7 @@
           <button class="message-item" onclick={() => openChat(msg)}>
             <div class="msg-avatar">
               {#if getAvatar(msg)}
-                <img src={getAvatar(msg) + '?param=80y80'} alt="" referrerpolicy="no-referrer" />
+                <img src={coverUrl(getAvatar(msg), 80)} alt="" referrerpolicy="no-referrer" />
               {:else}
                 <div class="avatar-placeholder">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -242,7 +243,7 @@
         <div class="chat-titlebar">
           <div class="dialog-user">
             {#if getAvatar(selectedMsg)}
-              <img class="title-avatar" src={getAvatar(selectedMsg) + '?param=72y72'} alt="" referrerpolicy="no-referrer" />
+              <img class="title-avatar" src={coverUrl(getAvatar(selectedMsg), 72)} alt="" referrerpolicy="no-referrer" />
             {:else}
               <div class="title-avatar avatar-placeholder">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -279,7 +280,7 @@
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
                       <button type="button" class="shared-card song-card" onclick={() => playSongFromMessage(parsed.data)} aria-label="播放歌曲 {parsed.data.name || ''}">
                         {#if getSongCover(parsed.data)}
-                          <img class="shared-card-cover" src={getSongCover(parsed.data) + '?param=120y120'} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                          <img class="shared-card-cover" src={coverUrl(getSongCover(parsed.data), 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <div class="shared-card-cover shared-card-cover-placeholder">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -301,7 +302,7 @@
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
                       <button type="button" class="shared-card album-card" onclick={() => openAlbumFromMessage(parsed.data)} aria-label="打开专辑 {parsed.data.name || ''}">
                         {#if getShareCover(parsed.data)}
-                          <img class="shared-card-cover" src={getShareCover(parsed.data) + '?param=240y240'} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                          <img class="shared-card-cover" src={coverUrl(getShareCover(parsed.data), 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <div class="shared-card-cover shared-card-cover-placeholder">💿</div>
                         {/if}
@@ -319,7 +320,7 @@
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
                       <button type="button" class="shared-card playlist-card" onclick={() => openPlaylistFromMessage(parsed.data)} aria-label="打开歌单 {parsed.data.name || ''}">
                         {#if getShareCover(parsed.data)}
-                          <img class="shared-card-cover" src={getShareCover(parsed.data) + '?param=240y240'} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                          <img class="shared-card-cover" src={coverUrl(getShareCover(parsed.data), 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <div class="shared-card-cover shared-card-cover-placeholder">♪</div>
                         {/if}

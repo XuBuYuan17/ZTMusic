@@ -2,6 +2,7 @@
   import { auth } from '../stores/auth.svelte.js'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl } from '../utils/image.js'
   import SongListActions from '../components/SongListActions.svelte'
 
   let {
@@ -74,7 +75,7 @@
             <td class="col-num">{i + 1}</td>
             <td class="col-cover">
               {#if track.picUrl}
-                <img class="track-cover-img" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />
+                <img class="track-cover-img" src={coverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <div class="track-cover-placeholder">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

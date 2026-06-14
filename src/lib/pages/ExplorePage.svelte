@@ -1,5 +1,6 @@
 <script>
   import ArtistNames from '../components/ArtistNames.svelte'
+  import { coverUrl, coverRectUrl } from '../utils/image.js'
 
   let {
     exploreLoading = false,
@@ -32,7 +33,7 @@
         <div class="music-feature-card primary skeleton-block" aria-label="加载精选内容"></div>
       {:else if hero}
         <button class="music-feature-card primary" onclick={() => onBannerClick?.(hero)}>
-          {#if hero.pic}<img src={hero.pic + '?param=1200y680'} alt={hero.title} loading="lazy" />{/if}
+          {#if hero.pic}<img src={coverRectUrl(hero.pic, 1200, 680)} alt={hero.title} loading="lazy" referrerpolicy="no-referrer" />{/if}
           <span class="music-feature-copy">
             <small>编辑精选</small>
             <strong>{hero.title || '今日推荐'}</strong>
@@ -51,7 +52,7 @@
         <div class="music-feature-stack">
           {#each editorials as item (item.id)}
             <button class="music-feature-card compact" onclick={() => onBannerClick?.(item)}>
-              {#if item.pic}<img src={item.pic + '?param=520y300'} alt="" loading="lazy" />{/if}
+              {#if item.pic}<img src={coverRectUrl(item.pic, 520, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}
               <span class="music-feature-copy">
                 <small>推荐</small>
                 <strong>{item.title || '编辑推荐'}</strong>
@@ -78,7 +79,7 @@
         {:else}
         {#each playlists.slice(0, 14) as playlist (playlist.id)}
           <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-            {#if playlist.picUrl}<img src={playlist.picUrl + '?param=360y360'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <strong>{playlist.name}</strong>
             {#if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
           </button>
@@ -105,7 +106,7 @@
         {:else}
         {#each exploreRecommendSongs.slice(0, 12) as track, index (track.id || index)}
           <button class="music-song-item" onclick={() => onPlaySong?.(track)}>
-            {#if track.picUrl}<img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            {#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <span class="music-item-copy">
               <strong>{track.name}</strong>
               <em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} fallback="未知艺人" /></em>
@@ -135,7 +136,7 @@
           {:else}
           {#each exploreNewAlbums.slice(0, 6) as album (album.id)}
             <button class="music-list-item" onclick={() => onOpenAlbum?.(album.id)}>
-              {#if album.picUrl}<img src={album.picUrl + '?param=112y112'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              {#if album.picUrl}<img src={coverUrl(album.picUrl, 112)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <span>
                 <strong>{album.name}</strong>
                 <em>{album.artistName || '新专辑'}</em>
@@ -164,7 +165,7 @@
           {:else}
           {#each toplists.slice(0, 6) as chart, index (chart.id)}
             <button class="music-list-item" onclick={() => onOpenPlaylist?.(chart.id, true, chart)}>
-              {#if chart.coverImgUrl}<img src={chart.coverImgUrl + '?param=112y112'} alt="" loading="lazy" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              {#if chart.coverImgUrl}<img src={coverUrl(chart.coverImgUrl, 112)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <span>
                 <strong>{chart.name}</strong>
                 <em>{chart.updateFrequency || '持续更新'}</em>

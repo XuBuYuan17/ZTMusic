@@ -2,6 +2,7 @@
   import { player } from '../stores/player.svelte.js'
   import { auth } from '../stores/auth.svelte.js'
   import { ncm } from '../api/client.js'
+  import { coverUrl } from '../utils/image.js'
   import { parseLyricResponse } from '../utils/lyrics.js'
   import { getStorage } from '../utils/storage.js'
   import Spinner from './Spinner.svelte'
@@ -541,7 +542,7 @@
     class:entered={contentEntered}
     class:ly-no-blur={!lyricsBlur}
     class:ly-no-text-blur={!lyricsTextBlur}
-    style={player.cover && lyricsBlur ? `--ly-cover: url(${player.cover}?param=1080y1080)` : ''}
+    style={player.cover && lyricsBlur ? `--ly-cover: url(${coverUrl(player.cover, 1080)})` : ''}
     bind:this={containerEl}
     role="presentation"
     onclick={onClose}
@@ -604,7 +605,7 @@
       {#snippet leftPanel()}
         <div class="ly-left-cover">
           <div class="ly-cover-wrap" role="button" tabindex="0" onclick={toggleLyricsMode} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode() } }}>
-            <img class="ly-cover" src={(player.cover || '') + '?param=600y600'} alt="" />
+            <img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />
           </div>
           <div class="ly-track-wrap">
             <div class="ly-track-top">
@@ -742,7 +743,7 @@
                 {#each similarSongs.slice(0, 1) as track (track.id)}
                   <button class="ly-context-card ly-context-song" class:active={contextPanel === 'songs'} onclick={() => openContextPanel('songs')}>
                     {#if track.picUrl}
-                      <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                      <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                     {:else}
                       <span class="ly-context-cover-ph">♫</span>
                     {/if}
@@ -759,7 +760,7 @@
                     <span class="ly-context-cover-stack">
                       {#each similarPlaylists.slice(0, 3) as pl (pl.id)}
                         {#if pl.coverImgUrl}
-                          <img src={pl.coverImgUrl + '?param=96y96'} alt="" loading="lazy" />
+                          <img src={coverUrl(pl.coverImgUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {/if}
                       {/each}
                     </span>
@@ -793,7 +794,7 @@
                       {#each similarSongs as track (track.id)}
                         <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
                           {#if track.picUrl}
-                            <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                            <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                           {:else}
                             <span class="ly-context-cover-ph">♫</span>
                           {/if}
@@ -817,7 +818,7 @@
                           {#each selectedPlaylistTracks as track (track.id)}
                             <button class="ly-context-detail-row" onclick={() => playSelectedPlaylistTrack(track)}>
                               {#if track.picUrl}
-                                <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                                <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                               {:else}
                                 <span class="ly-context-cover-ph">♫</span>
                               {/if}
@@ -836,7 +837,7 @@
                         {#each similarPlaylists as pl (pl.id)}
                           <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
                             {#if pl.coverImgUrl}
-                              <img src={pl.coverImgUrl + '?param=180y180'} alt="" loading="lazy" />
+                              <img src={coverUrl(pl.coverImgUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                             {:else}
                               <span class="ly-context-cover-ph">♫</span>
                             {/if}
@@ -875,7 +876,7 @@
               {#each similarSongs.slice(0, 1) as track (track.id)}
                 <button class="ly-context-card ly-context-song" class:active={contextPanel === 'songs'} onclick={() => openContextPanel('songs')}>
                   {#if track.picUrl}
-                    <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="ly-context-cover-ph">♫</span>
                   {/if}
@@ -892,7 +893,7 @@
                   <span class="ly-context-cover-stack">
                     {#each similarPlaylists.slice(0, 3) as pl (pl.id)}
                       {#if pl.coverImgUrl}
-                        <img src={pl.coverImgUrl + '?param=96y96'} alt="" loading="lazy" />
+                        <img src={coverUrl(pl.coverImgUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                       {/if}
                     {/each}
                   </span>
@@ -926,7 +927,7 @@
                     {#each similarSongs as track (track.id)}
                       <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
                         {#if track.picUrl}
-                          <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                          <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <span class="ly-context-cover-ph">♫</span>
                         {/if}
@@ -950,7 +951,7 @@
                         {#each selectedPlaylistTracks as track (track.id)}
                           <button class="ly-context-detail-row" onclick={() => playSelectedPlaylistTrack(track)}>
                             {#if track.picUrl}
-                              <img src={track.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                              <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                             {:else}
                               <span class="ly-context-cover-ph">♫</span>
                             {/if}
@@ -969,7 +970,7 @@
                       {#each similarPlaylists as pl (pl.id)}
                         <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
                           {#if pl.coverImgUrl}
-                            <img src={pl.coverImgUrl + '?param=180y180'} alt="" loading="lazy" />
+                            <img src={coverUrl(pl.coverImgUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                           {:else}
                             <span class="ly-context-cover-ph">♫</span>
                           {/if}
@@ -1045,7 +1046,7 @@
               <div class="ly-picker-item-row">
               <button class="ly-picker-item" onclick={() => addToPlaylist(pl.id)}>
                 {#if pl.coverImgUrl}
-                  <img class="ly-picker-cover" src={pl.coverImgUrl + '?param=60y60'} alt="" />
+                  <img class="ly-picker-cover" src={coverUrl(pl.coverImgUrl, 60)} alt="" referrerpolicy="no-referrer" />
                 {:else}
                   <div class="ly-picker-cover ly-picker-cover-ph">♫</div>
                 {/if}

@@ -2,6 +2,7 @@
   import { slide } from 'svelte/transition'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl, coverRectUrl } from '../utils/image.js'
   import SongListActions from '../components/SongListActions.svelte'
 
   let {
@@ -136,7 +137,7 @@
     </div>
   {:else if artist}
     <div class="artist-hero">
-      <div class="artist-hero-bg" style="background-image:url({(artist.cover || artist.avatar || artist.picUrl || '') + '?param=1000y500'})"></div>
+      <div class="artist-hero-bg" style="background-image:url({coverRectUrl(artist.cover || artist.avatar || artist.picUrl || '', 1000, 500)})"></div>
       <div class="artist-hero-grain"></div>
       <div class="artist-hero-mask"></div>
       <button class="artist-back" onclick={onBack} aria-label="返回">
@@ -144,7 +145,7 @@
       </button>
       <div class="artist-avatar-wrap">
         {#if artist.avatar || artist.picUrl || artist.cover}
-          <img class="artist-avatar" src={(artist.avatar || artist.picUrl || artist.cover) + '?param=360y360'} alt={artist.name} loading="lazy" />
+          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, 360)} alt={artist.name} loading="lazy" referrerpolicy="no-referrer" />
         {:else}
           <div class="artist-avatar artist-avatar-placeholder">{artist.name?.charAt(0) || '?'}</div>
         {/if}
@@ -227,7 +228,7 @@
                 <td class="col-num">{i + 1}</td>
                 <td class="col-cover">
                   {#if coverOf(track)}
-                    <img class="track-cover-img" src={coverOf(track) + '?param=80y80'} alt="" loading="lazy" />
+                    <img class="track-cover-img" src={coverUrl(coverOf(track), 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <div class="track-cover-placeholder">
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -262,7 +263,7 @@
             <div class="artist-album-card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
               <div class="artist-album-cover">
                 {#if album.picUrl}
-                  <img src={album.picUrl + '?param=400y400'} alt={album.name} loading="lazy" />
+                  <img src={coverUrl(album.picUrl, 400)} alt={album.name} loading="lazy" referrerpolicy="no-referrer" />
                 {:else}
                   <div class="artist-album-placeholder">
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

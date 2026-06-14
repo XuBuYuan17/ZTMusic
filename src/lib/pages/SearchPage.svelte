@@ -3,6 +3,7 @@
   import { ncm } from '../api/client.js'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
+  import { coverUrl as imageCoverUrl } from '../utils/image.js'
   import ArtistNames from '../components/ArtistNames.svelte'
   import SongListActions from '../components/SongListActions.svelte'
 
@@ -62,12 +63,11 @@
         songs: songs.map(t => {
           const detail = detailMap.get(t.id) || {}
           const album = detail.al || t.album || t.al || {}
-          const picId = album.picId || album.picId_str || album.picIdStr || album.imgId || 0
-          const coverUrl = album.picUrl || album.imgUrl || t.album?.picUrl || t.al?.picUrl || (picId ? `https://p1.music.126.net/${picId}.jpg` : '')
-          return { ...detail, id: t.id, name: t.name, ar: detail.ar || t.artists || t.ar || [], al: album, dt: detail.dt || t.duration || t.dt || 0, picUrl: coverUrl }
+          const songCoverUrl = album.picUrl || album.imgUrl || t.album?.picUrl || t.al?.picUrl || ''
+          return { ...detail, id: t.id, name: t.name, ar: detail.ar || t.artists || t.ar || [], al: album, dt: detail.dt || t.duration || t.dt || 0, picUrl: songCoverUrl }
         }),
         artists: artists.map(a => ({ id: a.id, name: a.name, picUrl: a.picUrl || a.img1v1Url || a.img1Url || '', albumSize: a.albumSize || 0, musicSize: a.musicSize || 0 })),
-        playlists: playlists.map(pl => ({ id: pl.id, name: pl.name, picUrl: pl.coverImgUrl || pl.picUrl || (pl.coverImgIdStr ? `https://p1.music.126.net/${pl.coverImgIdStr}.jpg` : ''), trackCount: pl.trackCount || 0, creator: pl.creator?.nickname || '' })),
+        playlists: playlists.map(pl => ({ id: pl.id, name: pl.name, picUrl: pl.coverImgUrl || pl.picUrl || '', trackCount: pl.trackCount || 0, creator: pl.creator?.nickname || '' })),
       }
     } catch {
       if (currentRequest === requestId) results = { songs: [], artists: [], playlists: [] }
@@ -199,7 +199,7 @@
           <section class="search-top-result">
             <div class="search-section-header"><h2>最佳匹配</h2><button onclick={() => activeCategory = 'songs'}>查看歌曲</button></div>
             <button class="search-feature-song" onclick={() => playSong(results.songs[0])}>
-              {#if results.songs[0].picUrl}<img src={results.songs[0].picUrl + '?param=220y220'} alt="" loading="lazy" />{:else}<span class="search-feature-cover search-cover-placeholder">♫</span>{/if}
+              {#if results.songs[0].picUrl}<img src={imageCoverUrl(results.songs[0].picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-feature-cover search-cover-placeholder">♫</span>{/if}
               <span><small>歌曲</small><strong>{results.songs[0].name}</strong><em><ArtistNames artists={results.songs[0].ar || results.songs[0].artists || []} {onOpenArtist} /></em></span>
             </button>
           </section>
@@ -211,7 +211,7 @@
             <div class="search-songs">
               {#each results.songs.slice(0, 8) as track (track.id)}
                 <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
-                  {#if track.picUrl}<img class="search-song-cover" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
+                  {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                   <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                   <span class="search-song-dur">{formatDuration(track.dt)}</span>
                 </button>
@@ -226,7 +226,7 @@
             <div class="search-compact-list search-result-grid">
               {#each results.artists.slice(0, 8) as artist (artist.id)}
                 <button onclick={() => onOpenArtist?.(artist.id)}>
-                  {#if artist.picUrl}<img src={artist.picUrl + '?param=120y120'} alt="" loading="lazy" />{:else}<span class="search-avatar-ph">{artist.name?.charAt(0) || '?'}</span>{/if}
+                  {#if artist.picUrl}<img src={imageCoverUrl(artist.picUrl, 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-avatar-ph">{artist.name?.charAt(0) || '?'}</span>{/if}
                   <span><strong>{artist.name}</strong><em>{artist.musicSize || 0} 首歌曲</em></span>
                 </button>
               {/each}
@@ -240,7 +240,7 @@
             <div class="search-playlist-grid">
               {#each results.playlists.slice(0, 8) as pl (pl.id)}
                 <button onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
-                  {#if pl.picUrl}<img src={pl.picUrl + '?param=180y180'} alt="" loading="lazy" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
+                  {#if pl.picUrl}<img src={imageCoverUrl(pl.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
                   <strong>{pl.name}</strong>
                   <em>{pl.creator || '歌单'} · {pl.trackCount} 首</em>
                 </button>
@@ -254,7 +254,7 @@
           <div class="search-songs">
             {#each results.songs as track (track.id)}
               <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
-                {#if track.picUrl}<img class="search-song-cover" src={track.picUrl + '?param=80y80'} alt="" loading="lazy" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
+                {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                 <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                 <span class="search-song-dur">{formatDuration(track.dt)}</span>
               </button>
@@ -267,7 +267,7 @@
           <div class="search-compact-list search-result-grid">
             {#each results.artists as artist (artist.id)}
               <button onclick={() => onOpenArtist?.(artist.id)}>
-                {#if artist.picUrl}<img src={artist.picUrl + '?param=120y120'} alt="" loading="lazy" />{:else}<span class="search-avatar-ph">{artist.name?.charAt(0) || '?'}</span>{/if}
+                {#if artist.picUrl}<img src={imageCoverUrl(artist.picUrl, 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-avatar-ph">{artist.name?.charAt(0) || '?'}</span>{/if}
                 <span><strong>{artist.name}</strong><em>{artist.musicSize || 0} 首歌曲</em></span>
               </button>
             {/each}
@@ -279,7 +279,7 @@
           <div class="search-playlist-grid">
             {#each results.playlists as pl (pl.id)}
               <button onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
-                {#if pl.picUrl}<img src={pl.picUrl + '?param=180y180'} alt="" loading="lazy" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
+                {#if pl.picUrl}<img src={imageCoverUrl(pl.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
                 <strong>{pl.name}</strong>
                 <em>{pl.creator || '歌单'} · {pl.trackCount} 首</em>
               </button>

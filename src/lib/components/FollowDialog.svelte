@@ -1,5 +1,6 @@
 <script>
   import { ncm } from '../api/client.js'
+  import { coverUrl } from '../utils/image.js'
 
   let { show = false, user = null, onClose, onOpenMessage } = $props()
 
@@ -114,7 +115,7 @@
         {#each currentList as item (item.id)}
           <article class="follow-user-row">
             {#if item.avatar}
-              <img class="follow-avatar" src={`${item.avatar}?param=96y96`} alt="" loading="lazy" />
+              <img class="follow-avatar" src={coverUrl(item.avatar, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
             {:else}
               <span class="follow-avatar follow-avatar-ph">人</span>
             {/if}

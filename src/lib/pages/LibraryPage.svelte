@@ -1,5 +1,6 @@
 <script>
   import { auth } from '../stores/auth.svelte.js'
+  import { coverUrl } from '../utils/image.js'
 
   let {
     libraryPlaylists = [],
@@ -44,7 +45,7 @@
           <div class="library-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
             <div class="library-card-cover">
               {#if pl.picUrl}
-                <img src={pl.picUrl + '?param=400y400'} alt={pl.name} loading="lazy" />
+                <img src={coverUrl(pl.picUrl, 400)} alt={pl.name} loading="lazy" referrerpolicy="no-referrer" />
               {:else}
                 <div class="library-card-placeholder">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

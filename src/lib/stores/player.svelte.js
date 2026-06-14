@@ -1,7 +1,97 @@
 import { engine } from '../player/engine.js'
 import { ncm } from '../api/client.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
-import { coverUrl } from '../utils/image.js'
+import { coverUrl, normalizeImageUrl } from '../utils/image.js'
+
+// ===== 原生媒体会话（Android 通知栏 + 桌面系统媒体控件） =====
+let _tauriInvoke = null
+let _nativeMediaPollTimer = null
+let _lastNativeMeta = ''
+let _lastNativePosition = 0
+
+function isTauriRuntime() {
+  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
+}
+
+function isTauriAndroid() {
+  return isTauriRuntime() && /Android/i.test(navigator.userAgent)
+}
+
+async function initNativeMedia() {
+  if (!isTauriRuntime() || typeof window === 'undefined') return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    _tauriInvoke = invoke
+  } catch {}
+
+  // Android: 轮询通知栏按钮事件
+  if (isTauriAndroid() && _tauriInvoke) {
+    try {
+      const { listen } = await import('@tauri-apps/api/event')
+      await listen('media_button', (event) => {
+        const action = event?.payload?.action
+        handleMediaButtonAction(action)
+      }).catch(() => {})
+    } catch {}
+    // 轮询兜底
+    _nativeMediaPollTimer = setInterval(() => {
+      pollAndroidAction()
+    }, 500)
+  }
+}
+
+function handleMediaButtonAction(action) {
+  if (action === 'play') { engine.play().catch(() => {}) }
+  else if (action === 'pause') { engine.pause() }
+  else if (action === 'next') { next() }
+  else if (action === 'prev') { prev() }
+}
+
+async function pollAndroidAction() {
+  if (!_tauriInvoke) return
+  try {
+    const result = await _tauriInvoke('pollPendingAction')
+    if (result?.action) handleMediaButtonAction(result.action)
+  } catch {}
+}
+
+function syncNativeMedia() {
+  if (!isTauriRuntime()) return
+
+  const dur = _duration > 0 ? _duration / 1000 : 0
+  const pos = _currentTime || 0
+  const metaKey = `${_title}|${_artist}|${_cover}|${dur}`
+
+  if (isTauriAndroid() && _tauriInvoke) {
+    // Android: invoke → Kotlin Plugin
+    if (metaKey !== _lastNativeMeta) {
+      _lastNativeMeta = metaKey
+      _tauriInvoke('updateMetadata', {
+        title: _title || '',
+        artist: _artist || '',
+        coverUrl: _cover || '',
+        duration: dur,
+      }).catch(() => {})
+      // 元数据变化时同步一次位置
+      _lastNativePosition = pos
+      _tauriInvoke('updatePlaybackState', {
+        playing: !!_playing,
+        position: pos,
+        duration: dur,
+      }).catch(() => {})
+    } else if (Math.abs(pos - _lastNativePosition) >= 5) {
+      // 进度变化超过 5 秒再同步，降低 invoke 频率
+      _lastNativePosition = pos
+      _tauriInvoke('updatePlaybackState', {
+        playing: !!_playing,
+        position: pos,
+        duration: dur,
+      }).catch(() => {})
+    }
+  }
+  // 桌面端: 由 navigator.mediaSession（Web Media Session API）自动处理
+}
+// ===== 原生媒体会话结束 =====
 
 function getLS(key, def) {
   return getStorage(key, def)
@@ -36,6 +126,8 @@ let _saveTimer = null
 let _playRequestId = 0
 let _playUrls = []
 let _playUrlIndex = 0
+let _advanceLock = false
+let _prefetchCache = new Map()
 const PLAY_LEVELS = ['lossless', 'exhigh', 'higher', 'standard']
 const FAST_PLAY_TIMEOUT = 3500
 const FALLBACK_PLAY_TIMEOUT = 5000
@@ -44,9 +136,18 @@ const SHOULD_LOG_PLAY_URLS = typeof import.meta !== 'undefined' && import.meta.e
 
 let _mediaSessionInited = false
 
+function shouldDebugPlayback() {
+  return SHOULD_LOG_PLAY_URLS || (typeof localStorage !== 'undefined' && localStorage.getItem('debug_playback') === 'true')
+}
+
 function logPlayUrlAttempt(type, payload) {
-  if (!SHOULD_LOG_PLAY_URLS || typeof console === 'undefined') return
+  if (!shouldDebugPlayback() || typeof console === 'undefined') return
   console.debug(`[play-url:${type}]`, payload)
+}
+
+function logPlayback(type, payload = {}) {
+  if (!shouldDebugPlayback() || typeof console === 'undefined') return
+  console.debug(`[playback:${type}]`, payload)
 }
 
 function initMediaSession() {
@@ -65,6 +166,9 @@ function initMediaSession() {
   navigator.mediaSession.setActionHandler('pause', () => { engine.pause() })
   navigator.mediaSession.setActionHandler('nexttrack', () => next())
   navigator.mediaSession.setActionHandler('previoustrack', () => prev())
+
+  // 初始化原生媒体会话（Tauri 桌面 + Android 通知栏）
+  initNativeMedia()
 }
 
 function compactArtist(artist) {
@@ -78,6 +182,7 @@ function compactArtist(artist) {
 function compactTrack(track) {
   if (!track) return null
   const album = track.al || track.album || {}
+  const picUrl = normalizeImageUrl(album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '')
   return {
     id: track.id,
     name: track.name || '',
@@ -85,10 +190,10 @@ function compactTrack(track) {
     al: {
       id: album.id,
       name: album.name || '',
-      picUrl: album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '',
+      picUrl,
     },
     dt: track.dt || track.duration || 0,
-    picUrl: album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '',
+    picUrl,
   }
 }
 
@@ -101,20 +206,25 @@ engine.onTimeUpdate((t) => {
   // 每 3 秒保存一次播放进度，避免频繁写入
   if (_saveTimer) return
   _saveTimer = setTimeout(() => { saveLS('player_time', t); _saveTimer = null }, 3000)
+  // 每 3 秒同步原生媒体位置
+  syncNativeMedia()
 })
-engine.onEnded(() => { next() })
-engine.onLoadStart(() => { _loading = true })
-engine.onCanPlay(() => {
+engine.onEnded((state) => { handleEnded(state) })
+engine.onLoadStart((state) => { _loading = true; logPlayback('loadstart', state) })
+engine.onCanPlay((state) => {
   _loading = false
   _duration = engine.duration
   _playing = _shouldAutoPlay && !engine.paused
+  logPlayback('canplay', state)
   // 恢复播放时跳转到上次进度
   if (_restoreSeeking && _currentTime > 0) {
     engine.seek(_currentTime)
     _restoreSeeking = false
   }
+  syncNativeMedia()
 })
-engine.onError(() => {
+engine.onError((state) => {
+  logPlayback('error', state)
   if (tryNextPlayUrl()) return
   _loading = false
   _playing = false
@@ -122,6 +232,23 @@ engine.onError(() => {
   _error = '当前歌曲暂无可用音源'
 })
 engine.setVolume(initialVolume)
+
+// 初始化原生媒体会话（模块加载时，不阻塞）
+initNativeMedia()
+
+function handleEnded(state) {
+  logPlayback('ended', { ...state, queueLength: _queue.length, queueIndex: _queueIndex })
+  if (_advanceLock || _queue.length === 0) return
+  _advanceLock = true
+  _shouldAutoPlay = true
+  setTimeout(() => {
+    try {
+      next()
+    } finally {
+      _advanceLock = false
+    }
+  }, 80)
+}
 
 function persistState() {
   saveLS('player_id', _id)
@@ -133,29 +260,133 @@ function persistState() {
 }
 
 async function getPlayableUrls(id) {
-  const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
-  const urls = []
-  const levels = orderedPlayLevels()
-  const fastLevels = uniqueLevels([_preferredLevel, 'standard', 'higher']).filter(level => levels.includes(level))
-
-  const fastResults = await Promise.all(fastLevels.map(level => fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)))
-  fastResults.forEach(url => addUrl(urls, url))
-
-  if (urls.length === 0) {
-    const unblockResults = await Promise.all(fastLevels.map(level => fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)))
-    unblockResults.forEach(url => addUrl(urls, url))
+  // 检查预取缓存
+  const cached = _prefetchCache.get(id)
+  if (cached) {
+    _prefetchCache.delete(id)
+    logPlayback('prefetch-hit', { id, urls: cached })
+    return cached
   }
 
+  const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
+  const urls = []
+  const reqId = _playRequestId
+
+  // Phase 1: 快速出声 — 从 standard 开始逐级尝试
+  // 找到第一个可用 URL 立即返回播放，不等其他音质
+  const fastTiers = uniqueLevels(['standard', 'higher', _preferredLevel])
+  for (const level of fastTiers) {
+    const url = await fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)
+    if (url) { addUrl(urls, url); break }
+  }
+
+  // 降级尝试带 unblock 的版本
+  if (urls.length === 0) {
+    for (const level of fastTiers) {
+      const url = await fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)
+      if (url) { addUrl(urls, url); break }
+    }
+  }
+
+  // 兜底
   if (urls.length === 0) addUrl(urls, fallbackUrl)
 
-  const remainingLevels = levels.filter(level => !fastLevels.includes(level))
-  const fallbackResults = await Promise.all([
-    ...remainingLevels.map(level => fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)),
-    ...remainingLevels.map(level => fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)),
-  ])
-  fallbackResults.forEach(url => addUrl(urls, url))
-  addUrl(urls, fallbackUrl)
+  // Phase 2: 后台获取偏好音质并补全 fallback 链
+  // 不 await — 让播放先开始
+  fillFallbackUrls(id, reqId)
+
   return urls
+}
+
+async function fillFallbackUrls(id, reqId) {
+  const allLevels = orderedPlayLevels()
+  let upgraded = false
+
+  // Step 1: 优先获取用户偏好的音质，作为主播放 URL
+  for (const level of allLevels) {
+    if (_playRequestId !== reqId) return
+    const url = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
+    if (!url || _playUrls.includes(url)) continue
+
+    if (!upgraded && _playUrls.length > 0) {
+      // 升级到偏好音质：插入到 _playUrls[0] 并切换播放
+      _playUrls.unshift(url)
+      _playUrlIndex = 0
+      upgraded = true
+      logPlayback('quality-upgrade', { level, url })
+      if (_playing && _playRequestId === reqId && !engine.paused) {
+        const savedTime = engine.currentTime
+        engine.load(url)
+        engine.play().then(() => {
+          if (savedTime > 0) engine.seek(savedTime)
+        }).catch(() => {})
+      }
+    } else {
+      _playUrls.push(url)
+    }
+  }
+
+  // Step 2: 获取带 unblock 的版本
+  for (const level of allLevels) {
+    if (_playRequestId !== reqId) return
+    const url = await fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)
+    if (url && !_playUrls.includes(url)) _playUrls.push(url)
+  }
+
+  // Step 3: 补充网易官方 fallback
+  const fbUrl = normalizePlayUrl(`https://music.163.com/song/media/outer/url?id=${id}.mp3`)
+  if (_playRequestId === reqId && fbUrl && !_playUrls.includes(fbUrl)) {
+    _playUrls.push(fbUrl)
+  }
+
+  // Step 4: 最终兜底 — 使用 UnblockNeteaseMusic 直接解灰
+  if (_playRequestId === reqId && _playUrls.length <= 1) {
+    try {
+      const matchRes = await ncm.songUrlMatch(id)
+      const matchUrl = matchRes?.data?.[0]?.url || matchRes?.url || ''
+      if (matchUrl) {
+        const normalized = normalizePlayUrl(matchUrl)
+        if (normalized && !_playUrls.includes(normalized)) {
+          _playUrls.push(normalized)
+          logPlayback('unblock-fallback', { url: normalized })
+        }
+      }
+    } catch {}
+  }
+
+  logPlayback('fallback-urls-filled', { totalUrls: _playUrls.length, id, upgraded })
+
+  // Step 5: 后台预取下一首歌的 URL（批量预取）
+  if (_playRequestId === reqId && _queue.length > 1 && _queueIndex >= 0) {
+    prefetchNextTrackUrl(reqId)
+  }
+}
+
+/** 后台预取下一首歌的 URL，切歌时零等待 */
+async function prefetchNextTrackUrl(reqId) {
+  if (_queue.length < 2 || _queueIndex < 0) return
+  const nextIdx = (_queueIndex + 1) % _queue.length
+  if (nextIdx === _queueIndex) return
+  const nextTrack = _queue[nextIdx]
+  if (!nextTrack?.id || _prefetchCache.has(nextTrack.id)) return
+
+  // 限制预取缓存大小，防止内存泄漏
+  if (_prefetchCache.size >= 10) {
+    const firstKey = _prefetchCache.keys().next().value
+    _prefetchCache.delete(firstKey)
+  }
+
+  // 先尝试 standard（最快），再尝试用户偏好的音质
+  const tiers = uniqueLevels(['standard', 'higher', _preferredLevel])
+  for (const level of tiers) {
+    if (_playRequestId !== reqId) return
+    const url = await fetchSongUrl(nextTrack.id, level, false, FAST_PLAY_TIMEOUT)
+    if (url) {
+      _prefetchCache.set(nextTrack.id, [url])
+      logPlayback('prefetch-cached', { id: nextTrack.id, level, url })
+      return
+    }
+  }
 }
 
 function orderedPlayLevels() {
@@ -175,8 +406,8 @@ function addUrl(urls, url) {
 }
 
 function normalizePlayUrl(url) {
-  if (!url) return ''
-  return url.replace(/^http:\/\/(m\d+\.music\.126\.net)\//i, 'https://$1/')
+  if (!url || typeof url !== 'string') return ''
+  return url.trim().replace(/^http:\/\/([^/?#]+\.music\.126\.net)([/?#]|$)/i, 'https://$1$2')
 }
 
 function withTimeout(promise, timeout) {
@@ -217,14 +448,22 @@ function tryNextPlayUrl() {
   _playUrlIndex += 1
   _loading = true
   _error = ''
-  engine.load(_playUrls[_playUrlIndex])
-  engine.play().catch(() => {
+  const url = _playUrls[_playUrlIndex]
+  logPlayback('fallback-url', { index: _playUrlIndex, url })
+  engine.load(url)
+  engine.play().catch((error) => {
+    logPlayback('fallback-play-reject', { index: _playUrlIndex, message: error?.message || String(error) })
     if (!tryNextPlayUrl()) {
       _loading = false
       _playing = false
       _shouldAutoPlay = false
       _error = '当前歌曲暂无可用音源'
-      if (_queue.length > 1) next()
+      if (_queue.length > 1 && !_advanceLock) {
+        _advanceLock = true
+        setTimeout(() => {
+          try { next() } finally { _advanceLock = false }
+        }, 120)
+      }
     }
   })
   return true
@@ -239,7 +478,7 @@ function playTrack(track, index) {
   _title = playableTrack.name
   _artist = playableTrack.ar.map(a => a.name).join(' / ')
   _currentTrack = playableTrack
-  _cover = playableTrack.picUrl || playableTrack.al.picUrl || ''
+  _cover = normalizeImageUrl(playableTrack.picUrl || playableTrack.al.picUrl || '')
   _duration = playableTrack.dt || 0
   _queueIndex = index >= 0 ? index : _queueIndex
   _loading = true
@@ -259,16 +498,19 @@ function playTrack(track, index) {
 
   persistState()
   addLocalHistory(playableTrack)
+  syncNativeMedia()
 
   getPlayableUrls(playableTrack.id).then(urls => {
     if (requestId !== _playRequestId) return
     _playUrls = urls
     _playUrlIndex = 0
     if (urls.length > 0) {
+      logPlayback('load-url', { id: playableTrack.id, url: urls[0], count: urls.length })
       engine.load(urls[0])
       engine.play().then(() => {
         if (requestId === _playRequestId) _playing = true
-      }).catch(() => {
+      }).catch((error) => {
+        logPlayback('play-reject', { id: playableTrack.id, message: error?.message || String(error) })
         if (requestId !== _playRequestId) return
         if (!tryNextPlayUrl()) {
           _playing = false
@@ -306,7 +548,7 @@ function addLocalHistory(track) {
       name: track.name,
       artists: track.ar || track.artists || [],
       album: album,
-      picUrl: album.picUrl || track.coverImgUrl || track.picUrl || '',
+      picUrl: normalizeImageUrl(album.picUrl || track.coverImgUrl || track.picUrl || ''),
       duration: track.dt || track.duration || 0,
       playedAt: Date.now(),
     }

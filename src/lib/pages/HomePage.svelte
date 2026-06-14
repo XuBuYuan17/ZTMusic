@@ -1,6 +1,7 @@
 <script>
   import { slide } from 'svelte/transition'
   import { auth } from '../stores/auth.svelte.js'
+  import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
   import SongListActions from '../components/SongListActions.svelte'
 
@@ -87,7 +88,7 @@
       </div>
 
       <button class="home-editorial-card" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)} disabled={!heroPlaylist}>
-        <div class="home-editorial-bg" style={heroImage ? `background-image:url(${heroImage}?param=900y900)` : ''}></div>
+        <div class="home-editorial-bg" style={heroImage ? `background-image:url(${coverUrl(heroImage, 900)})` : ''}></div>
         <div class="home-editorial-shade"></div>
         <div class="home-editorial-content">
           <span>今日精选</span>
@@ -134,7 +135,7 @@
                 <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
                   <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
                   {#if pl.picUrl}
-                    <img src={pl.picUrl + '?param=96y96'} alt="" loading="lazy" />
+                    <img src={coverUrl(pl.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="home-track-cover-ph">♫</span>
                   {/if}
@@ -176,7 +177,7 @@
               {#each recentTracks.slice(0, 8) as track, i (track.id)}
                 <button class="home-library-item" onclick={() => onPlayRecentTrack?.(track)} {...songActions?.bindRow(track)}>
                   {#if coverOf(track)}
-                    <img src={coverOf(track) + '?param=96y96'} alt="" loading="lazy" />
+                    <img src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <span class="home-track-cover-ph">♫</span>
                   {/if}

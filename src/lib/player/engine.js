@@ -1,6 +1,8 @@
 class AudioEngine {
   constructor() {
     this.audio = new Audio()
+    this.audio.preload = 'auto'
+    this.currentUrl = ''
     this._onTimeUpdate = null
     this._onEnded = null
     this._onLoadStart = null
@@ -13,33 +15,58 @@ class AudioEngine {
       if (this._onTimeUpdate) this._onTimeUpdate(this.audio.currentTime)
     })
     this.audio.addEventListener('ended', () => {
-      if (this._onEnded) this._onEnded()
+      if (this._onEnded) this._onEnded(this.getState())
     })
     this.audio.addEventListener('loadstart', () => {
-      if (this._onLoadStart) this._onLoadStart()
+      if (this._onLoadStart) this._onLoadStart(this.getState())
     })
     this.audio.addEventListener('canplay', () => {
-      if (this._onCanPlay) this._onCanPlay()
+      if (this._onCanPlay) this._onCanPlay(this.getState())
     })
-    this.audio.addEventListener('error', (e) => {
-      if (this._onError) this._onError(e)
+    this.audio.addEventListener('error', (event) => {
+      if (this._onError) this._onError(this.getErrorState(event))
     })
     this.audio.addEventListener('play', () => {
-      if (this._onPlay) this._onPlay()
+      if (this._onPlay) this._onPlay(this.getState())
     })
     this.audio.addEventListener('pause', () => {
-      if (this._onPause) this._onPause()
+      if (this._onPause) this._onPause(this.getState())
     })
+  }
+
+  getState() {
+    return {
+      src: this.audio.currentSrc || this.audio.src || this.currentUrl,
+      currentTime: this.audio.currentTime,
+      duration: this.audio.duration || 0,
+      ended: this.audio.ended,
+      networkState: this.audio.networkState,
+      readyState: this.audio.readyState,
+      paused: this.audio.paused,
+    }
+  }
+
+  getErrorState(event) {
+    const error = this.audio.error
+    return {
+      ...this.getState(),
+      event,
+      code: error?.code || 0,
+      message: error?.message || '',
+    }
   }
 
   load(url) {
     if (!url) return
-    if (this.audio.src && this.audio.src !== url) {
+    const nextUrl = String(url).trim()
+    if (!nextUrl) return
+    if (this.audio.src && this.audio.src !== nextUrl) {
       this.audio.pause()
       this.audio.removeAttribute('src')
       this.audio.load()
     }
-    this.audio.src = url
+    this.currentUrl = nextUrl
+    this.audio.src = nextUrl
     this.audio.load()
   }
 
@@ -82,6 +109,7 @@ class AudioEngine {
     this.pause()
     this.audio.removeAttribute('src')
     this.audio.load()
+    this.currentUrl = ''
     this._onTimeUpdate = null
     this._onEnded = null
     this._onLoadStart = null
