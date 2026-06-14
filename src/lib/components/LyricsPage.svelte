@@ -78,28 +78,35 @@
     return (text || '').trim().split(/\s+/).map(w => w.trim()).filter(Boolean)
   }
 
-  // ---- Lyrics fetching (dual API) ----
-  async function fetchLyrics() {
-    if (!player.id) { lyrics = []; yrcLines = []; return }
-    try {
-      const [res, newRes] = await Promise.all([
-        ncm.lyric(player.id).catch(() => null),
-        ncm.lyricNew(player.id).catch(() => null),
-      ])
-      if (player.id !== (currentTrack?.id ?? player.id)) return
-      const base = parseLyricResponse(res || {})
-      // merge yrc if available from /lyric/new
-      const yrc = newRes?.yrc?.lyric ? parseYrc(newRes.yrc.lyric) : base.yrcLines.length ? base.yrcLines : []
+  // ---- Lyrics fetching (two-phase: fast /lyric first, then upgrade to yrc) ----
+  let _lyricReqId = 0
 
-      const all = base.lines.map(l => ({
-        time: l.time,
-        text: l.content,
+  async function fetchLyrics() {
+    const id = player.id
+    if (!id) { lyrics = []; yrcLines = []; return }
+    const reqId = ++_lyricReqId
+
+    // Phase 1: /lyric 快速加载传统歌词
+    try {
+      const res = await ncm.lyric(id).catch(() => null)
+      if (reqId !== _lyricReqId || player.id !== id) return
+      const base = parseLyricResponse(res || {})
+      lyrics = base.lines.map(l => ({
+        time: l.time, text: l.content,
         translation: l.translation,
         words: l.content ? splitWords(l.content) : [],
       }))
-      lyrics = all
-      yrcLines = yrc
-    } catch { lyrics = []; yrcLines = [] }
+    } catch {}
+
+    // Phase 2: 后台升级到 /lyric/new 逐字歌词（如果有）
+    try {
+      const newRes = await ncm.lyricNew(id).catch(() => null)
+      if (reqId !== _lyricReqId || player.id !== id) return
+      if (newRes?.yrc?.lyric) {
+        const yrc = parseYrc(newRes.yrc.lyric)
+        if (yrc.length > 0) yrcLines = yrc
+      }
+    } catch {}
   }
 
   // ---- Song extras ----
@@ -253,7 +260,9 @@
         })
       } else { mounted = false; document.body.style.overflow = ''; animating = false }
       lyricsEl?.querySelectorAll('.ly-line.animate-words').forEach(l => l.classList.remove('animate-words'))
-      lyrics = []; yrcLines = []
+      yrcLines = []
+      // 延迟清除歌词，让关闭动画期间歌词保持可见
+      setTimeout(() => { lyrics = [] }, 500)
       showMenu = false; showPlaylistPicker = false
       songComments = []; similarSongs = []; similarPlaylists = []; showContextStrip = false; contextPanel = null
       selectedSimilarPlaylist = null; selectedPlaylistTracks = []; selectedPlaylistLoading = false
