@@ -485,7 +485,7 @@ function tryNextPlayUrl() {
         // 此时 _playUrls 可能已有新 URL
         if (_playUrlIndex < _playUrls.length - 1) {
           tryNextPlayUrl()
-        } else if (_shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
+        } else if (_playing && _shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
           _advanceLock = true
           setTimeout(() => {
             _advanceLock = false
@@ -500,8 +500,9 @@ function tryNextPlayUrl() {
       }, 3000)
       return true
     }
-    // 当前歌曲没有更多可用 URL，自动切到下一首
-    if (_shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
+    // 仅在歌曲曾播放成功（_playing===true）时自动跳到下一首
+    // 如果从未播放过，只显示错误，让用户手动操作
+    if (_playing && _shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
       _advanceLock = true
       setTimeout(() => {
         _advanceLock = false
