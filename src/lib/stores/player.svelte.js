@@ -127,6 +127,7 @@ let _saveTimer = null
 let _playRequestId = 0
 let _playUrls = []
 let _playUrlIndex = 0
+let _firstUrlLevel = ''  // 首条 URL 的音质等级，用于避免重复加载
 let _advanceLock = false
 let _fillFallbackPending = false
 let _prefetchCache = new Map()
@@ -273,6 +274,7 @@ async function getPlayableUrls(id) {
   const urls = []
   const trialUrls = []
   const reqId = _playRequestId
+  _firstUrlLevel = ''
 
   // Phase 1: 快速出声 — 优先完整版 URL，找不到才收集试听片段
   const fastTiers = uniqueLevels(['standard', 'higher', _preferredLevel])
@@ -283,6 +285,7 @@ async function getPlayableUrls(id) {
       addUrl(trialUrls, result.url)
     } else {
       addUrl(urls, result.url)
+      _firstUrlLevel = level
       break
     }
   }
@@ -296,6 +299,7 @@ async function getPlayableUrls(id) {
         addUrl(trialUrls, result.url)
       } else {
         addUrl(urls, result.url)
+        _firstUrlLevel = level + '+unblock'
         break
       }
     }
@@ -322,18 +326,18 @@ async function fillFallbackUrls(id, reqId) {
     const allLevels = orderedPlayLevels()
     let upgraded = false
 
-    // Step 1: 优先获取用户偏好的音质，作为主播放 URL
+    // Step 1: 后台获取偏好音质 — 仅在比首条更优时升级，避免二次加载
     for (const level of allLevels) {
       if (_playRequestId !== reqId) return
       const result = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
       if (!result || _playUrls.includes(result.url)) continue
 
-      if (!upgraded && _playUrls.length > 0) {
-        // 升级到偏好音质：插入到 _playUrls[0] 并切换播放
+      if (!upgraded && _playUrls.length > 0 && isBetterThanFirstUrl(level)) {
+        // 升级到更优音质：插入到 _playUrls[0] 并切换播放
         _playUrls.unshift(result.url)
         _playUrlIndex = 0
         upgraded = true
-        logPlayback('quality-upgrade', { level, url: result.url })
+        logPlayback('quality-upgrade', { level, firstUrlLevel: _firstUrlLevel, url: result.url })
         if (_playing && _playRequestId === reqId && !engine.paused) {
           const savedTime = engine.currentTime
           _currentTime = savedTime
@@ -443,6 +447,17 @@ function orderedPlayLevels() {
 
 function uniqueLevels(levels) {
   return [...new Set(levels.filter(Boolean))]
+}
+
+/** 检查 level 是否比当前播放音质更好 */
+function isBetterThanFirstUrl(level) {
+  if (!_firstUrlLevel) return true
+  const baseLevel = _firstUrlLevel.replace('+unblock', '')
+  const idx1 = PLAY_LEVELS.indexOf(level)
+  const idx2 = PLAY_LEVELS.indexOf(baseLevel)
+  if (idx1 === -1 || idx2 === -1) return false
+  // 索引越小音质越好 (lossless=0, standard=3)
+  return idx1 < idx2
 }
 
 function addUrl(urls, urlOrObj) {
