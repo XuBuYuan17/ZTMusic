@@ -14,9 +14,16 @@
   let lyrics = $state([])
   let currentTrack = $derived(player.currentTrack || player.queue?.find(track => track?.id === player.id) || player.queue?.[player.queueIndex])
   let currentArtists = $derived(currentTrack?.ar || currentTrack?.artists || [])
-  let highlightIndex = $state(0)
+  let highlightIndex = $derived.by(() => {
+    if (lyrics.length === 0) return -1
+    const now = player.currentTime
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      if (now >= lyrics[i].time) return i
+    }
+    return -1
+  })
+  let _prevHighlightIdx = -2
   let lyricsEl = $state(null)
-  let timer
   let animating = $state(false)
   let mounted = $state(false)
   let contentEntered = $state(false)
@@ -74,7 +81,6 @@
       contentEntered = false
       closing = false
       document.body.style.overflow = 'hidden'
-      startTimer()
       checkLiked()
 
       if (containerEl && lyricsOrigin) {
@@ -122,10 +128,11 @@
         animating = false
       }
 
-      stopTimer()
-      clearLyricAnimations()
+      // 清除歌词行动画
+      lyricsEl?.querySelectorAll('.ly-line.animate-words').forEach(line => {
+        line.classList.remove('animate-words')
+      })
       lyrics = []
-      highlightIndex = 0
       showMenu = false
       showPlaylistPicker = false
       volumeOpen = false
@@ -149,15 +156,21 @@
 
   $effect(() => {
     if (!player.playing && lyricsEl) {
-      clearLyricAnimations()
+      lyricsEl.querySelectorAll('.ly-line.animate-words').forEach(line => {
+        line.classList.remove('animate-words')
+      })
     }
   })
 
   $effect(() => {
     if (lyricsMode) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => scrollToLine(highlightIndex))
-      })
+      const idx = highlightIndex
+      if (idx >= 0) {
+        _prevHighlightIdx = idx
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollToLine(idx))
+        })
+      }
     }
   })
 
@@ -271,62 +284,46 @@
     }).catch(() => { liked = !nextLiked })
   }
 
-  function startTimer() {
-    stopTimer()
-    timer = setInterval(() => {
-      if (lyrics.length === 0) return
-      const now = player.currentTime
-      let idx = -1
-      for (let i = lyrics.length - 1; i >= 0; i--) {
-        if (now >= lyrics[i].time) { idx = i; break }
-      }
-      if (idx !== highlightIndex) {
-        highlightIndex = idx
-        scrollToLine(idx)
-      }
-    }, 100)
-  }
-
-  function stopTimer() {
-    if (timer) { clearInterval(timer); timer = null }
-  }
-
-  function clearLyricAnimations() {
-    const el = lyricsEl
-    el?.querySelectorAll('.ly-line.animate-words').forEach(line => {
-      line.classList.remove('animate-words')
-    })
-  }
-
   function scrollToLine(idx) {
     const el = lyricsEl
     if (!el) return
     const line = el.querySelector(`[data-idx="${idx}"]`)
-    if (line && el.clientHeight > 0) {
-      el.scrollTo({
-        top: line.offsetTop - el.clientHeight / 3,
-        behavior: 'smooth'
-      })
-      line.classList.remove('animate-words')
-      void line.offsetWidth
-      line.classList.add('animate-words')
-      const words = line.querySelectorAll('.ly-word')
-      const lastWord = words[words.length - 1]
-      if (lastWord) {
-        const cleanup = () => {
-          line.classList.remove('animate-words')
-          lastWord.removeEventListener('animationend', cleanup)
-        }
-        lastWord.addEventListener('animationend', cleanup)
-      } else {
-        setTimeout(() => line.classList.remove('animate-words'), 520)
+    if (!line || el.clientHeight <= 0) return
+    el.scrollTo({
+      top: line.offsetTop - el.clientHeight / 3,
+      behavior: 'smooth'
+    })
+    // 触发逐词动画
+    line.classList.remove('animate-words')
+    // 强制回流以重新触发 transition
+    void line.offsetWidth
+    line.classList.add('animate-words')
+    const words = line.querySelectorAll('.ly-word')
+    const lastWord = words[words.length - 1]
+    if (lastWord) {
+      const cleanup = () => {
+        line.classList.remove('animate-words')
+        lastWord.removeEventListener('animationend', cleanup)
       }
+      lastWord.addEventListener('animationend', cleanup)
+    } else {
+      setTimeout(() => line.classList.remove('animate-words'), 520)
     }
   }
 
+  // 响应式滚动：highlightIndex 变化时自动滚动到对应行
+  $effect(() => {
+    const idx = highlightIndex
+    if (!show || idx < 0 || idx === _prevHighlightIdx || !lyricsEl) return
+    _prevHighlightIdx = idx
+    scrollToLine(idx)
+  })
+
   function seekTo(time) {
     if (!player.duration) return
-    clearLyricAnimations()
+    lyricsEl?.querySelectorAll('.ly-line.animate-words').forEach(line => {
+      line.classList.remove('animate-words')
+    })
     player.seek(Math.max(0, Math.min(player.duration, time)))
   }
 
