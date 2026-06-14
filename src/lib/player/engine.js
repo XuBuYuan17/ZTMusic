@@ -60,7 +60,7 @@ class AudioEngine {
     if (!url) return
     const nextUrl = String(url).trim()
     if (!nextUrl) return
-    if (this.audio.src && this.audio.src !== nextUrl) {
+    if (this.currentUrl && this.currentUrl !== nextUrl) {
       this.audio.pause()
       this.audio.removeAttribute('src')
       this.audio.load()

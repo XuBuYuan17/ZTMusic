@@ -270,22 +270,39 @@ async function getPlayableUrls(id) {
 
   const fallbackUrl = `https://music.163.com/song/media/outer/url?id=${id}.mp3`
   const urls = []
+  const trialUrls = []
   const reqId = _playRequestId
 
-  // Phase 1: 快速出声 — 从 standard 开始逐级尝试
-  // 找到第一个可用 URL 立即返回播放，不等其他音质
+  // Phase 1: 快速出声 — 优先完整版 URL，找不到才收集试听片段
   const fastTiers = uniqueLevels(['standard', 'higher', _preferredLevel])
   for (const level of fastTiers) {
-    const url = await fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)
-    if (url) { addUrl(urls, url); break }
+    const result = await fetchSongUrl(id, level, false, FAST_PLAY_TIMEOUT)
+    if (!result) continue
+    if (result.isTrial) {
+      addUrl(trialUrls, result.url)
+    } else {
+      addUrl(urls, result.url)
+      break
+    }
   }
 
   // 降级尝试带 unblock 的版本
   if (urls.length === 0) {
     for (const level of fastTiers) {
-      const url = await fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)
-      if (url) { addUrl(urls, url); break }
+      const result = await fetchSongUrl(id, level, true, FAST_PLAY_TIMEOUT)
+      if (!result) continue
+      if (result.isTrial) {
+        addUrl(trialUrls, result.url)
+      } else {
+        addUrl(urls, result.url)
+        break
+      }
     }
+  }
+
+  // 没有完整版时 fallback 试听片段
+  if (urls.length === 0 && trialUrls.length > 0) {
+    urls.push(...trialUrls)
   }
 
   // 兜底
@@ -305,32 +322,39 @@ async function fillFallbackUrls(id, reqId) {
   // Step 1: 优先获取用户偏好的音质，作为主播放 URL
   for (const level of allLevels) {
     if (_playRequestId !== reqId) return
-    const url = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
-    if (!url || _playUrls.includes(url)) continue
+    const result = await fetchSongUrl(id, level, false, FALLBACK_PLAY_TIMEOUT)
+    if (!result || _playUrls.includes(result.url)) continue
 
     if (!upgraded && _playUrls.length > 0) {
       // 升级到偏好音质：插入到 _playUrls[0] 并切换播放
-      _playUrls.unshift(url)
+      _playUrls.unshift(result.url)
       _playUrlIndex = 0
       upgraded = true
-      logPlayback('quality-upgrade', { level, url })
+      logPlayback('quality-upgrade', { level, url: result.url })
       if (_playing && _playRequestId === reqId && !engine.paused) {
         const savedTime = engine.currentTime
-        engine.load(url)
-        engine.play().then(() => {
-          if (savedTime > 0) engine.seek(savedTime)
-        }).catch(() => {})
+        _currentTime = savedTime
+        _restoreSeeking = savedTime > 0
+        engine.load(result.url)
+        engine.play().catch(() => {
+          if (_playRequestId !== reqId) return
+          // 升级失败：移除刚插入的 URL，并继续 fallback
+          const badIdx = _playUrls.indexOf(result.url)
+          if (badIdx >= 0) _playUrls.splice(badIdx, 1)
+          _playUrlIndex = 0
+          tryNextPlayUrl()
+        })
       }
     } else {
-      _playUrls.push(url)
+      _playUrls.push(result.url)
     }
   }
 
   // Step 2: 获取带 unblock 的版本
   for (const level of allLevels) {
     if (_playRequestId !== reqId) return
-    const url = await fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)
-    if (url && !_playUrls.includes(url)) _playUrls.push(url)
+    const result = await fetchSongUrl(id, level, true, FALLBACK_PLAY_TIMEOUT)
+    if (result && !_playUrls.includes(result.url)) _playUrls.push(result.url)
   }
 
   // Step 3: 补充网易官方 fallback
@@ -343,7 +367,7 @@ async function fillFallbackUrls(id, reqId) {
   if (_playRequestId === reqId && _playUrls.length <= 1) {
     try {
       const matchRes = await ncm.songUrlMatch(id)
-      const matchUrl = matchRes?.data?.[0]?.url || matchRes?.url || ''
+      const matchUrl = matchRes?.data?.[0]?.url || matchRes?.data?.url || matchRes?.url || ''
       if (matchUrl) {
         const normalized = normalizePlayUrl(matchUrl)
         if (normalized && !_playUrls.includes(normalized)) {
@@ -400,8 +424,9 @@ function uniqueLevels(levels) {
   return [...new Set(levels.filter(Boolean))]
 }
 
-function addUrl(urls, url) {
-  const playableUrl = normalizePlayUrl(url)
+function addUrl(urls, urlOrObj) {
+  if (!urlOrObj) return
+  const playableUrl = typeof urlOrObj === 'string' ? urlOrObj : urlOrObj.url
   if (playableUrl && !urls.includes(playableUrl)) urls.push(playableUrl)
 }
 
@@ -430,8 +455,11 @@ async function fetchSongUrl(id, level, unblock, timeout) {
       freeTrial: Boolean(item?.freeTrialInfo),
       message: item?.message || res?.message || res?.msg || '',
     })
-    if (!item?.url || item.code === 404 || item.freeTrialInfo) return ''
-    return normalizePlayUrl(item.url)
+    if (!item?.url || item.code !== 200) return null
+    return {
+      url: normalizePlayUrl(item.url),
+      isTrial: Boolean(item.freeTrialInfo),
+    }
   } catch (error) {
     logPlayUrlAttempt('error', {
       id,
@@ -439,12 +467,21 @@ async function fetchSongUrl(id, level, unblock, timeout) {
       unblock,
       message: error?.message || 'play url request failed',
     })
-    return ''
+    return null
   }
 }
 
 function tryNextPlayUrl() {
-  if (!_shouldAutoPlay || _playUrlIndex >= _playUrls.length - 1) return false
+  if (_playUrlIndex >= _playUrls.length - 1) {
+    // 当前歌曲没有更多可用 URL，自动切到下一首
+    if (_shouldAutoPlay && _queue.length > 1 && !_advanceLock) {
+      _advanceLock = true
+      setTimeout(() => {
+        try { next() } finally { _advanceLock = false }
+      }, 120)
+    }
+    return false
+  }
   _playUrlIndex += 1
   _loading = true
   _error = ''
@@ -458,12 +495,6 @@ function tryNextPlayUrl() {
       _playing = false
       _shouldAutoPlay = false
       _error = '当前歌曲暂无可用音源'
-      if (_queue.length > 1 && !_advanceLock) {
-        _advanceLock = true
-        setTimeout(() => {
-          try { next() } finally { _advanceLock = false }
-        }, 120)
-      }
     }
   })
   return true
@@ -576,7 +607,14 @@ function playQueue(tracks, startIndex = 0) {
 }
 
 function next() {
-  if (_queue.length === 0) return
+  if (_queue.length === 0) {
+    logPlayback('next-empty-queue')
+    return
+  }
+  if (_advanceLock) {
+    logPlayback('next-locked')
+    return
+  }
   let idx
   if (_mode === 'shuffle') {
     idx = Math.floor(Math.random() * _queue.length)
@@ -585,6 +623,7 @@ function next() {
   } else {
     idx = (_queueIndex + 1) % _queue.length
   }
+  logPlayback('next', { fromIndex: _queueIndex, toIndex: idx, mode: _mode })
   playTrack(_queue[idx], idx)
 }
 
