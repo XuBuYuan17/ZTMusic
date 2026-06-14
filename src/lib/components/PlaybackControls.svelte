@@ -24,7 +24,7 @@
   let playClass = $derived(isLyrics ? 'ly-play-btn' : 'pc-btn pc-btn--play')
 </script>
 
-<div class="pc" class:ly-play-row={isLyrics} style:gap={isLyrics ? undefined : gap}>
+<div class="pc" class:ly-play-row={isLyrics} class:pc-disabled={disabled} style:gap={isLyrics ? undefined : gap}>
   <!-- 随机播放 -->
   <button class={btnClass} class:active={mode === 'shuffle'}
     onclick={() => onshuffle?.()} aria-label="随机播放"
@@ -35,14 +35,14 @@
   </button>
 
   <!-- 上一首 -->
-  <button class={btnClass} onclick={() => onprev?.()} aria-label="上一首" disabled={disabled}>
+  <button class={btnClass} onclick={() => onprev?.()} aria-label="上一首" disabled={isLyrics ? false : disabled}>
     <svg viewBox="0 0 24 24" width={sz} height={sz} fill="currentColor">
       <path d="M2.5 9.402c-2 1.155-2 4.041 0 5.196l9 5.196c1.515.875 3.317.259 4.102-1.096l1.898 1.096c2 1.155 4.5-.288 4.5-2.598V6.804c0-2.31-2.5-3.753-4.5-2.598l-1.898 1.096c-.785-1.355-2.587-1.971-4.102-1.096zM16 7.382v9.237l2.5 1.443a1 1 0 0 0 1.5-.866V6.804a1 1 0 0 0-1.5-.866z" fill-rule="evenodd" clip-rule="evenodd"/>
     </svg>
   </button>
 
   <!-- 播放/暂停 -->
-  <button class={playClass} onclick={() => onplaypause?.()} aria-label={playing ? '暂停' : '播放'} disabled={disabled}>
+  <button class={playClass} onclick={() => onplaypause?.()} aria-label={playing ? '暂停' : '播放'} disabled={isLyrics ? false : disabled}>
     {#if loading}
       <Spinner size={isLyrics ? 'md' : (size === 'lg' ? 'md' : 'sm')} />
     {:else if playing}
@@ -57,7 +57,7 @@
   </button>
 
   <!-- 下一首 -->
-  <button class={btnClass} onclick={() => onnext?.()} aria-label="下一首" disabled={disabled}>
+  <button class={btnClass} onclick={() => onnext?.()} aria-label="下一首" disabled={isLyrics ? false : disabled}>
     <svg viewBox="0 0 24 24" width={sz} height={sz} fill="currentColor">
       <path d="M5.5 5.938a1 1 0 0 0-1.5.866v10.392a1 1 0 0 0 1.5.866L8 16.62V7.38zm2.898-.636L6.5 4.206l-.5.866l.5-.866C4.5 3.05 2 4.494 2 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598l1.898-1.096c.785 1.355 2.587 1.971 4.102 1.096l9-5.196c2-1.155 2-4.041 0-5.196l-9-5.196c-1.515-.875-3.317-.259-4.102 1.096" fill-rule="evenodd" clip-rule="evenodd"/>
     </svg>
@@ -97,4 +97,16 @@
   .pc-btn:disabled { opacity: 0.35; cursor: default; }
   .pc-btn.active { opacity: 1; color: var(--color-accent, #ec4141); }
   .pc-btn--play { padding: 0.3rem; }
+  /* lyrics variant: disabled is visual only, never blocks clicks */
+  .pc-disabled .pc-btn,
+  .pc-disabled .ly-ctrl-btn,
+  .pc-disabled .ly-play-btn {
+    opacity: 0.38;
+    cursor: default;
+  }
+  .pc-disabled .ly-ctrl-btn:hover,
+  .pc-disabled .ly-play-btn:hover {
+    color: rgba(255,255,255,0.5);
+    background: none;
+  }
 </style>
