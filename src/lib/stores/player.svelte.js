@@ -117,7 +117,7 @@ let _error = $state('')
 const initialVolume = parseFloat(getLS('volume', '0.8'))
 let _volume = $state(initialVolume)
 let _mode = $state(getLS('mode', 'list'))
-let _preferredLevel = $state(getLS('preferred_quality', 'lossless'))
+let _preferredLevel = $state(getLS('preferred_quality', 'standard'))
 let _queue = $state(getLSJson('player_queue', []))
 let _queueIndex = $state(parseInt(getLS('player_qi', '-1')))
 
