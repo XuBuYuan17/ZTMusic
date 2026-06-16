@@ -72,7 +72,7 @@ jobs:
         include:
           - arch: x64
             target: x86_64-pc-windows-msvc
-            bundles: msi,nsis
+            bundles: msi nsis
           - arch: arm64
             target: aarch64-pc-windows-msvc
             bundles: nsis
@@ -107,8 +107,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Print Windows build context
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          pnpm tauri --version
+          echo "target=${{ matrix.target }} bundles=${{ matrix.bundles }}"
+
       - name: Build Windows installer
-        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+        run: pnpm tauri build --ci --verbose --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
@@ -266,6 +275,18 @@ jobs:
                   (package_dir / source_name).write_text(source.read_text())
           PY
 
+      - name: Print Android build context
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          pnpm tauri --version
+          ./src-tauri/gen/android/gradlew --version
+          echo "target=${{ matrix.tauriTarget }} rustTarget=${{ matrix.rustTarget }}"
+          sed -n '1,220p' src-tauri/gen/android/app/build.gradle.kts
+          sed -n '1,180p' src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          find src-tauri/gen/android/app/src/main/java/com/zheting/music -maxdepth 1 -type f -print
+
       - name: Setup Android signing
         if: steps.android_signing.outputs.has_signing == 'true'
         env:
@@ -336,7 +357,7 @@ jobs:
         env:
           NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
-        run: pnpm tauri android build --apk --target ${{ matrix.tauriTarget }}
+        run: pnpm tauri android build --ci --verbose --apk --split-per-abi --target ${{ matrix.tauriTarget }}
 
       - name: Verify Android APK signature
         if: steps.android_signing.outputs.has_signing == 'true'
