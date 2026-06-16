@@ -43,7 +43,6 @@
     return new Date(album.publishTime).getFullYear()
   }
 
-  const featuredSongs = $derived(songs.slice(0, 5))
   const visibleSongs = $derived(showAllSongs ? songs : songs.slice(0, 5))
 
   $effect(() => {
@@ -173,18 +172,6 @@
         </div>
       </div>
     </div>
-
-    {#if featuredSongs.length > 0}
-      <section class="artist-feature-strip" aria-label="代表作品">
-        {#each featuredSongs as track, index (track.id)}
-          <button class="artist-feature-card" onclick={() => onPlayTrack?.(track)}>
-            <span>{String(index + 1).padStart(2, '0')}</span>
-            <strong>{track.name}</strong>
-            <em>{albumOf(track).name || '热门单曲'}</em>
-          </button>
-        {/each}
-      </section>
-    {/if}
 
     {#if artist.briefDesc}
       <section class="artist-section artist-bio-section">
@@ -318,12 +305,6 @@
   .artist-section-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .artist-section-action.secondary { background: var(--accent-bg); color: var(--accent); }
   .artist-section-action.secondary:hover { background: var(--accent-bg-hover); }
-  .artist-feature-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 28px; }
-  .artist-feature-card { display: grid; gap: 6px; min-width: 0; min-height: 112px; padding: 14px; border-radius: 14px; background: var(--bg-surface); border: 1px solid var(--border); text-align: left; box-shadow: var(--shadow-sm); transition: transform .18s, background .18s, border-color .18s; }
-  .artist-feature-card:hover { transform: translateY(-3px); background: var(--bg-elevated); border-color: var(--border-strong); }
-  .artist-feature-card span { color: var(--accent); font-size: 12px; font-weight: 850; }
-  .artist-feature-card strong { color: var(--text); font-size: 14px; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .artist-feature-card em { align-self: end; color: var(--text-tertiary); font-size: 11px; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .artist-section { margin-bottom: 34px; }
   .artist-bio-section { padding: 22px; border-radius: 18px; background: linear-gradient(135deg, var(--bg-surface), var(--bg-layer)); border: 1px solid var(--border); }
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
@@ -350,7 +331,6 @@
     .artist-hero { grid-template-columns: 1fr; align-items: end; min-height: 520px; padding: 78px 24px 32px; margin-left: -24px; margin-right: -24px; }
     .artist-avatar { width: 142px; height: 142px; border-radius: 22px; }
     .artist-info h1 { font-size: 42px; letter-spacing: -1.6px; }
-    .artist-feature-strip { grid-template-columns: 1fr; }
     .artist-albums { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }
 </style>

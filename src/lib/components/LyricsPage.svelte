@@ -30,6 +30,7 @@
   let _prevHighlightIdx = -2
   let _clearLyricsTimer = null
   let lyricsEl = $state(null)
+  let mobileLyricsEl = $state(null)
   let animating = $state(false)
   let mounted = $state(false)
   let contentEntered = $state(false)
@@ -213,10 +214,14 @@
 
   // ---- Lyrics scrolling ----
   function scrollToLine(idx) {
-    const el = lyricsEl; if (!el) return
+    // Pick the visible lyrics container (desktop or mobile)
+    const el = (lyricsEl && lyricsEl.clientHeight > 0) ? lyricsEl
+             : (mobileLyricsEl && mobileLyricsEl.clientHeight > 0) ? mobileLyricsEl
+             : null
+    if (!el) return
     const line = el.querySelector(`[data-idx="${idx}"]`)
     if (!line || el.clientHeight <= 0) return
-    el.scrollTo({ top: line.offsetTop - el.clientHeight / 3, behavior: 'smooth' })
+    el.scrollTo({ top: line.offsetTop - el.clientHeight / 3, behavior: 'instant' })
     // word animation
     line.classList.remove('animate-words')
     void line.offsetWidth
@@ -276,7 +281,10 @@
 
   $effect(() => {
     if (lyricsMode) {
-      const idx = highlightIndex; if (idx >= 0) { _prevHighlightIdx = idx; requestAnimationFrame(() => requestAnimationFrame(() => scrollToLine(idx))) }
+      const idx = highlightIndex
+      if (idx < 0 || idx === _prevHighlightIdx) return
+      _prevHighlightIdx = idx
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollToLine(idx)))
     }
   })
 
@@ -532,15 +540,28 @@
           <div class="ly-mobile-volume-row">
             <VolumeSlider volume={player.volume} onvolumechange={(v) => player.setVolume(v)} />
           </div>
-          <div class="ly-mobile-action-row">
-            <button class="ly-mobile-action-btn" class:active={showContextStrip} onclick={toggleContextStrip} aria-label="相关内容">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h10"/><path d="M4 19h16"/></svg>
-            </button>
-            <button class="ly-mobile-action-btn" onclick={() => showLocalQueue = !showLocalQueue} aria-label="播放列表" disabled={!hasPlayableTrack}>
-              <svg viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32"/><path fill="currentColor" d="m8 10l8 5l-8 5z"/></svg>
-            </button>
-          </div>
         </div>
+
+        <!-- Mobile lyrics area (visible in lyrics-mode) -->
+        <div class="ly-mobile-lyrics" bind:this={mobileLyricsEl}>
+          {#if lyrics.length > 0}
+            {#each lyrics as line, i}
+              <button class="ly-line" class:active={i === highlightIndex} class:sung={i < highlightIndex} data-idx={i}
+                aria-current={i === highlightIndex ? 'true' : undefined}
+                onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))) }}>
+                <span class="ly-line-text">
+                  {#if line.words?.length}
+                    {#each line.words as w, wi}<span class="ly-word" style="--i:{wi}">{w}</span>{wi < line.words.length - 1 ? '\u00A0' : ''}{/each}
+                  {:else}{line.text || '...'}{/if}
+                </span>
+                {#if line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
+              </button>
+            {/each}
+          {:else}
+            <div class="ly-no-lyric">暂无歌词</div>
+          {/if}
+        </div>
+
         <!-- Mobile context strip -->
         {#if !lyricsMode && (extrasLoading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)}
           <div class="ly-mobile-context">

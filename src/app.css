@@ -3090,9 +3090,6 @@ button.lcd-meta__artist:hover {
 }
 
 @media (min-width: 761px) {
-  .mobile-home-page {
-    display: none !important;
-  }
   .ly-mobile-swipe {
     display: none !important;
   }
@@ -3128,12 +3125,6 @@ html.mobile-runtime .sidebar {
 
 html.mobile-runtime .mobile-topbar {
   display: flex;
-}
-
-html.mobile-runtime .mobile-home-page {
-  display: grid;
-  gap: 18px;
-  padding-bottom: 8px;
 }
 
 html.mobile-runtime .mobile-tabs {
@@ -3248,10 +3239,6 @@ html.mobile-runtime .global-search-btn {
   [data-theme="dark"] .main-area {
     background: var(--bg);
     box-shadow: none;
-  }
-
-  .desktop-page-only {
-    display: none !important;
   }
 
   .mobile-topbar {
@@ -6445,6 +6432,7 @@ button.ly-context-card.active {
   .ly-mobile-player.lyrics-mode {
     padding-top: calc(8px + env(safe-area-inset-top));
     justify-content: flex-start;
+    flex-direction: column;
     transform: none;
   }
 

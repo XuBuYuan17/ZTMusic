@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "rm -rf node_modules/.vite && vite",
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
@@ -19,6 +20,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "sqlocal": "^0.18.0"
   }
 }

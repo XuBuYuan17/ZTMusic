@@ -1,6 +1,7 @@
 <script>
   import { ncm } from '../api/client.js'
   import { player, clearHistory } from '../stores/player.svelte.js'
+  import { auth } from '../stores/auth.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
   import { getStorage, setStorage } from '../utils/storage.js'
   import { dbGetStats, dbClearAll } from '../utils/dbcache.js'
@@ -12,6 +13,7 @@
   let cacheSizeText = $state('0 B')
   let idbCacheText = $state('计算中…')
   let idbCleared = $state('')
+  let cookieCheckMsg = $state('')
   let defaultPage = $state(getStorage('default_page', 'home'))
   let restoreSession = $state(getStorage('restore_session', 'true') === 'true')
   let lyricsBlur = $state(getStorage('lyrics_blur_effect', 'true') === 'true')
@@ -101,6 +103,26 @@
   function handleLocale(val) {
     currentLocale = val
     setLocale(val)
+  }
+
+  async function handleCheckCookie() {
+    if (!auth.isLoggedIn) {
+      cookieCheckMsg = '未登录，无需检测'
+      setTimeout(() => cookieCheckMsg = '', 3000)
+      return
+    }
+    cookieCheckMsg = '检测中…'
+    try {
+      const ok = await auth.checkLoginStatus()
+      if (ok) {
+        cookieCheckMsg = 'Cookie 正常 · 登录有效'
+      } else {
+        cookieCheckMsg = 'Cookie 已过期，已自动清除登录状态'
+      }
+    } catch {
+      cookieCheckMsg = '检测失败，请重试'
+    }
+    setTimeout(() => cookieCheckMsg = '', 4000)
   }
 
   const qualityLabels = {
@@ -245,6 +267,19 @@
       </div>
       <button class="settings-secondary-btn" onclick={handleClearIdbCache}>
         {idbCleared || '清除'}
+      </button>
+    </div>
+
+    <div class="settings-group-label">账号</div>
+
+    <!-- 检测 Cookie 状态 -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">检测 Cookie 状态</div>
+        <div class="settings-desc">验证当前登录凭证是否有效，失效时会自动清除并退出登录</div>
+      </div>
+      <button class="settings-secondary-btn" onclick={handleCheckCookie}>
+        {cookieCheckMsg || '检测'}
       </button>
     </div>
 
