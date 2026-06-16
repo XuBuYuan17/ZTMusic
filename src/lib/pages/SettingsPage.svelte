@@ -4,7 +4,7 @@
   import { auth } from '../stores/auth.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
   import { getStorage, setStorage } from '../utils/storage.js'
-  import { dbGetStats, dbClearAll } from '../utils/dbcache.js'
+  import { dbCache } from '../db/cache.js'
 
   let { theme = 'dark', onSetTheme } = $props()
 
@@ -41,7 +41,7 @@
 
   async function refreshIdbCache() {
     try {
-      const stats = await dbGetStats()
+      const stats = await dbCache.getStats()
       idbCacheText = stats.available
         ? `API ${stats.apiCache} 项 · 歌曲 ${stats.urlCache} 首`
         : '不可用'
@@ -59,15 +59,16 @@
     setTimeout(() => clearMsg = '', 2000)
   }
 
-  function handleClearCache() {
-    ncm.clearCache()
+  async function handleClearCache() {
+    await ncm.clearCache()
     refreshCacheSize()
+    await refreshIdbCache()
     clearCacheMsg = '已清除'
     setTimeout(() => clearCacheMsg = '', 2000)
   }
 
   async function handleClearIdbCache() {
-    await dbClearAll()
+    await dbCache.clearAll()
     await refreshIdbCache()
     idbCleared = '已清除'
     setTimeout(() => idbCleared = '', 2000)

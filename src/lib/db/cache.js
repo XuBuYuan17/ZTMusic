@@ -16,7 +16,14 @@
 
 import { getDB, isReady } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
-import { readCache, writeCache } from '../utils/cache.js'
+import {
+  clearCache as clearLegacyApiCache,
+  createCacheKey,
+  getCacheStats as getLegacyApiCacheStats,
+  readCache,
+  writeCache,
+} from '../utils/cache.js'
+import { dbApiClear, dbApiRead, dbApiWrite, dbClearAll, dbGetStats, dbUrlGet } from '../utils/dbcache.js'
 
 // ==== 降级前缀 ====
 const URL_CACHE_PREFIX = 'db_fallback_url_'  // localStorage fallback for song URLs
@@ -30,30 +37,41 @@ export const dbCache = {
   // API 缓存 (api_cache)
   // ========================
 
+  createKey(parts) {
+    return createCacheKey(parts)
+  },
+
   /**
    * 读取 API 缓存
    * @param {string} key
+   * @param {{ allowExpired?: boolean }} options
    * @returns {Promise<*|null>}
    */
-  async apiGet(key) {
+  async apiGet(key, options = {}) {
     if (!key) return null
+    const { allowExpired = false } = options
     if (!isAvailable()) {
-      return readCache(key) ?? null
+      const idbCached = allowExpired ? null : await dbApiRead(key).catch(() => null)
+      if (idbCached) return idbCached
+      return readCache(key, { allowExpired }) ?? null
     }
     try {
       const db = getDB()
       const rows = await db.sql(
-        `SELECT value FROM api_cache WHERE key = ? AND expires_at > ?`,
-        [key, Date.now()]
+        allowExpired
+          ? `SELECT value FROM api_cache WHERE key = ?`
+          : `SELECT value FROM api_cache WHERE key = ? AND expires_at > ?`,
+        allowExpired ? [key] : [key, Date.now()]
       )
       if (rows.length > 0 && rows[0].value) {
         return JSON.parse(rows[0].value)
       }
-      // 过期则后台删除
-      await db.sql(`DELETE FROM api_cache WHERE key = ?`, [key]).catch(() => {})
+      if (!allowExpired) {
+        await db.sql(`DELETE FROM api_cache WHERE key = ?`, [key]).catch(() => {})
+      }
       return null
     } catch {
-      return readCache(key) ?? null
+      return readCache(key, { allowExpired }) ?? null
     }
   },
 
@@ -67,6 +85,7 @@ export const dbCache = {
     if (!key || !ttl || ttl <= 0) return
     if (!isAvailable()) {
       writeCache(key, value, ttl)
+      dbApiWrite(key, value, ttl).catch(() => {})
       return
     }
     try {
@@ -77,6 +96,7 @@ export const dbCache = {
       )
     } catch {
       writeCache(key, value, ttl)
+      dbApiWrite(key, value, ttl).catch(() => {})
     }
   },
 
@@ -91,6 +111,22 @@ export const dbCache = {
     } catch { /* ignore */ }
   },
 
+  /** 清空 API 缓存（包含旧 localStorage / IndexedDB fallback） */
+  async apiClear() {
+    clearLegacyApiCache()
+    await dbApiClear().catch(() => {})
+    if (!isAvailable()) return
+    try {
+      const db = getDB()
+      await db.sql(`DELETE FROM api_cache`)
+    } catch { /* ignore */ }
+  },
+
+  /** localStorage API 缓存统计（保持设置页同步展示兼容） */
+  getLegacyApiStats() {
+    return getLegacyApiCacheStats()
+  },
+
   // ========================
   // 歌曲 URL 缓存 (song_urls)
   // ========================
@@ -102,13 +138,14 @@ export const dbCache = {
    */
   async urlGet(songId) {
     if (!songId) return null
-    if (!isAvailable()) {
-      // localStorage fallback
+    const readLocalFallback = () => {
       const raw = getStorage(URL_CACHE_PREFIX + songId, '')
-      if (raw) {
-        try { return JSON.parse(raw) } catch { return null }
-      }
-      return null
+      if (!raw) return null
+      try { return JSON.parse(raw) } catch { return null }
+    }
+
+    if (!isAvailable()) {
+      return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
     }
     try {
       const db = getDB()
@@ -116,13 +153,9 @@ export const dbCache = {
       if (rows.length > 0 && rows[0].urls) {
         return JSON.parse(rows[0].urls)
       }
-      return null
+      return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
     } catch {
-      const raw = getStorage(URL_CACHE_PREFIX + songId, '')
-      if (raw) {
-        try { return JSON.parse(raw) } catch { return null }
-      }
-      return null
+      return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
     }
   },
 
@@ -154,7 +187,7 @@ export const dbCache = {
    */
   async getStats() {
     if (!isAvailable()) {
-      return { apiCache: 0, urlCache: 0, available: false }
+      return dbGetStats()
     }
     try {
       const db = getDB()
@@ -166,7 +199,7 @@ export const dbCache = {
         available: true,
       }
     } catch {
-      return { apiCache: 0, urlCache: 0, available: false }
+      return dbGetStats()
     }
   },
 
@@ -174,6 +207,8 @@ export const dbCache = {
    * 清空所有缓存
    */
   async clearAll() {
+    clearLegacyApiCache()
+    await dbClearAll().catch(() => {})
     if (!isAvailable()) return
     try {
       const db = getDB()

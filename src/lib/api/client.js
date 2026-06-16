@@ -1,62 +1,26 @@
-import { getStorage, removeStorage, setStorage } from '../utils/storage.js'
-import { clearCache, createCacheKey, getCacheStats, readCache, writeCache } from '../utils/cache.js'
-import { dbApiRead, dbApiWrite, dbCleanExpired } from '../utils/dbcache.js'
+import {
+  clearApiCache,
+  createApiCacheKey,
+  getApiCacheStats,
+  getApiCacheTtl,
+  readApiCache,
+  writeApiCache,
+} from './cache-policy.js'
+import { apiSession, DEFAULT_API_BASE, DEV_PROXY_API_BASE } from './session.js'
 
-export const DEFAULT_API_BASE = 'https://music.xubuyuan.top'
-const DEV_PROXY_API_BASE = '/ncm-api'
-const LEGACY_LOCAL_API_BASES = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
+export { DEFAULT_API_BASE }
 
-let _base
-_base = getStorage('api_base', '')
-if (LEGACY_LOCAL_API_BASES.has(_base)) {
-  removeStorage('api_base')
-  _base = ''
-}
-let API_BASE = _base || DEFAULT_API_BASE
 let tauriInvokePromise
 
 function isBrowserDevRuntime() {
   return typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1' && !isTauriRuntime()
 }
 
-function getRequestBase() {
-  return isBrowserDevRuntime() && API_BASE === DEFAULT_API_BASE ? DEV_PROXY_API_BASE : API_BASE
+function getRequestBase(base) {
+  return isBrowserDevRuntime() && base === DEFAULT_API_BASE ? DEV_PROXY_API_BASE : base
 }
-
-let _cookie = ''
-const savedCookie = getStorage('api_cookie', '')
-if (savedCookie) _cookie = savedCookie
 
 const DEFAULT_TIMEOUT = 15000
-const MINUTE = 60 * 1000
-const CACHE_TTL = {
-  '/song/url/v1': 0,  // 音质 URL 不缓存，登录状态变化会影响可用性
-  '/song/url': 0,
-  '/lyric': 7 * 24 * 60 * MINUTE,
-  '/lyric/new': 7 * 24 * 60 * MINUTE,
-  '/song/detail': 24 * 60 * MINUTE,
-  '/playlist/detail': 30 * MINUTE,
-  '/playlist/track/all': 30 * MINUTE,
-  '/album': 6 * 60 * MINUTE,
-  '/artist/detail': 12 * 60 * MINUTE,
-  '/artist/songs': 2 * 60 * MINUTE,
-  '/artist/album': 12 * 60 * MINUTE,
-  '/banner': 30 * MINUTE,
-  '/personalized': 30 * MINUTE,
-  '/top/playlist': 30 * MINUTE,
-  '/personalized/newsong': 30 * MINUTE,
-  '/recommend/songs': 10 * MINUTE,
-  '/album/newest': 2 * 60 * MINUTE,
-  '/homepage/block/page': 20 * MINUTE,
-  '/recommend/resource': 15 * MINUTE,
-  '/user/playlist': 5 * MINUTE,
-  '/user/record': 5 * MINUTE,
-  '/user/subcount': 5 * MINUTE,
-  '/toplist': 60 * MINUTE,
-  '/toplist/detail': 30 * MINUTE,
-  '/history/recommend/songs': 15 * MINUTE,
-  '/history/recommend/songs/detail': 15 * MINUTE,
-}
 
 function isTauriRuntime() {
   return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
@@ -70,21 +34,6 @@ async function getTauriInvoke() {
       .catch(() => null)
   }
   return tauriInvokePromise
-}
-
-function extractCookie(raw = '') {
-  return raw
-    ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ')
-    : ''
-}
-
-function saveCookieFromResponse(data, rawCookie = '') {
-  const raw = rawCookie || data.cookie || data.data?.cookie || ''
-  const ck = extractCookie(raw)
-  if (ck && ck !== _cookie) {
-    _cookie = ck
-    setStorage('api_cookie', _cookie)
-  }
 }
 
 async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
@@ -102,30 +51,29 @@ async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
 
 async function request(endpoint, params = {}, method = 'GET', body = null, options = {}) {
   const invoke = await getTauriInvoke()
-  const cookie = options.noCookie ? '' : _cookie
+  const apiBase = apiSession.getBase()
+  const cookie = options.noCookie ? '' : apiSession.getCookie()
   const withRandomCNIP = options.randomCNIP !== false
   const requestParams = withRandomCNIP ? { randomCNIP: true, ...params } : params
   const requestBody = body ? (withRandomCNIP ? { randomCNIP: true, ...body } : body) : body
-  const cacheTtl = method === 'GET' && options.cache !== false ? options.cacheTtl ?? CACHE_TTL[endpoint] : 0
-  const cacheKey = cacheTtl
-    ? createCacheKey([API_BASE, endpoint, requestParams, requestBody, cookie ? cookie.slice(0, 48) : 'public'])
-    : ''
+  const cacheTtl = getApiCacheTtl(endpoint, method, options)
+  const cacheKey = createApiCacheKey({
+    base: apiBase,
+    endpoint,
+    params: requestParams,
+    body: requestBody,
+    cookie,
+    ttl: cacheTtl,
+  })
   if (cacheKey && !options.refresh) {
-    // 优先 IndexedDB（异步），降级 localStorage
-    const idbCached = await dbApiRead(cacheKey).catch(() => null)
-    if (idbCached) return idbCached
-    const lsCached = readCache(cacheKey)
-    if (lsCached) {
-      // 同步到 IndexedDB 以便后续使用（不阻塞）
-      dbApiWrite(cacheKey, lsCached, cacheTtl).catch(() => {})
-      return lsCached
-    }
+    const cached = await readApiCache(cacheKey).catch(() => null)
+    if (cached) return cached
   }
   if (invoke) {
     try {
       const result = await invoke('ncm_request', {
         request: {
-          base: API_BASE,
+          base: apiBase,
           endpoint,
           params: requestParams,
           method,
@@ -134,18 +82,17 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
           allowErrorBody: !!options.allowErrorBody,
         },
       })
-      if (options.saveCookie !== false) saveCookieFromResponse(result.data, result.cookie)
-      writeCache(cacheKey, result.data, cacheTtl)
-      dbApiWrite(cacheKey, result.data, cacheTtl).catch(() => {})
+      if (options.saveCookie !== false) apiSession.saveCookieFromResponse(result.data, result.cookie)
+      writeApiCache(cacheKey, result.data, cacheTtl).catch(() => {})
       return result.data
     } catch (error) {
-      const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null
+      const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
       if (stale) return stale
       throw error
     }
   }
 
-  const requestBase = getRequestBase()
+  const requestBase = getRequestBase(apiBase)
   const url = requestBase.startsWith('http')
     ? new URL(`${requestBase}${endpoint}`)
     : new URL(`${requestBase}${endpoint}`, window.location.origin)
@@ -166,27 +113,23 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     const res = await fetchWithTimeout(url, opts)
     if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
     const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
-    if (options.saveCookie !== false) saveCookieFromResponse(data)
-    writeCache(cacheKey, data, cacheTtl)
-    dbApiWrite(cacheKey, data, cacheTtl).catch(() => {})
+    if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
+    writeApiCache(cacheKey, data, cacheTtl).catch(() => {})
     return data
   } catch (error) {
-    const stale = cacheKey ? readCache(cacheKey, { allowExpired: true }) : null
+    const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
     if (stale) return stale
     throw error
   }
 }
 
 export const ncm = {
-  setBase(url) {
-    setStorage('api_base', url)
-    API_BASE = url
-  },
-  getBase() { return API_BASE },
-  setCookie(c) { _cookie = c; setStorage('api_cookie', _cookie) },
-  clearCookie() { _cookie = ''; removeStorage('api_cookie') },
-  clearCache,
-  getCacheStats,
+  setBase(url) { apiSession.setBase(url) },
+  getBase() { return apiSession.getBase() },
+  setCookie(c) { apiSession.setCookie(c) },
+  clearCookie() { apiSession.clearCookie() },
+  clearCache() { return clearApiCache() },
+  getCacheStats() { return getApiCacheStats() },
 
   search(keywords, limit = 30, offset = 0, type = 1) {
     return request('/search', { keywords, limit, offset, type })

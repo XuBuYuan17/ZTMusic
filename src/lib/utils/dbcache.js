@@ -99,6 +99,19 @@ async function dbApiDelete(key) {
   })
 }
 
+export async function dbApiClear() {
+  let db
+  try { db = await openDB() } catch { return }
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_API, 'readwrite')
+      tx.objectStore(STORE_API).clear()
+      tx.oncomplete = resolve
+      tx.onerror = () => resolve()
+    } catch { resolve() }
+  })
+}
+
 // ===== 歌曲 URL 缓存（持久化） =====
 
 export async function dbUrlGet(id) {

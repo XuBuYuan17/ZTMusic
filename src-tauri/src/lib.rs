@@ -1,13 +1,26 @@
+#[cfg(target_os = "linux")]
+mod linux_mpris;
+
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE, SET_COOKIE, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+#[cfg(target_os = "android")]
+use std::sync::Mutex;
 use tauri::State;
 
 const API_TIMEOUT_SECS: u64 = 15;
 const APP_USER_AGENT: &str = "zheting/0.1.0";
+const NATIVE_MEDIA_PLUGIN_NAME: &str = "nativeMedia";
 
 struct AppState {
     client: reqwest::Client,
+}
+
+struct NativeMediaState {
+    #[cfg(target_os = "android")]
+    handle: Mutex<Option<tauri::plugin::PluginHandle<tauri::Wry>>>,
+    #[cfg(target_os = "linux")]
+    mpris: linux_mpris::LinuxMprisState,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,6 +40,29 @@ struct NcmRequest {
 struct NcmResponse {
     data: Value,
     cookie: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeMetadataPayload {
+    title: String,
+    artist: String,
+    cover_url: String,
+    duration: f64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativePlaybackPayload {
+    playing: bool,
+    position: f64,
+    duration: f64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativePendingAction {
+    action: String,
 }
 
 fn append_query_pairs(url: &mut reqwest::Url, params: &Value, cookie: Option<&str>) {
@@ -96,6 +132,148 @@ fn build_api_url(base: &str, endpoint: &str) -> Result<reqwest::Url, String> {
     }
 }
 
+fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::new(NATIVE_MEDIA_PLUGIN_NAME)
+        .setup(|app, api| {
+            #[cfg(target_os = "android")]
+            {
+                let handle = api
+                    .register_android_plugin("com.zheting.music", "MediaSessionPlugin")?;
+                app.manage(NativeMediaState {
+                    handle: Mutex::new(Some(handle)),
+                });
+            }
+
+            #[cfg(target_os = "linux")]
+            {
+                let _ = api;
+                app.manage(NativeMediaState {
+                    mpris: linux_mpris::LinuxMprisState::new(),
+                });
+            }
+
+            #[cfg(not(any(target_os = "android", target_os = "linux")))]
+            {
+                let _ = api;
+                app.manage(NativeMediaState {});
+            }
+
+            Ok(())
+        })
+        .build()
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn updateMetadata(
+    state: State<'_, NativeMediaState>,
+    title: String,
+    artist: String,
+    coverUrl: String,
+    duration: f64,
+) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        let guard = state.handle.lock().map_err(|error| error.to_string())?;
+        if let Some(handle) = guard.as_ref() {
+            handle
+                .run_mobile_plugin::<()>(
+                    "updateMetadata",
+                    NativeMetadataPayload {
+                        title,
+                        artist,
+                        cover_url: coverUrl,
+                        duration,
+                    },
+                )
+                .map_err(|error| error.to_string())?;
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        state
+            .mpris
+            .update_metadata(title, artist, coverUrl, duration);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    {
+        let _ = (state, title, artist, coverUrl, duration);
+    }
+
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn updatePlaybackState(
+    state: State<'_, NativeMediaState>,
+    playing: bool,
+    position: f64,
+    duration: f64,
+) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        let guard = state.handle.lock().map_err(|error| error.to_string())?;
+        if let Some(handle) = guard.as_ref() {
+            handle
+                .run_mobile_plugin::<()>(
+                    "updatePlaybackState",
+                    NativePlaybackPayload {
+                        playing,
+                        position,
+                        duration,
+                    },
+                )
+                .map_err(|error| error.to_string())?;
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = duration;
+        state.mpris.update_playback_state(playing, position);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    {
+        let _ = (state, playing, position, duration);
+    }
+
+    Ok(())
+}
+
+#[allow(non_snake_case)]
+#[tauri::command]
+fn pollPendingAction(state: State<'_, NativeMediaState>) -> Result<NativePendingAction, String> {
+    #[cfg(target_os = "android")]
+    {
+        let guard = state.handle.lock().map_err(|error| error.to_string())?;
+        if let Some(handle) = guard.as_ref() {
+            return handle
+                .run_mobile_plugin::<NativePendingAction>("pollPendingAction", json!({}))
+                .map_err(|error| error.to_string());
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        return Ok(NativePendingAction {
+            action: state.mpris.poll_pending_action(),
+        });
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    {
+        let _ = state;
+    }
+
+    Ok(NativePendingAction {
+        action: String::new(),
+    })
+}
+
 #[tauri::command]
 async fn ncm_request(
     state: State<'_, AppState>,
@@ -155,6 +333,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(AppState { client })
+        .plugin(native_media_plugin())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -165,7 +344,12 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![ncm_request])
+        .invoke_handler(tauri::generate_handler![
+            ncm_request,
+            updateMetadata,
+            updatePlaybackState,
+            pollPendingAction
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

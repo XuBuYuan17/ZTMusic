@@ -12,7 +12,6 @@
  */
 
 import { engine } from './engine.js'
-import { ncm } from '../api/client.js'
 import { auth } from '../stores/auth.svelte.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 import { normalizeImageUrl, coverUrl } from '../utils/image.js'
@@ -22,6 +21,7 @@ import { compactTrack, compactQueue, getNextIndex, getPrevIndex } from './queue.
 import { addLocalHistory } from './history.js'
 import { dbHistory } from '../db/history.js'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from './native-media.js'
+import { createPrefetchManager } from './prefetch.js'
 import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { handleError, swallowError } from '../utils/error.js'
 
@@ -74,8 +74,10 @@ class PlayerState {
   _fillFallbackPending = false
   /** 媒体会话是否已初始化 */
   _mediaSessionInited = false
+  /** 预取管理器 */
+  _prefetchManager = createPrefetchManager()
   /** 预取缓存 Map<id, url[]> */
-  _prefetchCache = new Map()
+  _prefetchCache = this._prefetchManager.cache
 
   constructor() {
     // 从 localStorage 恢复初始状态
@@ -128,6 +130,7 @@ class PlayerState {
     engine.onTimeUpdate((t) => {
       this.currentTime = t
       this._debouncedSaveTime(t)
+      this._syncWebMediaPosition()
       syncNativeMedia()
     })
 
@@ -149,6 +152,7 @@ class PlayerState {
         engine.seek(this.currentTime)
         this._restoreSeeking = false
       }
+      this._syncWebMediaPosition()
       syncNativeMedia()
     })
 
@@ -177,10 +181,46 @@ class PlayerState {
     engine.onPlay(() => setPlaybackState('playing'))
     engine.onPause(() => setPlaybackState('paused'))
 
-    navigator.mediaSession.setActionHandler('play', () => { engine.play() })
-    navigator.mediaSession.setActionHandler('pause', () => { engine.pause() })
-    navigator.mediaSession.setActionHandler('nexttrack', () => this.next())
-    navigator.mediaSession.setActionHandler('previoustrack', () => this.prev())
+    this._setMediaActionHandler('play', () => { engine.play().catch(swallowError) })
+    this._setMediaActionHandler('pause', () => { engine.pause() })
+    this._setMediaActionHandler('stop', () => { engine.pause(); engine.seek(0) })
+    this._setMediaActionHandler('nexttrack', () => this.next())
+    this._setMediaActionHandler('previoustrack', () => this.prev())
+    this._setMediaActionHandler('seekbackward', (details) => {
+      const offset = details?.seekOffset || 10
+      engine.seek(Math.max(0, this.currentTime - offset))
+    })
+    this._setMediaActionHandler('seekforward', (details) => {
+      const offset = details?.seekOffset || 10
+      const duration = this.duration > 0 ? this.duration / 1000 : Number.POSITIVE_INFINITY
+      engine.seek(Math.min(duration, this.currentTime + offset))
+    })
+    this._setMediaActionHandler('seekto', (details) => {
+      if (Number.isFinite(details?.seekTime)) engine.seek(details.seekTime)
+    })
+  }
+
+  _setMediaActionHandler(action, handler) {
+    try {
+      navigator.mediaSession.setActionHandler(action, handler)
+    } catch {
+      // Some platforms do not support every media action.
+    }
+  }
+
+  _syncWebMediaPosition() {
+    if (typeof navigator === 'undefined' || !navigator.mediaSession?.setPositionState) return
+    const duration = this.duration > 0 ? this.duration / 1000 : 0
+    if (!duration) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: 1,
+        position: Math.min(Math.max(this.currentTime || 0, 0), duration),
+      })
+    } catch {
+      // Ignore invalid or unsupported position state.
+    }
   }
 
   _debouncedSaveTime(t) {
@@ -334,6 +374,7 @@ class PlayerState {
     this._persistState()
     addLocalHistory(playableTrack)
     dbHistory.add(playableTrack) // async, non-blocking
+    this._syncWebMediaPosition()
     syncNativeMedia()
 
     // 获取可播放 URL
@@ -419,7 +460,14 @@ class PlayerState {
 
       // 后台预取下一首
       if (this.queue.length > 1 && this.queueIndex >= 0) {
-        this._prefetchNextTrack(reqId)
+        this._prefetchManager.prefetchNextTrackUrl({
+          queue: this.queue,
+          queueIndex: this.queueIndex,
+          preferredLevel: this.preferredLevel,
+          reqId,
+          isStale: () => reqId !== this._playRequestId,
+          preload: (url) => engine.preload(url),
+        })
       }
 
       // 持久化最新 URL 到 IndexedDB
@@ -428,38 +476,6 @@ class PlayerState {
       }
     } finally {
       this._fillFallbackPending = false
-    }
-  }
-
-  /** 后台预取下一首歌的 URL + 音频，切歌时零等待 */
-  async _prefetchNextTrack(reqId) {
-    if (this.queue.length < 2 || this.queueIndex < 0) return
-    const nextIdx = (this.queueIndex + 1) % this.queue.length
-    if (nextIdx === this.queueIndex) return
-    const nextTrack = this.queue[nextIdx]
-    if (!nextTrack?.id || this._prefetchCache.has(nextTrack.id)) return
-
-    // 限制预取缓存大小
-    if (this._prefetchCache.size >= 10) {
-      const firstKey = this._prefetchCache.keys().next().value
-      this._prefetchCache.delete(firstKey)
-    }
-
-    const tiers = [...new Set(['standard', 'higher', this.preferredLevel].filter(Boolean))]
-    for (const level of tiers) {
-      if (reqId !== this._playRequestId) return
-      try {
-        const res = await ncm.songUrl(nextTrack.id, level, false)
-        const item = res?.data?.[0]
-        if (!item?.url) continue
-        const urlStr = item.url.trim()
-        this._prefetchCache.set(nextTrack.id, [urlStr])
-        // 持久化到 IndexedDB
-        dbCache.urlSet(nextTrack.id, [urlStr]).catch(swallowError)
-        // 预加载音频
-        engine.preload(urlStr)
-        return
-      } catch { /* try next level */ }
     }
   }
 

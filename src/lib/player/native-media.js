@@ -1,7 +1,8 @@
 /**
  * 原生媒体会话管理
  * - Android 通知栏（通过 Tauri Kotlin Plugin）
- * - 桌面系统媒体控件（Web Media Session API）
+ * - Linux 桌面 MPRIS（通过 Tauri Rust 后端）
+ * - Windows/macOS 桌面系统媒体控件（Web Media Session API）
  *
  * 职责：仅处理原生平台媒体控件的双向同步，不涉及播放逻辑。
  */
@@ -24,6 +25,16 @@ function isTauriRuntime() {
 
 function isTauriAndroid() {
   return isTauriRuntime() && /Android/i.test(navigator.userAgent)
+}
+
+function isTauriLinux() {
+  if (!isTauriRuntime()) return false
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+  return /Linux/i.test(platform) && !/Android/i.test(navigator.userAgent)
+}
+
+function shouldUseNativeBridge() {
+  return isTauriAndroid() || isTauriLinux()
 }
 
 /**
@@ -60,10 +71,12 @@ export async function initNativeMedia(options = {}) {
     } catch {
       // listen not available
     }
+  }
 
-    // 轮询兜底（某些 Android 版本事件可能丢失）
+  // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
+  if (shouldUseNativeBridge() && _tauriInvoke) {
     _nativeMediaPollTimer = setInterval(() => {
-      pollAndroidAction()
+      pollNativeAction()
     }, PLAYBACK.NATIVE_POLL_INTERVAL)
   }
 }
@@ -74,7 +87,7 @@ function handleMediaButtonAction(action) {
   }
 }
 
-async function pollAndroidAction() {
+async function pollNativeAction() {
   if (!_tauriInvoke) return
   try {
     const result = await _tauriInvoke('pollPendingAction')
@@ -97,7 +110,7 @@ export function syncNativeMedia() {
   const pos = state.position || 0
   const metaKey = `${meta.title}|${meta.artist}|${meta.cover}|${dur}`
 
-  if (isTauriAndroid() && _tauriInvoke) {
+  if (shouldUseNativeBridge() && _tauriInvoke) {
     if (metaKey !== _lastNativeMeta) {
       _lastNativeMeta = metaKey
       _tauriInvoke('updateMetadata', {
@@ -122,7 +135,7 @@ export function syncNativeMedia() {
       }).catch(() => {})
     }
   }
-  // 桌面端: navigator.mediaSession（Web Media Session API）由浏览器自动处理
+  // Windows/macOS: navigator.mediaSession（Web Media Session API）由浏览器自动处理
 }
 
 /** 清理资源 */

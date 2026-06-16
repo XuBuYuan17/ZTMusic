@@ -16,7 +16,6 @@
 import { ncm } from '../api/client.js'
 import { auth } from '../stores/auth.svelte.js'
 import { dbCache } from '../db/cache.js'
-import { dbUrlGet } from '../utils/dbcache.js'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { swallowError } from '../utils/error.js'
 
@@ -296,10 +295,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId) 
 
   // 1. 检查 SQLite / IndexedDB 持久缓存
   try {
-    let persisted = await dbCache.urlGet(id)
-    if (!persisted || !Array.isArray(persisted) || persisted.length === 0) {
-      persisted = await dbUrlGet(id).catch(() => null)
-    }
+    const persisted = await dbCache.urlGet(id)
     if (persisted && Array.isArray(persisted) && persisted.length > 0) {
       logPlayback('url-cache-hit', { id })
       // 后台刷新，不阻塞播放

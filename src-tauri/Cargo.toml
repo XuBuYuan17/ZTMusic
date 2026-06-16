@@ -25,3 +25,8 @@ tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+async-channel = "2"
+futures-lite = "2"
+mpris-server = "0.10.0"

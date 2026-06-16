@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build Installers
 
 on:
   push:
@@ -8,35 +8,74 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Build Windows installers'
+        required: true
+        type: boolean
+        default: true
+      build_android:
+        description: 'Build Android APKs'
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: installers-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22
+  PNPM_VERSION: 10
+  RUST_TOOLCHAIN: stable
+  ANDROID_API_LEVEL: 36
+  ANDROID_BUILD_TOOLS: 36.0.0
+  ANDROID_NDK_VERSION: 27.2.12479018
+
 jobs:
-  desktop:
-    name: Build ${{ matrix.artifact }}
+  web-check:
+    name: Web build check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+  windows:
+    name: Windows installer ${{ matrix.arch }}
+    needs: web-check
+    if: github.event_name != 'workflow_dispatch' || inputs.build_windows
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundle: deb
-            artifact: deb
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundle: rpm
-            artifact: rpm
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundle: appimage
-            artifact: appimage
-          - os: windows-latest
+          - arch: x64
             target: x86_64-pc-windows-msvc
-            bundle: msi
-            artifact: msi
-
-    runs-on: ${{ matrix.os }}
+            bundles: msi,nsis
+          - arch: arm64
+            target: aarch64-pc-windows-msvc
+            bundles: nsis
 
     steps:
       - uses: actions/checkout@v4
@@ -44,52 +83,58 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
           targets: ${{ matrix.target }}
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+          key: windows-${{ matrix.target }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install Linux deps
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential curl file libssl-dev pkg-config wget \
-            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libxdo-dev librsvg2-dev \
-            libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
-            patchelf
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Tauri ${{ matrix.artifact }}
-        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
+      - name: Build Windows installer
+        run: pnpm tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
-      - name: Upload bundle
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
-          name: zheting-${{ matrix.artifact }}
-          path: src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle }}/
+          name: zheting-windows-${{ matrix.arch }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/**
           if-no-files-found: error
 
   android:
-    name: Build apk
+    name: Android APK ${{ matrix.abi }}
+    needs: web-check
+    if: github.event_name != 'workflow_dispatch' || inputs.build_android
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            rustTarget: aarch64-linux-android
+            tauriTarget: aarch64
+          - abi: armeabi-v7a
+            rustTarget: armv7-linux-androideabi
+            tauriTarget: armv7
+          - abi: x86_64
+            rustTarget: x86_64-linux-android
+            tauriTarget: x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +154,7 @@ jobs:
           fi
 
           if [[ "$GITHUB_REF" == refs/tags/v* && "$has_signing" != true ]]; then
-            echo "Android release builds require signing secrets."
+            echo "Android release APKs require signing secrets."
             echo "Required secrets: ANDROID_KEY_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD"
             exit 1
           fi
@@ -130,30 +175,31 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager \
             "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0" \
-            "ndk;27.2.12479018"
+            "platforms;android-${ANDROID_API_LEVEL}" \
+            "build-tools;${ANDROID_BUILD_TOOLS}" \
+            "ndk;${ANDROID_NDK_VERSION}"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          targets: aarch64-linux-android
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ matrix.rustTarget }}
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+          key: android-${{ matrix.rustTarget }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -162,8 +208,63 @@ jobs:
 
       - name: Init Android project
         env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
         run: pnpm tauri android init --ci
+
+      - name: Patch Android compatibility
+        env:
+          ANDROID_API_LEVEL: ${{ env.ANDROID_API_LEVEL }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          api = os.environ['ANDROID_API_LEVEL']
+          gradle = Path('src-tauri/gen/android/app/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'compileSdk\s*=\s*\d+', f'compileSdk = {api}', text)
+          text = re.sub(r'targetSdk\s*=\s*\d+', f'targetSdk = {api}', text)
+          text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 24', text)
+          text = text.replace('manifestPlaceholders["usesCleartextTraffic"] = "false"', 'manifestPlaceholders["usesCleartextTraffic"] = "false"')
+          if 'androidx.media:media:' not in text:
+              text = text.replace(
+                  'implementation("androidx.activity:activity-ktx:1.10.1")',
+                  'implementation("androidx.activity:activity-ktx:1.10.1")\n    implementation("androidx.media:media:1.7.0")'
+              )
+          gradle.write_text(text)
+
+          manifest = Path('src-tauri/gen/android/app/src/main/AndroidManifest.xml')
+          manifest_text = manifest.read_text()
+          permissions = [
+              'android.permission.INTERNET',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+              'android.permission.POST_NOTIFICATIONS',
+          ]
+          for permission in permissions:
+              if permission not in manifest_text:
+                  manifest_text = manifest_text.replace(
+                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      1,
+                  )
+          service = '''        <service
+              android:name="com.zheting.music.MediaSessionService"
+              android:exported="false"
+              android:foregroundServiceType="mediaPlayback" />'''
+          if 'com.zheting.music.MediaSessionService' not in manifest_text:
+              manifest_text = manifest_text.replace('</application>', f'{service}\n    </application>', 1)
+          manifest.write_text(manifest_text)
+
+          package_dir = Path('src-tauri/gen/android/app/src/main/java/com/zheting/music')
+          package_dir.mkdir(parents=True, exist_ok=True)
+          for source_name in ['MainActivity.kt', 'MediaSessionPlugin.kt']:
+              source = Path('src-tauri/android-src') / source_name
+              if source.exists():
+                  (package_dir / source_name).write_text(source.read_text())
+          PY
 
       - name: Setup Android signing
         if: steps.android_signing.outputs.has_signing == 'true'
@@ -231,31 +332,34 @@ jobs:
           path.write_text(text)
           PY
 
-      - name: Build Tauri apk
+      - name: Build Android APK
         env:
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
-        run: pnpm tauri android build --apk --target aarch64
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.ANDROID_NDK_VERSION }}
+        run: pnpm tauri android build --apk --target ${{ matrix.tauriTarget }}
 
-      - name: Verify Android apk signature
+      - name: Verify Android APK signature
         if: steps.android_signing.outputs.has_signing == 'true'
         run: |
           set -euo pipefail
           find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -print -exec apksigner verify --verbose {} \;
 
-      - name: Upload apk
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: zheting-apk
+          name: zheting-android-${{ matrix.abi }}
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
 
   release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [desktop, android]
+    needs: [windows, android]
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -284,8 +388,6 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.body }}
           files: |
-            artifacts/**/*.deb
-            artifacts/**/*.rpm
-            artifacts/**/*.appimage
             artifacts/**/*.msi
+            artifacts/**/*.exe
             artifacts/**/*.apk
