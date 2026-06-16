@@ -16,7 +16,6 @@ import { ncm } from '../api/client.js'
 import { auth } from '../stores/auth.svelte.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 import { normalizeImageUrl, coverUrl } from '../utils/image.js'
-import { dbUrlSet } from '../utils/dbcache.js'
 import { dbCache } from '../db/cache.js'
 import { getPlayableUrls, fillFallbackUrls } from './url-resolver.js'
 import { compactTrack, compactQueue, getNextIndex, getPrevIndex } from './queue.js'
@@ -426,7 +425,6 @@ class PlayerState {
       // 持久化最新 URL 到 IndexedDB
       if (result.length > 0 && result[0] !== FALLBACK_URL_TEMPLATE(id)) {
         dbCache.urlSet(id, result).catch(swallowError)
-        dbUrlSet(id, result).catch(swallowError)
       }
     } finally {
       this._fillFallbackPending = false
@@ -458,7 +456,6 @@ class PlayerState {
         this._prefetchCache.set(nextTrack.id, [urlStr])
         // 持久化到 IndexedDB
         dbCache.urlSet(nextTrack.id, [urlStr]).catch(swallowError)
-        dbUrlSet(nextTrack.id, [urlStr]).catch(swallowError)
         // 预加载音频
         engine.preload(urlStr)
         return

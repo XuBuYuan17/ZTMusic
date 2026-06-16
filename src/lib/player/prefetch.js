@@ -6,7 +6,7 @@
  */
 
 import { ncm } from '../api/client.js'
-import { dbUrlSet } from '../utils/dbcache.js'
+import { dbCache } from '../db/cache.js'
 import { PLAYBACK, LIMITS } from '../utils/constants.js'
 import { swallowError } from '../utils/error.js'
 
@@ -73,7 +73,7 @@ export function createPrefetchManager() {
         prefetchCache.set(nextTrack.id, [urlStr])
         logPlayback('prefetch-cached', { id: nextTrack.id, level, url: urlStr })
         // 持久化到 IndexedDB
-        dbUrlSet(nextTrack.id, [urlStr]).catch(swallowError)
+        dbCache.urlSet(nextTrack.id, [urlStr]).catch(swallowError)
         // 预加载音频
         preload?.(urlStr)
         return

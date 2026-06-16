@@ -31,6 +31,16 @@ export default defineConfig({
       '/api': 'https://music.xubuyuan.top',
     }
   },
+  build: {
+    // sql.js WASM 文件不能内联，必须作为独立资源加载
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        // 确保 WASM 使用可缓存的文件名格式
+        assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
   optimizeDeps: {
     force: true,
   },

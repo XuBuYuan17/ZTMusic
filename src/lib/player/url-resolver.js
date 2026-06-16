@@ -16,7 +16,7 @@
 import { ncm } from '../api/client.js'
 import { auth } from '../stores/auth.svelte.js'
 import { dbCache } from '../db/cache.js'
-import { dbUrlGet, dbUrlSet } from '../utils/dbcache.js'
+import { dbUrlGet } from '../utils/dbcache.js'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { swallowError } from '../utils/error.js'
 
@@ -160,7 +160,6 @@ export async function refreshSongUrlsBg(id, preferredLevel) {
     const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT)
     if (result?.url && !result.isTrial) {
       dbCache.urlSet(id, [result.url]).catch(swallowError)
-      dbUrlSet(id, [result.url]).catch(swallowError)
       return
     }
   }
@@ -168,7 +167,6 @@ export async function refreshSongUrlsBg(id, preferredLevel) {
     const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT)
     if (result?.url) {
       dbCache.urlSet(id, [result.url]).catch(swallowError)
-      dbUrlSet(id, [result.url]).catch(swallowError)
       return
     }
   }
@@ -354,10 +352,9 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId) 
     addUrl(urls, fallbackUrl)
   }
 
-  // 持久化到 SQLite / IndexedDB（非 fallback 兜底时）
+  // 持久化到 SQLite（非 fallback 兜底时）
   if (urls.length > 0 && urls[0] !== fallbackUrl) {
     dbCache.urlSet(id, urls).catch(swallowError)
-    dbUrlSet(id, urls).catch(swallowError)
   }
 
   // 判断是否为试听：所有 URL 都是试听片段或 fallback
