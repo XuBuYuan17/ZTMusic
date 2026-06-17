@@ -22,6 +22,20 @@ function extractCookie(raw = '') {
     : ''
 }
 
+/** 从 cookie 串中提取 MUSIC_U 的值 */
+function extractMusicU(cookieString) {
+  if (!cookieString) return ''
+  const parts = cookieString.split(';')
+  for (const p of parts) {
+    const kv = p.trim()
+    if (kv.startsWith('MUSIC_U=')) {
+      const value = kv.slice('MUSIC_U='.length)
+      return value ? `MUSIC_U=${value};os=pc;` : ''
+    }
+  }
+  return ''
+}
+
 let apiBase = loadApiBase()
 let apiCookie = getStorage(API_COOKIE_KEY, '') || ''
 
@@ -36,7 +50,8 @@ export const apiSession = {
   },
 
   getCookie() {
-    return apiCookie
+    // ponytail: 仅发送 MUSIC_U + os=pc，与 SPlayer 保持一致
+    return extractMusicU(apiCookie)
   },
 
   setCookie(cookie) {

@@ -1,4 +1,4 @@
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
 use serde_json::{json, Value};
 use tauri::State;
 
@@ -24,12 +24,6 @@ pub async fn ncm_request(
     };
 
     builder = builder.header(USER_AGENT, APP_USER_AGENT);
-
-    if let Some(cookie) = cookie.filter(|cookie| !cookie.is_empty()) {
-        let value =
-            HeaderValue::from_str(cookie).map_err(|error| format!("Invalid cookie: {error}"))?;
-        builder = builder.header(COOKIE, value);
-    }
 
     if method == "POST" {
         let form_body = value_to_form_pairs(&request.body.unwrap_or_else(|| json!({})), cookie);
