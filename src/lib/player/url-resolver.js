@@ -120,15 +120,6 @@ async function fetchSongUrl(id, level, unblock, timeout) {
       return null
     }
     if (item.freeTrialInfo && auth.isLoggedIn) {
-      // 已登录却返回试听片段 → 等待检查 cookie 是否过期
-      const stillValid = await auth.checkLoginStatus()
-      if (!stillValid) {
-        // cookie 已失效并清除，重试可能会拿到完整 URL（以游客身份）
-        logPlayback('auth-cleared-retry', { id, level, unblock })
-        // 返回 null 让调用方尝试其他音质或 unblock 路径
-        return null
-      }
-      // VIP 歌曲：登录有效但仍然是试听（该歌曲的确需要 VIP）
       logPlayback('vip-trial', { id, level, url: item.url?.slice(0, 50) })
     }
     return {

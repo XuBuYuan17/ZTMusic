@@ -398,8 +398,8 @@ class PlayerState {
           if (isTrial && auth.isLoggedIn) {
             this._setPlayerError(
               'TrialUrlDetected',
-              { kind: ERROR_KIND.TRIAL, message: ERROR_MESSAGES.COOKIE_EXPIRED },
-              ERROR_MESSAGES.COOKIE_EXPIRED,
+              { kind: ERROR_KIND.TRIAL, message: ERROR_MESSAGES.VIP_TRIAL },
+              ERROR_MESSAGES.VIP_TRIAL,
               { silent: true },
             )
           }
