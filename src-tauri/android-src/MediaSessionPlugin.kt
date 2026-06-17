@@ -250,7 +250,9 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         )
 
         val mediaStyle = androidx.media.app.NotificationCompat.MediaStyle()
-            .setMediaSession(mediaSession?.sessionToken)
+            .setMediaSession(
+                mediaSession?.sessionToken?.let { android.support.v4.media.session.MediaSessionCompat.Token.fromToken(it) }
+            )
             .setShowActionsInCompactView(0, 1, 2)
 
         val notification = NotificationCompat.Builder(ctx, "zheting_playback")
