@@ -4,7 +4,7 @@
   import { ncm } from '../api/client.js'
   import { coverUrl } from '../utils/image.js'
   import { parseLyricResponse, parseYrc } from '../utils/lyrics.js'
-  import { getStorage } from '../utils/storage.js'
+  import { getBooleanSetting } from '../utils/settings.js'
   import Spinner from './Spinner.svelte'
   import QueuePanel from './QueuePanel.svelte'
   import ArtistNames from './ArtistNames.svelte'
@@ -61,8 +61,8 @@
   let showLocalQueue = $state(false)
   let showCopied = $state(false)
   let toastText = $state('已复制')
-  let lyricsBlur = $state(getStorage('lyrics_blur_effect', 'true') === 'true')
-  let lyricsTextBlur = $state(getStorage('lyrics_text_blur_effect', 'true') === 'true')
+  let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
+  let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
   let lyricsMode = $state(false)
 
   let hasPlayableTrack = $derived(Boolean(player.id))

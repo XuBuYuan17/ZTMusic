@@ -23,7 +23,9 @@ import { dbHistory } from '../db/history.js'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from './native-media.js'
 import { createPrefetchManager } from './prefetch.js'
 import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
-import { handleError, swallowError } from '../utils/error.js'
+import { ERROR_KIND, createErrorSnapshot, debugLog, swallowError } from '../utils/error.js'
+import { getBooleanSetting, getSetting, setSetting } from '../utils/settings.js'
+import { createFallbackController } from './fallback.js'
 
 class PlayerState {
   // ===== 当前歌曲 =====
@@ -62,18 +64,16 @@ class PlayerState {
   _lastErrorReqId = 0
   /** 播放请求 ID（用于竞态控制） */
   _playRequestId = 0
-  /** 当前可用的 URL 列表 */
-  _playUrls = []
-  /** 当前 URL 索引 */
-  _playUrlIndex = 0
   /** 首条 URL 的音质等级 */
   _firstUrlLevel = ''
   /** 自动切歌锁 */
   _advanceLock = false
-  /** 是否正在填充 fallback URL */
-  _fillFallbackPending = false
   /** 媒体会话是否已初始化 */
   _mediaSessionInited = false
+  /** fallback URL 遍历控制器 */
+  _fallback = createFallbackController([])
+  /** 等待 fillFallback 完成 */
+  _waitingForFill = false
   /** 预取管理器 */
   _prefetchManager = createPrefetchManager()
   /** 预取缓存 Map<id, url[]> */
@@ -117,9 +117,9 @@ class PlayerState {
     this.cover = getStorage(STORAGE_KEYS.PLAYER_COVER, '')
     this.duration = parseInt(getStorage(STORAGE_KEYS.PLAYER_DURATION, '0')) || 0
     this.currentTime = parseFloat(getStorage(STORAGE_KEYS.PLAYER_TIME, '0'))
-    this.volume = parseFloat(getStorage(STORAGE_KEYS.VOLUME, '0.8'))
-    this.mode = getStorage(STORAGE_KEYS.MODE, 'list')
-    this.preferredLevel = getStorage(STORAGE_KEYS.PREFERRED_QUALITY, 'standard')
+    this.volume = parseFloat(getSetting(STORAGE_KEYS.VOLUME, '0.8'))
+    this.mode = getSetting(STORAGE_KEYS.MODE, 'list')
+    this.preferredLevel = getSetting(STORAGE_KEYS.PREFERRED_QUALITY, 'standard')
     this.queue = getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, [])
     this.queueIndex = parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1'))
 
@@ -160,12 +160,8 @@ class PlayerState {
       if (this._playRequestId !== this._lastErrorReqId) {
         this._lastErrorReqId = this._playRequestId
       }
-      if (this._tryNextPlayUrl()) return
-      this._clearLoadingTimer()
-      this.loading = false
-      this.playing = false
-      this._shouldAutoPlay = false
-      this.error = ERROR_MESSAGES.NO_URL
+      this._setPlayerError('EngineError', state, ERROR_MESSAGES.PLAY_FAILED)
+      this._fallbackNext('EngineErrorNoFallback')
     })
   }
 
@@ -181,7 +177,7 @@ class PlayerState {
     engine.onPlay(() => setPlaybackState('playing'))
     engine.onPause(() => setPlaybackState('paused'))
 
-    this._setMediaActionHandler('play', () => { engine.play().catch(swallowError) })
+    this._setMediaActionHandler('play', () => { engine.play().catch((err) => swallowError('MediaSession.play', err)) })
     this._setMediaActionHandler('pause', () => { engine.pause() })
     this._setMediaActionHandler('stop', () => { engine.pause(); engine.seek(0) })
     this._setMediaActionHandler('nexttrack', () => this.next())
@@ -237,7 +233,7 @@ class PlayerState {
     this._loadingTimer = setTimeout(() => {
       if (this.loading) {
         this.loading = false
-        this.error = ERROR_MESSAGES.PLAY_FAILED
+        this._setPlayerError('LoadingTimeout', { kind: ERROR_KIND.TIMEOUT, message: '播放加载超时' }, ERROR_MESSAGES.PLAY_FAILED)
       }
     }, 15000)
   }
@@ -247,6 +243,34 @@ class PlayerState {
       clearTimeout(this._loadingTimer)
       this._loadingTimer = null
     }
+  }
+
+  _clearError() {
+    this.error = ''
+  }
+
+  _setPlayerError(context, err, userMessage, extra = {}) {
+    const fbState = this._fallback.getState()
+    const snapshot = createErrorSnapshot(context, err, {
+      trackId: this.id,
+      title: this.title,
+      queueIndex: this.queueIndex,
+      playRequestId: this._playRequestId,
+      currentUrlIndex: fbState.index,
+      urlCount: fbState.total,
+      ...extra,
+    })
+    this.error = userMessage || ERROR_MESSAGES.PLAY_FAILED
+    debugLog('player', 'error', snapshot)
+  }
+
+  _setNoUrlError(context = 'PlayerNoUrl', extra = {}) {
+    this._setPlayerError(
+      context,
+      { kind: ERROR_KIND.NO_URL, message: ERROR_MESSAGES.NO_URL },
+      ERROR_MESSAGES.NO_URL,
+      extra,
+    )
   }
 
   _persistState() {
@@ -270,67 +294,51 @@ class PlayerState {
   }
 
   _handleMediaButton(action) {
-    if (action === 'play') { engine.play().catch(swallowError) }
+    if (action === 'play') { engine.play().catch((err) => swallowError('NativeMedia.play', err)) }
     else if (action === 'pause') { engine.pause() }
     else if (action === 'next') { this.next() }
     else if (action === 'prev') { this.prev() }
   }
 
   /**
-   * 尝试下一个 fallback URL
-   * @returns {boolean} 是否还有 URL 可试
+   * 尝试 fallback 链中的下一个 URL。
+   * 由 engine.onError 和 engine.play().catch 调用。
+   * @param {string} exhaustedContext - URL 全部耗尽时的错误上下文
    */
-  _tryNextPlayUrl() {
-    const reqId = this._playRequestId
-    if (this._playUrlIndex >= this._playUrls.length - 1) {
-      if (this._fillFallbackPending) {
-        this.loading = true
-        setTimeout(() => {
-          if (reqId !== this._playRequestId) return
-          if (this._playUrlIndex < this._playUrls.length - 1) {
-            this._tryNextPlayUrl()
-          } else if (this.playing && this._shouldAutoPlay && this.queue.length > 1 && !this._advanceLock) {
-            this._advanceLock = true
-            setTimeout(() => {
-              if (reqId !== this._playRequestId) return
-              this._advanceLock = false
-              this.next()
-            }, 120)
-          } else {
-            this.loading = false
-            this.playing = false
-            this._shouldAutoPlay = false
-            this.error = ERROR_MESSAGES.NO_URL
-          }
-        }, PLAYBACK.FALLBACK_WAIT_TIMEOUT)
-        return true
-      }
-      if (this.playing && this._shouldAutoPlay && this.queue.length > 1 && !this._advanceLock) {
+  _fallbackNext(exhaustedContext = 'FallbackNoUrl') {
+    const result = this._fallback.next()
+
+    if (result.status === 'playing') {
+      this._waitingForFill = false
+      this.loading = true
+      this._clearError()
+      engine.load(result.url)
+      engine.play().catch(() => {
+        this._setPlayerError('FallbackPlayFailed', { message: 'fallback play failed' }, ERROR_MESSAGES.PLAY_FAILED)
+        this._fallbackNext(exhaustedContext)
+      })
+    } else if (result.status === 'waiting') {
+      this._waitingForFill = true
+    } else {
+      // exhausted — 全部 URL 已尝试完毕
+      this._waitingForFill = false
+      // 保存 auto-advance 标志再清除
+      const shouldAdvance = this._shouldAutoPlay && this.queue.length > 1 && !this._advanceLock
+      this._clearLoadingTimer()
+      this.loading = false
+      this.playing = false
+      this._shouldAutoPlay = false
+      this._setNoUrlError(exhaustedContext)
+      if (shouldAdvance) {
+        const savedReqId = this._playRequestId
         this._advanceLock = true
         setTimeout(() => {
-          if (reqId !== this._playRequestId) return
+          if (savedReqId !== this._playRequestId) return
           this._advanceLock = false
           this.next()
         }, 120)
       }
-      return false
     }
-
-    this._playUrlIndex += 1
-    this.loading = true
-    this.error = ''
-    const url = this._playUrls[this._playUrlIndex]
-    engine.load(url)
-    engine.play().catch((err) => {
-      if (reqId !== this._playRequestId) return
-      if (!this._tryNextPlayUrl()) {
-        this.loading = false
-        this.playing = false
-        this._shouldAutoPlay = false
-        this.error = ERROR_MESSAGES.NO_URL
-      }
-    })
-    return true
   }
 
   // ==========================================
@@ -358,8 +366,9 @@ class PlayerState {
     this.loading = true
     this.playing = false
     this._shouldAutoPlay = true
-    this.error = ''
+    this._clearError()
     this._startLoadingTimeout()
+    debugLog('player', 'play-track', { id: playableTrack.id, index, preferredLevel: this.preferredLevel })
 
     // 更新媒体会话元数据
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
@@ -381,44 +390,46 @@ class PlayerState {
     getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId)
       .then(({ urls, firstUrlLevel, isTrial }) => {
         if (requestId !== this._playRequestId) return
-        this._playUrls = urls
-        this._playUrlIndex = 0
         this._firstUrlLevel = firstUrlLevel
+        this._fallback.updateUrls(urls)
 
         if (urls.length > 0) {
           // 如果是试听片段且已登录，显示 VIP 提示（仍播放试听）
           if (isTrial && auth.isLoggedIn) {
-            this.error = ERROR_MESSAGES.COOKIE_EXPIRED
+            this._setPlayerError(
+              'TrialUrlDetected',
+              { kind: ERROR_KIND.TRIAL, message: ERROR_MESSAGES.COOKIE_EXPIRED },
+              ERROR_MESSAGES.COOKIE_EXPIRED,
+              { silent: true },
+            )
           }
-          engine.load(urls[0])
-          engine.play()
-            .then(() => {
-              if (requestId === this._playRequestId) this.playing = true
-            })
-            .catch((err) => {
-              if (requestId !== this._playRequestId) return
-              if (!this._tryNextPlayUrl()) {
-                this._clearLoadingTimer()
-                this.playing = false
-                this.loading = false
-                this._shouldAutoPlay = false
-                this.error = ERROR_MESSAGES.NO_URL
-              }
-            })
+          const first = this._fallback.next()
+          if (first.status === 'playing') {
+            engine.load(first.url)
+            engine.play()
+              .then(() => {
+                if (requestId === this._playRequestId) this.playing = true
+              })
+              .catch((err) => {
+                if (requestId !== this._playRequestId) return
+                this._setPlayerError('InitialPlayFailed', err, ERROR_MESSAGES.PLAY_FAILED)
+                this._fallbackNext('InitialPlayNoUrl')
+              })
+          }
         } else {
           this._clearLoadingTimer()
           this.loading = false
           this.playing = false
           this._shouldAutoPlay = false
-          this.error = ERROR_MESSAGES.NO_URL
+          this._setNoUrlError('ResolveNoUrl')
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (requestId !== this._playRequestId) return
         this.loading = false
         this.playing = false
         this._shouldAutoPlay = false
-        this.error = ERROR_MESSAGES.NO_URL
+        this._setPlayerError('ResolvePlayableUrlsFailed', err, ERROR_MESSAGES.NO_URL)
       })
 
     // 后台填充更多 URL
@@ -426,36 +437,41 @@ class PlayerState {
   }
 
   async _fillFallbackInBackground(id, reqId) {
-    this._fillFallbackPending = true
+    this._fallback.setFillPending(true)
     try {
       const result = await fillFallbackUrls(id, reqId, {
-        currentUrls: this._playUrls,
+        currentUrls: this._fallback.getUrls(),
         firstUrlLevel: this._firstUrlLevel,
         preferredLevel: this.preferredLevel,
         isPlaying: this.playing,
         currentTime: this.currentTime,
         onQualityUpgrade: ({ url, currentTime, urls }) => {
           if (reqId !== this._playRequestId) return
-          this._playUrls = urls
-          this._playUrlIndex = 0
+          this._fallback.updateUrls(urls)
           if (this.playing && !engine.paused) {
             this.currentTime = currentTime
             this._restoreSeeking = currentTime > 0
-            engine.load(url)
-            engine.play().catch(() => {
-              if (reqId !== this._playRequestId) return
-              const badIdx = this._playUrls.indexOf(url)
-              if (badIdx >= 0) this._playUrls.splice(badIdx, 1)
-              this._playUrlIndex = 0
-              this._tryNextPlayUrl()
-            })
+            const next = this._fallback.next()
+            if (next.status === 'playing') {
+              engine.load(next.url)
+              engine.play().catch((err) => {
+                if (reqId !== this._playRequestId) return
+                this._setPlayerError('QualityUpgradePlayFailed', err, ERROR_MESSAGES.PLAY_FAILED, { silent: true })
+                this._fallback.removeUrl(url)
+                this._fallbackNext()
+              })
+            }
           }
         },
         isStale: () => reqId !== this._playRequestId,
       })
 
       if (reqId === this._playRequestId) {
-        this._playUrls = result
+        this._fallback.updateUrls(result)
+        if (this._waitingForFill) {
+          this._waitingForFill = false
+          this._fallbackNext()
+        }
       }
 
       // 后台预取下一首
@@ -463,6 +479,7 @@ class PlayerState {
         this._prefetchManager.prefetchNextTrackUrl({
           queue: this.queue,
           queueIndex: this.queueIndex,
+          mode: this.mode,
           preferredLevel: this.preferredLevel,
           reqId,
           isStale: () => reqId !== this._playRequestId,
@@ -472,10 +489,14 @@ class PlayerState {
 
       // 持久化最新 URL 到 IndexedDB
       if (result.length > 0 && result[0] !== FALLBACK_URL_TEMPLATE(id)) {
-        dbCache.urlSet(id, result).catch(swallowError)
+        dbCache.urlSet(id, result).catch((err) => swallowError('Player.cacheUrlSet', err))
+      }
+    } catch (err) {
+      if (reqId === this._playRequestId) {
+        this._setPlayerError('FillFallbackFailed', err, ERROR_MESSAGES.PLAY_FAILED, { silent: true })
       }
     } finally {
-      this._fillFallbackPending = false
+      this._fallback.setFillPending(false)
     }
   }
 
@@ -544,12 +565,9 @@ class PlayerState {
           this.playing = true
           this._shouldAutoPlay = true
         })
-        .catch(() => {
-          if (!this._tryNextPlayUrl()) {
-            this.playing = false
-            this._shouldAutoPlay = false
-            this.error = ERROR_MESSAGES.NO_URL
-          }
+        .catch((err) => {
+          this._setPlayerError('TogglePlayFailed', err, ERROR_MESSAGES.PLAY_FAILED)
+          this._fallbackNext('TogglePlayNoUrl')
         })
     } else {
       engine.pause()
@@ -566,22 +584,19 @@ class PlayerState {
 
   /** 设置音量 */
   setVolume(v) {
-    this.volume = v
-    engine.setVolume(v)
-    setStorage(STORAGE_KEYS.VOLUME, v)
+    this.volume = Number.parseFloat(setSetting(STORAGE_KEYS.VOLUME, v))
+    engine.setVolume(this.volume)
   }
 
   /** 设置播放模式 */
   setMode(m) {
-    this.mode = m
-    setStorage(STORAGE_KEYS.MODE, m)
+    this.mode = setSetting(STORAGE_KEYS.MODE, m)
   }
 
   /** 设置偏好音质 */
   setPreferredLevel(level) {
     if (QUALITY_ORDER.includes(level)) {
-      this.preferredLevel = level
-      setStorage(STORAGE_KEYS.PREFERRED_QUALITY, level)
+      this.preferredLevel = setSetting(STORAGE_KEYS.PREFERRED_QUALITY, level)
     }
   }
 
@@ -628,7 +643,7 @@ class PlayerState {
     this.currentTrack = null
     this.playing = false
     this.queueIndex = -1
-    this.error = ''
+    this._clearError()
     this._persistState()
   }
 
@@ -638,7 +653,7 @@ class PlayerState {
 
   /** 恢复播放状态（页面加载时调用） */
   restore() {
-    if (getStorage(STORAGE_KEYS.RESTORE_SESSION, 'true') !== 'true') return
+    if (!getBooleanSetting(STORAGE_KEYS.RESTORE_SESSION, 'true')) return
 
     const savedId = parseInt(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))
     if (!savedId) return
@@ -670,17 +685,19 @@ class PlayerState {
     getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId)
       .then(({ urls }) => {
         if (requestId !== this._playRequestId) return
-        this._playUrls = urls
-        this._playUrlIndex = 0
+        this._fallback.updateUrls(urls)
         if (urls.length > 0) {
-          engine.load(urls[0])
+          const first = this._fallback.next()
+          if (first.status === 'playing') engine.load(first.url)
         } else {
           this.loading = false
+          this._setNoUrlError('RestoreNoUrl')
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (requestId !== this._playRequestId) return
         this.loading = false
+        this._setPlayerError('RestorePlayableUrlsFailed', err, ERROR_MESSAGES.NO_URL)
       })
   }
 

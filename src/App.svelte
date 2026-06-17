@@ -9,6 +9,7 @@
   import { loadExploreData as fetchExploreData } from './lib/services/explore.js'
   import { loadHomeData, loadLibraryData, loadRecentData, loadToplistsData } from './lib/services/home.js'
   import { getStorage, setStorage } from './lib/utils/storage.js'
+  import { getSetting, migrateSettings } from './lib/utils/settings.js'
   import { coverUrl } from './lib/utils/image.js'
   import { initDB } from './lib/db/init.js'
   import Sidebar from './lib/components/Sidebar.svelte'
@@ -127,6 +128,8 @@
     }
   }
 
+
+  migrateSettings()
 
   let theme = $state(getStorage('zheting-theme', 'dark'))
 
@@ -725,7 +728,7 @@
 
   let mobileTitle = $derived(viewTitles[activeView] || '哲听')
 
-  const defaultPage = getStorage('default_page', 'home')
+  const defaultPage = getSetting('default_page', 'home')
   if (defaultPage === 'library') {
     loadLibrary()
   } else if (defaultPage === 'explore') {

@@ -8,12 +8,13 @@
  */
 
 import { PLAYBACK } from '../utils/constants.js'
+import { debugLog, swallowError } from '../utils/error.js'
 
 let _tauriInvoke = null
 let _nativeMediaPollTimer = null
 let _lastNativeMeta = ''
 let _lastNativePosition = 0
-
+let _lastNativePlaying = null
 // 外部回调：由 PlayerState 注入
 let _getMetadata = () => ({})
 let _getPlaybackState = () => ({})
@@ -37,6 +38,14 @@ function shouldUseNativeBridge() {
   return isTauriAndroid() || isTauriLinux()
 }
 
+function invokeNative(command, payload, context) {
+  if (!_tauriInvoke) return Promise.resolve(null)
+  return _tauriInvoke(command, payload).catch((err) => {
+    swallowError(`NativeMedia.${context || command}`, err)
+    return null
+  })
+}
+
 /**
  * 初始化原生媒体会话
  * @param {object} options
@@ -49,13 +58,14 @@ export async function initNativeMedia(options = {}) {
   _getPlaybackState = options.getPlaybackState || _getPlaybackState
   _onMediaButton = options.onMediaButton || _onMediaButton
 
+  debugLog('native-media', 'init', { runtime: isTauriRuntime(), android: isTauriAndroid(), linux: isTauriLinux() })
   if (!isTauriRuntime() || typeof window === 'undefined') return
 
   try {
     const { invoke } = await import('@tauri-apps/api/core')
     _tauriInvoke = invoke
-  } catch {
-    // Tauri API not available
+  } catch (err) {
+    swallowError('NativeMedia.importInvoke', err)
   }
 
   // Android: 监听通知栏按钮事件
@@ -64,24 +74,27 @@ export async function initNativeMedia(options = {}) {
       const { listen } = await import('@tauri-apps/api/event')
       await listen('media_button', (event) => {
         const action = event?.payload?.action
+        debugLog('native-media', 'event-action', { action })
         if (action && _onMediaButton) {
           _onMediaButton(action)
         }
-      }).catch(() => {})
-    } catch {
-      // listen not available
+      })
+    } catch (err) {
+      swallowError('NativeMedia.listen', err)
     }
   }
 
   // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
-  if (shouldUseNativeBridge() && _tauriInvoke) {
+  if (shouldUseNativeBridge() && _tauriInvoke && !_nativeMediaPollTimer) {
     _nativeMediaPollTimer = setInterval(() => {
       pollNativeAction()
     }, PLAYBACK.NATIVE_POLL_INTERVAL)
+    debugLog('native-media', 'poll-started', { interval: PLAYBACK.NATIVE_POLL_INTERVAL })
   }
 }
 
 function handleMediaButtonAction(action) {
+  debugLog('native-media', 'button-action', { action })
   if (_onMediaButton) {
     _onMediaButton(action)
   }
@@ -89,12 +102,8 @@ function handleMediaButtonAction(action) {
 
 async function pollNativeAction() {
   if (!_tauriInvoke) return
-  try {
-    const result = await _tauriInvoke('pollPendingAction')
-    if (result?.action) handleMediaButtonAction(result.action)
-  } catch {
-    // poll failed
-  }
+  const result = await invokeNative('pollPendingAction', undefined, 'pollPendingAction')
+  if (result?.action) handleMediaButtonAction(result.action)
 }
 
 /**
@@ -108,31 +117,38 @@ export function syncNativeMedia() {
   const state = _getPlaybackState()
   const dur = state.duration || 0
   const pos = state.position || 0
+  const playing = !!state.playing
   const metaKey = `${meta.title}|${meta.artist}|${meta.cover}|${dur}`
 
   if (shouldUseNativeBridge() && _tauriInvoke) {
     if (metaKey !== _lastNativeMeta) {
       _lastNativeMeta = metaKey
-      _tauriInvoke('updateMetadata', {
+      debugLog('native-media', 'metadata', { title: meta.title, artist: meta.artist, duration: dur })
+      invokeNative('updateMetadata', {
         title: meta.title || '',
         artist: meta.artist || '',
         coverUrl: meta.cover || '',
         duration: dur,
-      }).catch(() => {})
+      }, 'updateMetadata')
 
       _lastNativePosition = pos
-      _tauriInvoke('updatePlaybackState', {
-        playing: !!state.playing,
+      _lastNativePlaying = playing
+      invokeNative('updatePlaybackState', {
+        playing,
         position: pos,
         duration: dur,
-      }).catch(() => {})
-    } else if (Math.abs(pos - _lastNativePosition) >= PLAYBACK.NATIVE_POSITION_THRESHOLD) {
+      }, 'updatePlaybackState')
+    } else if (
+      playing !== _lastNativePlaying ||
+      Math.abs(pos - _lastNativePosition) >= PLAYBACK.NATIVE_POSITION_THRESHOLD
+    ) {
       _lastNativePosition = pos
-      _tauriInvoke('updatePlaybackState', {
-        playing: !!state.playing,
+      _lastNativePlaying = playing
+      invokeNative('updatePlaybackState', {
+        playing,
         position: pos,
         duration: dur,
-      }).catch(() => {})
+      }, 'updatePlaybackState')
     }
   }
   // Windows/macOS: navigator.mediaSession（Web Media Session API）由浏览器自动处理
@@ -145,4 +161,8 @@ export function destroyNativeMedia() {
     _nativeMediaPollTimer = null
   }
   _tauriInvoke = null
+  _lastNativeMeta = ''
+  _lastNativePosition = 0
+  _lastNativePlaying = null
+  debugLog('native-media', 'destroy')
 }

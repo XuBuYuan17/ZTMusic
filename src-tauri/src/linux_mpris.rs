@@ -84,20 +84,25 @@ async fn run_mpris(
         .build()
         .await?;
 
-    connect_action(&player, "next", Arc::clone(&pending_action), |player, action| {
-        player.connect_next(move |_| set_pending_action(&action, "next"));
+    player.connect_next({
+        let action = Arc::clone(&pending_action);
+        move |_| set_pending_action(&action, "next")
     });
-    connect_action(&player, "prev", Arc::clone(&pending_action), |player, action| {
-        player.connect_previous(move |_| set_pending_action(&action, "prev"));
+    player.connect_previous({
+        let action = Arc::clone(&pending_action);
+        move |_| set_pending_action(&action, "prev")
     });
-    connect_action(&player, "play", Arc::clone(&pending_action), |player, action| {
-        player.connect_play(move |_| set_pending_action(&action, "play"));
+    player.connect_play({
+        let action = Arc::clone(&pending_action);
+        move |_| set_pending_action(&action, "play")
     });
-    connect_action(&player, "pause", Arc::clone(&pending_action), |player, action| {
-        player.connect_pause(move |_| set_pending_action(&action, "pause"));
+    player.connect_pause({
+        let action = Arc::clone(&pending_action);
+        move |_| set_pending_action(&action, "pause")
     });
-    connect_action(&player, "pause", Arc::clone(&pending_action), |player, action| {
-        player.connect_stop(move |_| set_pending_action(&action, "pause"));
+    player.connect_stop({
+        let action = Arc::clone(&pending_action);
+        move |_| set_pending_action(&action, "pause")
     });
 
     let play_pause_pending = Arc::clone(&pending_action);
@@ -143,16 +148,6 @@ async fn run_mpris(
 
     future::race(run_task, message_task).await;
     Ok(())
-}
-
-fn connect_action(
-    player: &Player,
-    action: &'static str,
-    pending_action: Arc<Mutex<Option<String>>>,
-    connect: impl FnOnce(&Player, Arc<Mutex<Option<String>>>),
-) {
-    let _ = action;
-    connect(player, pending_action);
 }
 
 fn set_pending_action(pending_action: &Arc<Mutex<Option<String>>>, action: &str) {

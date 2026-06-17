@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 #[cfg(target_os = "android")]
 use std::sync::Mutex;
-use tauri::State;
+use tauri::{Manager, State};
 
 const API_TIMEOUT_SECS: u64 = 15;
 const APP_USER_AGENT: &str = "zheting/0.1.0";
@@ -65,6 +65,15 @@ struct NativePendingAction {
     action: String,
 }
 
+fn value_to_string(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        Value::Bool(b) => b.to_string(),
+        Value::Number(n) => n.to_string(),
+        _ => value.to_string(),
+    }
+}
+
 fn append_query_pairs(url: &mut reqwest::Url, params: &Value, cookie: Option<&str>) {
     if let Some(map) = params.as_object() {
         let mut pairs = url.query_pairs_mut();
@@ -72,13 +81,7 @@ fn append_query_pairs(url: &mut reqwest::Url, params: &Value, cookie: Option<&st
             if value.is_null() {
                 continue;
             }
-            let text = match value {
-                Value::String(text) => text.clone(),
-                Value::Bool(value) => value.to_string(),
-                Value::Number(value) => value.to_string(),
-                _ => value.to_string(),
-            };
-            pairs.append_pair(key, &text);
+            pairs.append_pair(key, &value_to_string(value));
         }
         if let Some(cookie) = cookie.filter(|cookie| !cookie.is_empty()) {
             pairs.append_pair("cookie", cookie);
@@ -93,13 +96,7 @@ fn value_to_form_pairs(body: &Value, cookie: Option<&str>) -> Vec<(String, Strin
             if value.is_null() {
                 continue;
             }
-            let text = match value {
-                Value::String(text) => text.clone(),
-                Value::Bool(value) => value.to_string(),
-                Value::Number(value) => value.to_string(),
-                _ => value.to_string(),
-            };
-            pairs.push((key.clone(), text));
+            pairs.push((key.clone(), value_to_string(value)));
         }
     }
     if let Some(cookie) = cookie.filter(|cookie| !cookie.is_empty()) {

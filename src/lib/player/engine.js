@@ -1,11 +1,15 @@
+function createAudioElement() {
+  const audio = new Audio()
+  audio.preload = 'auto'
+  return audio
+}
+
 class AudioEngine {
   constructor() {
-    this.audio = new Audio()
-    this.audio.preload = 'auto'
+    this.audio = createAudioElement()
     this.currentUrl = ''
     // 隐藏预加载器：用于后台加载下一首歌的音频
-    this.preloadAudio = new Audio()
-    this.preloadAudio.preload = 'auto'
+    this.preloadAudio = createAudioElement()
     this.preloadedUrl = ''
     this._onTimeUpdate = null
     this._onEnded = null
@@ -15,34 +19,56 @@ class AudioEngine {
     this._onPlay = null
     this._onPause = null
 
-    this.audio.addEventListener('timeupdate', () => {
-      if (this._onTimeUpdate) this._onTimeUpdate(this.audio.currentTime)
+    this._handlers = {
+      timeupdate: () => {
+        if (this._onTimeUpdate) this._onTimeUpdate(this.audio.currentTime)
+      },
+      ended: () => {
+        if (this._onEnded) this._onEnded(this.getState())
+      },
+      loadstart: () => {
+        if (this._onLoadStart) this._onLoadStart(this.getState())
+      },
+      canplay: () => {
+        if (this._onCanPlay) this._onCanPlay(this.getState())
+      },
+      error: (event) => {
+        if (this._onError) this._onError(this.getErrorState(event))
+      },
+      play: () => {
+        if (this._onPlay) this._onPlay(this.getState())
+      },
+      pause: () => {
+        if (this._onPause) this._onPause(this.getState())
+      },
+    }
+
+    this._bindActiveAudio(this.audio)
+  }
+
+  _bindActiveAudio(audio) {
+    Object.entries(this._handlers).forEach(([event, handler]) => {
+      audio.addEventListener(event, handler)
     })
-    this.audio.addEventListener('ended', () => {
-      if (this._onEnded) this._onEnded(this.getState())
+  }
+
+  _unbindActiveAudio(audio) {
+    Object.entries(this._handlers).forEach(([event, handler]) => {
+      audio.removeEventListener(event, handler)
     })
-    this.audio.addEventListener('loadstart', () => {
-      if (this._onLoadStart) this._onLoadStart(this.getState())
-    })
-    this.audio.addEventListener('canplay', () => {
-      if (this._onCanPlay) this._onCanPlay(this.getState())
-    })
-    this.audio.addEventListener('error', (event) => {
-      if (this._onError) this._onError(this.getErrorState(event))
-    })
-    this.audio.addEventListener('play', () => {
-      if (this._onPlay) this._onPlay(this.getState())
-    })
-    this.audio.addEventListener('pause', () => {
-      if (this._onPause) this._onPause(this.getState())
-    })
+  }
+
+  _resetAudio(audio) {
+    audio.pause()
+    audio.removeAttribute('src')
+    audio.load()
   }
 
   /** 后台预加载一首歌的音频到隐藏元素（不播放） */
   preload(url) {
     if (!url) return
     const u = String(url).trim()
-    if (!u || u === this.preloadedUrl) return
+    if (!u || u === this.preloadedUrl || u === this.currentUrl) return
     this.cancelPreload()
     this.preloadedUrl = u
     this.preloadAudio.src = u
@@ -52,24 +78,23 @@ class AudioEngine {
   /** 取消预加载并释放资源 */
   cancelPreload() {
     this.preloadedUrl = ''
-    this.preloadAudio.pause()
-    this.preloadAudio.removeAttribute('src')
-    this.preloadAudio.load()
+    this._resetAudio(this.preloadAudio)
   }
 
   /** 交换主播放器与预加载器：预加载的音频变为当前播放 */
   swapToPreloaded() {
     if (!this.preloadedUrl) return false
     const oldAudio = this.audio
-    const oldUrl = this.currentUrl
+
+    this._unbindActiveAudio(oldAudio)
     this.audio = this.preloadAudio
     this.currentUrl = this.preloadedUrl
     this.preloadAudio = oldAudio
     this.preloadedUrl = ''
-    // 清理旧 audio
-    this.preloadAudio.pause()
-    this.preloadAudio.removeAttribute('src')
-    this.preloadAudio.load()
+    this._bindActiveAudio(this.audio)
+
+    // 清理旧主播放器，让它成为新的隐藏预加载器
+    this._resetAudio(this.preloadAudio)
     return true
   }
 
@@ -108,9 +133,7 @@ class AudioEngine {
       return
     }
     if (this.currentUrl && this.currentUrl !== nextUrl) {
-      this.audio.pause()
-      this.audio.removeAttribute('src')
-      this.audio.load()
+      this._resetAudio(this.audio)
     }
     this.currentUrl = nextUrl
     this.audio.src = nextUrl
@@ -131,7 +154,8 @@ class AudioEngine {
   }
 
   seek(time) {
-    this.audio.currentTime = time
+    if (!Number.isFinite(time)) return
+    this.audio.currentTime = Math.max(0, time)
   }
 
   setVolume(v) {
@@ -155,8 +179,8 @@ class AudioEngine {
   destroy() {
     this.pause()
     this.cancelPreload()
-    this.audio.removeAttribute('src')
-    this.audio.load()
+    this._unbindActiveAudio(this.audio)
+    this._resetAudio(this.audio)
     this.currentUrl = ''
     this._onTimeUpdate = null
     this._onEnded = null

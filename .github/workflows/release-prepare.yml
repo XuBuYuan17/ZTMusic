@@ -203,4 +203,4 @@ jobs:
           git tag "$TAG"
           git push origin HEAD:main
           git push origin "$TAG"
-          gh workflow run build.yml --ref "v$VERSION"
+          # ponytail: gh workflow run 是多余的——tag push 本身已触发 build.yml

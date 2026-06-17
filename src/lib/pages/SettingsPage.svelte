@@ -3,7 +3,7 @@
   import { player, clearHistory } from '../stores/player.svelte.js'
   import { auth } from '../stores/auth.svelte.js'
   import { i18n, setLocale, t } from '../i18n/index.svelte.js'
-  import { getStorage, setStorage } from '../utils/storage.js'
+  import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../utils/settings.js'
   import { dbCache } from '../db/cache.js'
 
   let { theme = 'dark', onSetTheme } = $props()
@@ -14,12 +14,13 @@
   let idbCacheText = $state('计算中…')
   let idbCleared = $state('')
   let cookieCheckMsg = $state('')
-  let defaultPage = $state(getStorage('default_page', 'home'))
-  let restoreSession = $state(getStorage('restore_session', 'true') === 'true')
-  let lyricsBlur = $state(getStorage('lyrics_blur_effect', 'true') === 'true')
-  let lyricsTextBlur = $state(getStorage('lyrics_text_blur_effect', 'true') === 'true')
+  let defaultPage = $state(getSetting('default_page', 'home'))
+  let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
+  let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
+  let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
   let preferredQuality = $state(player.preferredLevel)
   let currentLocale = $state(i18n.locale)
+
 
   function formatBytes(bytes) {
     if (!bytes) return '0 B'
@@ -75,30 +76,26 @@
   }
 
   function handleDefaultPage(val) {
-    defaultPage = val
-    setStorage('default_page', val)
+    defaultPage = setSetting('default_page', val)
   }
 
   function handleRestoreSession(val) {
-    restoreSession = val
-    setStorage('restore_session', val ? 'true' : 'false')
+    restoreSession = setBooleanSetting('restore_session', val) === 'true'
   }
 
   function handleLyricsBlur(val) {
-    lyricsBlur = val
-    setStorage('lyrics_blur_effect', val ? 'true' : 'false')
-    window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: val }))
+    lyricsBlur = setBooleanSetting('lyrics_blur_effect', val) === 'true'
+    window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: lyricsBlur }))
   }
 
   function handleLyricsTextBlur(val) {
-    lyricsTextBlur = val
-    setStorage('lyrics_text_blur_effect', val ? 'true' : 'false')
-    window.dispatchEvent(new CustomEvent('lyrics-text-blur-change', { detail: val }))
+    lyricsTextBlur = setBooleanSetting('lyrics_text_blur_effect', val) === 'true'
+    window.dispatchEvent(new CustomEvent('lyrics-text-blur-change', { detail: lyricsTextBlur }))
   }
 
   function handleQuality(val) {
-    preferredQuality = val
     player.setPreferredLevel(val)
+    preferredQuality = player.preferredLevel
   }
 
   function handleLocale(val) {
