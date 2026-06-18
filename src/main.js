@@ -1,4 +1,6 @@
 import './app.css'
+import './app-pc.css'
+import './app-mobile.css'
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -15,6 +17,8 @@ function syncMobileRuntime() {
 
 syncMobileRuntime()
 mobileViewportQuery.addEventListener('change', syncMobileRuntime)
+window.addEventListener('resize', syncMobileRuntime)
+window.addEventListener('orientationchange', syncMobileRuntime)
 
 ;(async () => {
   try {

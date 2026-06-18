@@ -118,26 +118,24 @@
     </section>
 
     <section class="music-discovery-grid">
-      <div class="music-discovery-section compact-panel">
+      <div class="music-discovery-section compact-panel music-new-albums-panel">
         <div class="music-section-head">
           <h2>本周新发行</h2>
         </div>
-        <div class="music-vertical-list">
+        <div class="music-album-grid">
           {#if exploreLoading && exploreNewAlbums.length === 0}
             {#each Array(6) as _}
-              <div class="music-list-item skeleton-row">
+              <div class="music-album-card skeleton-row">
                 <span class="music-cover-placeholder skeleton-block"></span>
-                <span>
-                  <strong class="skeleton-line"></strong>
-                  <em class="skeleton-line narrow"></em>
-                </span>
+                <strong class="skeleton-line"></strong>
+                <em class="skeleton-line narrow"></em>
               </div>
             {/each}
           {:else}
           {#each exploreNewAlbums.slice(0, 6) as album (album.id)}
-            <button class="music-list-item" onclick={() => onOpenAlbum?.(album.id)}>
-              {#if album.picUrl}<img src={coverUrl(album.picUrl, 112)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
-              <span>
+            <button class="music-album-card" onclick={() => onOpenAlbum?.(album.id)}>
+              {#if album.picUrl}<img src={coverUrl(album.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              <span class="music-album-info">
                 <strong>{album.name}</strong>
                 <em>{album.artistName || '新专辑'}</em>
               </span>
@@ -147,11 +145,11 @@
         </div>
       </div>
 
-      <div class="music-discovery-section compact-panel">
+      <div class="music-discovery-section compact-panel music-toplist-panel">
         <div class="music-section-head">
           <h2>排行榜</h2>
         </div>
-        <div class="music-vertical-list">
+        <div class="music-toplist-list">
           {#if exploreLoading && toplists.length === 0}
             {#each Array(6) as _, index}
               <div class="music-list-item skeleton-row">

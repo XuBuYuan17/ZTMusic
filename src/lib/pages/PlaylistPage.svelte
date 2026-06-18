@@ -172,10 +172,7 @@
             </button>
           {/if}
         </label>
-        <div class="playlist-sort" aria-label="歌曲排序">
-          <button class:active={trackSort === 'added'} onclick={() => setSort('added')}>添加时间 {trackSort === 'added' ? (trackSortDir === 'asc' ? '↑' : '↓') : ''}</button>
-          <button class:active={trackSort === 'alpha'} onclick={() => setSort('alpha')}>首字母 {trackSort === 'alpha' ? (trackSortDir === 'asc' ? '↑' : '↓') : ''}</button>
-        </div>
+
         <span class="playlist-toolbar-count">{visibleTracks.length} / {playlistDetail.tracks?.length || 0}</span>
       </div>
       <table class="track-table">

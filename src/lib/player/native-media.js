@@ -34,8 +34,14 @@ function isTauriLinux() {
   return /Linux/i.test(platform) && !/Android/i.test(navigator.userAgent)
 }
 
+function isTauriWindows() {
+  if (!isTauriRuntime()) return false
+  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+  return /Win/i.test(platform)
+}
+
 function shouldUseNativeBridge() {
-  return isTauriAndroid() || isTauriLinux()
+  return isTauriAndroid() || isTauriLinux() || isTauriWindows()
 }
 
 function invokeNative(command, payload, context) {
@@ -58,7 +64,7 @@ export async function initNativeMedia(options = {}) {
   _getPlaybackState = options.getPlaybackState || _getPlaybackState
   _onMediaButton = options.onMediaButton || _onMediaButton
 
-  debugLog('native-media', 'init', { runtime: isTauriRuntime(), android: isTauriAndroid(), linux: isTauriLinux() })
+  debugLog('native-media', 'init', { runtime: isTauriRuntime(), android: isTauriAndroid(), linux: isTauriLinux(), windows: isTauriWindows() })
   if (!isTauriRuntime() || typeof window === 'undefined') return
 
   try {

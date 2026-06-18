@@ -13,7 +13,8 @@ export { DEFAULT_API_BASE }
 let tauriInvokePromise
 
 function isBrowserDevRuntime() {
-  return typeof window !== 'undefined' && window.location?.hostname === '127.0.0.1' && !isTauriRuntime()
+  const h = window?.location?.hostname
+  return typeof window !== 'undefined' && (h === '127.0.0.1' || h === 'localhost') && !isTauriRuntime()
 }
 
 function getRequestBase(base) {
@@ -49,6 +50,12 @@ async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
   }
 }
 
+function isProxyBadGateway(err, status) {
+  if (status === 502 || status === 503 || status === 504) return true
+  const m = (err?.message || '').toLowerCase()
+  return m.includes('502') || m.includes('bad gateway') || m.includes('econnreset') || m.includes('socket hang up')
+}
+
 async function request(endpoint, params = {}, method = 'GET', body = null, options = {}) {
   const invoke = await getTauriInvoke()
   const apiBase = apiSession.getBase()
@@ -70,25 +77,34 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     if (cached) return cached
   }
   if (invoke) {
-    try {
-      const result = await invoke('ncm_request', {
-        request: {
-          base: apiBase,
-          endpoint,
-          params: requestParams,
-          method,
-          body: requestBody,
-          cookie,
-          allowErrorBody: !!options.allowErrorBody,
-        },
-      })
-      if (options.saveCookie !== false) apiSession.saveCookieFromResponse(result.data, result.cookie)
-      writeApiCache(cacheKey, result.data, cacheTtl).catch(() => {})
-      return result.data
-    } catch (error) {
-      const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
-      if (stale) return stale
-      throw error
+    let attempt = 0
+    const maxTauriRetries = 2
+    while (attempt <= maxTauriRetries) {
+      try {
+        const result = await invoke('ncm_request', {
+          request: {
+            base: apiBase,
+            endpoint,
+            params: requestParams,
+            method,
+            body: requestBody,
+            cookie,
+            allowErrorBody: !!options.allowErrorBody,
+          },
+        })
+        if (options.saveCookie !== false) apiSession.saveCookieFromResponse(result.data, result.cookie)
+        writeApiCache(cacheKey, result.data, cacheTtl).catch(() => {})
+        return result.data
+      } catch (error) {
+        if (attempt < maxTauriRetries && isProxyBadGateway(error)) {
+          attempt++
+          await new Promise(r => setTimeout(r, 200 * attempt))
+          continue
+        }
+        const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+        if (stale) return stale
+        throw error
+      }
     }
   }
 
@@ -109,17 +125,27 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     if (cookie) formBody.cookie = cookie
     opts.body = new URLSearchParams(formBody).toString()
   }
-  try {
-    const res = await fetchWithTimeout(url, opts)
-    if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
-    const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
-    if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
-    writeApiCache(cacheKey, data, cacheTtl).catch(() => {})
-    return data
-  } catch (error) {
-    const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
-    if (stale) return stale
-    throw error
+
+  let attempt = 0
+  const maxFetchRetries = 2
+  while (attempt <= maxFetchRetries) {
+    try {
+      const res = await fetchWithTimeout(url, opts)
+      if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
+      const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
+      if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
+      writeApiCache(cacheKey, data, cacheTtl).catch(() => {})
+      return data
+    } catch (error) {
+      if (attempt < maxFetchRetries && isProxyBadGateway(error)) {
+        attempt++
+        await new Promise(r => setTimeout(r, 200 * attempt))
+        continue
+      }
+      const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+      if (stale) return stale
+      throw error
+    }
   }
 }
 
@@ -130,10 +156,6 @@ export const ncm = {
   clearCookie() { apiSession.clearCookie() },
   clearCache() { return clearApiCache() },
   getCacheStats() { return getApiCacheStats() },
-
-  search(keywords, limit = 30, offset = 0, type = 1) {
-    return request('/search', { keywords, limit, offset, type })
-  },
   searchSongs(keywords, limit = 30, offset = 0) {
     return request('/search', { keywords, limit, offset, type: 1 })
   },

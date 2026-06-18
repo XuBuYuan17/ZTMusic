@@ -1,0 +1,175 @@
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+use async_channel::{unbounded, Receiver, Sender};
+use windows::core::HSTRING;
+use windows::Foundation::TypedEventHandler;
+use windows::Media::{
+    MediaPlaybackAutoRepeatMode, MediaPlaybackStatus, MediaPlayer, SystemMediaTransportControls,
+    SystemMediaTransportControlsButton, SystemMediaTransportControlsButtonPressedEventArgs,
+};
+use windows::Storage::Streams::{InMemoryRandomAccessStream, RandomAccessStreamReference};
+
+#[derive(Debug)]
+enum WindowsSmtcMessage {
+    Metadata {
+        title: String,
+        artist: String,
+        cover_url: String,
+        duration: f64,
+    },
+    Playback {
+        playing: bool,
+        position: f64,
+    },
+}
+
+pub struct WindowsSmtcState {
+    sender: Sender<WindowsSmtcMessage>,
+    pending_action: Arc<Mutex<Option<String>>>,
+}
+
+impl WindowsSmtcState {
+    pub fn new() -> Self {
+        let (sender, receiver) = unbounded();
+        let pending_action = Arc::new(Mutex::new(None));
+        let thread_pending_action = Arc::clone(&pending_action);
+
+        thread::spawn(move || {
+            if let Err(error) = run_smtc(receiver, thread_pending_action) {
+                log::warn!("Windows SMTC disabled: {error}");
+            }
+        });
+
+        Self {
+            sender,
+            pending_action,
+        }
+    }
+
+    pub fn update_metadata(&self, title: String, artist: String, cover_url: String, duration: f64) {
+        let _ = self.sender.try_send(WindowsSmtcMessage::Metadata {
+            title,
+            artist,
+            cover_url,
+            duration,
+        });
+    }
+
+    pub fn update_playback_state(&self, playing: bool, position: f64) {
+        let _ = self
+            .sender
+            .try_send(WindowsSmtcMessage::Playback { playing, position });
+    }
+
+    pub fn poll_pending_action(&self) -> String {
+        self.pending_action
+            .lock()
+            .ok()
+            .and_then(|mut action| action.take())
+            .unwrap_or_default()
+    }
+}
+
+fn run_smtc(
+    receiver: Receiver<WindowsSmtcMessage>,
+    pending_action: Arc<Mutex<Option<String>>>,
+) -> windows::core::Result<()> {
+    // Initialize COM on the main UI thread
+    unsafe { windows::core::init_apartment()? };
+
+    // Create a MediaPlayer - this automatically creates the SMTC integration
+    let player = MediaPlayer::new()?;
+
+    // Get the SystemMediaTransportControls
+    let smtc = player.SystemMediaTransportControls()?;
+
+    // Enable buttons
+    smtc.SetIsPlayEnabled(true)?;
+    smtc.SetIsPauseEnabled(true)?;
+    smtc.SetIsNextEnabled(true)?;
+    smtc.SetIsPreviousEnabled(true)?;
+
+    // Register button handler
+    let button_handler = Arc::clone(&pending_action);
+    smtc.ButtonPressed(&TypedEventHandler::new(
+        move |_, args: &Option<SystemMediaTransportControlsButtonPressedEventArgs>| {
+            if let Some(args) = args {
+                let button = args.Button()?;
+                let action = match button {
+                    SystemMediaTransportControlsButton::Play => "play",
+                    SystemMediaTransportControlsButton::Pause => "pause",
+                    SystemMediaTransportControlsButton::Next => "next",
+                    SystemMediaTransportControlsButton::Previous => "prev",
+                    SystemMediaTransportControlsButton::Stop => "pause",
+                    _ => "",
+                };
+                if !action.is_empty() {
+                    set_pending_action(&button_handler, action);
+                }
+            }
+            Ok(())
+        },
+    ))?;
+
+    // Get display updater
+    let display_updater = smtc.DisplayUpdater()?;
+
+    // Process messages
+    while let Ok(message) = receiver.recv_blocking() {
+        match message {
+            WindowsSmtcMessage::Metadata {
+                title,
+                artist,
+                cover_url,
+                duration,
+            } => {
+                // Update display properties
+                display_updater.SetType(windows::Media::MediaPlaybackType::Music)?;
+                display_updater
+                    .MusicProperties()?
+                    .SetTitle(&HSTRING::from(&title))?;
+                display_updater
+                    .MusicProperties()?
+                    .SetArtist(&HSTRING::from(&artist))?;
+
+                // Update SMTC
+                display_updater.Update()?;
+
+                log::debug!(
+                    "SMTC metadata update: {} - {} (duration: {})",
+                    title,
+                    artist,
+                    duration
+                );
+            }
+            WindowsSmtcMessage::Playback { playing, position } => {
+                // Update playback status
+                let status = if playing {
+                    MediaPlaybackStatus::Playing
+                } else {
+                    MediaPlaybackStatus::Paused
+                };
+
+                // Note: We don't directly control the MediaPlayer playback here
+                // because the actual audio is played in the webview
+                // We just update the SMTC status display
+                smtc.SetPlaybackStatus(status)?;
+
+                log::debug!(
+                    "SMTC playback update: playing={}, position={}",
+                    playing,
+                    position
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn set_pending_action(action: &Arc<Mutex<Option<String>>>, value: &str) {
+    if let Ok(mut guard) = action.lock() {
+        *guard = Some(value.to_string());
+    }
+}

@@ -17,6 +17,7 @@
   import QueuePanel from './lib/components/QueuePanel.svelte'
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPage from './lib/components/LyricsPage.svelte'
+  import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import SearchOverlay from './lib/components/SearchOverlay.svelte'
   import HomePage from './lib/pages/HomePage.svelte'
@@ -633,7 +634,7 @@
   }
 
   function openSheet(originEl) {
-    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.mobile-mini-player__art') || document.querySelector('.mobile-mini-player')
+    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.mobile-mini-art') || document.querySelector('.mobile-mini')
     if (source) {
       const r = source.getBoundingClientRect()
       lyricsOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 }
@@ -744,9 +745,9 @@
     bind:collapsed={sidebarCollapsed}
     {theme}
     {refreshKey}
-    onNavigate={handleNav}
+    onNavigate={(view, extra) => { handleNav(view, extra) }}
     onToggleTheme={toggleTheme}
-    onOpenLogin={() => showLogin = true}
+    onOpenLogin={() => { showLogin = true }}
   />
 
   <div class="main-area">
@@ -754,20 +755,6 @@
     <button class="global-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     </button>
-
-    <!-- Responsive Top Bar (mobile only via CSS) -->
-    <div class="mobile-topbar">
-      <div class="mobile-topbar__title">{mobileTitle}</div>
-      <div class="mobile-topbar__actions">
-        <button class="mobile-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span>搜索</span>
-        </button>
-        {#if !auth.isLoggedIn}
-          <button class="mobile-login-btn" onclick={() => showLogin = true}>登录</button>
-        {/if}
-      </div>
-    </div>
 
     <div class="content-scroll" bind:this={contentScrollEl}>
       <div class="content-inner">
@@ -897,64 +884,72 @@
       </div>
     </div>
 
-    <!-- Player bar (desktop) + Mini player (mobile) -->
+    <!-- Player bar -->
     <div class="player-bar-wrap" class:queue-open={showQueuePanel}>
       <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={goArtist} />
-      <!-- Mobile mini player (visible only on mobile via CSS) -->
-      <div class="mobile-mini-player" class:empty={!player.id} role="button" tabindex="0" aria-label="打开歌词页" onclick={(e) => openSheet(e.currentTarget.querySelector('.mobile-mini-player__art') || e.currentTarget)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSheet(e.currentTarget) } }}>
-        <div class="mobile-mini-player__art">
-          {#if player.cover}
-            <img src={coverUrl(player.cover, 96)} alt="" referrerpolicy="no-referrer" />
-          {:else}
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          {/if}
-        </div>
-        <div class="mobile-mini-player__meta">
-          <div class="mobile-mini-player__title">{player.title || '未在播放'}</div>
-          <div class="mobile-mini-player__artist">
-            {#if player.error}{player.error}
-            {:else if player.artist && !player.loading}
-              <span class="mini-artist">{player.artist}</span>
-            {:else}{player.loading ? '正在载入…' : player.artist || '选择一首歌开始'}
-            {/if}
-          </div>
-        </div>
-        <button class="mobile-mini-player__play" onclick={(e) => { e.stopPropagation(); player.togglePlay() }} aria-label={player.playing ? '暂停' : '播放'} disabled={!player.id && !player.loading}>
-          {#if player.loading}
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10" opacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite"/></path></svg>
-          {:else if player.playing}
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"/></svg>
-          {:else}
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19.5 14.598c2-1.155 2-4.041 0-5.196l-9-5.196C8.5 3.05 6 4.494 6 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
-          {/if}
-        </button>
-        <button class="mobile-mini-player__queue" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); toggleQueue() }} aria-label="播放列表">
-          <svg viewBox="0 0 48 48" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round">
-            <path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32" /><path fill="currentColor" d="m8 10l8 5l-8 5z" />
-          </svg>
-        </button>
-      </div>
     </div>
 
-    <!-- Responsive Bottom Tabs (mobile only via CSS) -->
-    <nav class="mobile-tabs" aria-label="底部导航">
-      {#each [
-        {id:'home',label:'主页',path:'M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'},
-        {id:'explore',label:'发现',path:'M12 2a10 10 0 1 1 0 20a10 10 0 0 1 0-20m3.6 6.4l-5.2 2l-2 5.2l5.2-2z'},
-        {id:'library',label:'收藏',path:'M12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5A5.45 5.45 0 0 1 7.5 3c1.74 0 3.41.81 4.5 2.08A6 6 0 0 1 16.5 3A5.45 5.45 0 0 1 22 8.5c0 3.77-3.4 6.86-8.55 11.54z'},
-        {id:'settings',label:'我的',path:'M12 8a4 4 0 1 1 0 8a4 4 0 0 1 0-8m0-6a10 10 0 0 1 8.94 14.48A7.98 7.98 0 0 0 12 12a7.98 7.98 0 0 0-8.94 4.48A10 10 0 0 1 12 2'}
-      ] as tab}
-        {@const isActive = tab.id === 'home' ? activeView === 'home' : tab.id === 'settings' ? ['settings','messages','dailyHistory','recent','about'].includes(activeView) : activeView === tab.id}
-        <button class="mobile-tab" class:active={isActive} onclick={() => handleNav(tab.id)} aria-label={tab.label}>
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d={tab.path} /></svg>
-          <span>{tab.label}</span>
+    <!-- Mobile bottom bar (mini player + tabs) -->
+    <div class="mobile-bottom" class:has-player={player.id} class:player-playing={player.playing}>
+      {#if player.id}
+        <div class="mobile-mini-row">
+          <div class="mobile-mini-progress">
+            <div class="mobile-mini-progress-bar" style="width: {player.progressPercent || 0}%"></div>
+          </div>
+          <button class="mobile-mini" type="button" onclick={() => openSheet()} aria-label="打开播放控制">
+            <div class="mobile-mini-art">
+              {#if player.cover}
+                <img src={coverUrl(player.cover, 96)} alt="" referrerpolicy="no-referrer" />
+              {/if}
+            </div>
+            <div class="mobile-mini-meta">
+              <div class="mobile-mini-title">{player.title}</div>
+              <div class="mobile-mini-artist">{player.loading ? '载入中…' : player.artist}</div>
+            </div>
+          </button>
+          <button class="mobile-mini-play" type="button"
+            onclick={() => player.togglePlay()}
+            aria-label={player.playing ? '暂停' : '播放'}>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              {#if player.playing}
+                <path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2" fill-rule="evenodd"/>
+              {:else}
+                <path d="M19.5 14.598c2-1.155 2-4.041 0-5.196l-9-5.196C8.5 3.05 6 4.494 6 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598z" fill-rule="evenodd"/>
+              {/if}
+            </svg>
+          </button>
+          <button class="mobile-mini-next" type="button"
+            onclick={() => player.next()}
+            aria-label="下一首">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+              <path d="M5.5 5.938a1 1 0 0 0-1.5.866v10.392a1 1 0 0 0 1.5.866L8 16.62V7.38zm2.898-.636L6.5 4.206l-.5.866l.5-.866C4.5 3.05 2 4.494 2 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598l1.898-1.096c.785 1.355 2.587 1.971 4.102 1.096l9-5.196c2-1.155 2-4.041 0-5.196l-9-5.196c-1.515-.875-3.317-.259-4.102 1.096" fill-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+      {/if}
+      <nav class="mobile-tabs" aria-label="主导航">
+        <button class="mobile-tab" class:active={activeView === 'home'} onclick={() => handleNav('home')} aria-label="首页">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12.7 1.1a1 1 0 0 0-1.4 0l-10 8.8A1 1 0 0 0 2 11.6h1v10a1 1 0 0 0 1 1h7v-7h2v7h7a1 1 0 0 0 1-1v-10h1a1 1 0 0 0 .7-1.7z"/></svg>
+          <span>首页</span>
         </button>
-      {/each}
-    </nav>
+        <button class="mobile-tab" class:active={activeView === 'explore'} onclick={() => handleNav('explore')} aria-label="发现">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M4 4h7v7H4zm9 0h7v7h-7zm-9 9h7v7H4zm9 0h7v7h-7z"/></svg>
+          <span>发现</span>
+        </button>
+        <button class="mobile-tab" class:active={activeView === 'library'} onclick={() => handleNav('library')} aria-label="收藏">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 3h8v8H3zm0 10h8v8H3zM13 3h8v8h-8zm0 10h8v8h-8z"/></svg>
+          <span>收藏</span>
+        </button>
+        <button class="mobile-tab" onclick={() => showSearch = true} aria-label="搜索">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="21" y1="21" x2="15.8" y2="15.8"/></svg>
+          <span>搜索</span>
+        </button>
+      </nav>
+    </div>
   </div>
 </main>
 
-<LyricsPage show={showSheet} lyricsOrigin={lyricsOrigin} onClose={closeSheet} onOpenArtist={goArtist} />
+<LyricsPageV2 show={showSheet} onClose={closeSheet} onOpenArtist={goArtist} />
 <SearchOverlay show={showSearch} onClose={() => showSearch = false} onOpenArtist={goArtist} onOpenAlbum={goAlbum} onOpenPlaylist={goPlaylist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />

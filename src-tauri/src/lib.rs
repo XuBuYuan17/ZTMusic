@@ -1,5 +1,7 @@
 #[cfg(target_os = "linux")]
 mod linux_mpris;
+#[cfg(target_os = "windows")]
+mod windows_smtc;
 mod commands;
 
 use serde::{Deserialize, Serialize};
@@ -21,6 +23,8 @@ pub(crate) struct NativeMediaState {
     pub(crate) handle: Mutex<Option<tauri::plugin::PluginHandle<tauri::Wry>>>,
     #[cfg(target_os = "linux")]
     pub(crate) mpris: linux_mpris::LinuxMprisState,
+    #[cfg(target_os = "windows")]
+    pub(crate) smtc: windows_smtc::WindowsSmtcState,
 }
 
 #[derive(Debug, Deserialize)]
@@ -85,7 +89,15 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
                 });
             }
 
-            #[cfg(not(any(target_os = "android", target_os = "linux")))]
+            #[cfg(target_os = "windows")]
+            {
+                let _ = api;
+                app.manage(NativeMediaState {
+                    smtc: windows_smtc::WindowsSmtcState::new(),
+                });
+            }
+
+            #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
             {
                 let _ = api;
                 app.manage(NativeMediaState {});

@@ -14,6 +14,8 @@
     onplaypause,
     onnext,
     onrepeat,
+    onqueue,
+    showQueue = false,
   } = $props()
 
   let sz = $derived(size === 'lg' ? 26 : size === 'sm' ? 22 : 24)
@@ -22,16 +24,102 @@
   let isLyrics = $derived(variant === 'lyrics')
   let btnClass = $derived(isLyrics ? 'ly-ctrl-btn' : 'pc-btn')
   let playClass = $derived(isLyrics ? 'ly-play-btn' : 'pc-btn pc-btn--play')
+
+  // Mode cycle: list -> repeat -> shuffle -> list
+  const modeLabels = {
+    list: '顺序播放',
+    repeat: '单曲循环',
+    shuffle: '随机播放'
+  }
+
+  function cycleMode() {
+    let nextMode = mode
+    if (mode === 'list') nextMode = 'repeat'
+    else if (mode === 'repeat') nextMode = 'shuffle'
+    else nextMode = 'list'
+
+    // Trigger appropriate callback
+    if (nextMode === 'repeat') {
+      onrepeat?.()
+    } else if (nextMode === 'shuffle') {
+      onshuffle?.()
+    } else {
+      // Go back to list mode - turn off both
+      if (mode === 'repeat') onrepeat?.()
+      else if (mode === 'shuffle') onshuffle?.()
+    }
+
+    // Show toast notification
+    showToast(modeLabels[nextMode])
+  }
+
+  function showToast(text) {
+    // Remove existing toast
+    const existing = document.querySelector('.play-mode-toast')
+    if (existing) existing.remove()
+
+    const toast = document.createElement('div')
+    toast.className = 'play-mode-toast'
+    toast.textContent = text
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 22px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 9999;
+      animation: modeToastFadeIn 0.2s ease-out;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    `
+    document.body.appendChild(toast)
+
+    setTimeout(() => {
+      toast.style.animation = 'modeToastFadeOut 0.3s ease-out forwards'
+      setTimeout(() => toast.remove(), 300)
+    }, 1500)
+  }
+
+  // Add toast keyframes if not present
+  function ensureKeyframes() {
+    if (typeof document === 'undefined') return
+    if (document.getElementById('play-mode-toast-styles')) return
+    const style = document.createElement('style')
+    style.id = 'play-mode-toast-styles'
+    style.textContent = `
+      @keyframes modeToastFadeIn {
+        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+      @keyframes modeToastFadeOut {
+        from { opacity: 1; transform: translateX(-50%) translateY(0); }
+        to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+      }
+    `
+    document.head.appendChild(style)
+  }
+  if (typeof document !== 'undefined') ensureKeyframes()
 </script>
 
 <div class="pc" class:ly-play-row={isLyrics} class:pc-disabled={disabled} style:gap={isLyrics ? undefined : gap}>
-  <!-- 随机播放 -->
-  <button class={btnClass} class:active={mode === 'shuffle'}
-    onclick={() => onshuffle?.()} aria-label="随机播放"
-    disabled={isLyrics ? false : (disabled && mode !== 'shuffle')}>
-    <svg viewBox="0 0 640 640" width={size === 'lg' ? 22 : 18} height={size === 'lg' ? 22 : 18} fill="currentColor">
-      <path d="M467.8 98.4c12-5 25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64c-9.2 9.2-22.9 11.9-34.9 6.9S448 268.9 448 256v-32h-32c-10.1 0-19.6 4.7-25.6 12.8L358 280l-40-53.3l21.2-28.3c18.1-24.2 46.6-38.4 76.8-38.4h32v-32c0-12.9 7.8-24.6 19.8-29.6M218 360l40 53.3l-21.2 28.3C218.7 465.8 190.2 480 160 480H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c10.1 0 19.6-4.7 25.6-12.8zm284.6 174.6c-9.2 9.2-22.9 11.9-34.9 6.9S448 524.9 448 512v-32h-32c-30.2 0-58.7-14.2-76.8-38.4L185.6 236.8c-6-8.1-15.5-12.8-25.6-12.8H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c30.2 0 58.7 14.2 76.8 38.4l153.6 204.8c6 8.1 15.5 12.8 25.6 12.8h32v-32c0-12.9 7.8-24.6 19.8-29.6s25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64z"/>
-    </svg>
+  <!-- 播放模式循环按钮: list → repeat → shuffle → list -->
+  <button class={btnClass} class:active={mode === 'repeat' || mode === 'shuffle'}
+    onclick={cycleMode} aria-label={modeLabels[mode]}
+    disabled={isLyrics ? false : disabled}>
+    {#if mode === 'shuffle'}
+      <svg viewBox="0 0 640 640" width={sz} height={sz} fill="currentColor">
+        <path d="M467.8 98.4c12-5 25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64c-9.2 9.2-22.9 11.9-34.9 6.9S448 268.9 448 256v-32h-32c-10.1 0-19.6 4.7-25.6 12.8L358 280l-40-53.3l21.2-28.3c18.1-24.2 46.6-38.4 76.8-38.4h32v-32c0-12.9 7.8-24.6 19.8-29.6M218 360l40 53.3l-21.2 28.3C218.7 465.8 190.2 480 160 480H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c10.1 0 19.6-4.7 25.6-12.8zm284.6 174.6c-9.2 9.2-22.9 11.9-34.9 6.9S448 524.9 448 512v-32h-32c-30.2 0-58.7-14.2-76.8-38.4L185.6 236.8c-6-8.1-15.5-12.8-25.6-12.8H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c30.2 0 58.7 14.2 76.8 38.4l153.6 204.8c6 8.1 15.5 12.8 25.6 12.8h32v-32c0-12.9 7.8-24.6 19.8-29.6s25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64z"/>
+      </svg>
+    {:else}
+      <svg viewBox="0 0 24 24" width={sz} height={sz} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3"/>
+      </svg>
+    {/if}
   </button>
 
   <!-- 上一首 -->
@@ -63,14 +151,15 @@
     </svg>
   </button>
 
-  <!-- 单曲循环 -->
-  <button class={btnClass} class:active={mode === 'repeat'}
-    onclick={() => onrepeat?.()} aria-label="单曲循环"
-    disabled={isLyrics ? false : (disabled && mode !== 'repeat')}>
-    <svg viewBox="0 0 24 24" width={size === 'lg' ? 22 : 18} height={size === 'lg' ? 22 : 18} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3"/>
+  <!-- 播放列表 - 歌词模式下在PC端显示，移动端在下方操作按钮组显示 -->
+  <!-- 播放列表按钮 - 总是显示 -->
+  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={() => { console.log('queue button clicked, onqueue:', onqueue); onqueue?.(); }} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
+    <svg viewBox="0 0 24 24" width={sz} height={sz} fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <path stroke-linecap="round" d="M4 5h16M4 11h16M4 17h10"/>
+      <path fill="currentColor" d="m4 12l4 3l-4 3z"/>
     </svg>
   </button>
+
 </div>
 
 <style>

@@ -1,0 +1,680 @@
+/* ================================================
+   Mobile Player Styles (760px以下
+   ================================================ */
+
+@media (max-width: 760px) {
+  /* Mobile container */
+  .ly-container {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    gap: 0;
+    padding: calc(16px + env(safe-area-inset-top)) clamp(20px, 6vw, 28px) calc(18px + env(safe-area-inset-bottom));
+    overflow: hidden;
+  }
+
+  .ly-back-btn {
+    display: flex;
+    top: calc(6px + env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    width: 96px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    transform: translateX(-50%);
+    z-index: 30;
+  }
+
+  .ly-back-btn::before {
+    content: '';
+    width: 54px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.72);
+    box-shadow: 0 1px 10px rgba(0,0,0,0.22);
+  }
+
+  .ly-back-btn svg {
+    display: none;
+  }
+
+  /* Apple Music style: close button at top-left */
+  .ly-mobile-close-btn {
+    position: absolute;
+    top: calc(8px + env(safe-area-inset-top));
+    left: 20px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  .ly-mobile-close-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .ly-top-bar {
+    top: calc(48px + env(safe-area-inset-top));
+    left: auto;
+    right: 26px;
+    z-index: 31;
+  }
+
+  .ly-top-bar .ly-queue-btn {
+    display: flex;
+  }
+
+  /* Hide PC panels */
+  .ly-left,
+  .ly-right {
+    display: none !important;
+  }
+
+  /* ===== Mobile Player - Apple Music Style ===== */
+  .ly-mobile-player {
+    display: flex !important;
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    justify-content: flex-start;
+    align-items: center;
+    overflow: hidden;
+    padding-top: calc(8vh + env(safe-area-inset-top));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    transition: all 0.5s cubic-bezier(0.32, 1.25, 0.38, 1);
+    flex-direction: column;
+  }
+
+  .ly-mobile-player .ly-left-cover {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 32px;
+    width: 100%;
+    padding: 0 24px;
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
+    will-change: transform;
+  }
+
+  .ly-mobile-player .ly-cover-wrap {
+    cursor: pointer;
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto;
+    aspect-ratio: 1;
+    border-radius: 16px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-radius 0.3s ease, box-shadow 0.3s ease;
+    will-change: transform;
+    transform-origin: center center;
+    border: none !important;
+    outline: none !important;
+  }
+
+  /* Remove any pseudo-element that could cause white lines */
+  .ly-mobile-player .ly-cover-wrap::before,
+  .ly-mobile-player .ly-cover-wrap::after {
+    display: none !important;
+    border: none !important;
+    outline: none !important;
+  }
+
+  .ly-mobile-player .ly-cover-wrap:active {
+    transform: scale(0.96);
+  }
+
+  .ly-mobile-player .ly-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+  }
+
+  .ly-mobile-player .ly-track-wrap {
+    width: 100%;
+    text-align: left;
+    transition: all 0.4s cubic-bezier(0.32, 1.25, 0.38, 1);
+  }
+
+  .ly-mobile-player .ly-track-title {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: white !important;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+    line-height: 1.25 !important;
+    margin-bottom: 8px;
+  }
+
+  .ly-mobile-player .ly-artist {
+    font-size: 16px !important;
+    color: rgba(255,255,255,0.8) !important;
+    font-weight: 500 !important;
+  }
+
+  .ly-mobile-player .ly-album,
+  .ly-mobile-player .ly-sep {
+    display: none;
+  }
+
+  .ly-mobile-player .ly-track-actions {
+    display: none;
+  }
+
+  .ly-mobile-player .ly-left-controls {
+    width: 100%;
+    padding: 0 4px;
+    margin-top: 40px;
+    transition: all 0.4s cubic-bezier(0.32, 1.25, 0.38, 1);
+    overflow: visible;
+  }
+
+  .ly-mobile-player .ly-mobile-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 24px;
+    padding: 0 4px;
+  }
+
+  .ly-mobile-action-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+  }
+
+  .ly-mobile-action-btn:active {
+    transform: scale(0.9);
+    background: rgba(255,255,255,0.1);
+  }
+
+  .ly-mobile-action-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .ly-mobile-player .ly-mobile-volume-row {
+    display: none;
+  }
+
+  /* Apple Music style progress bar & time */
+  .ly-mobile-player .ly-progress-row {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ly-mobile-player .ly-progress-track {
+    height: 4px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 2px;
+  }
+
+  .ly-mobile-player .ly-progress-fill {
+    background: white;
+    border-radius: 2px;
+  }
+
+  .ly-mobile-player .ly-time-row {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ly-mobile-player .ly-time {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+  }
+
+  /* Apple Music style control buttons */
+  .ly-mobile-player .ly-play-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 8px 0 0;
+    gap: 0;
+    overflow: visible;
+  }
+
+  .ly-mobile-player .ly-ctrl-btn {
+    width: 38px;
+    height: 38px;
+    color: #fff !important;
+    flex-shrink: 0;
+    min-width: 38px;
+    opacity: 1 !important;
+    display: flex !important;
+  }
+
+  .ly-mobile-player .ly-play-btn {
+    width: 56px;
+    height: 56px;
+    color: white;
+    flex-shrink: 0;
+    min-width: 56px;
+  }
+
+  /* Lyrics mode - Optimized transform animation for performance */
+  .ly-mobile-player.lyrics-mode {
+    padding-top: calc(20px + env(safe-area-inset-top));
+    justify-content: flex-start;
+    flex-direction: column;
+    transform: none;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-left-cover {
+    position: relative;
+    padding: 0 20px;
+    margin-bottom: 16px;
+    flex: none;
+    min-height: 72px;
+  }
+
+  /* Cover flies to top-left corner using transform only for GPU acceleration */
+  .ly-mobile-player.lyrics-mode .ly-cover-wrap {
+    position: absolute;
+    left: 20px;
+    top: 0;
+    width: 100%;
+    max-width: 262px;  /* Original cover width */
+    height: auto;
+    margin: 0;
+    /* Scale down using transform only (72px / 262px ≈ 0.275) */
+    transform: scale(0.275);
+    transform-origin: left top;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    border: none !important;
+    outline: none !important;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-cover {
+    border-radius: 8px;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Track info positioned to the right of small cover */
+  .ly-mobile-player.lyrics-mode .ly-track-wrap {
+    position: absolute;
+    left: 104px;  /* 72px cover + 32px spacing */
+    top: 0;
+    width: calc(100% - 124px);
+    padding-top: 4px;
+  }
+
+  /* Hide context strip completely in lyrics mode */
+  .ly-mobile-player.lyrics-mode .ly-mobile-context {
+    display: none !important;
+  }
+
+  /* ============================================
+     Mobile Context Strip - NORMAL Mode
+     ============================================ */
+  .ly-mobile-context {
+    width: 100% !important;
+    padding: 0 24px !important;
+    margin-top: 24px !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+  }
+
+  .ly-mobile-context .ly-context-strip {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    padding-bottom: 4px !important;
+    scroll-snap-type: x mandatory !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: row !important;
+  }
+
+  .ly-mobile-context .ly-context-strip::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Context cards - Compact size - FORCE flex, disable grid */
+  .ly-mobile-context .ly-context-card,
+  .ly-mobile-context .ly-context-comment {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    width: 112px !important;
+    min-height: 96px !important;
+    max-height: 96px !important;
+    padding: 8px !important;
+    border-radius: 14px !important;
+    background: rgba(255,255,255,0.06) !important;
+    scroll-snap-align: start !important;
+    /* OVERRIDE legacy grid */
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    justify-items: normal !important;
+  }
+
+  /* Card image - Fix white background issue */
+  .ly-mobile-context .ly-context-card img {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 8px !important;
+    object-fit: cover !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+  }
+
+  /* Kill any pseudo-elements that could cause white boxes */
+  .ly-mobile-context .ly-context-card::before,
+  .ly-mobile-context .ly-context-card::after,
+  .ly-mobile-context .ly-context-cover-stack::before,
+  .ly-mobile-context .ly-context-cover-stack::after {
+    display: none !important;
+    content: none !important;
+    background: transparent !important;
+  }
+
+  /* Playlist cover stack */
+  .ly-mobile-context .ly-context-cover-stack {
+    position: relative !important;
+    width: 48px !important;
+    height: 40px !important;
+  }
+
+  .ly-mobile-context .ly-context-cover-stack img {
+    position: absolute !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .ly-mobile-context .ly-context-cover-stack img:nth-child(1) {
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 3 !important;
+  }
+
+  .ly-mobile-context .ly-context-cover-stack img:nth-child(2) {
+    left: 6px !important;
+    top: 2px !important;
+    z-index: 2 !important;
+  }
+
+  .ly-mobile-context .ly-context-cover-stack img:nth-child(3) {
+    left: 12px !important;
+    top: 4px !important;
+    z-index: 1 !important;
+  }
+
+  /* Text content */
+  .ly-mobile-context .ly-context-copy {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    margin-top: 6px !important;
+    width: 100% !important;
+    align-items: flex-start !important;
+  }
+
+  .ly-mobile-context .ly-context-copy small {
+    font-size: 9px !important;
+    color: rgba(255,255,255,0.5) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    writing-mode: horizontal-tb !important;
+    position: static !important;
+  }
+
+  .ly-mobile-context .ly-context-copy strong {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: rgba(255,255,255,0.9) !important;
+    line-height: 1.3 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-align: left !important;
+  }
+
+  .ly-mobile-context .ly-context-copy em {
+    display: none !important;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-track-title {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+    margin-bottom: 4px;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-track-sub {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 0;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-artist {
+    font-size: 13px !important;
+    color: rgba(255,255,255,0.7) !important;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-track-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Apple Music style playing badge */
+  .ly-playing-badge {
+    display: none;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fc3c44;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-top: 6px;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-playing-badge {
+    display: block;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-album,
+  .ly-mobile-player.lyrics-mode .ly-sep {
+    display: inline;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-track-actions {
+    display: none;
+  }
+
+  .ly-mobile-player.lyrics-mode .ly-left-controls {
+    display: none;
+    opacity: 0;
+    transform: translateY(16px);
+    pointer-events: none;
+  }
+
+  /* Mobile lyrics overlay */
+  .ly-mobile-lyrics {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+    width: 100%;
+  }
+
+  .ly-mobile-lyrics::-webkit-scrollbar { display: none; }
+
+  .ly-mobile-player.lyrics-mode .ly-mobile-lyrics {
+    display: block;
+    animation: lyFadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  @keyframes lyFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Optimized lyrics scrolling animation - GPU accelerated */
+  .ly-mobile-lyrics {
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .ly-mobile-lyrics .ly-line {
+    padding: 10px 0;
+    border-radius: 0;
+    text-align: left;
+    /* Use only transform and opacity for 60fps animation */
+    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+    will-change: transform, opacity;
+    opacity: 0.35;
+  }
+
+  .ly-mobile-lyrics .ly-line.prev {
+    opacity: 0.65;
+  }
+
+  .ly-mobile-lyrics .ly-line.active {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+
+  .ly-mobile-lyrics .ly-line-text {
+    font-size: 22px;
+    line-height: 1.35;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: rgba(255,255,255,0.3);
+    /* No font-size transition for better performance */
+  }
+
+  .ly-mobile-lyrics .ly-line.prev .ly-line-text {
+    color: rgba(255,255,255,0.65);
+  }
+
+  .ly-mobile-lyrics .ly-line.active .ly-line-text {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .ly-mobile-lyrics .ly-line-trans {
+    font-size: 14px;
+    margin-top: 2px;
+  }
+
+  /* Mobile queue panel */
+  .ly-local-queue .queue-panel-backdrop {
+    background: rgba(0,0,0,0.28);
+    backdrop-filter: blur(6px);
+  }
+
+  .ly-local-queue .queue-panel {
+    top: calc(92px + env(safe-area-inset-top)) !important;
+    right: 16px !important;
+    bottom: auto !important;
+    left: 16px !important;
+    width: auto !important;
+    max-height: min(58dvh, 460px) !important;
+    border-radius: 22px !important;
+    animation: lyQueueDrop 0.2s ease both !important;
+  }
+
+  .ly-local-queue .queue-list {
+    max-height: calc(min(58dvh, 460px) - 72px);
+  }
+
+  .ly-context-toggle {
+    right: 24px;
+    bottom: calc(28px + env(safe-area-inset-bottom));
+    width: 44px;
+    height: 44px;
+    z-index: 32;
+  }
+
+  .ly-context-toggle.open {
+    transform: translate(0, 0) scale(1);
+  }
+
+  .ly-context-strip {
+    left: 18px;
+    right: 18px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    width: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0 34px 0 0;
+  }
+
+  .ly-context-card {
+    height: 80px;
+    border-radius: 16px;
+  }
+
+  .ly-context-card.ly-context-playlists {
+    display: none;
+  }
+
+  .ly-context-scrim {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    z-index: -1;
+  }
+
+  .ly-context-detail {
+    position: static;
+    width: 100%;
+    max-height: min(30vh, 260px);
+    margin-top: 10px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+
+  .ly-context-detail-list,
+  .ly-context-comment-list,
+  .ly-context-detail-grid {
+    max-height: calc(min(30vh, 260px) - 54px);
+  }
+
+  .player-bar-wrap.queue-open {
+    right: 10px !important;
+  }
+}

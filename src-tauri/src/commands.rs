@@ -90,7 +90,14 @@ pub fn updateMetadata(
             .update_metadata(title, artist, coverUrl, duration);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(target_os = "windows")]
+    {
+        state
+            .smtc
+            .update_metadata(title, artist, coverUrl, duration);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
     {
         let _ = (state, title, artist, coverUrl, duration);
     }
@@ -130,7 +137,13 @@ pub fn updatePlaybackState(
         state.mpris.update_playback_state(playing, position);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(target_os = "windows")]
+    {
+        let _ = duration;
+        state.smtc.update_playback_state(playing, position);
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
     {
         let _ = (state, playing, position, duration);
     }
@@ -159,7 +172,14 @@ pub fn pollPendingAction(state: State<'_, NativeMediaState>) -> Result<NativePen
         });
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "linux")))]
+    #[cfg(target_os = "windows")]
+    {
+        return Ok(NativePendingAction {
+            action: state.smtc.poll_pending_action(),
+        });
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
     {
         let _ = state;
     }

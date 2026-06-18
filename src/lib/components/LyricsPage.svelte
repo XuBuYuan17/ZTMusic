@@ -238,29 +238,28 @@
     scrollToLine(idx)
   })
 
-  // ---- Enter/leave animation ----
+  // ---- Enter/leave animation - Apple Music style slide from bottom ----
   $effect(() => {
     if (show) {
       animating = true; contentEntered = false; closing = false
       document.body.style.overflow = 'hidden'
-      // 取消关闭时的歌词延迟清除
+      lyricsMode = false // Start in player mode, not lyrics mode
       if (_clearLyricsTimer) { clearTimeout(_clearLyricsTimer); _clearLyricsTimer = null }
       checkLiked()
-      if (containerEl && lyricsOrigin) {
-        containerEl.style.transformOrigin = `${lyricsOrigin.x}px ${lyricsOrigin.y}px`
-        containerEl.style.transition = 'none'; containerEl.style.transform = 'scale(0.18)'; containerEl.style.opacity = '0'
+      if (containerEl) {
+        containerEl.style.transition = 'none'; containerEl.style.transform = 'translateY(100%)'; containerEl.style.opacity = '0'
         mounted = true
         requestAnimationFrame(() => requestAnimationFrame(() => {
-          containerEl.style.transition = 'transform 0.6s cubic-bezier(0.32,1.25,0.38,1), opacity 0.3s ease'
-          containerEl.style.transform = 'scale(1)'; containerEl.style.opacity = '1'
+          containerEl.style.transition = 'transform 0.5s cubic-bezier(0.32,1.25,0.38,1), opacity 0.3s ease'
+          containerEl.style.transform = 'translateY(0)'; containerEl.style.opacity = '1'
         }))
       } else { mounted = true }
       setTimeout(() => { contentEntered = true }, 200)
     } else if (!closing) {
       closing = true; contentEntered = false
-      if (containerEl && lyricsOrigin) {
-        containerEl.style.transition = 'transform 0.5s cubic-bezier(0.32,1.25,0.38,1), opacity 0.25s ease'
-        containerEl.style.transform = 'scale(0.18)'; containerEl.style.opacity = '0'
+      if (containerEl) {
+        containerEl.style.transition = 'transform 0.45s cubic-bezier(0.32,1.25,0.38,1), opacity 0.25s ease'
+        containerEl.style.transform = 'translateY(100%)'; containerEl.style.opacity = '0'
         containerEl.addEventListener('transitionend', function cu() {
           containerEl.removeEventListener('transitionend', cu)
           containerEl.style.transition = ''; containerEl.style.transform = ''; containerEl.style.opacity = ''
@@ -321,9 +320,6 @@
 
       <!-- Top bar -->
       <div class="ly-top-bar">
-        <button class="ly-queue-btn" onclick={() => showLocalQueue = !showLocalQueue} aria-label="播放列表" disabled={!hasPlayableTrack}>
-          <svg viewBox="0 0 48 48" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"><path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32"/><path fill="currentColor" d="m8 10l8 5l-8 5z"/></svg>
-        </button>
         <div class="ly-volume-area">
           <VolumeSlider volume={player.volume} onvolumechange={(v) => player.setVolume(v)} />
         </div>
@@ -409,6 +405,8 @@
             onplaypause={() => player.togglePlay()}
             onnext={() => player.next()}
             onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')}
+            onqueue={() => showLocalQueue = !showLocalQueue}
+            showQueue={showLocalQueue}
           />
 
           <div class="ly-mobile-volume-row">
@@ -419,9 +417,6 @@
           <div class="ly-mobile-action-row">
             <button class="ly-mobile-action-btn" class:active={showContextStrip} onclick={toggleContextStrip} aria-label="相关内容">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h10"/><path d="M4 19h16"/></svg>
-            </button>
-            <button class="ly-mobile-action-btn" onclick={() => showLocalQueue = !showLocalQueue} aria-label="播放列表" disabled={!hasPlayableTrack}>
-              <svg viewBox="0 0 48 48" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"><path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32"/><path fill="currentColor" d="m8 10l8 5l-8 5z"/></svg>
             </button>
           </div>
         </div>

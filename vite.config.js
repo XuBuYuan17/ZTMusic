@@ -1,5 +1,22 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import https from 'node:https'
+
+const PROXY_TARGET = 'https://music.xubuyuan.top'
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 8,
+  maxFreeSockets: 4,
+  timeout: 25000,
+  rejectUnauthorized: true,
+})
+// 禁用 Node.js 全局代理，避免走系统代理
+process.env.NO_PROXY = '*'
+process.env.no_proxy = '*'
+process.env.HTTP_PROXY = ''
+process.env.http_proxy = ''
+process.env.HTTPS_PROXY = ''
+process.env.https_proxy = ''
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -14,7 +31,7 @@ export default defineConfig({
   server: {
     hmr: {
       protocol: 'ws',
-      host: 'localhost',
+      host: '127.0.0.1',
     },
     watch: {
       usePolling: false,
@@ -22,13 +39,42 @@ export default defineConfig({
     },
     proxy: {
       '/ncm-api': {
-        target: 'https://music.xubuyuan.top',
+        target: PROXY_TARGET,
         changeOrigin: true,
         secure: true,
-        rewrite: (path) => path.replace(/^\/ncm-api/, '')
+        rewrite: (path) => path.replace(/^\/ncm-api/, ''),
+        timeout: 25000,
+        configure: (proxy) => {
+          proxy.on('error', (err, req, res) => {
+            console.error('[proxy] error:', err.message, req.url)
+            try {
+              if (!res.headersSent) {
+                res.writeHead(503, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ code: 503, msg: 'Proxy upstream error' }))
+              }
+            } catch {}
+          })
+        },
+        agent: httpsAgent,
+        headers: { Connection: 'keep-alive' },
+        followRedirects: true,
       },
-      '/user': 'https://music.xubuyuan.top',
-      '/api': 'https://music.xubuyuan.top',
+      '/user': {
+        target: PROXY_TARGET,
+        changeOrigin: true,
+        secure: true,
+        timeout: 25000,
+        agent: httpsAgent,
+        headers: { Connection: 'keep-alive' },
+      },
+      '/api': {
+        target: PROXY_TARGET,
+        changeOrigin: true,
+        secure: true,
+        timeout: 25000,
+        agent: httpsAgent,
+        headers: { Connection: 'keep-alive' },
+      },
     }
   },
   build: {
@@ -42,7 +88,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    force: true,
+    force: false,
   },
   clearScreen: false,
 })
