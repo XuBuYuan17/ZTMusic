@@ -1,9 +1,9 @@
 <script>
-  import { auth } from '../stores/auth.svelte.js'
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl } from '../utils/image.js'
-  import SongListActions from '../components/SongListActions.svelte'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { player } from '../../stores/player.svelte.js'
+  import { formatDuration } from '../../format.js'
+  import { coverUrl } from '../../utils/image.js'
+  import SongListActions from '../../components/SongListActions.svelte'
 
   let {
     recentTracks = [],

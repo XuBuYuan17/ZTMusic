@@ -20,15 +20,17 @@
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import SearchOverlay from './lib/components/SearchOverlay.svelte'
-  import HomePage from './lib/pages/HomePage.svelte'
-  import ExplorePage from './lib/pages/ExplorePage.svelte'
-  import DailyHistoryPage from './lib/pages/DailyHistoryPage.svelte'
+  import MobileShell from './lib/components/MobileShell.svelte'
+  import { responsive } from './lib/utils/responsive.js'
+  import HomePage from './lib/pages/pc/Home.svelte'
+  import ExplorePage from './lib/pages/pc/Explore.svelte'
+  import DailyHistoryPage from './lib/pages/pc/DailyHistory.svelte'
   import SearchPage from './lib/pages/SearchPage.svelte'
   import ArtistPage from './lib/pages/ArtistPage.svelte'
-  import MessagesPage from './lib/pages/MessagesPage.svelte'
-  import LibraryPage from './lib/pages/LibraryPage.svelte'
-  import RecentPage from './lib/pages/RecentPage.svelte'
-  import SettingsPage from './lib/pages/SettingsPage.svelte'
+  import MessagesPage from './lib/pages/pc/Messages.svelte'
+  import LibraryPage from './lib/pages/pc/Library.svelte'
+  import RecentPage from './lib/pages/pc/Recent.svelte'
+  import SettingsPage from './lib/pages/pc/Settings.svelte'
   import PlaylistPage from './lib/pages/PlaylistPage.svelte'
   import AboutPage from './lib/pages/AboutPage.svelte'
 
@@ -59,6 +61,13 @@
   let messageTargetUser = $state(null)
   let refreshKey = $state(Date.now())
   let toplists = $state([])
+  let isMobile = $state(false)
+
+  // Subscribe to responsive store for mobile detection
+  $effect(() => {
+    const unsub = responsive.subscribe(r => { isMobile = r.isMobile })
+    return () => unsub()
+  })
 
   // cookie 过期自动弹出登录
   $effect(() => {
@@ -234,7 +243,7 @@
   })
 
   $effect(() => {
-    if (activeView === 'explore' && toplists.length === 0 && !toplistsLoading) {
+    if ((activeView === 'explore' || activeView === 'browse') && toplists.length === 0 && !toplistsLoading) {
       loadToplists()
     }
   })
@@ -242,11 +251,11 @@
   let exploreLoaded = $state(false)
 
   $effect(() => {
-    if (activeView === 'explore' && !exploreLoaded) {
+    if ((activeView === 'explore' || activeView === 'browse') && !exploreLoaded) {
       loadExploreData()
     }
-    // Reset when leaving explore
-    if (activeView !== 'explore') {
+    // Reset when leaving explore/browse
+    if (activeView !== 'explore' && activeView !== 'browse') {
       exploreLoaded = false
     }
   })
@@ -576,6 +585,10 @@
       loadLibrary()
     } else if (view === 'dailyHistory') {
       loadDailyHistory()
+    } else if (view === 'browse') {
+      // data loaded via $effect
+    } else if (view === 'settings') {
+      // nothing to load
     }
   }
 
@@ -734,6 +747,8 @@
     loadLibrary()
   } else if (defaultPage === 'explore') {
     activeView = 'explore'
+  } else if (defaultPage === 'browse') {
+    activeView = 'browse'
   } else {
     loadHome()
   }
@@ -751,6 +766,47 @@
   />
 
   <div class="main-area">
+    {#if isMobile}
+      <MobileShell
+        {activeView}
+        {theme}
+        {recentTracks}
+        {recommendPlaylists}
+        {explorePersonalized}
+        {exploreTopPlaylists}
+        {exploreNewAlbums}
+        {exploreLoading}
+        {libraryPlaylists}
+        {libraryLoading}
+        {loading}
+        {playlistDetail}
+        {playlistDetailLoading}
+        {playlistLoadingMore}
+        {playlistDetailError}
+        {selectedId}
+        {heroColor}
+        {artistDetail}
+        {artistSongs}
+        {artistAlbums}
+        {artistLoading}
+        {artistError}
+        onNavigate={handleNav}
+        onOpenPlayer={openSheet}
+        onOpenPlaylist={goPlaylist}
+        onOpenAlbum={goAlbum}
+        onOpenArtist={goArtist}
+        onPlaySong={playExploreSong}
+        onSearch={() => showSearch = true}
+        onOpenLogin={() => showLogin = true}
+        onSetTheme={(v) => theme = v}
+        onBack={goBack}
+        onPlayAll={playAll}
+        onPlayTrack={playTrack}
+        onPlayArtistAll={playArtistAll}
+        onPlayArtistTrack={playArtistTrack}
+        onToggleArtistFollow={toggleArtistFollow}
+      />
+    {:else}
     <!-- Desktop search button -->
     <button class="global-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -828,6 +884,7 @@
               onOpenAlbum={goAlbum}
               onPlaySong={playExploreSong}
               onOpenArtist={goArtist}
+              onSearch={() => showSearch = true}
             />
 
           {:else if activeView === 'dailyHistory'}
@@ -875,6 +932,7 @@
 
           {:else if activeView === 'settings'}
             <SettingsPage {theme} onSetTheme={(value) => theme = value} />
+            <AboutPage />
 
           {:else if activeView === 'about'}
             <AboutPage />
@@ -940,12 +998,13 @@
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 3h8v8H3zm0 10h8v8H3zM13 3h8v8h-8zm0 10h8v8h-8z"/></svg>
           <span>收藏</span>
         </button>
-        <button class="mobile-tab" onclick={() => showSearch = true} aria-label="搜索">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="21" y1="21" x2="15.8" y2="15.8"/></svg>
-          <span>搜索</span>
+        <button class="mobile-tab" class:active={activeView === 'settings'} onclick={() => handleNav('settings')} aria-label="设置">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>设置</span>
         </button>
       </nav>
     </div>
+  {/if}
   </div>
 </main>
 

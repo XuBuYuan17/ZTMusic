@@ -1,6 +1,6 @@
 <script>
-  import { auth } from '../stores/auth.svelte.js'
-  import { coverUrl } from '../utils/image.js'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { coverUrl } from '../../utils/image.js'
 
   let {
     libraryPlaylists = [],

@@ -4159,10 +4159,21 @@ html.mobile-runtime .global-search-btn {
   overflow: hidden;
   pointer-events: none;
   will-change: transform, opacity;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.25s cubic-bezier(0.32, 0.94, 0.6, 1), transform 0.25s cubic-bezier(0.32, 0.94, 0.6, 1);
 }
 
 .ly-fullscreen.mounted {
   pointer-events: auto;
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ly-fullscreen.closing {
+  opacity: 0;
+  transform: scale(0.92);
+  transition-duration: 0.2s;
 }
 
 .ly-fullscreen::before {
@@ -4785,6 +4796,35 @@ html.mobile-runtime .global-search-btn {
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: 0;
+}
+
+.explore-search-input {
+  margin-bottom: 18px;
+}
+
+.explore-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: none;
+  text-align: left;
+}
+
+.explore-search-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.explore-search-btn svg {
+  flex-shrink: 0;
 }
 
 .music-discovery-feature {

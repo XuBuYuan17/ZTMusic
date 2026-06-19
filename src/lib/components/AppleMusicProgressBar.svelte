@@ -71,7 +71,7 @@
 <style>
   .am-progress-container {
     width: 100%;
-    padding: 8px 0;
+    padding: 4px 0;
   }
 
   .am-progress-bar {
@@ -87,9 +87,9 @@
     top: 50%;
     left: 0;
     right: 0;
-    height: 4px;
+    height: 6px;
     background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
+    border-radius: 3px;
     transform: translateY(-50%);
     overflow: hidden;
   }
@@ -97,7 +97,7 @@
   .am-progress-fill {
     height: 100%;
     background: #fff;
-    border-radius: 2px;
+    border-radius: 3px;
     transition: width 0.1s linear;
   }
 
@@ -120,12 +120,8 @@
     transform: translate(-50%, -50%) scale(1);
   }
 
-  .am-progress-bar:hover .am-progress-fill {
-    background: #fa243c;
-  }
-
   .am-progress-bar:active .am-progress-fill {
-    background: #fa243c;
+    background: #fff;
   }
 
   .am-progress-time {

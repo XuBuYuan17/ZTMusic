@@ -1,9 +1,9 @@
 <script>
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl } from '../utils/image.js'
-  import { extractCover } from '../utils/normalize.js'
-  import SongListActions from '../components/SongListActions.svelte'
+  import { player } from '../../stores/player.svelte.js'
+  import { formatDuration } from '../../format.js'
+  import { coverUrl } from '../../utils/image.js'
+  import { extractCover } from '../../utils/normalize.js'
+  import SongListActions from '../../components/SongListActions.svelte'
 
   let {
     dailyHistoryDates = [],

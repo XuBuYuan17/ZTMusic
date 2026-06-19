@@ -1,10 +1,10 @@
 <script>
-  import { ncm } from '../api/client.js'
-  import { player, clearHistory } from '../stores/player.svelte.js'
-  import { auth } from '../stores/auth.svelte.js'
-  import { i18n, setLocale, t } from '../i18n/index.svelte.js'
-  import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../utils/settings.js'
-  import { dbCache } from '../db/cache.js'
+  import { ncm } from '../../api/client.js'
+  import { player, clearHistory } from '../../stores/player.svelte.js'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { i18n, setLocale, t } from '../../i18n/index.svelte.js'
+  import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../../utils/settings.js'
+  import { dbCache } from '../../db/cache.js'
 
   let { theme = 'dark', onSetTheme } = $props()
 

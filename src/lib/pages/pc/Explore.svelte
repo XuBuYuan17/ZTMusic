@@ -1,6 +1,6 @@
 <script>
-  import ArtistNames from '../components/ArtistNames.svelte'
-  import { coverUrl, coverRectUrl } from '../utils/image.js'
+  import ArtistNames from '../../components/ArtistNames.svelte'
+  import { coverUrl, coverRectUrl } from '../../utils/image.js'
 
   let {
     exploreLoading = false,
@@ -10,6 +10,7 @@
     exploreRecommendSongs = [],
     exploreNewAlbums = [],
     toplists = [],
+    onSearch,
     onBannerClick,
     onOpenPlaylist,
     onOpenAlbum,
@@ -27,6 +28,13 @@
     <span>Browse</span>
     <h1>发现</h1>
   </header>
+
+  <div class="explore-search-input">
+    <button class="explore-search-btn" onclick={() => onSearch?.()}>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="21" y1="21" x2="15.8" y2="15.8"/></svg>
+      <span>搜索歌曲或艺人…</span>
+    </button>
+  </div>
 
     <section class="music-discovery-feature">
       {#if exploreLoading && !hero}

@@ -1,9 +1,9 @@
 <script>
   import { slide } from 'svelte/transition'
-  import { auth } from '../stores/auth.svelte.js'
-  import { coverUrl } from '../utils/image.js'
-  import { extractCover } from '../utils/normalize.js'
-  import SongListActions from '../components/SongListActions.svelte'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { coverUrl } from '../../utils/image.js'
+  import { extractCover } from '../../utils/normalize.js'
+  import SongListActions from '../../components/SongListActions.svelte'
 
   let {
     refreshKey = 0,

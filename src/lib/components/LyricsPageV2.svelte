@@ -9,7 +9,7 @@
   let showLocalQueue = $state(false);
   let lyricsMode = $state(false);
   let mounted = $state(false);
-  let contentEntered = $state(false);
+  let entered = $state(false);
   let closing = $state(false);
 
   function toggleLocalQueue() {
@@ -21,26 +21,28 @@
     lyricsMode = !lyricsMode;
   }
 
-  // 入场动画
+  // 开/关动画
   $effect(() => {
     if (show) {
       mounted = true;
-      setTimeout(() => { contentEntered = true; }, 10);
+      setTimeout(() => { entered = true; }, 10);
     } else {
-      contentEntered = false;
-      setTimeout(() => { mounted = false; }, 300);
+      entered = false;
+      closing = true;
+      setTimeout(() => { mounted = false; closing = false; }, 250);
     }
   });
 
   function handleClose(e) {
     if (e.target.closest('.ly-keep-open')) return;
     closing = true;
-    setTimeout(() => { onClose?.(); closing = false; }, 280);
+    setTimeout(() => { onClose?.(); }, 250);
   }
 </script>
 
 {#if mounted}
-  <div class="ly-fullscreen" class:mounted={contentEntered} class:closing={closing}
+  <div class="ly-fullscreen" class:mounted class:entered class:closing
+    class:ly-no-blur={$responsive.isMobile}
     style={player.cover ? `--ly-cover: url(${player.cover})` : ''}
     role="presentation" onclick={handleClose}>
 

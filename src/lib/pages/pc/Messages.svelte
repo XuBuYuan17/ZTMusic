@@ -1,9 +1,9 @@
 <script>
-  import { auth } from '../stores/auth.svelte.js'
-  import { player } from '../stores/player.svelte.js'
-  import { ncm } from '../api/client.js'
-  import Spinner from '../components/Spinner.svelte'
-  import { coverUrl } from '../utils/image.js'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { player } from '../../stores/player.svelte.js'
+  import { ncm } from '../../api/client.js'
+  import Spinner from '../../components/Spinner.svelte'
+  import { coverUrl } from '../../utils/image.js'
 
   let { onNavigate = () => {}, targetUser = null } = $props()
 

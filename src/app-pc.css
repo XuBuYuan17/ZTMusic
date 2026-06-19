@@ -157,8 +157,6 @@
 
   /* PC Controls */
   .ly-left-controls {
-    opacity: 1;
-    transform: translateY(0);
     display: flex;
     flex-direction: column;
     gap: clamp(8px, 0.9vw, 16px);
@@ -289,8 +287,6 @@
   }
 
   .ly-right-panel {
-    opacity: 1;
-    transform: translateY(0);
     background: transparent;
     border: none;
     backdrop-filter: none;
@@ -323,6 +319,10 @@
   .ly-lyrics-inner {
     display: flex;
     flex-direction: column;
+  }
+
+  .explore-search-input {
+    display: none !important;
   }
 
   /* PC Lyrics Lines */

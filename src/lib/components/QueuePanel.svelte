@@ -45,9 +45,14 @@
   <div class="queue-panel" class:queue-panel-mobile-visible={mobileVisible}>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
-      <button class="queue-clear-btn" onclick={handleClear} disabled={player.queue.length === 0}>
-        清除
-      </button>
+      <div class="queue-header-actions">
+        <button class="queue-clear-btn" onclick={handleClear} disabled={player.queue.length === 0}>
+          清除
+        </button>
+        <button class="queue-close-btn" onclick={onClose} aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
     <div class="queue-list">
       {#if player.queue.length === 0}
@@ -144,6 +149,31 @@
     justify-content: space-between;
     padding: 20px 20px 16px;
     border-bottom: 1px solid var(--border);
+  }
+
+  .queue-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .queue-close-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.15s;
+  }
+
+  .queue-close-btn:active {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
   }
 
   .queue-title {
@@ -296,11 +326,25 @@
     }
 
     .queue-panel-backdrop.queue-panel-mobile-visible {
-      display: block;
+      display: none;
     }
 
     .queue-panel.queue-panel-mobile-visible {
       display: flex;
+      position: relative;
+      width: 100%;
+      border-radius: 0;
+      border: none;
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      box-shadow: none;
+      animation: none;
+      top: auto;
+      right: auto;
+      bottom: auto;
+      left: auto;
+      height: 100%;
     }
   }
 

@@ -3,7 +3,6 @@
 
   let { onqueue, showQueue = false } = $props();
 
-  // Mode cycle: list -> repeat -> shuffle -> list
   const modeLabels = {
     list: '顺序播放',
     repeat: '单曲循环',
@@ -19,57 +18,50 @@
   }
 </script>
 
-<div class="am-controls-container">
-  <!-- Mode Button -->
-  <button class="am-mode-btn" onclick={cycleMode} aria-label={modeLabels[player.mode]}>
+<div class="am-play-row">
+  <!-- Mode -->
+  <button class="am-ctrl-btn" class:active={player.mode === 'repeat' || player.mode === 'shuffle'} onclick={cycleMode} aria-label={modeLabels[player.mode]}>
     {#if player.mode === 'shuffle'}
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-      </svg>
-    {:else if player.mode === 'repeat'}
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+      <svg viewBox="0 0 640 640" width="26" height="26" fill="currentColor">
+        <path d="M467.8 98.4c12-5 25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64c-9.2 9.2-22.9 11.9-34.9 6.9S448 268.9 448 256v-32h-32c-10.1 0-19.6 4.7-25.6 12.8L358 280l-40-53.3l21.2-28.3c18.1-24.2 46.6-38.4 76.8-38.4h32v-32c0-12.9 7.8-24.6 19.8-29.6M218 360l40 53.3l-21.2 28.3C218.7 465.8 190.2 480 160 480H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c10.1 0 19.6-4.7 25.6-12.8zm284.6 174.6c-9.2 9.2-22.9 11.9-34.9 6.9S448 524.9 448 512v-32h-32c-30.2 0-58.7-14.2-76.8-38.4L185.6 236.8c-6-8.1-15.5-12.8-25.6-12.8H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c30.2 0 58.7 14.2 76.8 38.4l153.6 204.8c6 8.1 15.5 12.8 25.6 12.8h32v-32c0-12.9 7.8-24.6 19.8-29.6s25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64z"/>
       </svg>
     {:else}
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M4 6h16M4 12h16M4 18h16"/>
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3"/>
       </svg>
     {/if}
   </button>
 
-  <!-- Previous -->
-  <button class="am-control-btn" onclick={() => player.prev()} aria-label="上一首">
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-      <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+  <!-- Prev -->
+  <button class="am-ctrl-btn" onclick={() => player.prev()} aria-label="上一首">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+      <path d="M2.5 9.402c-2 1.155-2 4.041 0 5.196l9 5.196c1.515.875 3.317.259 4.102-1.096l1.898 1.096c2 1.155 4.5-.288 4.5-2.598V6.804c0-2.31-2.5-3.753-4.5-2.598l-1.898 1.096c-.785-1.355-2.587-1.971-4.102-1.096zM16 7.382v9.237l2.5 1.443a1 1 0 0 0 1.5-.866V6.804a1 1 0 0 0-1.5-.866z" fill-rule="evenodd" clip-rule="evenodd"/>
     </svg>
   </button>
 
   <!-- Play/Pause -->
   <button class="am-play-btn" class:playing={player.playing} onclick={() => player.togglePlay()} aria-label={player.playing ? '暂停' : '播放'}>
     {#if player.playing}
-      <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-        <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+        <path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"/>
       </svg>
     {:else}
-      <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-        <path d="M8 5v14l11-7z"/>
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+        <path d="M19.5 14.598c2-1.155 2-4.041 0-5.196l-9-5.196C8.5 3.05 6 4.494 6 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598z" fill-rule="evenodd" clip-rule="evenodd"/>
       </svg>
     {/if}
   </button>
 
   <!-- Next -->
-  <button class="am-control-btn" onclick={() => player.next()} aria-label="下一首">
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-      <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+  <button class="am-ctrl-btn" onclick={() => player.next()} aria-label="下一首">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+      <path d="M5.5 5.938a1 1 0 0 0-1.5.866v10.392a1 1 0 0 0 1.5.866L8 16.62V7.38zm2.898-.636L6.5 4.206l-.5.866l.5-.866C4.5 3.05 2 4.494 2 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598l1.898-1.096c.785 1.355 2.587 1.971 4.102 1.096l9-5.196c2-1.155 2-4.041 0-5.196l-9-5.196c-1.515-.875-3.317-.259-4.102 1.096" fill-rule="evenodd" clip-rule="evenodd"/>
     </svg>
   </button>
 
   <!-- Queue -->
-  <button class="am-control-btn" class:active={showQueue} onclick={() => {
-    console.log('AppleMusicControls: queue button clicked, onqueue:', onqueue, 'showQueue:', showQueue);
-    onqueue?.();
-  }} aria-label="播放列表">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+  <button class="am-ctrl-btn" class:active={showQueue} onclick={() => { onqueue?.(); }} aria-label="播放列表">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
       <path stroke-linecap="round" d="M4 5h16M4 11h16M4 17h10"/>
       <path fill="currentColor" d="m4 12l4 3l-4 3z"/>
     </svg>
@@ -77,78 +69,63 @@
 </div>
 
 <style>
-  .am-controls-container {
+  .am-play-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 16px;
     width: 100%;
-    padding: 16px 0;
+    padding: 4px 0;
   }
 
-  .am-mode-btn {
-    width: 44px;
-    height: 44px;
+  .am-ctrl-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.6);
-    cursor: pointer;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    transition: all 0.2s ease;
-  }
-
-  .am-mode-btn:active {
-    transform: scale(0.96);
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .am-control-btn {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
     border: none;
-    color: white;
+    background: none;
+    color: rgba(255,255,255,0.5);
     cursor: pointer;
-    border-radius: 50%;
-    transition: all 0.2s ease;
+    transition: color 0.15s, transform 0.15s cubic-bezier(.2,.9,.2,1);
+    flex-shrink: 0;
   }
 
-  .am-control-btn:active {
-    transform: scale(0.96);
-    background: rgba(255, 255, 255, 0.1);
+  .am-ctrl-btn:active {
+    transform: scale(0.82);
   }
 
-  .am-control-btn.active {
-    color: #fa243c;
+  .am-ctrl-btn.active {
+    color: var(--accent, #fc3c44);
   }
 
   .am-play-btn {
-    width: 72px;
-    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
-    border: none;
-    color: #121212;
-    cursor: pointer;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: none;
+    color: rgba(255,255,255,0.9);
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s, transform 0.15s cubic-bezier(.2,.9,.2,1);
+    flex-shrink: 0;
   }
 
   .am-play-btn:active {
-    transform: scale(0.92);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(0.85);
   }
 
-  .am-play-btn.playing {
-    background: #fa243c;
-    color: white;
+  .am-play-btn:hover,
+  .am-ctrl-btn:hover {
+    color: #fff;
+  }
+
+  .am-play-row svg {
+    transform: scale(1.4);
   }
 </style>
