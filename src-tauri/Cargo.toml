@@ -33,4 +33,4 @@ mpris-server = "0.10.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 async-channel = "2"
-windows = { version = "0.58", features = ["Media", "Media_Core", "Foundation", "Foundation_Collections", "Storage_Streams"] }
+windows = { version = "0.58", features = ["Media", "Media_Playback", "Media_Core", "Foundation", "Foundation_Collections", "Storage_Streams", "Win32_System_Com"] }

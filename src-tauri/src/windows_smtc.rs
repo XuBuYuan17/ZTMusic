@@ -9,6 +9,7 @@ use windows::Media::{
     SystemMediaTransportControlsButton, SystemMediaTransportControlsButtonPressedEventArgs,
 };
 use windows::Storage::Streams::{InMemoryRandomAccessStream, RandomAccessStreamReference};
+use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
 #[derive(Debug)]
 enum WindowsSmtcMessage {
@@ -75,8 +76,8 @@ fn run_smtc(
     receiver: Receiver<WindowsSmtcMessage>,
     pending_action: Arc<Mutex<Option<String>>>,
 ) -> windows::core::Result<()> {
-    // Initialize COM on the main UI thread
-    unsafe { windows::core::init_apartment()? };
+    // Initialize COM
+    unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok()? };
 
     // Create a MediaPlayer - this automatically creates the SMTC integration
     let player = MediaPlayer::new()?;
