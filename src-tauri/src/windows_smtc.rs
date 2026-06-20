@@ -5,10 +5,10 @@ use async_channel::{unbounded, Receiver, Sender};
 use windows::core::HSTRING;
 use windows::Foundation::TypedEventHandler;
 use windows::Media::{
-    MediaPlaybackAutoRepeatMode, MediaPlaybackStatus, MediaPlayer, SystemMediaTransportControls,
-    SystemMediaTransportControlsButton, SystemMediaTransportControlsButtonPressedEventArgs,
+    MediaPlaybackStatus, SystemMediaTransportControls, SystemMediaTransportControlsButton,
+    SystemMediaTransportControlsButtonPressedEventArgs,
 };
-use windows::Storage::Streams::{InMemoryRandomAccessStream, RandomAccessStreamReference};
+use windows::Media::Playback::MediaPlayer;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
 #[derive(Debug)]
