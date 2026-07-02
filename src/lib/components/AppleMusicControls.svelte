@@ -16,6 +16,17 @@
     else nextMode = 'list';
     player.setMode(nextMode);
   }
+
+  function handleQueue(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    onqueue?.();
+  }
+
+  function handleQueueKeydown(event) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    handleQueue(event);
+  }
 </script>
 
 <div class="am-play-row">
@@ -60,7 +71,7 @@
   </button>
 
   <!-- Queue -->
-  <button class="am-ctrl-btn" class:active={showQueue} onclick={() => { onqueue?.(); }} aria-label="播放列表">
+  <button class="am-ctrl-btn" class:active={showQueue} onpointerup={handleQueue} onkeydown={handleQueueKeydown} aria-label="播放列表">
     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
       <path stroke-linecap="round" d="M4 5h16M4 11h16M4 17h10"/>
       <path fill="currentColor" d="m4 12l4 3l-4 3z"/>
@@ -127,5 +138,6 @@
 
   .am-play-row svg {
     transform: scale(1.4);
+    pointer-events: none;
   }
 </style>

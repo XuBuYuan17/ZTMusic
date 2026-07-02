@@ -14,23 +14,27 @@
 src/
 ├── lib/
 │   ├── components/
-│   │   ├── LyricsPage.svelte    (旧版，保留兼容)
-│   │   ├── LyricsPageV2.svelte  (新版入口，路由分发)
-│   │   ├── MobilePlayer.svelte  (移动端独立组件)
-│   │   └── PCPlayer.svelte      (PC端独立组件)
+│   │   ├── LyricsPageV2.svelte      (新版入口，路由分发)
+│   │   ├── AppleMusicPlayer.svelte  (移动端独立播放器)
+│   │   ├── PCPlayer.svelte          (PC端独立播放器)
+│   │   ├── SongContextStrip.svelte  (歌曲相关内容条)
+│   │   └── MobileApp.svelte         (移动端外壳)
+│   ├── composables/
+│   │   └── useLyrics.js             (歌词逻辑共享)
 │   └── utils/
-│       └── responsive.js         (响应式检测工具)
-├── app.css                       (基础样式)
-├── app-pc.css                    (PC端独立样式)
-└── app-mobile.css                (移动端独立样式)
+│       └── responsive.js            (响应式检测工具)
+├── app.css                          (基础样式)
+├── app-pc.css                       (PC端独立样式)
+└── app-mobile.css                   (移动端独立样式)
 ```
 
 ## 核心改进
 
 ### 1. 组件分离
-- **MobilePlayer.svelte**: 只包含移动端逻辑，Apple Music 风格布局
+- **AppleMusicPlayer.svelte**: 只包含移动端逻辑，Apple Music 风格布局
 - **PCPlayer.svelte**: 只包含PC端逻辑，两列布局
 - **LyricsPageV2.svelte**: 根据设备类型自动选择组件
+- **SongContextStrip.svelte**: 复用的相似歌曲/歌单/热评组件
 
 ### 2. CSS 隔离
 - `app.css`: 基础样式（全屏、动画、通用变量）
@@ -56,23 +60,29 @@ import { responsive, isMobileDevice } from '$lib/utils/responsive.js'
 ✅ **歌词字体大小不一致** - 独立的样式文件，完全隔离
 ✅ **网格布局冲突** - 移动端/PC端完全分离，互不影响
 
-## 下一步计划
+## 已完成的迁移计划
 
-1. 将完整的歌词逻辑迁移到 V2 版本
-2. 将 context strip 等功能迁移到对应组件
-3. 逐步废弃旧版 `LyricsPage.svelte`
-4. 把共享逻辑提取到 composables
+✅ **将完整的歌词逻辑迁移到 V2 版本** — `AppleMusicPlayer` 与 `PCPlayer` 统一使用 `useLyrics()`
+✅ **将 context strip 等功能迁移到对应组件** — 新增 `SongContextStrip.svelte`，在 `PCPlayer` 中复用
+✅ **逐步废弃旧版 `LyricsPage.svelte`** — 已删除，入口统一为 `LyricsPageV2.svelte`
+✅ **把共享逻辑提取到 composables** — 新增 `src/lib/composables/useLyrics.js`
 
 ## 文件清单
 
 新增文件：
 - `src/lib/utils/responsive.js` - 响应式检测工具
-- `src/lib/components/MobilePlayer.svelte` - 移动端播放器组件
+- `src/lib/components/AppleMusicPlayer.svelte` - 移动端播放器组件
 - `src/lib/components/PCPlayer.svelte` - PC端播放器组件
 - `src/lib/components/LyricsPageV2.svelte` - 新版入口组件
+- `src/lib/components/SongContextStrip.svelte` - 歌曲相关内容条
+- `src/lib/composables/useLyrics.svelte.js` - 歌词共享逻辑
 - `src/app-pc.css` - PC端独立样式
 - `src/app-mobile.css` - 移动端独立样式
 - `docs/RESPONSIVE_REFACTOR.md` - 本文档
 
+删除文件：
+- `src/lib/components/LyricsPage.svelte` - 旧版歌词页（已迁移到 V2）
+
 修改文件：
 - `src/main.js` - 导入新样式文件
+- `src/App.svelte` - 使用新版移动端外壳与歌词页

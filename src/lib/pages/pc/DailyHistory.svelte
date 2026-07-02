@@ -1,23 +1,45 @@
 <script>
   import { player } from '../../stores/player.svelte.js'
+  import { auth } from '../../stores/auth.svelte.js'
+  import { ncm } from '../../api/client.js'
+  import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.js'
   import { formatDuration } from '../../format.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
   import SongListActions from '../../components/SongListActions.svelte'
 
-  let {
-    dailyHistoryDates = [],
-    dailyHistorySongs = [],
-    dailyHistoryLoading = false,
-    selectedDailyDate = '',
-    onSelectDate,
-    onPlayAll,
-    onPlayTrack,
-    onOpenArtist,
-    onOpenAlbum,
-  } = $props()
+  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
+  let { onOpenArtist, onOpenAlbum } = $props()
+
+  let dailyHistoryDates = $state([])
+  let dailyHistorySongs = $state([])
+  let dailyHistoryLoading = $state(false)
+  let error = $state('')
+  let selectedDailyDate = $state('')
+  let _requestId = 0
   let songActions = $state(null)
+
+  async function load() {
+    const rid = ++_requestId; dailyHistoryLoading = true; error = ''
+    try { const d = await loadDailyHistoryData(ncm); if (rid !== _requestId) return; dailyHistoryDates = d.dates; selectedDailyDate = d.selectedDate; dailyHistorySongs = d.songs }
+    catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    finally { if (rid === _requestId) dailyHistoryLoading = false }
+  }
+
+  async function loadDetail(date) {
+    if (!date) return; const rid = ++_requestId; selectedDailyDate = date; dailyHistoryLoading = true
+    try { const s = await loadDailyHistoryDetailData(ncm, date); if (rid === _requestId) dailyHistorySongs = s }
+    finally { if (rid === _requestId) dailyHistoryLoading = false }
+  }
+
+  function playAll() { if (dailyHistorySongs.length) player.playQueue(dailyHistorySongs, 0) }
+  function playTrack(track) {
+    const idx = dailyHistorySongs.findIndex(t => t.id === track.id)
+    if (idx >= 0) player.playQueue(dailyHistorySongs, idx); else player.playTrack(track, 0)
+  }
+
+  $effect(() => { if (auth.isLoggedIn) load() })
 
   function artistsOf(track) {
     return track.artists || track.ar || []
@@ -34,7 +56,7 @@
   function handleSongKeydown(event, track) {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onPlayTrack?.(track)
+      playTrack(track)
     }
   }
 
@@ -66,7 +88,7 @@
       </div>
     </div>
     {#if dailyHistorySongs.length > 0}
-      <button class="daily-hero-play" onclick={onPlayAll}>播放全部</button>
+    <button class="daily-hero-play" onclick={playAll}>播放全部</button>
     {/if}
   </section>
 
@@ -83,7 +105,7 @@
       <div class="daily-date-scroll">
         {#each dailyHistoryDates as item (item.date || item)}
           {@const date = item.date || item}
-          <button class="daily-date-chip" class:active={selectedDailyDate === date} onclick={() => onSelectDate?.(date)}>
+            <button class="daily-date-chip" class:active={selectedDailyDate === date} onclick={() => loadDetail(date)}>
             <span>{formatDateLabel(date)}</span>
             {#if item.weekday}<small>{item.weekday}</small>{/if}
           </button>
@@ -122,11 +144,11 @@
               <div class="daily-section-eyebrow">Songs</div>
               <h2>{selectedDailyDate || '每日推荐'}</h2>
             </div>
-            <button onclick={onPlayAll}>播放全部</button>
+            <button onclick={playAll}>播放全部</button>
           </div>
           <div class="daily-song-list">
             {#each dailyHistorySongs as track, i (track.id)}
-              <div class="daily-song-row" class:active={player.id === track.id} style={`--row-index:${Math.min(i, 12)}`} role="button" tabindex="0" onclick={() => onPlayTrack?.(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
+              <div class="daily-song-row" class:active={player.id === track.id} style={`--row-index:${Math.min(i, 12)}`} role="button" tabindex="0" onclick={() => playTrack(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
                 <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
                 {#if coverOf(track)}
                   <img class="daily-song-cover" src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -160,6 +182,10 @@
         <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">需要登录后获取</p>
       </div>
     {/if}
+  {#if error}
+    <ErrorBlock {error} onRetry={load} />
+  {/if}
+
   <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>
 

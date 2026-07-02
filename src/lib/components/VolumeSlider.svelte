@@ -1,11 +1,15 @@
 <script>
+  import Icon from './ui/Icon.svelte'
+
   let {
     volume = 0.8,
     disabled = false,
+    variant = 'default',
     onvolumechange,
   } = $props()
 
   let volPct = $derived(Math.max(0, Math.min(100, volume * 100)))
+  let isAppleMusic = $derived(variant === 'apple-music')
   let dragging = $state(false)
   let trackEl = $state(null)
 
@@ -49,25 +53,14 @@
   }
 </script>
 
-<div class="vs">
+<div class="vs" class:apple-music={isAppleMusic}>
   <button class="vs-icon" onclick={toggleMute} aria-label={volume === 0 ? '取消静音' : '静音'} disabled={disabled}>
     {#if volume === 0}
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <line x1="23" y1="9" x2="17" y2="15"/>
-        <line x1="17" y1="9" x2="23" y2="15"/>
-      </svg>
+      <Icon name="volume-off" size={isAppleMusic ? 21 : 19} strokeWidth={2.5} />
     {:else if volume < 0.5}
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-      </svg>
+      <Icon name="volume" size={isAppleMusic ? 21 : 19} strokeWidth={2.5} />
     {:else}
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-      </svg>
+      <Icon name="volume-full" size={isAppleMusic ? 21 : 19} strokeWidth={2.5} />
     {/if}
   </button>
   <div
@@ -159,5 +152,46 @@
     transition: opacity 0.15s;
     pointer-events: none;
     box-shadow: 0 0 4px rgba(0,0,0,0.3);
+  }
+
+  .vs.apple-music {
+    width: min(100%, 300px);
+    gap: 10px;
+    color: rgba(255, 255, 255, 0.78);
+  }
+  .vs.apple-music .vs-icon {
+    opacity: 0.9;
+    color: rgba(255, 255, 255, 0.86);
+    padding: 0;
+  }
+  .vs.apple-music .vs-track {
+    flex: 1;
+    height: 8px;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .vs.apple-music .vs-track:hover,
+  .vs.apple-music .vs-track.dragging {
+    height: 8px;
+  }
+  .vs.apple-music .vs-fill {
+    background: #fff;
+    border-radius: inherit;
+  }
+  .vs.apple-music .vs-thumb {
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    transform: translate(-50%, -50%) scale(0.62);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+  .vs.apple-music .vs-track:hover .vs-thumb,
+  .vs.apple-music .vs-track.dragging .vs-thumb,
+  .vs.apple-music .vs-track:focus-visible .vs-thumb {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
   }
 </style>

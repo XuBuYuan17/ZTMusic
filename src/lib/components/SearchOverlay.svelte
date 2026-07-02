@@ -5,6 +5,7 @@
   import { coverUrl } from '../utils/image.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
+  import Icon from './ui/Icon.svelte'
 
   let {
     show = false,
@@ -139,16 +140,16 @@
           <strong>快速搜索</strong>
         </div>
         <button type="button" class="search-overlay__close" aria-label="关闭搜索" onclick={onClose}>
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <Icon name="close" size={18} />
         </button>
       </div>
       <div class="search-overlay__head">
         <label class="search-overlay__input-wrap" aria-label="搜索音乐">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <Icon name="search" size={18} />
           <input bind:this={inputEl} bind:value={keyword} oninput={handleInput} onkeydown={handleKeydown} placeholder="搜索歌曲" />
           {#if keyword}
             <button type="button" class="search-overlay__clear" aria-label="清空搜索" onclick={() => { keyword = ''; results = { songs: [], artists: [], playlists: [] }; error = '' }}>
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <Icon name="close" size={15} />
             </button>
           {/if}
         </label>

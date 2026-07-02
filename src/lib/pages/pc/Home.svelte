@@ -1,29 +1,62 @@
 <script>
   import { slide } from 'svelte/transition'
   import { auth } from '../../stores/auth.svelte.js'
+  import { player } from '../../stores/player.svelte.js'
+  import { ncm } from '../../api/client.js'
+  import { loadHomeData } from '../../services/home.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
+  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
 
   let {
-    refreshKey = 0,
-    loading = false,
-    recentTracks = [],
-    userPlaylists = [],
-    subcount = null,
-    likedPlaylist = null,
-    weeklyPlaylist = null,
-    recommendPlaylists = [],
     onNavigate,
     onOpenLogin,
     onOpenPlaylist,
-    onPlayRecentTrack,
     onOpenArtist,
     onOpenAlbum,
     onOpenFollows,
   } = $props()
 
+  let loading = $state(true)
+  let error = $state('')
+  let recentTracks = $state([])
+  let userPlaylists = $state([])
+  let subcount = $state(null)
+  let likedPlaylist = $state(null)
+  let weeklyPlaylist = $state(null)
+  let recommendPlaylists = $state([])
+
   let songActions = $state(null)
+  let _requestId = 0
+
+  async function load() {
+    const rid = ++_requestId; loading = true; error = ''
+    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
+    try {
+      if (!auth.isLoggedIn) return
+      const data = await loadHomeData(ncm, auth.user)
+      if (rid !== _requestId) return
+      userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
+      weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks; recommendPlaylists = data.recommendPlaylists
+      data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
+      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; if (v.recentTracks.length) recentTracks = v.recentTracks }).catch(() => {})
+      data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
+    } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    finally { if (rid === _requestId) loading = false }
+  }
+
+  function playRecentTrack(track) {
+    const idx = recentTracks.findIndex(t => t.id === track.id)
+    if (idx >= 0) player.playQueue(recentTracks, idx)
+    else player.playTrack(track, 0)
+  }
+
+  $effect(() => { if (auth.isLoggedIn) load() })
+
+  $effect(() => {
+    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = [] }
+  })
 
   function handleCardKeydown(event, action) {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -175,7 +208,7 @@
           {:else if recentTracks.length > 0}
             <div class="home-library-grid">
               {#each recentTracks.slice(0, 8) as track, i (track.id)}
-                <button class="home-library-item" onclick={() => onPlayRecentTrack?.(track)} {...songActions?.bindRow(track)}>
+                <button class="home-library-item" onclick={() => playRecentTrack(track)} {...songActions?.bindRow(track)}>
                   {#if coverOf(track)}
                     <img src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
@@ -222,5 +255,9 @@
       <button class="home-logged-out-btn" onclick={onOpenLogin}>立即登录</button>
     </div>
   {/if}
+  {#if error}
+    <ErrorBlock {error} onRetry={load} />
+  {/if}
+
   <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>

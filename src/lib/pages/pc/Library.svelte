@@ -1,13 +1,26 @@
 <script>
   import { auth } from '../../stores/auth.svelte.js'
+  import { ncm } from '../../api/client.js'
+  import { loadLibraryData } from '../../services/home.js'
   import { coverUrl } from '../../utils/image.js'
+  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
-  let {
-    libraryPlaylists = [],
-    libraryLoading = false,
-    onOpenLogin,
-    onOpenPlaylist,
-  } = $props()
+  let { onOpenLogin, onOpenPlaylist } = $props()
+
+  let libraryPlaylists = $state([])
+  let libraryLoading = $state(false)
+  let error = $state('')
+  let _requestId = 0
+
+  async function load() {
+    const rid = ++_requestId; libraryLoading = true; libraryPlaylists = []; error = ''
+    if (!auth.isLoggedIn) { libraryLoading = false; return }
+    try { const p = await loadLibraryData(ncm, auth.user); if (rid === _requestId) libraryPlaylists = p }
+    catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    finally { if (rid === _requestId) libraryLoading = false }
+  }
+
+  $effect(() => { if (auth.isLoggedIn) load() })
 </script>
 
 <div class="library-page fade-in">
@@ -27,7 +40,9 @@
         <span class="library-count">{libraryPlaylists.length} 个歌单</span>
       </div>
     </div>
-    {#if libraryLoading && libraryPlaylists.length === 0}
+    {#if error}
+      <ErrorBlock {error} onRetry={load} />
+    {:else if libraryLoading && libraryPlaylists.length === 0}
       <div class="library-grid" aria-label="加载收藏歌单">
         {#each Array(10) as _}
           <div class="library-card library-card-skeleton">

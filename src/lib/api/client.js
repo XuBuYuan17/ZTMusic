@@ -32,7 +32,14 @@ async function getTauriInvoke() {
   if (!tauriInvokePromise) {
     tauriInvokePromise = import('@tauri-apps/api/core')
       .then(mod => mod.invoke)
-      .catch(() => null)
+      .catch(() => {
+        // ponytail: 动态导入失败时直接从 __TAURI_INTERNALS__ 拿 invoke
+        if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+          const invokeFn = window.__TAURI_INTERNALS__.invoke
+          if (typeof invokeFn === 'function') return invokeFn
+        }
+        return null
+      })
   }
   return tauriInvokePromise
 }
@@ -299,7 +306,7 @@ export const ncm = {
     return request('/toplist')
   },
   toplistDetail(id, limit = 50) {
-    return request('/toplist/detail', { id, limit })
+    return request('/top/list', { id, limit })
   },
 
   topPlaylist(cat = '全部', limit = 20, offset = 0) {

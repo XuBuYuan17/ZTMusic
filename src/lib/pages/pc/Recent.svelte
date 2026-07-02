@@ -1,20 +1,38 @@
 <script>
   import { auth } from '../../stores/auth.svelte.js'
   import { player } from '../../stores/player.svelte.js'
+  import { ncm } from '../../api/client.js'
+  import { loadRecentData } from '../../services/home.js'
   import { formatDuration } from '../../format.js'
   import { coverUrl } from '../../utils/image.js'
   import SongListActions from '../../components/SongListActions.svelte'
+  import { getLocalHistory } from '../../stores/player.svelte.js'
+  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
-  let {
-    recentTracks = [],
-    recentLoading = false,
-    onPlayAll,
-    onPlayTrack,
-    onOpenArtist,
-    onOpenAlbum,
-  } = $props()
+  let { onOpenArtist, onOpenAlbum } = $props()
 
+  let recentTracks = $state([])
+  let recentLoading = $state(false)
+  let error = $state('')
   let songActions = $state(null)
+  let _requestId = 0
+
+  async function load() {
+    const rid = ++_requestId; recentLoading = true; recentTracks = []; error = ''
+    try {
+      const tracks = await loadRecentData(ncm, auth.user, getLocalHistory)
+      if (rid === _requestId) recentTracks = tracks
+    } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    finally { if (rid === _requestId) recentLoading = false }
+  }
+
+  function playTrack(track) {
+    const idx = recentTracks.findIndex(t => t.id === track.id)
+    if (idx >= 0) player.playQueue(recentTracks, idx); else player.playTrack(track, 0)
+  }
+  function playAll() { if (recentTracks.length) player.playQueue(recentTracks, 0) }
+
+  $effect(() => { if (auth.isLoggedIn) load() })
 
   function artistsOf(track) {
     return track.artists || track.ar || []
@@ -53,7 +71,7 @@
     </table>
   {:else if recentTracks.length > 0}
     <div class="recent-actions">
-      <button class="play-all-btn" onclick={onPlayAll}>
+      <button class="play-all-btn" onclick={playAll}>
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         播放全部
       </button>
@@ -71,7 +89,7 @@
       </thead>
       <tbody>
         {#each recentTracks as track, i (track.id)}
-          <tr class:active={player.id === track.id} onclick={() => onPlayTrack?.(track)} {...songActions?.bindRow(track)}>
+          <tr class:active={player.id === track.id} onclick={() => playTrack(track)} {...songActions?.bindRow(track)}>
             <td class="col-num">{i + 1}</td>
             <td class="col-cover">
               {#if track.picUrl}
@@ -108,5 +126,9 @@
       <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">去首页听听歌吧</p>
     </div>
   {/if}
+  {#if error}
+    <ErrorBlock {error} onRetry={load} />
+  {/if}
+
   <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
 </div>

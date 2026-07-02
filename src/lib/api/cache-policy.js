@@ -26,7 +26,8 @@ const CACHE_TTL = {
   '/user/record': 5 * MINUTE,
   '/user/subcount': 5 * MINUTE,
   '/toplist': 60 * MINUTE,
-  '/toplist/detail': 30 * MINUTE,
+  '/toplist/detail': 30 * MINUTE, // 注意：实际端点为 /top/list
+  '/top/list': 30 * MINUTE,
   '/history/recommend/songs': 15 * MINUTE,
   '/history/recommend/songs/detail': 15 * MINUTE,
 }

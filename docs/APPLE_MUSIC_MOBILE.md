@@ -60,19 +60,17 @@
 
 ## 🚀 启用方式
 
-在 `src/App.svelte` 中替换导入：
-
-```diff
-- import LyricsPage from './lib/components/LyricsPage.svelte';
-+ import LyricsPage from './lib/components/LyricsPageV2.svelte';
-```
-
-或者临时测试：
+`src/App.svelte` 已默认使用 `LyricsPageV2.svelte` 作为全屏歌词页入口：
 
 ```svelte
-<!-- 开发中临时启用 V2 测试 -->
-<LyricsPageV2 show={showPlayer} onClose={() => showPlayer = false} />
+import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
 ```
+
+`LyricsPageV2` 会根据 `responsive.isMobile` 自动渲染：
+- 移动端 → `AppleMusicPlayer.svelte`
+- PC 端 → `PCPlayer.svelte`
+
+旧版 `LyricsPage.svelte` 已移除。
 
 ## 🎯 视觉参数参考
 

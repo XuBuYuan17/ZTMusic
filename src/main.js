@@ -8,6 +8,8 @@ viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewpo
 const mobileViewportQuery = window.matchMedia('(max-width: 760px)')
 
 function isMobileRuntime() {
+  // ponytail: ?mobile 参数强制启用手持端布局
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mobile')) return true
   return mobileViewportQuery.matches
 }
 

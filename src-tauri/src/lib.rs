@@ -11,7 +11,7 @@ use std::sync::Mutex;
 use tauri::Manager;
 
 pub(crate) const API_TIMEOUT_SECS: u64 = 15;
-pub(crate) const APP_USER_AGENT: &str = "zheting/0.1.0";
+pub(crate) const APP_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) zheting/0.1.0 Chrome/120.0.0.0 Safari/537.36";
 const NATIVE_MEDIA_PLUGIN_NAME: &str = "nativeMedia";
 
 pub(crate) struct AppState {
@@ -48,6 +48,7 @@ pub(crate) struct NcmResponse {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub(crate) struct NativeMetadataPayload {
     pub(crate) title: String,
     pub(crate) artist: String,
@@ -57,6 +58,7 @@ pub(crate) struct NativeMetadataPayload {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub(crate) struct NativePlaybackPayload {
     pub(crate) playing: bool,
     pub(crate) position: f64,

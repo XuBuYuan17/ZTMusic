@@ -1,58 +1,25 @@
 <script>
   import { player } from '../stores/player.svelte.js';
   import { auth } from '../stores/auth.svelte.js';
-  import { ncm } from '../api/client.js';
   import { coverUrl } from '../utils/image.js';
-  import { parseLyricResponse, parseYrc } from '../utils/lyrics.js';
+  import { useLyrics } from '../composables/useLyrics.svelte.js';
   import PlaybackControls from './PlaybackControls.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
+  import SongContextStrip from './SongContextStrip.svelte';
 
   let { onClose, onOpenArtist, showLocalQueue = false, toggleLocalQueue } = $props();
+
+  const lyricState = useLyrics();
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
   let liked = $state(false);
   let lyricsEl = $state(null);
-  let lyrics = $state([]);
-  let _lyricReqId = 0;
-
-  let highlightIndex = $derived.by(() => {
-    if (lyrics.length === 0) return -1;
-    const now = player.currentTime;
-    for (let i = lyrics.length - 1; i >= 0; i--) if (now >= lyrics[i].time) return i;
-    return -1;
-  });
-
-  function splitWords(text = '') {
-    return (text || '').trim().split(/\s+/).map(w => w.trim()).filter(Boolean);
-  }
-
-  async function fetchLyrics() {
-    const id = player.id;
-    if (!id) { lyrics = []; return; }
-    const reqId = ++_lyricReqId;
-    try {
-      const res = await ncm.lyric(id).catch(() => null);
-      if (reqId !== _lyricReqId || player.id !== id) return;
-      const base = parseLyricResponse(res || {});
-      lyrics = base.lines.map(l => ({
-        time: l.time, text: l.content,
-        translation: l.translation,
-        words: l.content ? splitWords(l.content) : [],
-      }));
-    } catch {}
-  }
-
-  $effect(() => {
-    player.id;
-    lyrics = [];
-    fetchLyrics();
-  });
 
   $effect(() => {
     if (!lyricsEl) return;
-    const idx = highlightIndex;
+    const idx = lyricState.highlightIndex;
     if (idx < 0) return;
     const lines = lyricsEl.querySelectorAll('.ly-line');
     const target = lines[idx];
@@ -117,15 +84,15 @@
     </div>
   </div>
 
-  <!-- RIGHT COLUMN: Lyrics -->
+  <!-- RIGHT COLUMN: Lyrics + Context -->
   <div class="ly-right">
     <div class="ly-right-panel">
       <div class="ly-lyrics-scroll" bind:this={lyricsEl}>
         <div class="ly-lyrics-inner">
-          {#if lyrics.length > 0}
-            {#each lyrics as line, i}
-              <button class="ly-line" class:active={i === highlightIndex} class:sung={i < highlightIndex}
-                aria-current={i === highlightIndex ? 'true' : undefined}
+          {#if lyricState.lyrics.length > 0}
+            {#each lyricState.lyrics as line, i}
+              <button class="ly-line" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
+                aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
                 onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))); }}>
                 <span class="ly-line-text">{line.text || '...'}</span>
                 {#if line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
@@ -136,6 +103,7 @@
           {/if}
         </div>
       </div>
+      <SongContextStrip variant="desktop" {onOpenArtist} {onClose} />
     </div>
   </div>
 

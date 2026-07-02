@@ -4,6 +4,7 @@
   import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
   import ArtistNames from './ArtistNames.svelte'
+  import Icon from './ui/Icon.svelte'
 
   let { show = false, onClose, onOpenArtist, mobileVisible = false } = $props()
 
@@ -34,6 +35,30 @@
     }
   }
 
+  function scrollToCurrent(behavior = 'smooth') {
+    if (!queueListEl) return
+    const item = queueListEl.querySelector('.queue-item.active')
+    if (!item) return
+    const container = queueListEl
+    const itemTop = item.offsetTop - container.offsetTop
+    const itemHeight = item.offsetHeight
+    const containerHeight = container.clientHeight
+    const centerTarget = itemTop - containerHeight / 2 + itemHeight / 2
+    if (itemTop < containerHeight / 2) {
+      container.scrollTo({ top: 0, behavior })
+      return
+    }
+    container.scrollTo({ top: centerTarget, behavior })
+  }
+
+  let queueListEl = $state(null)
+
+  $effect(() => {
+    if (show && player.queue.length) {
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollToCurrent(mobileVisible ? 'auto' : 'smooth')))
+    }
+  })
+
   function coverOf(track) {
     return extractCover(track)
   }
@@ -50,17 +75,15 @@
           清除
         </button>
         <button class="queue-close-btn" onclick={onClose} aria-label="关闭">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <Icon name="close" size={18} />
         </button>
       </div>
     </div>
-    <div class="queue-list">
+    <div class="queue-list" bind:this={queueListEl}>
       {#if player.queue.length === 0}
         <div class="queue-empty">
           <div class="queue-empty-icon">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-            </svg>
+            <Icon name="music" size={48} strokeWidth={1.2} />
           </div>
           <div class="queue-empty-text">暂无播放列表</div>
         </div>
@@ -84,9 +107,7 @@
                 />
               {:else}
                 <div class="queue-item-cover-placeholder">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                  </svg>
+                  <Icon name="music" size={20} strokeWidth={1.5} />
                 </div>
               {/if}
             </div>
@@ -242,6 +263,11 @@
 
   .queue-item.active {
     color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  .queue-item.active .queue-item-title {
+    font-weight: 800;
   }
 
   .queue-item-cover {
@@ -326,25 +352,44 @@
     }
 
     .queue-panel-backdrop.queue-panel-mobile-visible {
-      display: none;
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: transparent;
     }
 
     .queue-panel.queue-panel-mobile-visible {
       display: flex;
-      position: relative;
-      width: 100%;
-      border-radius: 0;
-      border: none;
-      background: transparent;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-      box-shadow: none;
-      animation: none;
+      position: fixed;
+      left: 0;
+      right: 0;
       top: auto;
-      right: auto;
-      bottom: auto;
-      left: auto;
-      height: 100%;
+      bottom: 0;
+      z-index: 101;
+      width: 100%;
+      height: 68vh;
+      max-height: 520px;
+      border-radius: 18px 18px 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: var(--bg-surface);
+      backdrop-filter: blur(40px) saturate(180%);
+      -webkit-backdrop-filter: blur(40px) saturate(180%);
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+      animation: queue-slide-up 0.32s var(--ease-out);
+    }
+
+    .queue-panel.queue-panel-mobile-visible .queue-list {
+      padding: calc(50% - 32px) 0;
+      scroll-padding-block: 50%;
+    }
+
+    .queue-panel.queue-panel-mobile-visible .queue-item.active {
+      margin: 4px 10px;
+      width: calc(100% - 20px);
+      border-radius: 14px;
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
     }
   }
 

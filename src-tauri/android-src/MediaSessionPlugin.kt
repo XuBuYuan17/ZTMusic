@@ -18,6 +18,7 @@ import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.IBinder
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -98,8 +99,15 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
     override fun load(webView: android.webkit.WebView) {
         super.load(webView)
         createNotificationChannel()
+        requestNotificationPermissionIfNeeded()
         initMediaSession()
         registerMediaReceiver()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
     }
 
     private fun initMediaSession() {

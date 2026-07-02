@@ -2,7 +2,7 @@
  * 原生媒体会话管理
  * - Android 通知栏（通过 Tauri Kotlin Plugin）
  * - Linux 桌面 MPRIS（通过 Tauri Rust 后端）
- * - Windows/macOS 桌面系统媒体控件（Web Media Session API）
+ * - Windows/macOS 桌面系统媒体控件（Web Media Session API，由 PlayerState 直接维护）
  *
  * 职责：仅处理原生平台媒体控件的双向同步，不涉及播放逻辑。
  */
@@ -41,7 +41,7 @@ function isTauriWindows() {
 }
 
 function shouldUseNativeBridge() {
-  return isTauriAndroid() || isTauriLinux() || isTauriWindows()
+  return isTauriAndroid() || isTauriLinux()
 }
 
 function invokeNative(command, payload, context) {
@@ -91,6 +91,7 @@ export async function initNativeMedia(options = {}) {
   }
 
   // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
+  // Windows/macOS 使用 Web Media Session API，不走 Tauri 原生桥，避免双注册媒体会话。
   if (shouldUseNativeBridge() && _tauriInvoke && !_nativeMediaPollTimer) {
     _nativeMediaPollTimer = setInterval(() => {
       pollNativeAction()
@@ -157,7 +158,7 @@ export function syncNativeMedia() {
       }, 'updatePlaybackState')
     }
   }
-  // Windows/macOS: navigator.mediaSession（Web Media Session API）由浏览器自动处理
+  // Windows/macOS: navigator.mediaSession（Web Media Session API）由 PlayerState 直接处理。
 }
 
 /** 清理资源 */

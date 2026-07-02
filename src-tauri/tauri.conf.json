@@ -13,10 +13,8 @@
     "windows": [
       {
         "title": "哲听",
-        "width": 1100,
-        "height": 720,
-        "minWidth": 900,
-        "minHeight": 600,
+        "width": 390,
+        "height": 844,
         "resizable": true,
         "fullscreen": false
       }

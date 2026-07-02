@@ -1,20 +1,22 @@
 <script>
   import { player } from '../stores/player.svelte.js';
-  import { ncm } from '../api/client.js';
   import { coverUrl } from '../utils/image.js';
-  import { parseLyricResponse, parseYrc } from '../utils/lyrics.js';
+  import { useLyrics } from '../composables/useLyrics.svelte.js';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
-  import VolumeSlider from './VolumeSlider.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
+  import Icon from './ui/Icon.svelte';
 
   let { onClose, onOpenArtist, showLocalQueue = false, toggleLocalQueue } = $props();
 
   let lyricsMode = $state(false);
+  let showMoreMenu = $state(false);
   let entered = $state(false);
   let closing = $state(false);
   let lyricsEl = $state(null);
+
+  const lyricState = useLyrics();
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
 
@@ -28,58 +30,10 @@
     setTimeout(() => { onClose?.(); }, 220);
   }
 
-  // ---- Lyrics ----
-  let lyrics = $state([]);
-  let yrcLines = $state([]);
-  let _lyricReqId = 0;
-
-  let highlightIndex = $derived.by(() => {
-    if (lyrics.length === 0) return -1;
-    const now = player.currentTime;
-    for (let i = lyrics.length - 1; i >= 0; i--) if (now >= lyrics[i].time) return i;
-    return -1;
-  });
-
-  function splitWords(text = '') {
-    return (text || '').trim().split(/\s+/).map(w => w.trim()).filter(Boolean);
-  }
-
-  async function fetchLyrics() {
-    const id = player.id;
-    if (!id) { lyrics = []; yrcLines = []; return; }
-    const reqId = ++_lyricReqId;
-    try {
-      const res = await ncm.lyric(id).catch(() => null);
-      if (reqId !== _lyricReqId || player.id !== id) return;
-      const base = parseLyricResponse(res || {});
-      lyrics = base.lines.map(l => ({
-        time: l.time, text: l.content,
-        translation: l.translation,
-        words: l.content ? splitWords(l.content) : [],
-      }));
-    } catch {}
-    try {
-      const newRes = await ncm.lyricNew(id).catch(() => null);
-      if (reqId !== _lyricReqId || player.id !== id) return;
-      if (newRes?.yrc?.lyric) {
-        const yrc = parseYrc(newRes.yrc.lyric);
-        if (yrc.length > 0) yrcLines = yrc;
-      }
-    } catch {}
-  }
-
-  // ---- Fetch lyrics on mount and when track changes ----
-  $effect(() => {
-    const id = player.id;
-    if (!id) { lyrics = []; yrcLines = []; return; }
-    lyrics = []; yrcLines = [];
-    fetchLyrics();
-  });
-
   // ---- Auto-scroll lyrics ----
   $effect(() => {
     if (!lyricsMode || !lyricsEl) return;
-    const idx = highlightIndex;
+    const idx = lyricState.highlightIndex;
     if (idx < 0) return;
     const lines = lyricsEl.querySelectorAll('.am-lyric-line');
     const target = lines[idx];
@@ -93,7 +47,41 @@
   function toggleLyricsMode() {
     lyricsMode = !lyricsMode;
   }
+
+  function toggleMoreMenu() {
+    showMoreMenu = !showMoreMenu;
+  }
+
+  function closeMoreMenu() {
+    showMoreMenu = false;
+  }
+
+  function handleToggleLocalQueue() {
+    showMoreMenu = false;
+    toggleLocalQueue?.();
+  }
+
+  const moreMenuItems = [
+    { label: '收藏', icon: 'heart' },
+    { label: '分享', icon: 'share' },
+    { label: '专辑', icon: 'music' },
+    { label: '歌手', icon: 'user' },
+    { label: '音质', icon: 'settings' },
+    { label: '相似歌单', icon: 'list' },
+    { label: '播放器主题', icon: 'sun' },
+  ];
 </script>
+
+{#snippet lyricLine(line, i)}
+  <button class="am-lyric-line" class:active={i === lyricState.highlightIndex} class:before={i < lyricState.highlightIndex}
+    aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
+    onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))); }}>
+    <span class="am-lyric-text">{line.text || '...'}</span>
+    {#if line.translation}
+      <span class="am-lyric-trans">{line.translation}</span>
+    {/if}
+  </button>
+{/snippet}
 
 <div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing}>
 
@@ -103,10 +91,22 @@
     <div class="am-bg-overlay"></div>
   </div>
 
-  <!-- Close button (top-right) -->
-  <button class="am-close-btn" onclick={handleClose} aria-label="关闭">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
+  <div class="am-more-shell">
+    <button class="am-more-btn" class:active={showMoreMenu} type="button" aria-label="更多操作" aria-expanded={showMoreMenu} onclick={toggleMoreMenu}>
+      <span class="am-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+    {#if showMoreMenu}
+      <div class="am-more-backdrop" role="presentation" onclick={closeMoreMenu}></div>
+      <div class="am-more-menu" role="menu" aria-label="更多操作菜单">
+        {#each moreMenuItems as item}
+          <button class="am-more-item" type="button" role="menuitem" onclick={closeMoreMenu}>
+            <Icon name={item.icon} size={18} strokeWidth={1.8} />
+            <span>{item.label}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  </div>
 
   <!-- Flying cover -->
   <div class="am-flying-cover" role="button" tabindex="0"
@@ -136,25 +136,15 @@
     <div class="am-bottom-progress">
       <AppleMusicProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
     </div>
-    <AppleMusicControls onqueue={toggleLocalQueue} showQueue={showLocalQueue} />
-    <div class="am-volume-row">
-      <VolumeSlider volume={player.volume} disabled={!player.id} onvolumechange={(v) => player.setVolume(v)} />
-    </div>
+    <AppleMusicControls onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
   </div>
 
   <!-- Lyrics area -->
   <div class="am-lyrics-area" bind:this={lyricsEl}>
     <div class="am-lyrics-inner">
-      {#if lyrics.length > 0}
-        {#each lyrics as line, i}
-          <button class="am-lyric-line" class:active={i === highlightIndex} class:before={i < highlightIndex}
-            aria-current={i === highlightIndex ? 'true' : undefined}
-            onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))); }}>
-            <span class="am-lyric-text">{line.text || '...'}</span>
-            {#if line.translation}
-              <span class="am-lyric-trans">{line.translation}</span>
-            {/if}
-          </button>
+      {#if lyricState.lyrics.length > 0}
+        {#each lyricState.lyrics as line, i}
+          {@render lyricLine(line, i)}
         {/each}
       {:else}
         <div class="am-no-lyric">暂无歌词</div>
@@ -164,9 +154,7 @@
 
   <!-- Queue Panel -->
   {#if showLocalQueue}
-    <div class="am-queue-panel" role="presentation" onclick={(e) => e.stopPropagation()}>
-      <QueuePanel show={true} mobileVisible={true} onClose={toggleLocalQueue} onOpenArtist={onOpenArtist} />
-    </div>
+    <QueuePanel show={true} mobileVisible={true} onClose={handleToggleLocalQueue} onOpenArtist={onOpenArtist} />
   {/if}
 </div>
 
@@ -209,27 +197,115 @@
     background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.85) 100%);
   }
 
-  /* ---- Close Button ---- */
-  .am-close-btn {
+  /* ---- More Menu ---- */
+  .am-more-shell {
     position: absolute;
-    top: 22px;
-    right: 16px;
-    z-index: 15;
-    width: 36px;
-    height: 36px;
+    top: calc(14px + env(safe-area-inset-top));
+    right: 14px;
+    z-index: 40;
+  }
+
+  .am-more-btn {
+    position: relative;
+    z-index: 42;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255,255,255,0.12);
-    border: none;
     border-radius: 50%;
-    color: #fff;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    opacity: 0.48;
+    color: rgba(255,255,255,0.74);
+    background: rgba(255,255,255,0.045);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+    transition: transform 0.16s var(--ease-out), background 0.16s var(--ease-out), color 0.16s var(--ease-out), opacity 0.16s var(--ease-out);
   }
-  .am-close-btn:active {
-    background: rgba(255,255,255,0.25);
-    transform: scale(0.92);
+
+  .am-more-btn:hover,
+  .am-more-btn:focus-visible {
+    opacity: 0.88;
+    background: rgba(255,255,255,0.1);
+  }
+
+  .am-more-btn:active {
+    transform: scale(0.94);
+  }
+
+  .am-more-btn.active {
+    opacity: 1;
+    color: #fff;
+    background: rgba(255,255,255,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 24px rgba(0,0,0,0.18);
+  }
+
+  .am-more-dots {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+  }
+
+  .am-more-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px rgba(255,255,255,0.14);
+  }
+
+  .am-more-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 41;
+    background: transparent;
+  }
+
+  .am-more-menu {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 43;
+    width: auto;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    background: var(--bg-surface);
+    box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    animation: am-sheet-up 0.32s var(--ease-out);
+  }
+
+  .am-more-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 760;
+    text-align: left;
+    background: transparent;
+    transition: background 0.14s var(--ease-out), transform 0.14s var(--ease-out);
+  }
+
+  .am-more-item:active {
+    background: var(--bg-hover);
+    transform: scale(0.985);
+  }
+
+  @keyframes am-sheet-up {
+    from { opacity: 0; transform: translateY(22px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   /* ---- Flying Cover ---- */
@@ -242,10 +318,10 @@
     cursor: pointer;
     transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
     -webkit-tap-highlight-color: transparent;
-    top: calc(50% - 120px - 40px);
-    left: calc(50% - 120px);
-    width: 240px;
-    height: 240px;
+    top: calc(50% - 148px - 92px);
+    left: calc(50% - 148px);
+    width: 296px;
+    height: 296px;
   }
   .am-flying-cover:active {
     transform: scale(0.96) !important;
@@ -282,8 +358,8 @@
     position: absolute;
     z-index: 10;
     top: calc(50% + 120px - 40px + 16px);
-    left: calc(50% - 120px);
-    width: 240px;
+    left: calc(50% - 148px);
+    width: 296px;
     text-align: left;
     opacity: 0;
     transform: translateY(20px);
@@ -376,18 +452,6 @@
     width: 100%;
   }
 
-  .am-volume-row {
-    width: 100%;
-    padding: 6px 16px 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .am-volume-row .vs {
-    width: 100%;
-    max-width: 240px;
-  }
-
   /* ---- Lyrics Area ---- */
   .am-lyrics-area {
     position: absolute;
@@ -465,26 +529,4 @@
     padding: 40px 0;
   }
 
-  .am-queue-panel {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    max-height: 70%;
-    z-index: 30;
-    background: rgba(28,28,30,0.96);
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border-radius: 16px 16px 0 0;
-    display: flex;
-    animation: amQueueSlideUp 0.3s cubic-bezier(0.32, 0.94, 0.6, 1);
-    overflow: hidden;
-  }
-  @keyframes amQueueSlideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
-  }
-  .am-queue-panel > :global(*) {
-    width: 100%;
-  }
 </style>

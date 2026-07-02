@@ -5,6 +5,7 @@
   import { parseLyricResponse } from '../utils/lyrics.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
+  import Icon from './ui/Icon.svelte'
   let { onOpenSheet, onToggleQueue, showQueuePanel = false, onOpenArtist } = $props()
 
   let showVolume = $state(false)
@@ -149,11 +150,7 @@
     }
   }
 
-  // Iconamoon / Tabler fill-style SVG paths (viewBox 0 0 24 24)
-  const playPath = 'M19.5 14.598c2-1.155 2-4.041 0-5.196l-9-5.196C8.5 3.05 6 4.494 6 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598z'
-  const pausePath = 'M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2'
-  const prevPath = 'M2.5 9.402c-2 1.155-2 4.041 0 5.196l9 5.196c1.515.875 3.317.259 4.102-1.096l1.898 1.096c2 1.155 4.5-.288 4.5-2.598V6.804c0-2.31-2.5-3.753-4.5-2.598l-1.898 1.096c-.785-1.355-2.587-1.971-4.102-1.096zM16 7.382v9.237l2.5 1.443a1 1 0 0 0 1.5-.866V6.804a1 1 0 0 0-1.5-.866z'
-  const nextPath = 'M5.5 5.938a1 1 0 0 0-1.5.866v10.392a1 1 0 0 0 1.5.866L8 16.62V7.38zm2.898-.636L6.5 4.206l-.5.866l.5-.866C4.5 3.05 2 4.494 2 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598l1.898-1.096c.785 1.355 2.587 1.971 4.102 1.096l9-5.196c2-1.155 2-4.041 0-5.196l-9-5.196c-1.515-.875-3.317-.259-4.102 1.096'
+  // (paths moved to Icon component)
 </script>
 
 <div
@@ -206,14 +203,10 @@
       <button class="ctrl-btn ctrl-btn--shuffle" class:active={player.mode === 'shuffle'}
         onclick={(e) => { e.stopPropagation(); player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle') }}
         aria-label="随机播放">
-        <svg viewBox="0 0 640 640" width="18" height="18" fill="currentColor">
-          <path d="M467.8 98.4c12-5 25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64c-9.2 9.2-22.9 11.9-34.9 6.9S448 268.9 448 256v-32h-32c-10.1 0-19.6 4.7-25.6 12.8L358 280l-40-53.3l21.2-28.3c18.1-24.2 46.6-38.4 76.8-38.4h32v-32c0-12.9 7.8-24.6 19.8-29.6M218 360l40 53.3l-21.2 28.3C218.7 465.8 190.2 480 160 480H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c10.1 0 19.6-4.7 25.6-12.8zm284.6 174.6c-9.2 9.2-22.9 11.9-34.9 6.9S448 524.9 448 512v-32h-32c-30.2 0-58.7-14.2-76.8-38.4L185.6 236.8c-6-8.1-15.5-12.8-25.6-12.8H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c30.2 0 58.7 14.2 76.8 38.4l153.6 204.8c6 8.1 15.5 12.8 25.6 12.8h32v-32c0-12.9 7.8-24.6 19.8-29.6s25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64z"/>
-        </svg>
+        <Icon name="shuffle-lg" size={18} fill="currentColor" />
       </button>
       <button class="ctrl-btn ctrl-btn--prev" onclick={(e) => { e.stopPropagation(); player.prev() }} aria-label="上一首">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d={prevPath} fill-rule="evenodd" clip-rule="evenodd"/>
-        </svg>
+        <Icon name="prev" size={24} fill="currentColor" />
       </button>
       <button class="ctrl-btn ctrl-btn--play" onclick={(e) => { e.stopPropagation(); player.togglePlay() }} aria-label={player.playing ? '暂停' : '播放'}>
         {#if player.loading}
@@ -221,26 +214,18 @@
             <Spinner size="sm" />
           </div>
         {:else if player.playing}
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d={pausePath}/>
-          </svg>
+          <Icon name="pause" size={24} fill="currentColor" />
         {:else}
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d={playPath} fill-rule="evenodd" clip-rule="evenodd"/>
-          </svg>
+          <Icon name="play" size={24} fill="currentColor" />
         {/if}
       </button>
       <button class="ctrl-btn ctrl-btn--next" onclick={(e) => { e.stopPropagation(); player.next() }} aria-label="下一首">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d={nextPath} fill-rule="evenodd" clip-rule="evenodd"/>
-        </svg>
+        <Icon name="next" size={24} fill="currentColor" />
       </button>
       <button class="ctrl-btn ctrl-btn--repeat" class:active={player.mode === 'repeat'}
         onclick={(e) => { e.stopPropagation(); player.setMode(player.mode === 'repeat' ? 'list' : 'repeat') }}
         aria-label="单曲循环">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3"/>
-        </svg>
+        <Icon name="repeat" size={18} />
       </button>
     </div>
   </div>
@@ -252,16 +237,9 @@
       <div class="volume-slider-inline__bar">
         <div class="volume-slider-inline__icon">
           {#if player.volume > 0}
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
-            </svg>
+            <Icon name="volume-full" size={19} strokeWidth={3} />
           {:else}
-            <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-              <line x1="23" y1="9" x2="17" y2="15"/>
-              <line x1="17" y1="9" x2="23" y2="15"/>
-            </svg>
+            <Icon name="volume-off" size={19} strokeWidth={3} />
           {/if}
         </div>
         {#if showVolume}
@@ -274,10 +252,7 @@
     </div>
 
     <button class="action-btn" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); onToggleQueue?.() }} aria-label="播放列表">
-      <svg viewBox="0 0 48 48" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round">
-        <path stroke-linecap="round" d="M24 19h16m-16-9h16M8 38h32M8 28h32" />
-        <path fill="currentColor" d="m8 10l8 5l-8 5z" />
-      </svg>
+      <Icon name="list" size={22} />
     </button>
   </div>
 

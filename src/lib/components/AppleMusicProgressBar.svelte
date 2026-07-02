@@ -3,6 +3,7 @@
 
   let progressBar = $state(null);
   let isDragging = $state(false);
+  let percent = $derived(duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
 
   function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -51,15 +52,21 @@
   <div 
     class="am-progress-bar" 
     bind:this={progressBar}
+    role="slider"
+    aria-label="播放进度"
+    aria-valuemin="0"
+    aria-valuemax={Math.round(duration || 0)}
+    aria-valuenow={Math.round(currentTime || 0)}
+    tabindex={disabled ? -1 : 0}
     onmousedown={handleMouseDown}
     ontouchstart={handleTouchStart}
     ontouchmove={handleTouchMove}
     ontouchend={handleTouchEnd}
   >
     <div class="am-progress-track">
-      <div class="am-progress-fill" style={`width: ${duration ? (currentTime / duration * 100) : 0}%`}></div>
+      <div class="am-progress-fill" style={`width: ${percent}%`}></div>
     </div>
-    <div class="am-progress-thumb" style={`left: ${duration ? (currentTime / duration * 100) : 0}%`}></div>
+    <div class="am-progress-thumb" style={`left: ${percent}%`}></div>
   </div>
   
   <div class="am-progress-time">
@@ -70,16 +77,23 @@
 
 <style>
   .am-progress-container {
-    width: 100%;
+    width: min(100%, 300px);
+    margin: 0 auto;
     padding: 4px 0;
   }
 
   .am-progress-bar {
     position: relative;
-    height: 8px;
+    height: 18px;
     cursor: pointer;
     touch-action: none;
-    padding: 4px 0;
+    padding: 6px 0;
+    outline: none;
+  }
+
+  .am-progress-bar:focus-visible {
+    border-radius: 999px;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
   }
 
   .am-progress-track {
@@ -87,9 +101,9 @@
     top: 50%;
     left: 0;
     right: 0;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 3px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
     transform: translateY(-50%);
     overflow: hidden;
   }
@@ -97,25 +111,26 @@
   .am-progress-fill {
     height: 100%;
     background: #fff;
-    border-radius: 3px;
+    border-radius: inherit;
     transition: width 0.1s linear;
   }
 
   .am-progress-thumb {
     position: absolute;
     top: 50%;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     background: white;
     border-radius: 50%;
-    transform: translate(-50%, -50%) scale(0.6);
+    transform: translate(-50%, -50%) scale(0.62);
     opacity: 0;
     transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .am-progress-bar:hover .am-progress-thumb,
-  .am-progress-bar:active .am-progress-thumb {
+  .am-progress-bar:active .am-progress-thumb,
+  .am-progress-bar:focus-visible .am-progress-thumb {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
   }
@@ -127,8 +142,10 @@
   .am-progress-time {
     display: flex;
     justify-content: space-between;
-    margin-top: 8px;
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.6);
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.72);
   }
 </style>

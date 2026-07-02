@@ -2,7 +2,9 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE, USER_AGENT};
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::{AppState, NativeMediaState, NativeMetadataPayload, NativePendingAction, NativePlaybackPayload, NcmRequest, NcmResponse, APP_USER_AGENT};
+use crate::{AppState, NativeMediaState, NativePendingAction, NcmRequest, NcmResponse, APP_USER_AGENT};
+#[cfg(target_os = "android")]
+use crate::{NativeMetadataPayload, NativePlaybackPayload};
 
 /// POST/GET 代理：将前端请求转发到 Netease API，并回传 cookie 变更。
 #[tauri::command]
@@ -24,6 +26,7 @@ pub async fn ncm_request(
     };
 
     builder = builder.header(USER_AGENT, APP_USER_AGENT);
+    builder = builder.header("Referer", "https://music.163.com/");
 
     if let Some(cookie) = cookie.filter(|cookie| !cookie.is_empty()) {
         let value =
@@ -151,8 +154,8 @@ pub fn updatePlaybackState(
     Ok(())
 }
 
-/// Android / Linux 轮询待处理的媒体按钮动作。
-#[allow(non_snake_case)]
+/// Android / Linux / Windows 轮询待处理的媒体按钮动作。
+#[allow(non_snake_case, unreachable_code)]
 #[tauri::command]
 pub fn pollPendingAction(state: State<'_, NativeMediaState>) -> Result<NativePendingAction, String> {
     #[cfg(target_os = "android")]
@@ -166,27 +169,15 @@ pub fn pollPendingAction(state: State<'_, NativeMediaState>) -> Result<NativePen
     }
 
     #[cfg(target_os = "linux")]
-    {
-        return Ok(NativePendingAction {
-            action: state.mpris.poll_pending_action(),
-        });
-    }
+    { return Ok(NativePendingAction { action: state.mpris.poll_pending_action() }); }
 
     #[cfg(target_os = "windows")]
-    {
-        return Ok(NativePendingAction {
-            action: state.smtc.poll_pending_action(),
-        });
-    }
+    { return Ok(NativePendingAction { action: state.smtc.poll_pending_action() }); }
 
     #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = state;
-    }
+    { let _ = state; }
 
-    Ok(NativePendingAction {
-        action: String::new(),
-    })
+    Ok(NativePendingAction { action: String::new() })
 }
 
 // ── helpers ────────────────────────────────────────────────

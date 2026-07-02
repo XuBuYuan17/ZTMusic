@@ -8,10 +8,8 @@
   --sidebar-collapsed-w: 68px;
   --player-h: 64px;
   --mobile-topbar-h: 52px;
-  --mobile-tabs-h: 58px;
-  --mobile-mini-player-h: 62px;
-  --mobile-bottom-gap: 10px;
-  --mobile-tabs-bottom-gap: 8px;
+  --mobile-tabs-h: 56px;
+  --m-avatar-size: 40px;
 
   --r-sm: 4px;
   --r-md: 6px;
@@ -245,6 +243,67 @@ html.mobile-runtime .hero-cover {
 [data-theme="dark"] .sidebar-logo {
   color: rgba(255,255,255,0.92);
 }
+
+/* 老 B 站风格：顶部圆形头像作为侧栏伸缩按钮 */
+.sidebar-avatar-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px 10px;
+  width: 100%;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: inherit;
+  transition: background 0.15s;
+}
+
+.sidebar-avatar-btn:hover {
+  background: rgba(0,0,0,0.04);
+}
+
+[data-theme="dark"] .sidebar-avatar-btn:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.sidebar-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-layer);
+  border: 2px solid var(--accent);
+  transition: width 0.25s var(--ease-out), height 0.25s var(--ease-out);
+}
+
+.sidebar-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.sidebar-avatar-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .sidebar-avatar-btn {
+  justify-content: center;
+  padding: 14px 8px 10px;
+}
+
+.sidebar.collapsed .sidebar-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar.collapsed .sidebar-avatar-name { display: none; }
 
 .sidebar.collapsed .sidebar-logo { opacity: 0; width: 0; }
 

@@ -1,15 +1,12 @@
 <script>
   import ArtistNames from '../../components/ArtistNames.svelte'
   import { coverUrl, coverRectUrl } from '../../utils/image.js'
+  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
+  import { ncm } from '../../api/client.js'
+  import { loadExploreData as fetchExploreData } from '../../services/explore.js'
+  import { loadToplistsData } from '../../services/home.js'
 
   let {
-    exploreLoading = false,
-    exploreBanners = [],
-    explorePersonalized = [],
-    exploreTopPlaylists = [],
-    exploreRecommendSongs = [],
-    exploreNewAlbums = [],
-    toplists = [],
     onSearch,
     onBannerClick,
     onOpenPlaylist,
@@ -17,6 +14,35 @@
     onPlaySong,
     onOpenArtist,
   } = $props()
+
+  let exploreLoading = $state(false)
+  let exploreBanners = $state([])
+  let explorePersonalized = $state([])
+  let exploreTopPlaylists = $state([])
+  let exploreRecommendSongs = $state([])
+  let exploreNewAlbums = $state([])
+  let exploreBlocks = $state([])
+  let toplists = $state([])
+  let exploreLoaded = $state(false)
+  let toplistsLoading = $state(false)
+  let error = $state('')
+
+  async function loadExplore() {
+    exploreLoading = true; error = ''
+    try { const d = await fetchExploreData(ncm); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks }
+    catch (e) { error = e?.message || '加载失败' }
+    exploreLoading = false; exploreLoaded = true
+  }
+
+  async function loadToplists() {
+    toplistsLoading = true
+    try { toplists = await loadToplistsData(ncm) }
+    catch (e) { if (!error) error = e?.message || '加载失败' }
+    finally { toplistsLoading = false }
+  }
+
+  $effect(() => { if (!exploreLoaded) loadExplore() })
+  $effect(() => { if (toplists.length === 0 && !toplistsLoading) loadToplists() })
 
   const hero = $derived(exploreBanners[0])
   const editorials = $derived(exploreBanners.slice(1, 4))
@@ -28,6 +54,10 @@
     <span>Browse</span>
     <h1>发现</h1>
   </header>
+
+  {#if error}
+    <ErrorBlock {error} onRetry={loadExplore} />
+  {/if}
 
   <div class="explore-search-input">
     <button class="explore-search-btn" onclick={() => onSearch?.()}>
