@@ -7,6 +7,7 @@
 
 import { getStorageJson, removeStorage } from '../utils/storage.js'
 import { STORAGE_KEYS } from '../utils/constants.js'
+import { dbHistory } from '../db/history.js'
 
 /**
  * 获取播放历史
@@ -21,6 +22,5 @@ export function getLocalHistory() {
  */
 export function clearHistory() {
   removeStorage(STORAGE_KEYS.LOCAL_HISTORY)
-  // Async import to avoid circular dependency
-  import('../db/history.js').then(mod => mod.dbHistory.clear()).catch(() => {})
+  dbHistory.clear().catch(() => {})
 }

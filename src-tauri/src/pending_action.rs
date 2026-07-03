@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use serde_json::json;
 use tauri::State;
 
 use crate::{NativeMediaState, NativePendingAction};
