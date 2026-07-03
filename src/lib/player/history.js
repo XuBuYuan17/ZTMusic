@@ -1,44 +1,12 @@
 /**
- * 播放历史管理
+ * 播放历史管理（localStorage 桥接层）
  *
- * 职责：管理 localStorage 中的本地播放历史记录。
- * 播放历史用于"最近播放"页面，切歌时自动追加。
+ * 职责：读取/清空本地播放历史。写入由 player/store.svelte.js 通过
+ * dbHistory.add() 统一管理（SQLite + localStorage fallback）。
  */
 
-import { getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
-import { normalizeImageUrl } from '../utils/image.js'
-import { LIMITS, STORAGE_KEYS } from '../utils/constants.js'
-
-/**
- * 添加歌曲到播放历史（去重，保留最新记录）
- * @param {object} track - 经过 compactTrack 处理后的曲目对象
- */
-export function addLocalHistory(track) {
-  if (!track || !track.id) return
-  try {
-    const key = STORAGE_KEYS.LOCAL_HISTORY
-    let list = getStorageJson(key, [])
-    // 去重
-    list = list.filter(t => t.id !== track.id)
-    // 插入到头部
-    const album = track.al || track.album || {}
-    const entry = {
-      id: track.id,
-      name: track.name,
-      artists: track.ar || track.artists || [],
-      album,
-      picUrl: normalizeImageUrl(album.picUrl || track.coverImgUrl || track.picUrl || ''),
-      duration: track.dt || track.duration || 0,
-      playedAt: Date.now(),
-    }
-    list.unshift(entry)
-    // 限制最大条数
-    if (list.length > LIMITS.MAX_HISTORY) list.length = LIMITS.MAX_HISTORY
-    setStorage(key, list)
-  } catch {
-    // 静默失败
-  }
-}
+import { getStorageJson, removeStorage } from '../utils/storage.js'
+import { STORAGE_KEYS } from '../utils/constants.js'
 
 /**
  * 获取播放历史
@@ -49,8 +17,10 @@ export function getLocalHistory() {
 }
 
 /**
- * 清空播放历史
+ * 清空播放历史（localStorage + SQLite 双清）
  */
 export function clearHistory() {
   removeStorage(STORAGE_KEYS.LOCAL_HISTORY)
+  // Async import to avoid circular dependency
+  import('../db/history.js').then(mod => mod.dbHistory.clear()).catch(() => {})
 }

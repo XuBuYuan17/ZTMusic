@@ -2,9 +2,21 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE, USER_AGENT};
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::{AppState, NativeMediaState, NativePendingAction, NcmRequest, NcmResponse, APP_USER_AGENT};
-#[cfg(target_os = "android")]
-use crate::{NativeMetadataPayload, NativePlaybackPayload};
+use crate::{AppState, NcmRequest, NcmResponse, APP_USER_AGENT};
+
+/// 允许代理的目标 API Host 白名单，防止 SSRF
+const ALLOWED_HOSTS: &[&str] = &[
+    "music.xubuyuan.top",
+    "music.163.com",
+    "interface.music.163.com",
+    "interface3.music.163.com",
+];
+
+fn is_allowed_host(host: &str) -> bool {
+    ALLOWED_HOSTS
+        .iter()
+        .any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}")))
+}
 
 /// POST/GET 代理：将前端请求转发到 Netease API，并回传 cookie 变更。
 #[tauri::command]
@@ -13,6 +25,13 @@ pub async fn ncm_request(
     request: NcmRequest,
 ) -> Result<NcmResponse, String> {
     let mut url = build_api_url(&request.base, &request.endpoint)?;
+
+    // SSRF 防护：仅允许白名单内的 Host
+    if let Some(host) = url.host_str() {
+        if !is_allowed_host(host) {
+            return Err(format!("API host not allowed: {host}"));
+        }
+    }
     let method = request.method.to_uppercase();
     let cookie = request.cookie.as_deref();
 
@@ -56,128 +75,6 @@ pub async fn ncm_request(
     }
 
     Ok(NcmResponse { data, cookie })
-}
-
-/// 更新原生媒体元数据（Android 通知栏 / Linux MPRIS）。
-#[allow(non_snake_case)]
-#[tauri::command]
-pub fn updateMetadata(
-    state: State<'_, NativeMediaState>,
-    title: String,
-    artist: String,
-    coverUrl: String,
-    duration: f64,
-) -> Result<(), String> {
-    #[cfg(target_os = "android")]
-    {
-        let guard = state.handle.lock().map_err(|error| error.to_string())?;
-        if let Some(handle) = guard.as_ref() {
-            handle
-                .run_mobile_plugin::<()>(
-                    "updateMetadata",
-                    NativeMetadataPayload {
-                        title,
-                        artist,
-                        cover_url: coverUrl,
-                        duration,
-                    },
-                )
-                .map_err(|error| error.to_string())?;
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        state
-            .mpris
-            .update_metadata(title, artist, coverUrl, duration);
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        state
-            .smtc
-            .update_metadata(title, artist, coverUrl, duration);
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = (state, title, artist, coverUrl, duration);
-    }
-
-    Ok(())
-}
-
-/// 更新原生媒体播放状态（播放/暂停 + 进度）。
-#[allow(non_snake_case)]
-#[tauri::command]
-pub fn updatePlaybackState(
-    state: State<'_, NativeMediaState>,
-    playing: bool,
-    position: f64,
-    duration: f64,
-) -> Result<(), String> {
-    #[cfg(target_os = "android")]
-    {
-        let guard = state.handle.lock().map_err(|error| error.to_string())?;
-        if let Some(handle) = guard.as_ref() {
-            handle
-                .run_mobile_plugin::<()>(
-                    "updatePlaybackState",
-                    NativePlaybackPayload {
-                        playing,
-                        position,
-                        duration,
-                    },
-                )
-                .map_err(|error| error.to_string())?;
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        let _ = duration;
-        state.mpris.update_playback_state(playing, position);
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        let _ = duration;
-        state.smtc.update_playback_state(playing, position);
-    }
-
-    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
-    {
-        let _ = (state, playing, position, duration);
-    }
-
-    Ok(())
-}
-
-/// Android / Linux / Windows 轮询待处理的媒体按钮动作。
-#[allow(non_snake_case, unreachable_code)]
-#[tauri::command]
-pub fn pollPendingAction(state: State<'_, NativeMediaState>) -> Result<NativePendingAction, String> {
-    #[cfg(target_os = "android")]
-    {
-        let guard = state.handle.lock().map_err(|error| error.to_string())?;
-        if let Some(handle) = guard.as_ref() {
-            return handle
-                .run_mobile_plugin::<NativePendingAction>("pollPendingAction", json!({}))
-                .map_err(|error| error.to_string());
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    { return Ok(NativePendingAction { action: state.mpris.poll_pending_action() }); }
-
-    #[cfg(target_os = "windows")]
-    { return Ok(NativePendingAction { action: state.smtc.poll_pending_action() }); }
-
-    #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]
-    { let _ = state; }
-
-    Ok(NativePendingAction { action: String::new() })
 }
 
 // ── helpers ────────────────────────────────────────────────
@@ -242,6 +139,7 @@ fn collect_set_cookie(headers: &HeaderMap) -> String {
         .filter_map(|value| value.split(';').next())
         .map(str::trim)
         .filter(|value| !value.is_empty())
+        .filter(|value| value.starts_with("MUSIC_U="))
         .collect::<Vec<_>>()
         .join("; ")
 }

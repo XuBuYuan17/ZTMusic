@@ -37,8 +37,11 @@ impl WindowsSmtcState {
         let thread_pending_action = Arc::clone(&pending_action);
 
         thread::spawn(move || {
-            if let Err(error) = run_smtc(receiver, thread_pending_action) {
-                log::warn!("Windows SMTC disabled: {error}");
+            loop {
+                if let Err(error) = run_smtc(&receiver, &thread_pending_action) {
+                    log::warn!("Windows SMTC disconnected: {error}, reconnecting in 5s...");
+                    std::thread::sleep(std::time::Duration::from_secs(5));
+                }
             }
         });
 
@@ -73,8 +76,8 @@ impl WindowsSmtcState {
 }
 
 fn run_smtc(
-    receiver: Receiver<WindowsSmtcMessage>,
-    pending_action: Arc<Mutex<Option<String>>>,
+    receiver: &Receiver<WindowsSmtcMessage>,
+    pending_action: &Arc<Mutex<Option<String>>>,
 ) -> windows::core::Result<()> {
     // Initialize COM
     unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok()? };
@@ -92,7 +95,7 @@ fn run_smtc(
     smtc.SetIsPreviousEnabled(true)?;
 
     // Register button handler
-    let button_handler = Arc::clone(&pending_action);
+    let button_handler = Arc::clone(pending_action);
     smtc.ButtonPressed(&TypedEventHandler::new(
         move |_, args: &Option<SystemMediaTransportControlsButtonPressedEventArgs>| {
             if let Some(args) = args {
@@ -133,16 +136,18 @@ fn run_smtc(
                 display_updater
                     .MusicProperties()?
                     .SetArtist(&HSTRING::from(&artist))?;
+                // ponytail: Windows SMTC 封面图暂未实现，需要异步下载图片后通过
+                // display_updater.Thumbnail() 设置 RandomAccessStreamReference。
+                // 当前 cover_url 已接收但未使用，锁屏界面不会显示封面。
+                log::debug!(
+                    "SMTC metadata update: {} - {} (cover: {})",
+                    title,
+                    artist,
+                    cover_url
+                );
 
                 // Update SMTC
                 display_updater.Update()?;
-
-                log::debug!(
-                    "SMTC metadata update: {} - {} (duration: {})",
-                    title,
-                    artist,
-                    duration
-                );
             }
             WindowsSmtcMessage::Playback { playing, position } => {
                 // Update playback status

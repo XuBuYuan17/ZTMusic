@@ -2,7 +2,10 @@
 mod linux_mpris;
 #[cfg(target_os = "windows")]
 mod windows_smtc;
-mod commands;
+mod api;
+mod media_metadata;
+mod media_playback;
+mod pending_action;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -131,10 +134,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::ncm_request,
-            commands::updateMetadata,
-            commands::updatePlaybackState,
-            commands::pollPendingAction
+            api::ncm_request,
+            media_metadata::updateMetadata,
+            media_playback::updatePlaybackState,
+            pending_action::pollPendingAction
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

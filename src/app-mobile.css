@@ -104,7 +104,7 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    padding: calc(14px + env(safe-area-inset-top) + var(--m-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
+    padding: calc(14px + var(--m-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
   }
 
   .m-content-detail {
@@ -518,7 +518,7 @@
     overflow: hidden;
     padding-top: calc(8vh + env(safe-area-inset-top));
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
-    transition: all 0.5s cubic-bezier(0.32, 1.25, 0.38, 1);
+    transition: transform 0.5s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.5s ease;
     flex-direction: column;
   }
 
@@ -571,7 +571,7 @@
   .ly-mobile-player .ly-track-wrap {
     width: 100%;
     text-align: left;
-    transition: all 0.4s cubic-bezier(0.32, 1.25, 0.38, 1);
+    transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
   }
 
   .ly-mobile-player .ly-track-title {
@@ -602,7 +602,7 @@
     width: 100%;
     padding: 0 4px;
     margin-top: 40px;
-    transition: all 0.4s cubic-bezier(0.32, 1.25, 0.38, 1);
+    transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
     overflow: visible;
   }
 
@@ -625,7 +625,7 @@
     color: rgba(255,255,255,0.7);
     cursor: pointer;
     border-radius: 50%;
-    transition: all 0.2s ease;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
   }
 
   .ly-mobile-action-btn:active {
@@ -1010,7 +1010,8 @@
     font-weight: 700;
     letter-spacing: 0.01em;
     color: rgba(255,255,255,0.3);
-    /* No font-size transition for better performance */
+    transform-origin: left center;
+    transition: transform 0.2s ease-out, color 0.2s ease-out;
   }
 
   .ly-mobile-lyrics .ly-line.prev .ly-line-text {
@@ -1018,9 +1019,9 @@
   }
 
   .ly-mobile-lyrics .ly-line.active .ly-line-text {
-    font-size: 28px;
     font-weight: 800;
     color: #fff;
+    transform: scale(1.27); /* 28/22 ≈ 1.27, GPU-accelerated, no layout */
   }
 
   .ly-mobile-lyrics .ly-line-trans {

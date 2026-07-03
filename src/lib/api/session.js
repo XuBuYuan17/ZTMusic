@@ -22,6 +22,22 @@ function extractCookie(raw = '') {
     : ''
 }
 
+/** 合并两个 cookie 串：newCookie 的键覆盖 oldCookie 的同名键，保留 oldCookie 中未被提及的键 */
+function mergeCookies(oldCookie, newCookie) {
+  const map = {}
+  for (const part of oldCookie.split(';')) {
+    const kv = part.trim()
+    const eq = kv.indexOf('=')
+    if (eq > 0) map[kv.slice(0, eq)] = kv.slice(eq + 1)
+  }
+  for (const part of newCookie.split(';')) {
+    const kv = part.trim()
+    const eq = kv.indexOf('=')
+    if (eq > 0) map[kv.slice(0, eq)] = kv.slice(eq + 1)
+  }
+  return Object.entries(map).map(([k, v]) => `${k}=${v}`).join('; ')
+}
+
 /** 从 cookie 串中提取 MUSIC_U 的值 */
 function extractMusicU(cookieString) {
   if (!cookieString) return ''
@@ -67,8 +83,12 @@ export const apiSession = {
   saveCookieFromResponse(data, rawCookie = '') {
     const raw = rawCookie || data?.cookie || data?.data?.cookie || ''
     const cookie = extractCookie(raw)
-    if (cookie && cookie !== apiCookie) {
-      apiCookie = cookie
+    if (!cookie || cookie === apiCookie) return
+    // 合并式更新：响应 cookie 覆盖旧值中同名键，保留旧值中未被提及的键
+    const merged = mergeCookies(apiCookie, cookie)
+    // 只有合并后仍含 MUSIC_U 才写入，防止意外抹掉登录态
+    if (extractMusicU(merged)) {
+      apiCookie = merged
       setStorage(API_COOKIE_KEY, apiCookie)
     }
   },

@@ -29,6 +29,7 @@ import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Collections
 import java.util.concurrent.Executors
 
 class MediaSessionService : Service() {
@@ -88,11 +89,11 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
     }
 
     private var mediaSession: MediaSession? = null
-    private val coverCache = object : LinkedHashMap<String, Bitmap>(20, 0.75f, true) {
+    private val coverCache = Collections.synchronizedMap(object : LinkedHashMap<String, Bitmap>(20, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>): Boolean {
             return size > 20
         }
-    }
+    })
     private val executor = Executors.newSingleThreadExecutor()
     private var receiverRegistered = false
 
@@ -177,7 +178,9 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
             if (cached != null) {
                 builder.putBitmap(MediaMetadata.METADATA_KEY_ART, cached)
                 mediaSession?.setMetadata(builder.build())
-                updateNotification(title, artist, cached, true)
+                // 确保通知始终更新，无论播放状态
+                val isPlaying = mediaSession?.controller?.playbackState?.state == PlaybackState.STATE_PLAYING
+                updateNotification(title, artist, cached, isPlaying)
                 invoke.resolve()
                 return
             }
@@ -186,13 +189,15 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
                     coverCache[coverUrl] = bitmap
                     builder.putBitmap(MediaMetadata.METADATA_KEY_ART, bitmap)
                     mediaSession?.setMetadata(builder.build())
-                    updateNotification(title, artist, bitmap, true)
+                    val isPlaying = mediaSession?.controller?.playbackState?.state == PlaybackState.STATE_PLAYING
+                    updateNotification(title, artist, bitmap, isPlaying)
                 }
             }
         }
 
         mediaSession?.setMetadata(builder.build())
-        updateNotification(title, artist, null, true)
+        val isPlaying = mediaSession?.controller?.playbackState?.state == PlaybackState.STATE_PLAYING
+        updateNotification(title, artist, null, isPlaying)
         invoke.resolve()
     }
 
@@ -214,13 +219,12 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
                 .build()
         )
 
-        if (isPlaying) {
-            val serviceIntent = Intent(activity, MediaSessionService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                activity.startForegroundService(serviceIntent)
-            } else {
-                activity.startService(serviceIntent)
-            }
+        // 启动前台服务以保持通知常驻（即使暂停也显示）
+        val serviceIntent = Intent(activity, MediaSessionService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity.startForegroundService(serviceIntent)
+        } else {
+            activity.startService(serviceIntent)
         }
 
         val meta = mediaSession?.controller?.metadata
@@ -268,7 +272,7 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
             .setContentTitle(title.ifEmpty { "哲听" })
             .setContentText(artist)
             .setLargeIcon(art)
-            .setOngoing(isPlaying)
+            .setOngoing(true)
             .setShowWhen(false)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_LOW)

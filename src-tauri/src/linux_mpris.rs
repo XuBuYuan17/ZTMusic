@@ -31,8 +31,11 @@ impl LinuxMprisState {
 
         thread::spawn(move || {
             future::block_on(async move {
-                if let Err(error) = run_mpris(receiver, thread_pending_action).await {
-                    log::warn!("Linux MPRIS disabled: {error}");
+                loop {
+                    if let Err(error) = run_mpris(&receiver, &thread_pending_action).await {
+                        log::warn!("Linux MPRIS disconnected: {error}, reconnecting in 5s...");
+                        std::thread::sleep(std::time::Duration::from_secs(5));
+                    }
                 }
             });
         });
@@ -68,8 +71,8 @@ impl LinuxMprisState {
 }
 
 async fn run_mpris(
-    receiver: async_channel::Receiver<LinuxMprisMessage>,
-    pending_action: Arc<Mutex<Option<String>>>,
+    receiver: &async_channel::Receiver<LinuxMprisMessage>,
+    pending_action: &Arc<Mutex<Option<String>>>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let player = Player::builder("zheting")
         .identity("哲听")
@@ -85,27 +88,27 @@ async fn run_mpris(
         .await?;
 
     player.connect_next({
-        let action = Arc::clone(&pending_action);
+        let action = Arc::clone(pending_action);
         move |_| set_pending_action(&action, "next")
     });
     player.connect_previous({
-        let action = Arc::clone(&pending_action);
+        let action = Arc::clone(pending_action);
         move |_| set_pending_action(&action, "prev")
     });
     player.connect_play({
-        let action = Arc::clone(&pending_action);
+        let action = Arc::clone(pending_action);
         move |_| set_pending_action(&action, "play")
     });
     player.connect_pause({
-        let action = Arc::clone(&pending_action);
+        let action = Arc::clone(pending_action);
         move |_| set_pending_action(&action, "pause")
     });
     player.connect_stop({
-        let action = Arc::clone(&pending_action);
+        let action = Arc::clone(pending_action);
         move |_| set_pending_action(&action, "pause")
     });
 
-    let play_pause_pending = Arc::clone(&pending_action);
+    let play_pause_pending = Arc::clone(pending_action);
     player.connect_play_pause(move |player| {
         let action = match player.playback_status() {
             PlaybackStatus::Playing => "pause",

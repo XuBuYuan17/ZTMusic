@@ -18,7 +18,6 @@ import { normalizeImageUrl, coverUrl } from '../utils/image.js'
 import { dbCache } from '../db/cache.js'
 import { getPlayableUrls, fillFallbackUrls } from './url-resolver.js'
 import { compactTrack, compactQueue, getNextIndex, getPrevIndex } from './queue.js'
-import { addLocalHistory } from './history.js'
 import { dbHistory } from '../db/history.js'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from './native-media.js'
 import { createPrefetchManager } from './prefetch.js'
@@ -381,13 +380,13 @@ class PlayerState {
     }
 
     this._persistState()
-    addLocalHistory(playableTrack)
-    dbHistory.add(playableTrack) // async, non-blocking
+    dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
     this._syncWebMediaPosition()
     syncNativeMedia()
 
-    // 获取可播放 URL
-    getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId)
+    // 获取可播放 URL，传入 auth 状态供 url-resolver 使用（而非 url-resolver 直接 import auth）
+    const authOpts = { isLoggedIn: auth.isLoggedIn, checkLoginStatus: () => auth.checkLoginStatus() }
+    getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId, authOpts)
       .then(({ urls, firstUrlLevel, isTrial }) => {
         if (requestId !== this._playRequestId) return
         this._firstUrlLevel = firstUrlLevel
@@ -445,6 +444,7 @@ class PlayerState {
         preferredLevel: this.preferredLevel,
         isPlaying: this.playing,
         currentTime: this.currentTime,
+        authOpts: { isLoggedIn: auth.isLoggedIn, checkLoginStatus: () => auth.checkLoginStatus() },
         onQualityUpgrade: ({ url, currentTime, urls }) => {
           if (reqId !== this._playRequestId) return
           this._fallback.updateUrls(urls)

@@ -141,6 +141,9 @@
 
   <!-- Lyrics area -->
   <div class="am-lyrics-area" bind:this={lyricsEl}>
+    <!-- Gradient overlays replace mask-image for better mobile performance -->
+    <div class="am-lyrics-fade-top"></div>
+    <div class="am-lyrics-fade-bottom"></div>
     <div class="am-lyrics-inner">
       {#if lyricState.lyrics.length > 0}
         {#each lyricState.lyrics as line, i}
@@ -187,7 +190,7 @@
     height: 100%;
     background-size: cover;
     background-position: center;
-    filter: blur(80px) saturate(1.4);
+    filter: blur(40px) saturate(1.4);
     transform: scale(1.1);
     transition: background-image 0.6s ease;
   }
@@ -316,7 +319,7 @@
     overflow: hidden;
     box-shadow: 0 8px 30px rgba(0,0,0,0.6);
     cursor: pointer;
-    transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
+    transition: transform 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), opacity 0.45s ease, top 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), left 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), width 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), height 0.45s cubic-bezier(0.25, 0.1, 0.25, 1), border-radius 0.45s ease;
     -webkit-tap-highlight-color: transparent;
     top: calc(50% - 148px - 92px);
     left: calc(50% - 148px);
@@ -344,7 +347,7 @@
   .closing .am-flying-cover {
     opacity: 0 !important;
     transform: scale(0.7) translateY(40px) !important;
-    transition: all 0.18s ease !important;
+    transition: transform 0.18s ease, opacity 0.18s ease !important;
   }
   .am-flying-cover-img {
     width: 100%;
@@ -466,14 +469,35 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
-    mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+    /* Removed mask-image for performance — using padding + overflow instead */
+    padding-top: 60px;
+    padding-bottom: 60px;
   }
   .lyrics-mode .am-lyrics-area {
     opacity: 1;
     pointer-events: auto;
   }
   .am-lyrics-area::-webkit-scrollbar { display: none; }
+
+  /* Gradient fade overlays — GPU-friendly alternative to mask-image */
+  .am-lyrics-fade-top,
+  .am-lyrics-fade-bottom {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 6;
+    pointer-events: none;
+  }
+  .am-lyrics-fade-top {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
+  .am-lyrics-fade-bottom {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
+  }
 
   .am-lyrics-inner {
     display: flex;
@@ -491,7 +515,7 @@
     border: none;
     padding: 10px 0;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: transform 0.25s ease, opacity 0.25s ease;
     outline: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -501,15 +525,16 @@
     font-weight: 500;
     color: rgba(255,255,255,0.3);
     line-height: 1.6;
-    transition: all 0.3s ease;
+    transform-origin: left center;
+    transition: transform 0.3s ease, color 0.3s ease;
   }
   .am-lyric-line.before .am-lyric-text {
     color: rgba(255,255,255,0.6);
   }
   .am-lyric-line.active .am-lyric-text {
-    font-size: 26px;
     font-weight: 700;
     color: #fff;
+    transform: scale(1.3); /* 26/20 = 1.3, GPU-accelerated, no layout */
   }
   .am-lyric-trans {
     display: block;
@@ -517,7 +542,7 @@
     font-weight: 400;
     color: rgba(255,255,255,0.25);
     margin-top: 4px;
-    transition: all 0.3s ease;
+    transition: color 0.3s ease;
   }
   .am-lyric-line.active .am-lyric-trans {
     color: rgba(255,255,255,0.5);

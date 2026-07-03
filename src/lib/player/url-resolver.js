@@ -14,7 +14,6 @@
  */
 
 import { ncm } from '../api/client.js'
-import { auth } from '../stores/auth.svelte.js'
 import { dbCache } from '../db/cache.js'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { swallowError } from '../utils/error.js'
@@ -95,7 +94,7 @@ function isBetterThanLevel(level, baseLevel) {
 
 // ===== 核心 API =====
 
-async function fetchSongUrl(id, level, unblock, timeout) {
+async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}) {
   try {
     const res = await withTimeout(ncm.songUrl(id, level, unblock), timeout)
     const item = res?.data?.[0]
@@ -110,8 +109,8 @@ async function fetchSongUrl(id, level, unblock, timeout) {
     })
     if (!item?.url) {
       // 已登录但无音源 → cookie 可能已过期，等待检查结果
-      if (auth.isLoggedIn) {
-        const stillValid = await auth.checkLoginStatus()
+      if (authOpts.isLoggedIn) {
+        const stillValid = await authOpts.checkLoginStatus?.()
         if (!stillValid) {
           // cookie 已过期并被清除，返回 null 让调用方走 fallback
           logPlayback('auth-cleared-on-no-url', { id, level })
@@ -119,7 +118,7 @@ async function fetchSongUrl(id, level, unblock, timeout) {
       }
       return null
     }
-    if (item.freeTrialInfo && auth.isLoggedIn) {
+    if (item.freeTrialInfo && authOpts.isLoggedIn) {
       logPlayback('vip-trial', { id, level, url: item.url?.slice(0, 50) })
     }
     return {
@@ -147,14 +146,14 @@ async function fetchSongUrl(id, level, unblock, timeout) {
 export async function refreshSongUrlsBg(id, preferredLevel) {
   const fastTiers = uniqueLevels(['standard', 'higher', preferredLevel])
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT)
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, {})
     if (result?.url && !result.isTrial) {
       dbCache.urlSet(id, [result.url]).catch(swallowError)
       return
     }
   }
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT)
+    const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, {})
     if (result?.url) {
       dbCache.urlSet(id, [result.url]).catch(swallowError)
       return
@@ -184,6 +183,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
     currentTime = 0,
     onQualityUpgrade,
     isStale = () => false,
+    authOpts = {},
   } = options
 
   const urls = [...currentUrls]
@@ -196,7 +196,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
   // Step 1: 后台获取偏好音质
   for (const level of allLevels) {
     if (!isActive()) return urls
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT)
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT, authOpts)
     if (!result || urls.includes(result.url)) continue
 
     if (!upgraded && urls.length > 0 && isBetterThanLevel(level, firstUrlLevel)) {
@@ -220,7 +220,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
   // Step 2: unblock 版本
   for (const level of allLevels) {
     if (!isActive()) return urls
-    const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT)
+    const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT, authOpts)
     if (result && !urls.includes(result.url)) urls.push(result.url)
   }
 
@@ -275,7 +275,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
  * @param {number} reqId - 当前请求 ID（用于竞态控制）
  * @returns {Promise<{urls: string[], firstUrlLevel: string, isTrial: boolean}>}
  */
-export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId) {
+export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, authOpts = {}) {
   // 0. 检查预取缓存
   const cached = prefetchCache?.get(id)
   if (cached) {
@@ -303,7 +303,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId) 
   // Phase 1: 快速出声
   const fastTiers = uniqueLevels(['standard', 'higher', preferredLevel])
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT)
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, authOpts)
     if (!result) continue
     if (result.isTrial) {
       addUrl(trialUrls, result.url)
@@ -317,7 +317,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId) 
   // Phase 2: unblock 尝试（仍快速）
   if (urls.length === 0) {
     for (const level of fastTiers) {
-      const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT)
+      const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, authOpts)
       if (!result) continue
       if (result.isTrial) {
         addUrl(trialUrls, result.url)
