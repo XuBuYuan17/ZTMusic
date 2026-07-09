@@ -2,8 +2,7 @@
  * 响应式设备检测工具
  */
 
-// 移动端断点
-export const MOBILE_BREAKPOINT = 760;
+import { shouldUseMobileLayout } from './layout-mode.js'
 
 // 检查是否在浏览器环境
 const isBrowser = typeof window !== 'undefined';
@@ -14,7 +13,7 @@ const isBrowser = typeof window !== 'undefined';
  */
 export function isMobileDevice() {
   if (!isBrowser) return false;
-  return window.innerWidth <= MOBILE_BREAKPOINT;
+  return shouldUseMobileLayout(window.innerWidth, window.innerHeight);
 }
 
 /**
@@ -64,6 +63,8 @@ export function createResponsiveStore() {
   }
 
   window.addEventListener('resize', update);
+  window.addEventListener('orientationchange', update);
+  window.addEventListener('layout-mode-change', update);
 
   return {
     subscribe(fn) {

@@ -190,6 +190,12 @@ export const ncm = {
   songUrlMatch(id) {
     return request('/song/url/match', { id })
   },
+  vipInfo() {
+    return request('/vip/info')
+  },
+  vipInfoV2() {
+    return request('/vip/info/v2')
+  },
   lyric(id) {
     return request('/lyric', { id })
   },
@@ -223,6 +229,9 @@ export const ncm = {
   },
   userDetail(uid) {
     return request('/user/detail', { uid })
+  },
+  userLevel() {
+    return request('/user/level')
   },
   userAccount() {
     return request('/user/account', {}, 'POST', {})

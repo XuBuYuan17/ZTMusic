@@ -15,8 +15,12 @@ export const PLAYBACK = {
   FALLBACK_WAIT_TIMEOUT: 3000,
   /** 原生媒体位置同步阈值 (s) */
   NATIVE_POSITION_THRESHOLD: 5,
+  /** Android 通知栏位置同步阈值 (s) */
+  NATIVE_ANDROID_POSITION_THRESHOLD: 15,
   /** Android 按钮轮询间隔 (ms) */
   NATIVE_POLL_INTERVAL: 500,
+  /** Android 按钮兜底轮询间隔 (ms) */
+  NATIVE_ANDROID_POLL_INTERVAL: 1500,
 }
 
 export const LIMITS = {
@@ -36,6 +40,9 @@ export const ERROR_MESSAGES = {
   PLAY_FAILED: '播放失败，请重试',
   NETWORK_ERROR: '网络连接失败',
   VIP_TRIAL: '当前歌曲为 VIP 专享，播放的是试听片段',
+  VIP_TRIAL_SYNCING: '当前歌曲只能试听，会员状态同步后可再试一次',
+  VIP_TRIAL_ACCOUNT: '当前账号未开通 VIP，正在播放试听片段',
+  VIP_TRIAL_LIMITED: '会员账号仍只获取到试听片段，可能是版权或接口限制',
   COOKIE_EXPIRED: '登录已过期，请重新登录后播放完整歌曲',
 }
 

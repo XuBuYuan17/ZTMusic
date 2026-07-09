@@ -11,5 +11,12 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
     "checkJs": false
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-ssr",
+    "src-tauri/target",
+    "src-tauri/gen/android"
+  ]
 }

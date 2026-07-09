@@ -49,6 +49,11 @@ function addUrl(urls, urlOrObj) {
   if (playableUrl && !urls.includes(playableUrl)) urls.push(playableUrl)
 }
 
+function addCandidate(candidates, candidate) {
+  if (!candidate?.url || candidates.some(item => item.url === candidate.url)) return
+  candidates.push(candidate)
+}
+
 function withTimeout(promise, timeout) {
   return Promise.race([
     promise,
@@ -124,6 +129,9 @@ async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}) {
     return {
       url: normalizePlayUrl(item.url),
       isTrial: Boolean(item?.freeTrialInfo),
+      source: unblock ? 'official-unblock' : 'official',
+      level,
+      cacheable: !item?.freeTrialInfo,
     }
   } catch (error) {
     logPlayUrlAttempt('error', {
@@ -134,6 +142,35 @@ async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}) {
     })
     return null
   }
+}
+
+async function fetchMatchedSongUrl(id, timeout) {
+  try {
+    const res = await withTimeout(ncm.songUrlMatch(id), timeout)
+    const url = res?.data?.[0]?.url || res?.data?.url || res?.url || ''
+    if (!url) return null
+    const normalized = normalizePlayUrl(url)
+    logPlayback('match-url', { id, url: normalized })
+    return normalized ? { url: normalized, source: 'match', cacheable: true } : null
+  } catch (error) {
+    logPlayUrlAttempt('match-error', {
+      id,
+      message: error?.message || 'match url request failed',
+    })
+    return null
+  }
+}
+
+async function fetchOldSongUrl(id, timeout) {
+  try {
+    const res = await withTimeout(ncm.songUrlOld(id, 320000), timeout)
+    const url = res?.data?.[0]?.url || ''
+    if (!url) return null
+    const normalized = normalizePlayUrl(url)
+    logPlayback('old-api-fallback', { id, url: normalized })
+    return normalized ? { url: normalized, source: 'old-api', cacheable: false } : null
+  } catch { /* swallow */ }
+  return null
 }
 
 // ===== 后台刷新/填充 =====
@@ -224,42 +261,24 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
     if (result && !urls.includes(result.url)) urls.push(result.url)
   }
 
-  // Step 3: 网易官方 fallback
+  // Step 3: UnblockNeteaseMusic 直接解灰
+  if (isActive() && urls.length <= 2) {
+    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT)
+    if (matched?.url && !urls.includes(matched.url)) urls.push(matched.url)
+  }
+
+  // Step 4: 老版 /song/url 兜底
+  if (isActive() && urls.length <= 2) {
+    const old = await fetchOldSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT)
+    if (old?.url && !urls.includes(old.url)) urls.push(old.url)
+  }
+
+  // Step 5: 网易官方 fallback
   if (isActive()) {
     const fbUrl = normalizePlayUrl(FALLBACK_URL_TEMPLATE(id))
     if (fbUrl && !urls.includes(fbUrl)) {
       urls.push(fbUrl)
     }
-  }
-
-  // Step 4: 老版 /song/url 兜底
-  if (isActive() && urls.length <= 2) {
-    try {
-      const oldRes = await withTimeout(ncm.songUrlOld(id, 320000), PLAYBACK.FALLBACK_TIMEOUT)
-      const oldItem = oldRes?.data?.[0]
-      if (oldItem?.url) {
-        const url = normalizePlayUrl(oldItem.url)
-        if (url && !urls.includes(url)) {
-          urls.push(url)
-          logPlayback('old-api-fallback', { url })
-        }
-      }
-    } catch { /* swallow */ }
-  }
-
-  // Step 5: UnblockNeteaseMusic 直接解灰
-  if (isActive() && urls.length <= 2) {
-    try {
-      const matchRes = await ncm.songUrlMatch(id)
-      const matchUrl = matchRes?.data?.[0]?.url || matchRes?.data?.url || matchRes?.url || ''
-      if (matchUrl) {
-        const normalized = normalizePlayUrl(matchUrl)
-        if (normalized && !urls.includes(normalized)) {
-          urls.push(normalized)
-          logPlayback('unblock-fallback', { url: normalized })
-        }
-      }
-    } catch { /* swallow */ }
   }
 
   logPlayback('fallback-urls-filled', { totalUrls: urls.length, id, upgraded })
@@ -296,8 +315,8 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
   } catch { /* swallow */ }
 
   const fallbackUrl = FALLBACK_URL_TEMPLATE(id)
-  const urls = []
-  const trialUrls = []
+  const candidates = []
+  const trialCandidates = []
   let firstUrlLevel = ''
 
   // Phase 1: 快速出声
@@ -306,46 +325,66 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
     const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, authOpts)
     if (!result) continue
     if (result.isTrial) {
-      addUrl(trialUrls, result.url)
+      addCandidate(trialCandidates, result)
     } else {
-      addUrl(urls, result.url)
+      addCandidate(candidates, result)
       firstUrlLevel = level
       break
     }
   }
 
   // Phase 2: unblock 尝试（仍快速）
-  if (urls.length === 0) {
+  if (candidates.length === 0) {
     for (const level of fastTiers) {
       const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, authOpts)
       if (!result) continue
       if (result.isTrial) {
-        addUrl(trialUrls, result.url)
+        addCandidate(trialCandidates, result)
       } else {
-        addUrl(urls, result.url)
+        addCandidate(candidates, result)
         firstUrlLevel = level + '+unblock'
         break
       }
     }
   }
 
-  // Phase 3: 试听片段
-  if (urls.length === 0 && trialUrls.length > 0) {
-    urls.push(...trialUrls)
+  // Phase 3: 官方 match 解灰
+  if (candidates.length === 0) {
+    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FAST_TIMEOUT)
+    if (matched?.url) {
+      addCandidate(candidates, matched)
+      firstUrlLevel = 'match'
+    }
   }
 
-  // Phase 4: 官方 fallback 兜底
-  if (urls.length === 0) {
-    addUrl(urls, fallbackUrl)
+  // Phase 4: 老版 /song/url 兜底
+  if (candidates.length === 0) {
+    const old = await fetchOldSongUrl(id, PLAYBACK.FAST_TIMEOUT)
+    if (old?.url) {
+      addCandidate(candidates, old)
+      firstUrlLevel = 'old-api'
+    }
   }
 
-  // 持久化到 SQLite（非 fallback 兜底时）
-  if (urls.length > 0 && urls[0] !== fallbackUrl) {
-    dbCache.urlSet(id, urls).catch(swallowError)
+  // Phase 5: 试听片段
+  if (candidates.length === 0 && trialCandidates.length > 0) {
+    trialCandidates.forEach(candidate => addCandidate(candidates, { ...candidate, cacheable: false }))
+  }
+
+  // Phase 6: 官方 fallback 兜底
+  if (candidates.length === 0) {
+    addCandidate(candidates, { url: fallbackUrl, source: 'template-fallback', cacheable: false })
+  }
+
+  const urls = candidates.map(candidate => candidate.url)
+
+  const cacheableUrls = candidates.filter(candidate => candidate.cacheable).map(candidate => candidate.url)
+  if (cacheableUrls.length > 0) {
+    dbCache.urlSet(id, cacheableUrls).catch(swallowError)
   }
 
   // 判断是否为试听：所有 URL 都是试听片段或 fallback
-  const isTrial = trialUrls.length > 0 && urls.length > 0 && (urls[0] === fallbackUrl || trialUrls.includes(urls[0]))
+  const isTrial = candidates.length > 0 && candidates.every(candidate => candidate.isTrial || candidate.source === 'template-fallback')
 
   return { urls, firstUrlLevel, isTrial }
 }

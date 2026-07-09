@@ -4,6 +4,7 @@
   import { auth } from '../../stores/auth.svelte.js'
   import { i18n, setLocale, t } from '../../i18n/index.svelte.js'
   import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../../utils/settings.js'
+  import { getLayoutMode, setLayoutMode } from '../../utils/layout-mode.js'
   import { dbCache } from '../../db/cache.js'
 
   let { theme = 'dark', onSetTheme } = $props()
@@ -15,6 +16,7 @@
   let idbCleared = $state('')
   let cookieCheckMsg = $state('')
   let defaultPage = $state(getSetting('default_page', 'home'))
+  let layoutMode = $state(getLayoutMode())
   let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
   let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
   let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
@@ -77,6 +79,10 @@
 
   function handleDefaultPage(val) {
     defaultPage = setSetting('default_page', val)
+  }
+
+  function handleLayoutMode(val) {
+    layoutMode = setLayoutMode(val)
   }
 
   function handleRestoreSession(val) {
@@ -200,6 +206,19 @@
       </select>
     </div>
 
+    <!-- 布局模式 -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">布局模式</div>
+        <div class="settings-desc">自动时手机使用移动布局，平板和电脑使用 PC 布局</div>
+      </div>
+      <select class="settings-select" value={layoutMode} onchange={(e) => handleLayoutMode(e.target.value)}>
+        <option value="auto">自动</option>
+        <option value="pc">PC</option>
+        <option value="mobile">移动</option>
+      </select>
+    </div>
+
     <!-- 记住播放 -->
     <div class="settings-row">
       <div>
@@ -271,6 +290,16 @@
     <div class="settings-group-label">账号</div>
 
     <!-- 检测 Cookie 状态 -->
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">会员状态</div>
+        <div class="settings-desc">用于判断账号权限和高音质可用性，不会绕过平台限制</div>
+      </div>
+      <button class="settings-secondary-btn" onclick={() => auth.refreshVipInfo()}>
+        {auth.vipLabel}
+      </button>
+    </div>
+
     <div class="settings-row">
       <div>
         <div class="settings-label">检测 Cookie 状态</div>

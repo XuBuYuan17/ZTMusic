@@ -139,7 +139,37 @@ fn collect_set_cookie(headers: &HeaderMap) -> String {
         .filter_map(|value| value.split(';').next())
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .filter(|value| value.starts_with("MUSIC_U="))
         .collect::<Vec<_>>()
         .join("; ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use reqwest::header::SET_COOKIE;
+
+    #[test]
+    fn collect_set_cookie_keeps_all_cookie_pairs() {
+        let mut headers = HeaderMap::new();
+        headers.append(
+            SET_COOKIE,
+            HeaderValue::from_static("MUSIC_U=token; Path=/; HttpOnly"),
+        );
+        headers.append(
+            SET_COOKIE,
+            HeaderValue::from_static("__csrf=csrf; Max-Age=3600; SameSite=Lax"),
+        );
+        headers.append(SET_COOKIE, HeaderValue::from_static("NMTID=nmt"));
+
+        assert_eq!(collect_set_cookie(&headers), "MUSIC_U=token; __csrf=csrf; NMTID=nmt");
+    }
+
+    #[test]
+    fn collect_set_cookie_ignores_empty_and_invalid_values() {
+        let mut headers = HeaderMap::new();
+        headers.append(SET_COOKIE, HeaderValue::from_static(" ; Path=/"));
+        headers.append(SET_COOKIE, HeaderValue::from_bytes(&[0xff]).unwrap());
+
+        assert_eq!(collect_set_cookie(&headers), "");
+    }
 }

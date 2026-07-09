@@ -77,6 +77,19 @@ export async function initNativeMedia(options = {}) {
   // Android: 监听通知栏按钮事件
   if (isTauriAndroid() && _tauriInvoke) {
     try {
+      const { addPluginListener } = await import('@tauri-apps/api/core')
+      await addPluginListener('nativeMedia', 'media_button', (event) => {
+        const action = event?.payload?.action
+        debugLog('native-media', 'plugin-event-action', { action })
+        if (action && _onMediaButton) {
+          _onMediaButton(action)
+        }
+      })
+    } catch (err) {
+      swallowError('NativeMedia.addPluginListener', err)
+    }
+
+    try {
       const { listen } = await import('@tauri-apps/api/event')
       await listen('media_button', (event) => {
         const action = event?.payload?.action
@@ -93,10 +106,11 @@ export async function initNativeMedia(options = {}) {
   // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
   // Windows/macOS 使用 Web Media Session API，不走 Tauri 原生桥，避免双注册媒体会话。
   if (shouldUseNativeBridge() && _tauriInvoke && !_nativeMediaPollTimer) {
+    const interval = isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POLL_INTERVAL : PLAYBACK.NATIVE_POLL_INTERVAL
     _nativeMediaPollTimer = setInterval(() => {
       pollNativeAction()
-    }, PLAYBACK.NATIVE_POLL_INTERVAL)
-    debugLog('native-media', 'poll-started', { interval: PLAYBACK.NATIVE_POLL_INTERVAL })
+    }, interval)
+    debugLog('native-media', 'poll-started', { interval })
   }
 }
 
@@ -147,7 +161,9 @@ export function syncNativeMedia() {
       }, 'updatePlaybackState')
     } else if (
       playing !== _lastNativePlaying ||
-      Math.abs(pos - _lastNativePosition) >= PLAYBACK.NATIVE_POSITION_THRESHOLD
+      Math.abs(pos - _lastNativePosition) >= (
+        isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POSITION_THRESHOLD : PLAYBACK.NATIVE_POSITION_THRESHOLD
+      )
     ) {
       _lastNativePosition = pos
       _lastNativePlaying = playing

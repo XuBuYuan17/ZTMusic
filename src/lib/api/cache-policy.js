@@ -5,6 +5,10 @@ const MINUTE = 60 * 1000
 const CACHE_TTL = {
   '/song/url/v1': 0,  // 音质 URL 不缓存，登录状态变化会影响可用性
   '/song/url': 0,
+  '/song/url/match': 0,
+  '/vip/info': 0,
+  '/vip/info/v2': 0,
+  '/login/status': 0,
   '/lyric': 7 * 24 * 60 * MINUTE,
   '/lyric/new': 7 * 24 * 60 * MINUTE,
   '/song/detail': 24 * 60 * MINUTE,

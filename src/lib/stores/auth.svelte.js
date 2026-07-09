@@ -1,4 +1,5 @@
 import { ncm } from '../api/client.js'
+import { fetchVipInfo, normalizeVipInfo } from '../auth/vip.js'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 
 const { setCookie, clearCookie } = ncm
@@ -6,6 +7,7 @@ const { setCookie, clearCookie } = ncm
 let _user = $state(null)
 let _loginMode = $state(null)
 let _cookieOk = $state(true)
+let _vipInfo = $state(null)
 
 function deepFind(obj, key) {
   if (!obj || typeof obj !== 'object') return undefined
@@ -42,8 +44,10 @@ async function checkLoginStatus() {
         clearCookie()
         _user = null
         _loginMode = null
+        _vipInfo = null
         removeStorage('auth_user')
         removeStorage('auth_mode')
+        removeStorage('auth_vip')
       }, 100)
       return false
     }
@@ -66,9 +70,17 @@ function normalizeUser(user) {
 
 export const auth = {
   get user() { return _user },
+  get vipInfo() { return _vipInfo },
   get loginMode() { return _loginMode },
 
   get isLoggedIn() { return !!_user && !!_loginMode },
+  get isVip() { return Boolean(_vipInfo?.isVip) },
+  get vipLabel() {
+    if (!_loginMode) return '未登录'
+    if (!_vipInfo) return '未同步'
+    if (!_vipInfo.isVip) return '普通账号'
+    return _vipInfo.vipLevel ? `VIP Lv.${_vipInfo.vipLevel}` : 'VIP'
+  },
   get isAccountLoggedIn() { return _loginMode === 'account' },
   get isLooseLoggedIn() { return !!_loginMode },
   get cookieOk() { return _cookieOk },
@@ -76,11 +88,14 @@ export const auth = {
 
   init() {
     const stored = getStorageJson('auth_user', null)
+    const vip = getStorageJson('auth_vip', null)
     const mode = getStorage('auth_mode', '')
     if (stored && mode) {
       try {
         _user = normalizeUser(stored)
+        _vipInfo = vip
         _loginMode = mode
+        this.refreshVipInfo()
       } catch { this.clear() }
     }
   },
@@ -93,11 +108,35 @@ export const auth = {
     setStorage('auth_mode', mode)
   },
 
+  async refreshVipInfo() {
+    if (!this.isLoggedIn) {
+      _vipInfo = null
+      removeStorage('auth_vip')
+      return null
+    }
+    try {
+      const res = await fetchVipInfo(ncm)
+      _vipInfo = normalizeVipInfo(res)
+      setStorage('auth_vip', _vipInfo)
+      return _vipInfo
+    } catch {
+      return _vipInfo
+    }
+  },
+
+  async setAccountUser(user) {
+    this.setUser(user, 'account')
+    await this.refreshVipInfo()
+    return user
+  },
+
   clear() {
     _user = null
     _loginMode = null
+    _vipInfo = null
     removeStorage('auth_user')
     removeStorage('auth_mode')
+    removeStorage('auth_vip')
   },
 
   async login(mode, credentials) {
@@ -112,6 +151,7 @@ export const auth = {
     if (ck) setCookie(ck)
     const profile = res.profile || res.data?.profile || res.account || res.data?.account
     this.setUser(profile, 'account')
+    await this.refreshVipInfo()
     return profile
   },
 
@@ -128,7 +168,7 @@ export const auth = {
           throw new Error('/login/status returned anonymous account')
         }
         let p = res.profile || res.data?.profile || res.account || res.data?.account
-        if (p?.userId || p?.id) return this.setUser(p, 'account'), p
+        if (p?.userId || p?.id) return this.setAccountUser(p)
         const uid = res.account?.id || res.data?.account?.id
         if (uid) {
           try {
@@ -136,7 +176,7 @@ export const auth = {
             p = detail.profile || detail.user || detail.data?.profile || detail.data?.user || { userId: uid, nickname: '用户', avatarUrl: '' }
           } catch {}
         }
-        if (p) return this.setUser(p, 'account'), p
+        if (p) return this.setAccountUser(p)
       }
       lastErr = `/login/status code=${res.code ?? res.data?.code ?? 'none'}`
     } catch (e) {
@@ -148,7 +188,7 @@ export const auth = {
       const ok = res.code === 200 || res.data?.code === 200
       if (ok) {
         let p = res.profile || res.data?.profile || res.account || res.data?.account
-        if (p) return this.setUser(p, 'account'), p
+        if (p) return this.setAccountUser(p)
       }
       lastErr = `/user/account code=${res.code ?? res.data?.code ?? 'none'}`
     } catch (e) {

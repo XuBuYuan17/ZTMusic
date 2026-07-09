@@ -1,29 +1,88 @@
 import './app.css'
-import './app-pc.css'
-import './app-mobile.css'
+import { getLayoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
 
-const mobileViewportQuery = window.matchMedia('(max-width: 760px)')
+const loadedStyles = new Set()
+
+function loadRuntimeStyles(mobile) {
+  const key = mobile ? 'mobile' : 'pc'
+  if (loadedStyles.has(key)) return Promise.resolve()
+  loadedStyles.add(key)
+  return mobile ? import('./app-mobile.css') : import('./app-pc.css')
+}
+
+function serializeClientError(value) {
+  if (value instanceof Error) {
+    return {
+      message: value.message,
+      stack: value.stack || '',
+    }
+  }
+  return {
+    message: typeof value === 'string' ? value : JSON.stringify(value),
+    stack: '',
+  }
+}
+
+async function installDevErrorReporter() {
+  if (!import.meta.env.DEV || !window.__TAURI_INTERNALS__) return
+  let invoke
+  try {
+    ;({ invoke } = await import('@tauri-apps/api/core'))
+  } catch {
+    return
+  }
+
+  const report = (level, value, source = '') => {
+    const serialized = serializeClientError(value)
+    invoke('dev_report_client_error', {
+      log: {
+        level,
+        message: serialized.message,
+        stack: serialized.stack,
+        source,
+      },
+    }).catch(() => {})
+  }
+
+  window.addEventListener('error', (event) => {
+    report('error', event.error || event.message, event.filename || '')
+  })
+  window.addEventListener('unhandledrejection', (event) => {
+    report('unhandledrejection', event.reason)
+  })
+
+  const originalError = console.error.bind(console)
+  console.error = (...args) => {
+    originalError(...args)
+    report('console.error', args.map((arg) => serializeClientError(arg).message).join(' '))
+  }
+}
+
+installDevErrorReporter()
 
 function isMobileRuntime() {
   // ponytail: ?mobile 参数强制启用手持端布局
   if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mobile')) return true
-  return mobileViewportQuery.matches
+  return shouldUseMobileLayout(window.innerWidth, window.innerHeight, getLayoutMode())
 }
 
 function syncMobileRuntime() {
-  document.documentElement.classList.toggle('mobile-runtime', isMobileRuntime())
+  const mobile = isMobileRuntime()
+  document.documentElement.classList.toggle('mobile-runtime', mobile)
+  loadRuntimeStyles(mobile)
 }
 
 syncMobileRuntime()
-mobileViewportQuery.addEventListener('change', syncMobileRuntime)
 window.addEventListener('resize', syncMobileRuntime)
 window.addEventListener('orientationchange', syncMobileRuntime)
+window.addEventListener('layout-mode-change', syncMobileRuntime)
 
 ;(async () => {
   try {
+    await loadRuntimeStyles(isMobileRuntime())
     const { mount } = await import('svelte')
     const { default: App } = await import('./App.svelte')
     mount(App, { target: document.getElementById('app') })

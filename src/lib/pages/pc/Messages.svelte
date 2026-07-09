@@ -4,8 +4,16 @@
   import { ncm } from '../../api/client.js'
   import Spinner from '../../components/Spinner.svelte'
   import { coverUrl } from '../../utils/image.js'
+  import {
+    applyMessageReadState,
+    getInitialMessageReadState,
+    getMessageIdentity,
+    getMessageUnreadCount,
+    loadMessageReadState,
+    saveMessageReadState,
+  } from '../../services/message-read-state.js'
 
-  let { onNavigate = () => {}, targetUser = null } = $props()
+  let { onNavigate = () => {}, targetUser = null, onUnreadChange = () => {} } = $props()
 
   let messages = $state([])
   let loading = $state(false)
@@ -18,14 +26,20 @@
   let shouldScrollToBottom = $state(false)
   let originMsgId = $state(null)
   let handledTargetUserId = $state(null)
+  let messagesLoaded = $state(false)
+  let readState = $state(getInitialMessageReadState())
+
+  let unreadTotal = $derived(messages.reduce((total, msg) => total + getMessageUnreadCount(msg), 0))
 
   async function loadMessages() {
     if (!auth.isLoggedIn) return
     loading = true
     error = ''
     try {
+      readState = await loadMessageReadState()
       const res = await ncm.msgPrivate(30, 0)
-      messages = res?.msgs || res?.messages || res?.data || []
+      messages = (res?.msgs || res?.messages || res?.data || []).map(msg => applyMessageReadState(msg, readState))
+      messagesLoaded = true
     } catch (e) {
       error = '加载私信失败'
       console.error(e)
@@ -55,6 +69,22 @@
     return user.userId || user.id || msg.fromUserId || msg.toUserId || msg.userId
   }
 
+  function saveReadState(nextState) {
+    readState = nextState
+    saveMessageReadState(nextState)
+  }
+
+  function clearUnread(msg) {
+    const messageId = getMessageIdentity(msg)
+    if (messageId) saveReadState({ ...readState, [messageId]: Date.now() })
+    messages = messages.map(item => getMessageIdentity(item) === messageId ? { ...item, newMsgCount: 0, unreadCount: 0, unread: 0 } : item)
+  }
+
+  function markAllRead() {
+    saveReadState(Object.fromEntries(messages.map(item => [getMessageIdentity(item), Date.now()]).filter(([id]) => id)))
+    messages = messages.map(item => ({ ...item, newMsgCount: 0, unreadCount: 0, unread: 0 }))
+  }
+
   function createMessageFromUser(user) {
     return {
       userId: user.userId || user.id,
@@ -69,6 +99,7 @@
   }
 
   async function openChat(msg) {
+    clearUnread(msg)
     selectedMsg = msg
     originMsgId = msg.userId || msg.fromUserId || msg.id
     chatMessages = []
@@ -177,40 +208,49 @@
       })
     }
   })
+
+  $effect(() => { if (messagesLoaded) onUnreadChange(unreadTotal) })
 </script>
 
 <div class="messages-page">
   <div class="page-header">
     <div>
-      <h1>私信</h1>
-      <p>查看网易云私信与音乐分享</p>
+      <h1>提醒</h1>
+      <p>查看新歌提醒、系统通知与音乐分享</p>
     </div>
     {#if auth.isLoggedIn}
-      <button class="icon-btn" onclick={() => loadMessages()} disabled={loading} aria-label="刷新私信">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-      </button>
+      <div class="messages-actions">
+        {#if unreadTotal > 0}
+          <button class="plain-btn" onclick={markAllRead}>全部已读 · {unreadTotal > 99 ? '99+' : unreadTotal}</button>
+        {/if}
+        <button class="icon-btn" onclick={() => loadMessages()} disabled={loading} aria-label="刷新提醒">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+        </button>
+      </div>
     {/if}
   </div>
 
   <section class="messages-card">
     {#if !auth.isLoggedIn}
-      <div class="empty-state">登录后查看私信</div>
+      <div class="empty-state">登录后查看提醒</div>
     {:else if loading}
-      <div class="empty-state"><Spinner size="md" label="加载私信..." /></div>
+      <div class="empty-state"><Spinner size="md" label="加载提醒..." /></div>
     {:else if error}
       <div class="empty-state">
         <p>{error}</p>
         <button class="plain-btn" onclick={() => loadMessages()}>重试</button>
       </div>
     {:else if messages.length === 0}
-      <div class="empty-state">暂无私信</div>
+      <div class="empty-state">暂无提醒</div>
     {:else}
       <div class="messages-list">
         {#each messages as msg}
-          <button class="message-item" onclick={() => openChat(msg)}>
+          {@const unreadCount = getMessageUnreadCount(msg)}
+          <button class="message-item" class:unread={unreadCount > 0} onclick={() => openChat(msg)}>
             <div class="msg-avatar">
+              {#if unreadCount > 0}<span class="msg-dot" aria-hidden="true"></span>{/if}
               {#if getAvatar(msg)}
                 <img src={coverUrl(getAvatar(msg), 80)} alt="" referrerpolicy="no-referrer" />
               {:else}
@@ -228,6 +268,7 @@
               </div>
               <div class="msg-preview">{getMsgPreview(msg.lastMsg || msg.msg)}</div>
             </div>
+            {#if unreadCount > 0}<span class="msg-unread-count">{unreadCount > 99 ? '99+' : unreadCount}</span>{/if}
             <svg class="item-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M9 18l6-6-6-6"/>
             </svg>
@@ -376,6 +417,13 @@
     color: var(--text-tertiary);
   }
 
+  .messages-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
   .messages-card {
     flex: 1;
     min-height: 0;
@@ -474,6 +522,11 @@
     border-color: color-mix(in srgb, var(--border) 48%, transparent);
   }
 
+  .message-item.unread {
+    background: color-mix(in srgb, var(--accent) 9%, var(--bg-surface));
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
   .message-item:focus-visible,
   .shared-card:focus-visible,
   .icon-btn:focus-visible,
@@ -484,6 +537,7 @@
 
   .msg-avatar,
   .title-avatar {
+    position: relative;
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -514,6 +568,18 @@
     align-items: center;
     justify-content: center;
     color: var(--text-tertiary);
+  }
+
+  .msg-dot {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    z-index: 1;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 2px var(--bg-surface);
   }
 
   .msg-content {
@@ -551,6 +617,22 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .msg-unread-count {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   .item-chevron {

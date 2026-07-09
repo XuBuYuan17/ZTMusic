@@ -32,9 +32,9 @@
     next: {v:'0 0 24 24', d:'M5.5 5.938a1 1 0 0 0-1.5.866v10.392a1 1 0 0 0 1.5.866L8 16.62V7.38zm2.898-.636L6.5 4.206l-.5.866l.5-.866C4.5 3.05 2 4.494 2 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598l1.898-1.096c.785 1.355 2.587 1.971 4.102 1.096l9-5.196c2-1.155 2-4.041 0-5.196l-9-5.196c-1.515-.875-3.317-.259-4.102 1.096'},
     repeat: {v:'0 0 24 24', d:'M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3', s:true},
     'repeat-1': [{type:'path',d:'M4 12V9a3 3 0 0 1 3-3h13m-3-3l3 3l-3 3m3 3v3a3 3 0 0 1-3 3H4m3 3l-3-3l3-3',fill:'none',stroke:'currentColor',strokeWidth:2},{type:'text',x:12,y:17,'text-anchor':'middle',fontSize:11,fontWeight:'bold',content:'1'}],
-    // queue / list: icon-park-solid--music-list
-    queue: {v:'0 0 48 48', d:'M24 19h16M24 10h16M8 38h32M8 28h32', s:true, extra:[{t:'path',d:'m8 10l8 5l-8 5z',f:'currentColor'}]},
-    list: {v:'0 0 48 48', d:'M24 19h16M24 10h16M8 38h32M8 28h32', s:true, extra:[{t:'path',d:'m8 10l8 5l-8 5z',f:'currentColor'}]},
+    // queue / list
+    queue: {v:'0 0 24 24', d:'M4 5h16M4 11h16M4 17h10', s:true, extra:[{t:'path',d:'m4 12l4 3l-4 3z',f:'currentColor'}]},
+    list: {v:'0 0 24 24', d:'M4 5h16M4 11h16M4 17h10', s:true, extra:[{t:'path',d:'m4 12l4 3l-4 3z',f:'currentColor'}]},
     // volume
     volume: [{type:'polygon',points:'11 5 6 9 2 9 2 15 6 15 11 19 11 5'},{type:'path',d:'M15.54 8.46a5 5 0 0 1 0 7.07'}],
     'volume-full': [{type:'polygon',points:'11 5 6 9 2 9 2 15 6 15 11 19 11 5'},{type:'path',d:'M15.54 8.46a5 5 0 0 1 0 7.07'},{type:'path',d:'M19.07 4.93a10 10 0 0 1 0 14.14'}],

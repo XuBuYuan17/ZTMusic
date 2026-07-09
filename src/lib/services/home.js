@@ -1,4 +1,14 @@
-import { normalizeLocalHistorySong, normalizePlaylist, normalizeRecordSong } from '../utils/normalize.js'
+import { normalizeLocalHistorySong, normalizePlaylist } from '../utils/normalize.js'
+import { formatPlayCount } from '../format.js'
+
+function settledValue(result, fallback = null) {
+  return result.status === 'fulfilled' ? result.value : fallback
+}
+
+function withPlayCountText(playlist) {
+  if (!playlist) return null
+  return { ...playlist, playCountText: playlist.playCount ? `${formatPlayCount(playlist.playCount)} 次播放` : '歌单' }
+}
 
 export async function loadLibraryData(ncm, user) {
   const uid = user?.userId || user?.id
@@ -9,6 +19,58 @@ export async function loadLibraryData(ncm, user) {
     return allPlaylists.filter(playlist => playlist.creator?.userId !== uid && playlist.specialType !== 5).map(normalizePlaylist).filter(Boolean)
   } catch {
     return []
+  }
+}
+
+export async function loadMobileLibraryData(ncm, user) {
+  const uid = user?.userId || user?.id
+  if (!uid) return { profile: null, stats: [], createdPlaylists: [], savedPlaylists: [], likedPlaylist: null }
+
+  const [playlistResult, detailResult, subcountResult, likedResult, levelResult] = await Promise.allSettled([
+    ncm.userPlaylist(uid),
+    ncm.userDetail(uid),
+    ncm.userSubcount(),
+    ncm.likelist(uid),
+    ncm.userLevel?.(),
+  ])
+
+  const playlists = (settledValue(playlistResult, {})?.playlist || []).slice(0, 100)
+  const normalizedPlaylists = playlists.map(normalizePlaylist).filter(Boolean).map(withPlayCountText)
+  const savedPlaylists = playlists
+    .filter(playlist => playlist.creator?.userId !== uid && playlist.specialType !== 5)
+    .map(normalizePlaylist)
+    .filter(Boolean)
+    .map(withPlayCountText)
+  const createdPlaylists = playlists
+    .filter(playlist => playlist.creator?.userId === uid && playlist.specialType !== 5)
+    .map(normalizePlaylist)
+    .filter(Boolean)
+    .map(withPlayCountText)
+  const likedPlaylist = withPlayCountText(normalizePlaylist(playlists.find(playlist => playlist.creator?.userId === uid && playlist.specialType === 5)))
+
+  const detail = settledValue(detailResult, {}) || {}
+  const detailData = detail.data || detail
+  const profile = detailData.profile || detail.profile || user
+  const subcount = settledValue(subcountResult, {})?.data || settledValue(subcountResult, {}) || {}
+  const likedIds = settledValue(likedResult, {})?.ids || settledValue(likedResult, {})?.data?.ids || []
+  const levelData = settledValue(levelResult, {})?.data || settledValue(levelResult, {}) || {}
+
+  return {
+    profile: {
+      nickname: profile?.nickname || user?.nickname || '用户',
+      avatarUrl: profile?.avatarUrl || user?.avatarUrl || '',
+      level: levelData.level || detailData.level || profile?.level || 0,
+      listenSongs: detailData.listenSongs || profile?.listenSongs || levelData.nowPlayCount || 0,
+    },
+    stats: [
+      { label: '听歌', value: formatPlayCount(detailData.listenSongs || profile?.listenSongs || levelData.nowPlayCount || 0) || '0' },
+      { label: '喜欢', value: formatPlayCount(likedIds.length || likedPlaylist?.trackCount || 0) || '0' },
+      { label: '歌单', value: formatPlayCount(subcount.createdPlaylistCount + subcount.subPlaylistCount || normalizedPlaylists.length) || '0' },
+      { label: '关注', value: formatPlayCount(subcount.artistCount || subcount.followCount || 0) || '0' },
+    ],
+    createdPlaylists,
+    savedPlaylists,
+    likedPlaylist,
   }
 }
 

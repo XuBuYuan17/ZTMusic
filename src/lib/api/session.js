@@ -16,14 +16,14 @@ function loadApiBase() {
   return base || DEFAULT_API_BASE
 }
 
-function extractCookie(raw = '') {
+export function extractCookie(raw = '') {
   return raw
     ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ')
     : ''
 }
 
 /** 合并两个 cookie 串：newCookie 的键覆盖 oldCookie 的同名键，保留 oldCookie 中未被提及的键 */
-function mergeCookies(oldCookie, newCookie) {
+export function mergeCookies(oldCookie = '', newCookie = '') {
   const map = {}
   for (const part of oldCookie.split(';')) {
     const kv = part.trim()
@@ -38,18 +38,14 @@ function mergeCookies(oldCookie, newCookie) {
   return Object.entries(map).map(([k, v]) => `${k}=${v}`).join('; ')
 }
 
-/** 从 cookie 串中提取 MUSIC_U 的值 */
-function extractMusicU(cookieString) {
+export function normalizeCookieForRequest(cookieString) {
   if (!cookieString) return ''
-  const parts = cookieString.split(';')
-  for (const p of parts) {
-    const kv = p.trim()
-    if (kv.startsWith('MUSIC_U=')) {
-      const value = kv.slice('MUSIC_U='.length)
-      return value ? `MUSIC_U=${value};os=pc;` : ''
-    }
+  const parts = cookieString.split(';').map(s => s.trim()).filter(s => s.includes('='))
+  if (!parts.some(part => part.startsWith('MUSIC_U='))) return ''
+  if (!parts.some(part => part.startsWith('os='))) {
+    parts.push('os=pc')
   }
-  return ''
+  return parts.join('; ')
 }
 
 let apiBase = loadApiBase()
@@ -66,8 +62,7 @@ export const apiSession = {
   },
 
   getCookie() {
-    // ponytail: 仅发送 MUSIC_U + os=pc，与 SPlayer 保持一致
-    return extractMusicU(apiCookie)
+    return normalizeCookieForRequest(apiCookie)
   },
 
   setCookie(cookie) {
@@ -87,7 +82,7 @@ export const apiSession = {
     // 合并式更新：响应 cookie 覆盖旧值中同名键，保留旧值中未被提及的键
     const merged = mergeCookies(apiCookie, cookie)
     // 只有合并后仍含 MUSIC_U 才写入，防止意外抹掉登录态
-    if (extractMusicU(merged)) {
+    if (normalizeCookieForRequest(merged)) {
       apiCookie = merged
       setStorage(API_COOKIE_KEY, apiCookie)
     }

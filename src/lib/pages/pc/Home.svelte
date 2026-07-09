@@ -4,6 +4,7 @@
   import { player } from '../../stores/player.svelte.js'
   import { ncm } from '../../api/client.js'
   import { loadHomeData } from '../../services/home.js'
+  import { loadDailyHistoryData } from '../../services/dailyHistory.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
@@ -15,7 +16,6 @@
     onOpenPlaylist,
     onOpenArtist,
     onOpenAlbum,
-    onOpenFollows,
   } = $props()
 
   let loading = $state(true)
@@ -26,19 +26,26 @@
   let likedPlaylist = $state(null)
   let weeklyPlaylist = $state(null)
   let recommendPlaylists = $state([])
+  let dailyHistoryDates = $state([])
+  let dailyHistorySongs = $state([])
+  let selectedDailyDate = $state('')
 
   let songActions = $state(null)
   let _requestId = 0
 
   async function load() {
     const rid = ++_requestId; loading = true; error = ''
-    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
+    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []; dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = ''
     try {
       if (!auth.isLoggedIn) return
-      const data = await loadHomeData(ncm, auth.user)
+      const [data, dailyHistory] = await Promise.all([
+        loadHomeData(ncm, auth.user),
+        loadDailyHistoryData(ncm),
+      ])
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
       weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks; recommendPlaylists = data.recommendPlaylists
+      dailyHistoryDates = dailyHistory.dates; dailyHistorySongs = dailyHistory.songs; selectedDailyDate = dailyHistory.selectedDate
       data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
       data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; if (v.recentTracks.length) recentTracks = v.recentTracks }).catch(() => {})
       data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
@@ -55,7 +62,7 @@
   $effect(() => { if (auth.isLoggedIn) load() })
 
   $effect(() => {
-    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = [] }
+    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = []; dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = '' }
   })
 
   function handleCardKeydown(event, action) {
@@ -77,16 +84,22 @@
     return track?.picUrl || extractCover(track)
   }
 
+  function formatDateLabel(date) {
+    if (!date) return '历史日推'
+    const parts = String(date).split('-')
+    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : date
+  }
+
   const heroReady = $derived(recommendPlaylists.length > 0)
   const heroPlaylist = $derived(heroReady ? recommendPlaylists[0] : null)
   const heroImage = $derived(auth.user?.avatarUrl || '')
   const stationCards = $derived([
     {
-      title: '关注列表',
-      label: 'Social',
-      value: '查看关注与粉丝',
+      title: '历史日推',
+      label: 'Daily Archive',
+      value: dailyHistorySongs.length ? `${formatDateLabel(selectedDailyDate)} · ${dailyHistorySongs.length} 首` : '查看每日推荐记录',
       accent: 'rank',
-      action: () => onOpenFollows?.(),
+      action: () => onNavigate?.('dailyHistory'),
     },
     {
       title: '喜欢的音乐',
@@ -151,7 +164,7 @@
           </div>
           {#if loading && userPlaylists.length === 0}
             <div class="home-track-list" aria-label="加载资料库">
-              {#each Array(6) as _, i}
+              {#each Array(8) as _, i}
                 <div class="home-track-row skeleton-row" style={`--skeleton-delay:${i * 90}ms`}>
                   <span class="home-track-index skeleton-line short"></span>
                   <span class="home-track-cover-ph skeleton-block"></span>
@@ -164,7 +177,7 @@
             </div>
           {:else if userPlaylists.length > 0}
             <div class="home-track-list">
-              {#each userPlaylists.slice(0, 6) as pl, i (pl.id)}
+              {#each userPlaylists.slice(0, 8) as pl, i (pl.id)}
                 <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
                   <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
                   {#if pl.picUrl}
@@ -236,7 +249,7 @@
         </div>
       </section>
 
-      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0}
+      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0 && dailyHistorySongs.length === 0}
         <div class="home-empty">
           <div class="home-empty-icon">
             <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

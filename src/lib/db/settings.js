@@ -11,10 +11,6 @@
 import { getDB, isReady } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
 
-function fallback() {
-  return { available: false }
-}
-
 function isAvailable() {
   return isReady() && getDB()
 }

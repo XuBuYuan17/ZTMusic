@@ -74,6 +74,28 @@ pub(crate) struct NativePendingAction {
     pub(crate) action: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClientErrorLog {
+    level: String,
+    message: String,
+    stack: Option<String>,
+    source: Option<String>,
+}
+
+#[tauri::command]
+fn dev_report_client_error(log: ClientErrorLog) {
+    if cfg!(debug_assertions) {
+        eprintln!(
+            "[client:{}] {}{}{}",
+            log.level,
+            log.message,
+            log.source.map(|source| format!("\nsource: {source}")).unwrap_or_default(),
+            log.stack.map(|stack| format!("\n{stack}")).unwrap_or_default()
+        );
+    }
+}
+
 fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new(NATIVE_MEDIA_PLUGIN_NAME)
         .setup(|app, api| {
@@ -137,7 +159,8 @@ pub fn run() {
             api::ncm_request,
             media_metadata::updateMetadata,
             media_playback::updatePlaybackState,
-            pending_action::pollPendingAction
+            pending_action::pollPendingAction,
+            dev_report_client_error
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

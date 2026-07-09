@@ -4,7 +4,7 @@
   import AppleMusicPlayer from './AppleMusicPlayer.svelte';
   import PCPlayer from './PCPlayer.svelte';
 
-  let { show = false, onClose, onOpenArtist } = $props();
+  let { show = false, origin = null, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme } = $props();
 
   let showLocalQueue = $state(false);
   let lyricsMode = $state(false);
@@ -34,7 +34,6 @@
 
   function toggleLocalQueue() {
     showLocalQueue = !showLocalQueue;
-    console.log('toggleLocalQueue called, showLocalQueue:', showLocalQueue);
   }
 
   function toggleLyricsMode() {
@@ -45,6 +44,7 @@
   $effect(() => {
     if (show) {
       mounted = true;
+      closing = false;
       setTimeout(() => { entered = true; }, 10);
     } else {
       entered = false;
@@ -63,7 +63,7 @@
 {#if mounted}
   <div class="ly-fullscreen" class:mounted class:entered class:closing
     class:ly-no-blur={$responsive.isMobile}
-    style={player.cover ? `--ly-cover: url(${player.cover})` : ''}
+    style={`${player.cover ? `--ly-cover: url(${player.cover});` : ''} --ly-origin-x: ${origin?.x ?? (typeof window !== 'undefined' ? window.innerWidth / 2 : 0)}px; --ly-origin-y: ${origin?.y ?? (typeof window !== 'undefined' ? window.innerHeight : 0)}px;`}
     role="presentation" onclick={handleClose}>
 
     <div class="ly-container" class:controls-hidden={!controlsVisible} role="presentation"
@@ -82,6 +82,9 @@
         <AppleMusicPlayer
           {onClose}
           {onOpenArtist}
+          {onOpenAlbum}
+          {onOpenPlaylist}
+          {onToggleTheme}
           {showLocalQueue}
           {toggleLocalQueue}
         />

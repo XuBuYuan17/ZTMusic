@@ -6,6 +6,7 @@ export const SETTINGS_SCHEMA_VERSION = 2
 
 export const SETTING_DEFAULTS = {
   'default_page': 'home',
+  'layout_mode': 'auto',
   'lyrics_blur_effect': 'true',
   'lyrics_text_blur_effect': 'true',
   [STORAGE_KEYS.RESTORE_SESSION]: 'true',
@@ -52,12 +53,17 @@ function normalizeDefaultPage(value) {
   return ['home', 'explore', 'library'].includes(value) ? value : SETTING_DEFAULTS.default_page
 }
 
+function normalizeLayoutMode(value) {
+  return ['auto', 'pc', 'mobile'].includes(value) ? value : SETTING_DEFAULTS.layout_mode
+}
+
 function normalizeSetting(key, value) {
   if (BOOLEAN_KEYS.has(key)) return normalizeBoolean(value, SETTING_DEFAULTS[key])
   if (key === STORAGE_KEYS.VOLUME) return normalizeVolume(value)
   if (key === STORAGE_KEYS.MODE) return normalizeMode(value)
   if (key === STORAGE_KEYS.PREFERRED_QUALITY) return normalizeQuality(value)
   if (key === 'default_page') return normalizeDefaultPage(value)
+  if (key === 'layout_mode') return normalizeLayoutMode(value)
   return value == null ? SETTING_DEFAULTS[key] : String(value)
 }
 

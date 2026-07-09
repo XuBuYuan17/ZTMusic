@@ -96,6 +96,10 @@
     onNavigate?.(view, extra)
   }
 
+  function handleToggleTheme() {
+    onSetTheme?.(theme === 'dark' ? 'light' : 'dark')
+  }
+
   // 点击遮罩关闭
   function onBackdropClick(e) {
     if (e.target === e.currentTarget) closeDrawer()
@@ -139,10 +143,15 @@
             onOpenAlbum={(id) => onOpenAlbum?.(id)}
             onOpenArtist={(id) => onOpenArtist?.(id)}
             onOpenLogin={() => onOpenLogin?.()}
+            onNavigate={onNavigate}
           />
         {:else if activeView === 'explore'}
           <MobileBrowse
             onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
+            onOpenAlbum={(id) => onOpenAlbum?.(id)}
+            onOpenArtist={(id) => onOpenArtist?.(id)}
+            onPlaySong={router.playExploreSong}
+            onBannerClick={router.handleBannerClick}
             onSearch={() => onSearch?.()}
           />
         {:else if activeView === 'library'}
@@ -237,7 +246,7 @@
       refreshKey={router.refreshKey}
       inDrawer={true}
       onNavigate={handleNav}
-      onToggleTheme={onSetTheme}
+      onToggleTheme={handleToggleTheme}
       onOpenLogin={() => { closeDrawer(); onOpenLogin?.() }}
     />
   </aside>

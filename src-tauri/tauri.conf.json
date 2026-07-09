@@ -7,7 +7,8 @@
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeBuildCommand": "pnpm build",
+    "removeUnusedCommands": true
   },
   "app": {
     "windows": [
@@ -36,6 +37,15 @@
     "android": {
       "minSdkVersion": 24,
       "debugApplicationIdSuffix": ".debug"
+    },
+    "windows": {
+      "nsis": {
+        "languages": ["SimpChinese"],
+        "installerHooks": "windows/nsis/installer-hooks.nsh",
+        "customLanguageFiles": {
+          "SimpChinese": "windows/nsis/SimpChinese.nsh"
+        }
+      }
     }
   }
 }

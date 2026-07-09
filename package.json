@@ -8,12 +8,15 @@
     "dev:clean": "rm -rf node_modules/.vite && vite",
     "dev:5173": "vite --host 127.0.0.1 --port 5173 --strictPort --clearScreen false",
     "build": "vite build",
+    "test": "node src/lib/app/back.test.js && node src/lib/utils/layout-mode.test.js && node src/lib/player/fallback.test.js && node src/lib/player/trial-message.test.js && node src/lib/auth/vip.test.js && node src/lib/api/session.test.js && node src/lib/api/cache-policy.test.js && node src/lib/player/url-resolver.test.js",
     "preview": "vite preview",
-    "verify": "pnpm build",
-    "verify:tauri": "pnpm build && pnpm tauri:build",
+    "verify": "pnpm test && pnpm build",
+    "verify:tauri": "pnpm build && pnpm tauri:build:linux",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev:wsl": "WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_FORCE_COMPOSITING_MODE=0 tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:linux": "tauri build --bundles deb,rpm"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

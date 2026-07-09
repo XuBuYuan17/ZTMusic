@@ -14,6 +14,9 @@
   let lyricTrackId = $state(null)
   let lyricLoading = $state(false)
   let currentLyric = $state(null)
+  let gestureStart = null
+  let swipeDirection = $state('')
+  let swipeTimer = null
 
   function fmt(t) {
     if (!t || isNaN(t)) return '0:00'
@@ -22,7 +25,7 @@
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function handleClick(e) {
+  function openLyricsFromBar(e) {
     if (player.id) {
       const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
       const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
@@ -34,6 +37,45 @@
         onOpenSheet?.(originEl)
       }, 150)
     }
+  }
+
+  function handleBarPointerDown(e) {
+    if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
+    gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
+    e.currentTarget?.setPointerCapture?.(e.pointerId)
+  }
+
+  function handleBarPointerUp(e) {
+    if (!gestureStart || gestureStart.pointerId !== e.pointerId) return
+    const dx = e.clientX - gestureStart.x
+    const dy = e.clientY - gestureStart.y
+    gestureStart = null
+
+    if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      e.preventDefault()
+      e.stopPropagation()
+      playSwipeAnimation(dx < 0 ? 'next' : 'prev')
+      if (dx < 0) player.next()
+      else player.prev()
+      return
+    }
+
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+      openLyricsFromBar(e)
+    }
+  }
+
+  function handleBarPointerCancel() {
+    gestureStart = null
+  }
+
+  function playSwipeAnimation(direction) {
+    swipeDirection = ''
+    clearTimeout(swipeTimer)
+    requestAnimationFrame(() => {
+      swipeDirection = direction
+      swipeTimer = setTimeout(() => { swipeDirection = '' }, 360)
+    })
   }
 
   function onVolBarClick(e) {
@@ -125,7 +167,7 @@
   function handleBarKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      handleClick(e)
+      openLyricsFromBar(e)
     }
   }
   function handleVolumeToggleKeyDown(e) {
@@ -156,22 +198,25 @@
 <div
   class="player-bar"
   class:pressing={isPressing}
+  class:playing={player.playing && !player.loading}
   class:compact={compactMode}
   class:with-lyrics={showLyric}
+  onpointerdown={handleBarPointerDown}
+  onpointerup={handleBarPointerUp}
+  onpointercancel={handleBarPointerCancel}
+  role="group"
   style="cursor: pointer;"
 >
-  <button type="button" class="player-bar__open-hit" onpointerdown={handleClick} onclick={(e) => e.stopPropagation()} aria-label="打开歌词页"></button>
+  <button type="button" class="player-bar__open-hit" onclick={(e) => e.stopPropagation()} aria-label="打开歌词页"></button>
   <!-- 左侧：歌曲信息 / 当前歌词 (LCD区域) -->
-  <div class="player-bar__lcd" aria-hidden="true">
+  <div class="player-bar__lcd" class:swipe-next={swipeDirection === 'next'} class:swipe-prev={swipeDirection === 'prev'} aria-hidden="true">
     {#if player.cover}
       <div class="lcd-artwork">
         <img class="lcd-artwork__img" src={coverUrl(player.cover, 88)} alt="" referrerpolicy="no-referrer">
       </div>
     {:else}
       <div class="lcd-artwork lcd-artwork--empty">
-        <svg viewBox="0 0 20 24" width="20" height="20" fill="currentColor">
-          <path fill-rule="nonzero" d="M14.5498331,5.79055576 L14.8667346,5.79824073 C15.6519271,5.85753895 17.9167852,6.09354452 19.3663083,8.18658259 C19.2454992,8.2761902 16.6786385,9.72115188 16.7091378,12.7589876 C16.7390911,16.3870553 19.9696682,17.5970079 20,17.6265086 C19.9696682,17.7155832 19.487499,19.3381578 18.3096405,21.0185738 C17.2829229,22.4941235 16.2256873,23.9394547 14.5345925,23.9689736 C12.9038728,23.9984743 12.3599697,23.0246181 10.4887983,23.0246181 C8.61624942,23.0246181 8.01243658,23.9394547 6.47193668,23.9984743 C4.84148068,24.056773 3.60409403,22.4336653 2.57735781,20.9595512 C0.463094554,17.9799264 -1.13731196,12.5531248 1.03685791,8.89465382 C2.09390733,7.06587112 4.02671959,5.91602544 6.10974825,5.88615523 C7.71015477,5.85753895 9.18984525,6.91939744 10.1566562,6.91939744 C11.1229398,6.91939744 12.8433271,5.68057112 14.8667346,5.79824073 Z M14.882569,-1.50990331e-14 C15.034318,1.42063421 14.4589476,2.81085604 13.6110595,3.84623659 C12.7325883,4.85257077 11.3405768,5.6504798 9.94727779,5.53248307 C9.76560653,4.17140151 10.4624841,2.72297789 11.2498451,1.83563692 C12.1267465,0.799444643 13.6413789,0.0602553239 14.882569,-1.50990331e-14 Z"/>
-        </svg>
+        <Icon name="music" size={20} strokeWidth={1.8} />
       </div>
     {/if}
     <div class="lcd-meta" class:show-lyric={showLyric}>
@@ -203,7 +248,7 @@
       <button class="ctrl-btn ctrl-btn--shuffle" class:active={player.mode === 'shuffle'}
         onclick={(e) => { e.stopPropagation(); player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle') }}
         aria-label="随机播放">
-        <Icon name="shuffle-lg" size={18} fill="currentColor" />
+        <Icon name="shuffle-lg" size={24} fill="currentColor" />
       </button>
       <button class="ctrl-btn ctrl-btn--prev" onclick={(e) => { e.stopPropagation(); player.prev() }} aria-label="上一首">
         <Icon name="prev" size={24} fill="currentColor" />
@@ -214,9 +259,9 @@
             <Spinner size="sm" />
           </div>
         {:else if player.playing}
-          <Icon name="pause" size={24} fill="currentColor" />
+          <Icon name="pause" size={26} fill="currentColor" />
         {:else}
-          <Icon name="play" size={24} fill="currentColor" />
+          <Icon name="play" size={26} fill="currentColor" />
         {/if}
       </button>
       <button class="ctrl-btn ctrl-btn--next" onclick={(e) => { e.stopPropagation(); player.next() }} aria-label="下一首">
@@ -225,7 +270,7 @@
       <button class="ctrl-btn ctrl-btn--repeat" class:active={player.mode === 'repeat'}
         onclick={(e) => { e.stopPropagation(); player.setMode(player.mode === 'repeat' ? 'list' : 'repeat') }}
         aria-label="单曲循环">
-        <Icon name="repeat" size={18} />
+        <Icon name="repeat" size={24} strokeWidth={2.2} />
       </button>
     </div>
   </div>
@@ -252,7 +297,7 @@
     </div>
 
     <button class="action-btn" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); onToggleQueue?.() }} aria-label="播放列表">
-      <Icon name="list" size={22} />
+      <Icon name="list" size={24} strokeWidth={2.2} />
     </button>
   </div>
 

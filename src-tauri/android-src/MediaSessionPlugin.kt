@@ -34,18 +34,40 @@ import java.util.concurrent.Executors
 
 class MediaSessionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val title = intent?.getStringExtra("title") ?: "哲听"
+        val artist = intent?.getStringExtra("artist") ?: "正在播放"
+        val isPlaying = intent?.getBooleanExtra("isPlaying", false) ?: false
         val notification = NotificationCompat.Builder(this, "zheting_playback")
-            .setContentTitle("哲听")
-            .setContentText("正在播放")
+            .setContentTitle(title.ifEmpty { "哲听" })
+            .setContentText(artist.ifEmpty { if (isPlaying) "正在播放" else "已暂停" })
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .setSilent(true)
+            .setShowWhen(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(android.R.drawable.ic_media_previous, "上一首", mediaButtonIntent("MEDIA_PREV", 0))
+            .addAction(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                if (isPlaying) "暂停" else "播放",
+                mediaButtonIntent(if (isPlaying) "MEDIA_PAUSE" else "MEDIA_PLAY", 1)
+            )
+            .addAction(android.R.drawable.ic_media_next, "下一首", mediaButtonIntent("MEDIA_NEXT", 2))
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle().setShowActionsInCompactView(0, 1, 2))
             .build()
         startForeground(1001, notification)
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun mediaButtonIntent(action: String, requestCode: Int): PendingIntent {
+        return PendingIntent.getBroadcast(
+            this,
+            requestCode,
+            Intent(action).setPackage(packageName),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
 }
 
 class MediaButtonReceiver : BroadcastReceiver() {
@@ -96,6 +118,10 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
     })
     private val executor = Executors.newSingleThreadExecutor()
     private var receiverRegistered = false
+    private var foregroundServiceStarted = false
+    private var lastNotificationTitle = ""
+    private var lastNotificationArtist = ""
+    private var lastNotificationPlaying: Boolean? = null
 
     override fun load(webView: android.webkit.WebView) {
         super.load(webView)
@@ -220,21 +246,42 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         )
 
         // 启动前台服务以保持通知常驻（即使暂停也显示）
-        val serviceIntent = Intent(activity, MediaSessionService::class.java)
+        val meta = mediaSession?.controller?.metadata
+        val title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+        val artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+        if (shouldRefreshPlaybackNotification(title, artist, isPlaying)) {
+            startPlaybackService(title, artist, isPlaying)
+            updateNotification(title, artist, null, isPlaying)
+            rememberPlaybackNotification(title, artist, isPlaying)
+        }
+        invoke.resolve()
+    }
+
+    private fun shouldRefreshPlaybackNotification(title: String, artist: String, isPlaying: Boolean): Boolean {
+        return !foregroundServiceStarted ||
+            title != lastNotificationTitle ||
+            artist != lastNotificationArtist ||
+            isPlaying != lastNotificationPlaying
+    }
+
+    private fun startPlaybackService(title: String, artist: String, isPlaying: Boolean) {
+        val serviceIntent = Intent(activity, MediaSessionService::class.java).apply {
+            putExtra("title", title)
+            putExtra("artist", artist)
+            putExtra("isPlaying", isPlaying)
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             activity.startForegroundService(serviceIntent)
         } else {
             activity.startService(serviceIntent)
         }
+        foregroundServiceStarted = true
+    }
 
-        val meta = mediaSession?.controller?.metadata
-        updateNotification(
-            meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "",
-            meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: "",
-            null,
-            isPlaying
-        )
-        invoke.resolve()
+    private fun rememberPlaybackNotification(title: String, artist: String, isPlaying: Boolean) {
+        lastNotificationTitle = title
+        lastNotificationArtist = artist
+        lastNotificationPlaying = isPlaying
     }
 
     private fun updateNotification(

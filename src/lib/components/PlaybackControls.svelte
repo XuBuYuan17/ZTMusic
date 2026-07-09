@@ -19,7 +19,8 @@
     showQueue = false,
   } = $props()
 
-  let sz = $derived(size === 'lg' ? 26 : size === 'sm' ? 22 : 24)
+  let sz = $derived(isLyrics ? 32 : size === 'sm' ? 22 : 24)
+  let playSize = $derived(isLyrics ? 36 : size === 'lg' ? 28 : 26)
   let gap = $derived(size === 'lg' ? '1rem' : '0.5rem')
 
   let isLyrics = $derived(variant === 'lyrics')
@@ -113,11 +114,9 @@
     onclick={cycleMode} aria-label={modeLabels[mode]}
     disabled={isLyrics ? false : disabled}>
     {#if mode === 'shuffle'}
-      <svg viewBox="0 0 640 640" width={sz} height={sz} fill="currentColor">
-        <path d="M467.8 98.4c12-5 25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64c-9.2 9.2-22.9 11.9-34.9 6.9S448 268.9 448 256v-32h-32c-10.1 0-19.6 4.7-25.6 12.8L358 280l-40-53.3l21.2-28.3c18.1-24.2 46.6-38.4 76.8-38.4h32v-32c0-12.9 7.8-24.6 19.8-29.6M218 360l40 53.3l-21.2 28.3C218.7 465.8 190.2 480 160 480H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c10.1 0 19.6-4.7 25.6-12.8zm284.6 174.6c-9.2 9.2-22.9 11.9-34.9 6.9S448 524.9 448 512v-32h-32c-30.2 0-58.7-14.2-76.8-38.4L185.6 236.8c-6-8.1-15.5-12.8-25.6-12.8H96c-17.7 0-32-14.3-32-32s14.3-32 32-32h64c30.2 0 58.7 14.2 76.8 38.4l153.6 204.8c6 8.1 15.5 12.8 25.6 12.8h32v-32c0-12.9 7.8-24.6 19.8-29.6s25.7-2.2 34.9 6.9l64 64c6 6 9.4 14.1 9.4 22.6s-3.4 16.6-9.4 22.6l-64 64z"/>
-      </svg>
+      <Icon name="shuffle-lg" size={sz} fill="currentColor" />
     {:else}
-      <Icon name="repeat" size={sz} />
+      <Icon name="repeat" size={sz} strokeWidth={2.2} />
     {/if}
   </button>
 
@@ -131,9 +130,9 @@
     {#if loading}
       <Spinner size={isLyrics ? 'md' : (size === 'lg' ? 'md' : 'sm')} />
     {:else if playing}
-      <Icon name="pause" size={isLyrics ? 28 : (size === 'lg' ? 28 : 24)} fill="currentColor" />
+      <Icon name="pause" size={playSize} fill="currentColor" />
     {:else}
-      <Icon name="play" size={isLyrics ? 28 : (size === 'lg' ? 28 : 24)} fill="currentColor" />
+      <Icon name="play" size={playSize} fill="currentColor" />
     {/if}
   </button>
 
@@ -144,8 +143,8 @@
 
   <!-- 播放列表 - 歌词模式下在PC端显示，移动端在下方操作按钮组显示 -->
   <!-- 播放列表按钮 - 总是显示 -->
-  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={() => { console.log('queue button clicked, onqueue:', onqueue); onqueue?.(); }} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
-    <Icon name="list" size={sz} />
+  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={() => onqueue?.()} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
+    <Icon name="list" size={sz} strokeWidth={2.2} />
   </button>
 
 </div>

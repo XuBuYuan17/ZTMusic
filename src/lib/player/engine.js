@@ -4,6 +4,15 @@ function createAudioElement() {
   return audio
 }
 
+function getCodecSupport(audio) {
+  return {
+    mp3: audio.canPlayType('audio/mpeg'),
+    aac: audio.canPlayType('audio/aac'),
+    mp4: audio.canPlayType('audio/mp4; codecs="mp4a.40.2"'),
+    flac: audio.canPlayType('audio/flac'),
+  }
+}
+
 class AudioEngine {
   constructor() {
     this.audio = createAudioElement()
@@ -120,6 +129,7 @@ class AudioEngine {
       event,
       code: error?.code || 0,
       message: error?.message || '',
+      codecSupport: getCodecSupport(this.audio),
     }
   }
 

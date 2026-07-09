@@ -75,13 +75,49 @@ export function parseHomepageBlocks(res) {
   return blocks.map((block, index) => {
     const title = block.uiElement?.subTitle?.title || block.uiElement?.mainTitle?.title || block.blockCode || `推荐 ${index + 1}`
     const creatives = block.creatives || block.extInfo || []
-    const items = (Array.isArray(creatives) ? creatives : []).flatMap(creative => {
+    const rawItems = (Array.isArray(creatives) ? creatives : []).flatMap(creative => {
       const resources = creative.resources || creative.resourceExtInfo?.artists || []
       if (resources.length) {
-        return resources.map(r => r.resourceExtInfo?.songData || r.resourceExtInfo?.albumData || r.resourceExtInfo?.playlistData || r.resourceExtInfo || r)
+        return resources.map(r => ({ creative, resource: r }))
       }
-      return [creative.resourceExtInfo?.songData || creative.resourceExtInfo?.albumData || creative.resourceExtInfo?.playlistData || creative]
-    }).filter(Boolean).slice(0, 8)
-    return { id: block.blockCode || index, title, items }
-  }).filter(block => block.items.length > 0).slice(0, 4)
+      return [{ creative, resource: creative }]
+    }).filter(Boolean)
+    const items = rawItems.map(({ creative, resource }) => normalizeHomepageResource(creative, resource)).filter(Boolean).slice(0, 12)
+    const kind = items.find(item => item.kind)?.kind || ''
+    return { id: block.blockCode || index, title, showType: block.showType || '', kind, items }
+  }).filter(block => block.kind && block.items.length > 0).slice(0, 8)
+}
+
+function normalizeHomepageResource(creative, resource) {
+  const ext = resource.resourceExtInfo || creative.resourceExtInfo || {}
+  const resourceType = String(resource.resourceType || creative.creativeType || '').toLowerCase()
+  const title = resource.uiElement?.mainTitle?.title || creative.uiElement?.mainTitle?.title || resource.title || creative.title || ''
+  const subtitle = resource.uiElement?.subTitle?.title || creative.uiElement?.subTitle?.title || ''
+  const picUrl = resource.uiElement?.image?.imageUrl || creative.uiElement?.image?.imageUrl || ''
+
+  if (resourceType.includes('song') || ext.songData || ext.song) {
+    const song = normalizeSong(ext.songData || ext.song || resource)
+    if (!song?.id) return null
+    return { kind: 'song', ...song, name: song.name || title, picUrl: song.picUrl || picUrl, reason: subtitle }
+  }
+
+  if (resourceType.includes('album') || ext.albumData) {
+    const album = normalizeAlbum(ext.albumData || resource)
+    if (!album?.id) return null
+    return { kind: 'album', ...album, name: album.name || title, picUrl: album.picUrl || picUrl, artistName: album.artistName || subtitle }
+  }
+
+  if (resourceType.includes('list') || resourceType.includes('playlist') || ext.playlistData) {
+    const playlist = normalizePlaylist({
+      ...(ext.playlistData || resource),
+      id: resource.resourceId || ext.playlistData?.id || resource.id,
+      name: title || ext.playlistData?.name || resource.name,
+      coverImgUrl: picUrl || ext.playlistData?.coverImgUrl,
+      copywriter: subtitle,
+    })
+    if (!playlist?.id) return null
+    return { kind: 'playlist', ...playlist }
+  }
+
+  return null
 }

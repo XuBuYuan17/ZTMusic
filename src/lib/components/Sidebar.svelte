@@ -8,6 +8,7 @@
     activeView = 'home',
     collapsed = $bindable(false),
     theme = 'dark',
+    notificationUnread = 0,
     refreshKey = 0,
     inDrawer = false,
     onNavigate,
@@ -61,6 +62,8 @@
   {/if}
 
   <nav class="sidebar-nav">
+    <div class="nav-group-label">资料库</div>
+
     <button class="nav-item" class:active={activeView === 'home'} onclick={() => nav('home')}>
       <span class="nav-icon">
         <Icon name="home" size={28} strokeWidth={1.5} />
@@ -76,15 +79,6 @@
       </span>
       <span class="nav-label">发现</span>
     </button>
-
-    <button class="nav-item" class:active={activeView === 'dailyHistory'} onclick={() => nav('dailyHistory')}>
-      <span class="nav-icon">
-        <Icon name="calendar" size={28} strokeWidth={1.5} />
-      </span>
-      <span class="nav-label">历史日推</span>
-    </button>
-
-    <div class="nav-group-label">资料库</div>
 
     <button class="nav-item" class:active={activeView === 'library'} onclick={() => nav('library')}>
       <span class="nav-icon">
@@ -103,8 +97,12 @@
     <button class="nav-item" class:active={activeView === 'messages'} onclick={() => nav('messages')}>
       <span class="nav-icon">
         <Icon name="messages" size={28} strokeWidth={1.5} />
+        {#if notificationUnread > 0}<span class="nav-badge" aria-label={`${notificationUnread} 条未读提醒`}>{notificationUnread > 99 ? '99+' : notificationUnread}</span>{/if}
       </span>
-      <span class="nav-label">私信</span>
+      <span class="nav-label">
+        <span class="nav-title">提醒</span>
+        <span class="nav-subtitle">新歌与音乐分享</span>
+      </span>
     </button>
 
     <div class="nav-group-label">设置</div>

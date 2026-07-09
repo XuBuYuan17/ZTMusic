@@ -17,6 +17,7 @@ import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/
 import { normalizeImageUrl, coverUrl } from '../utils/image.js'
 import { dbCache } from '../db/cache.js'
 import { getPlayableUrls, fillFallbackUrls } from './url-resolver.js'
+import { getTrialPlaybackMessage } from './trial-message.js'
 import { compactTrack, compactQueue, getNextIndex, getPrevIndex } from './queue.js'
 import { dbHistory } from '../db/history.js'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from './native-media.js'
@@ -321,22 +322,11 @@ class PlayerState {
     } else {
       // exhausted — 全部 URL 已尝试完毕
       this._waitingForFill = false
-      // 保存 auto-advance 标志再清除
-      const shouldAdvance = this._shouldAutoPlay && this.queue.length > 1 && !this._advanceLock
       this._clearLoadingTimer()
       this.loading = false
       this.playing = false
       this._shouldAutoPlay = false
       this._setNoUrlError(exhaustedContext)
-      if (shouldAdvance) {
-        const savedReqId = this._playRequestId
-        this._advanceLock = true
-        setTimeout(() => {
-          if (savedReqId !== this._playRequestId) return
-          this._advanceLock = false
-          this.next()
-        }, 120)
-      }
     }
   }
 
@@ -395,10 +385,11 @@ class PlayerState {
         if (urls.length > 0) {
           // 如果是试听片段且已登录，显示 VIP 提示（仍播放试听）
           if (isTrial && auth.isLoggedIn) {
+            const trialMessage = getTrialPlaybackMessage({ isLoggedIn: auth.isLoggedIn, vipInfo: auth.vipInfo, isVip: auth.isVip })
             this._setPlayerError(
               'TrialUrlDetected',
-              { kind: ERROR_KIND.TRIAL, message: ERROR_MESSAGES.VIP_TRIAL },
-              ERROR_MESSAGES.VIP_TRIAL,
+              { kind: ERROR_KIND.TRIAL, message: trialMessage },
+              trialMessage,
               { silent: true },
             )
           }

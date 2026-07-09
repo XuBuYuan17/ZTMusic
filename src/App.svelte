@@ -3,9 +3,14 @@
   import { player } from './lib/stores/player.svelte.js'
   import { auth } from './lib/stores/auth.svelte.js'
   import { router } from './lib/stores/router.svelte.js'
+  import { ncm } from './lib/api/client.js'
   import { getStorage, setStorage } from './lib/utils/storage.js'
   import { getSetting, migrateSettings } from './lib/utils/settings.js'
+  import { countUnreadMessages, loadMessageReadState } from './lib/services/message-read-state.js'
   import { coverUrl } from './lib/utils/image.js'
+  import { getAppBackAction } from './lib/app/back.js'
+  import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.js'
+  import { createThemeTransition } from './lib/app/theme-transition.js'
   import { initDB } from './lib/db/init.js'
   import Icon from './lib/components/ui/Icon.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
@@ -31,7 +36,6 @@
   import AboutPage from './lib/pages/AboutPage.svelte'
 
   const isMobileRuntime = () => typeof document !== 'undefined' && document.documentElement.classList.contains('mobile-runtime')
-  const isAndroidRuntime = () => typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
@@ -45,11 +49,22 @@
   let mobileTabsHidden = $state(false)
   let lyricsOrigin = $state(null)
   let messageTargetUser = $state(null)
+  let notificationUnread = $state(0)
   let isMobile = $state(false)
 
   // ── 主题 ──
   migrateSettings()
-  let theme = $state(getStorage('zheting-theme', 'dark'))
+  function normalizeTheme(value) { return value === 'light' || value === 'dark' ? value : 'dark' }
+  let theme = $state(normalizeTheme(getStorage('zheting-theme', 'dark')))
+
+  function syncSystemTheme(value) {
+    const nextTheme = normalizeTheme(value)
+    const dark = nextTheme === 'dark'
+    document.documentElement.setAttribute('data-theme', nextTheme)
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0a0a' : '#e8e8ed')
+    document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark light' : 'light dark')
+  }
 
   auth.init()
   initDB()
@@ -70,31 +85,26 @@
   })
 
   // Android 返回键
-  $effect(() => {
-    if (typeof window === 'undefined' || !isAndroidRuntime() || !isMobileRuntime()) return
-    const state = { zhetingBackGuard: true }
-    history.replaceState(state, '', location.href); history.pushState(state, '', location.href)
-    const handlePopState = () => { if (!handleAppBack()) return; history.pushState(state, '', location.href) }
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  })
+  $effect(() => installAndroidHistoryBack(handleAppBack))
 
   // Android 侧滑手势
-  $effect(() => {
-    if (typeof window === 'undefined' || !isAndroidRuntime() || !isMobileRuntime()) return
-    const edgeWidth = 28, triggerDistance = 82, maxVerticalDrift = 56
-    let startX = 0, startY = 0, tracking = false, triggered = false
-    const ignore = (t) => t?.closest?.('input, textarea, select, [contenteditable="true"], .progress-bar, .progress-container, .volume-slider-inline, .home-quick-grid, .home-feature-row, .card-scroll')
-    const down = (e) => { if (e.pointerType === 'mouse' || e.button !== 0 || !hasAppBackTarget() || e.clientX > edgeWidth || ignore(e.target)) return; startX = e.clientX; startY = e.clientY; tracking = true; triggered = false }
-    const move = (e) => { if (!tracking || triggered) return; const dx = e.clientX - startX, dy = Math.abs(e.clientY - startY); if (dx < 0 || dy > maxVerticalDrift) { tracking = false; return }; if (dx >= triggerDistance) { triggered = true; tracking = false; e.preventDefault(); handleAppBack() } }
-    const stop = () => { tracking = false; triggered = false }
-    window.addEventListener('pointerdown', down, { passive: true }); window.addEventListener('pointermove', move, { passive: false })
-    window.addEventListener('pointerup', stop, { passive: true }); window.addEventListener('pointercancel', stop, { passive: true })
-    return () => { window.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); window.removeEventListener('pointercancel', stop) }
-  })
+  $effect(() => installAndroidEdgeBack({ hasBackTarget: hasAppBackTarget, onBack: handleAppBack }))
 
-  $effect(() => { document.documentElement.style.backgroundColor = router.heroColor })
-  $effect(() => { document.documentElement.setAttribute('data-theme', theme); setStorage('zheting-theme', theme) })
+  $effect(() => { document.documentElement.style.backgroundColor = isMobileRuntime() ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
+  $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
+
+  $effect(() => {
+    if (!auth.isLoggedIn) { notificationUnread = 0; return }
+    let cancelled = false
+    Promise.all([ncm.msgPrivate(30, 0), loadMessageReadState()])
+      .then(([res, readState]) => {
+        if (cancelled) return
+        const messages = res?.msgs || res?.messages || res?.data || []
+        notificationUnread = countUnreadMessages(messages, readState)
+      })
+      .catch(() => { if (!cancelled) notificationUnread = 0 })
+    return () => { cancelled = true }
+  })
 
   // ── UI 函数 ──
   function resetContentScroll() { tick().then(() => contentScrollEl?.scrollTo({ top: 0, left: 0 })) }
@@ -107,6 +117,7 @@
   function closeSheet() { showSheet = false }
   function toggleQueue() { showQueuePanel = !showQueuePanel }
   function closeQueue() { showQueuePanel = false }
+  function setTheme(value) { theme = normalizeTheme(value) }
 
   function openFollows() {
     if (!auth.isLoggedIn) { showLogin = true; return }
@@ -118,40 +129,38 @@
   }
 
   function handleAppBack() {
-    if (showMobileDrawer) { showMobileDrawer = false; return true }
-    if (showSheet) { closeSheet(); return true }
-    if (showQueuePanel) { closeQueue(); return true }
-    if (showSearch) { showSearch = false; return true }
-    if (showLogin) { showLogin = false; return true }
-    if (showFollowDialog) { showFollowDialog = false; return true }
-    if (router.routeStack.length > 0) { router.goBack(); return true }
-    if (isMobile && router.activeView !== 'explore') { router.handleNav('explore'); return true }
-    if (router.activeView !== 'home') { router.handleNav('home'); return true }
-    return false
-  }
-  function hasAppBackTarget() {
-    return showMobileDrawer || showSheet || showQueuePanel || showSearch || showLogin || showFollowDialog || router.routeStack.length > 0 || router.activeView !== (isMobile ? 'explore' : 'home')
+    const action = getAppBackAction(getBackState())
+    if (!action) return false
+    if (action === 'mobileDrawer') showMobileDrawer = false
+    else if (action === 'sheet') closeSheet()
+    else if (action === 'queue') closeQueue()
+    else if (action === 'search') showSearch = false
+    else if (action === 'login') showLogin = false
+    else if (action === 'followDialog') showFollowDialog = false
+    else if (action === 'routeBack') router.goBack()
+    else if (action === 'homeView') router.handleNav(isMobile ? 'explore' : 'home')
+    return true
   }
 
-  let t3
-  function toggleTheme(event) {
-    const shell = document.querySelector('.app-shell')
-    const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const nextTheme = theme === 'dark' ? 'light' : 'dark'
-    clearTimeout(t3)
-    if (event?.currentTarget) {
-      const r = event.currentTarget.getBoundingClientRect?.(); const x = r ? r.left + r.width / 2 : window.innerWidth / 2; const y = r ? r.top + r.height / 2 : window.innerHeight / 2
-      const root = document.documentElement; root.style.setProperty('--theme-x', x + 'px'); root.style.setProperty('--theme-y', y + 'px')
-      root.style.setProperty('--theme-radius', Math.ceil(Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))) + 'px')
+  function getBackState() {
+    return {
+      showMobileDrawer,
+      showSheet,
+      showQueuePanel,
+      showSearch,
+      showLogin,
+      showFollowDialog,
+      routeStackLength: router.routeStack.length,
+      activeView: router.activeView,
+      isMobile,
     }
-    shell?.classList.add('theme-transitioning')
-    const finish = () => { t3 = setTimeout(() => shell?.classList.remove('theme-transitioning'), 860) }
-    if (!reduceMotion && document.startViewTransition) {
-      const t = document.startViewTransition(async () => { theme = nextTheme; await tick() })
-      t3 = setTimeout(() => shell?.classList.remove('theme-transitioning'), 920); t.finished.finally(finish); return
-    }
-    theme = nextTheme; finish()
   }
+
+  function hasAppBackTarget() {
+    return getAppBackAction(getBackState()) !== null
+  }
+
+  const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
 
   const defaultPage = getSetting('default_page', 'home')
   if (defaultPage === 'library') { router.handleNav('library') }
@@ -166,6 +175,7 @@
     activeView={router.activeView}
     bind:collapsed={sidebarCollapsed}
     {theme}
+    notificationUnread={notificationUnread}
     refreshKey={router.refreshKey}
     onNavigate={(view, extra) => { router.handleNav(view, extra) }}
     onToggleTheme={toggleTheme}
@@ -185,7 +195,7 @@
         onOpenArtist={router.goArtist}
         onSearch={() => showSearch = true}
         onOpenLogin={() => showLogin = true}
-        onSetTheme={(v) => theme = v}
+        onSetTheme={setTheme}
         onBack={router.goBack}
         onTabsHiddenChange={(hidden) => mobileTabsHidden = hidden}
       />
@@ -271,7 +281,7 @@
             />
 
           {:else if router.activeView === 'messages'}
-            <MessagesPage onNavigate={router.handleNav} targetUser={messageTargetUser} />
+            <MessagesPage onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
 
           {:else if router.activeView === 'liked'}
             <LikedPage
@@ -283,7 +293,6 @@
 
           {:else if router.activeView === 'settings'}
             <SettingsPage {theme} onSetTheme={(value) => theme = value} />
-            <AboutPage />
 
           {:else if router.activeView === 'about'}
             <AboutPage />
@@ -302,7 +311,7 @@
   <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={router.goArtist} />
 </div>
 
-<LyricsPageV2 show={showSheet} onClose={closeSheet} onOpenArtist={router.goArtist} />
+<LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 <SearchOverlay show={showSearch} onClose={() => showSearch = false} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />

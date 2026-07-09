@@ -31,7 +31,7 @@ export default defineConfig({
   server: {
     hmr: {
       protocol: 'ws',
-      host: '127.0.0.1',
+      host: 'localhost',
     },
     watch: {
       usePolling: false,
