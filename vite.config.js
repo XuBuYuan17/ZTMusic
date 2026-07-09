@@ -20,6 +20,7 @@ process.env.https_proxy = ''
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [
     svelte()
   ],
