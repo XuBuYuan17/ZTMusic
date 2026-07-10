@@ -18,11 +18,21 @@ process.env.http_proxy = ''
 process.env.HTTPS_PROXY = ''
 process.env.https_proxy = ''
 
+// Android 的 WebView 通过自定义协议加载资源，带 crossorigin 的 module 脚本/样式
+// 会因 CORS 被拦截，导致只显示未渲染的裸 HTML。此插件移除 crossorigin 属性。
+const stripCrossorigin = () => ({
+  name: 'strip-crossorigin',
+  transformIndexHtml(html) {
+    return html.replace(/\s+crossorigin(=["'][^"']*["'])?/g, '')
+  },
+})
+
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
   plugins: [
-    svelte()
+    svelte(),
+    stripCrossorigin(),
   ],
   resolve: {
     alias: {
