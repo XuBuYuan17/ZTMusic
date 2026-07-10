@@ -53,10 +53,17 @@
       () => ncm.msgForwards(30, 0),
     ]
     const results = await Promise.allSettled(loaders.map(load => load()))
-    const list = results.flatMap(result => result.status === 'fulfilled' ? extractMessages(result.value) : [])
+    const values = results.filter(result => result.status === 'fulfilled').map(result => result.value)
+    const list = values.flatMap(extractMessages)
     if (list.length > 0) return list
+    // 登录失效：网易云对未登录返回 code 301 且 HTTP 301
+    if (values.some(value => value?.code === 301 || value?.code === 302)) {
+      const err = new Error('登录已失效，请重新登录')
+      err.code = 301
+      throw err
+    }
     const error = results.find(result => result.status === 'rejected')?.reason
-    if (error) throw error
+    if (error) throw error instanceof Error ? error : new Error(String(error))
     return []
   }
 
@@ -69,7 +76,14 @@
       messages = (await loadMessageList()).map(msg => applyMessageReadState(msg, readState))
       messagesLoaded = true
     } catch (e) {
-      error = e?.message ? `加载提醒失败：${e.message}` : '加载提醒失败'
+      // 登录已失效（网易云返回 301/302）：校验并清理过期登录态，避免反复报错
+      if (e?.code === 301 || e?.code === 302) {
+        auth.checkLoginStatus()
+        error = '登录已失效，请重新登录'
+      } else {
+        const detail = e?.message || (typeof e === 'string' ? e : '')
+        error = detail ? `加载提醒失败：${detail}` : '加载提醒失败'
+      }
       console.error(e)
     }
     loading = false

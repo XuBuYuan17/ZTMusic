@@ -96,6 +96,8 @@ export const auth = {
         _vipInfo = vip
         _loginMode = mode
         this.refreshVipInfo()
+        // 启动时主动校验 cookie 是否仍有效，失效则自动登出，避免“显示已登录但实际失效”
+        checkLoginStatus()
       } catch { this.clear() }
     }
   },

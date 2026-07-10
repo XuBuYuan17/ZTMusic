@@ -15,6 +15,7 @@
   let idbCacheText = $state('计算中…')
   let idbCleared = $state('')
   let cookieCheckMsg = $state('')
+  let apiBaseStatus = $state('')
   let defaultPage = $state(getSetting('default_page', 'home'))
   let layoutMode = $state(getLayoutMode())
   let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
@@ -22,6 +23,26 @@
   let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
   let preferredQuality = $state(player.preferredLevel)
   let currentLocale = $state(i18n.locale)
+
+  let saveBaseTimer = null
+
+  function handleSetApiBase(url) {
+    clearTimeout(saveBaseTimer)
+    const value = url.trim()
+    if (!value) return
+
+    saveBaseTimer = setTimeout(() => {
+      try {
+        new URL(value) // 验证格式
+        ncm.setBase(value)
+        apiBaseStatus = '已保存'
+        setTimeout(() => apiBaseStatus = '', 2000)
+      } catch {
+        apiBaseStatus = '地址格式无效'
+        setTimeout(() => apiBaseStatus = '', 2000)
+      }
+    }, 500)
+  }
 
 
   function formatBytes(bytes) {
@@ -210,12 +231,12 @@
     <div class="settings-row">
       <div>
         <div class="settings-label">布局模式</div>
-        <div class="settings-desc">自动时手机使用移动布局，平板和电脑使用 PC 布局</div>
+        <div class="settings-desc">自动时手机使用移动布局，平板可手动切换到 PC 布局获得更大内容空间</div>
       </div>
       <select class="settings-select" value={layoutMode} onchange={(e) => handleLayoutMode(e.target.value)}>
         <option value="auto">自动</option>
-        <option value="pc">PC</option>
-        <option value="mobile">移动</option>
+        <option value="pc">PC 布局（大屏推荐）</option>
+        <option value="mobile">移动布局</option>
       </select>
     </div>
 
@@ -310,6 +331,33 @@
       </button>
     </div>
 
+    <div class="settings-group-label">高级</div>
+
+    <!-- API 后端地址 -->
+    <div class="settings-row">
+      <div style="flex: 1;">
+        <div class="settings-label">API 后端地址</div>
+        <div class="settings-desc">自定义网易云音乐 API 服务器地址，修改后自动保存并立即生效</div>
+      </div>
+    </div>
+    <div class="settings-row" style="border-bottom: none; padding-top: 0;">
+      <div style="flex: 1;">
+        <input
+          type="url"
+          class="settings-input"
+          placeholder="https://your-api-server.com"
+          value={ncm.getBase()}
+          oninput={(e) => handleSetApiBase(e.target.value)}
+        />
+        <div class="settings-desc" style="margin-top: 8px;">
+          内置地址：<code>https://music.xubuyuan.top</code>
+          {#if apiBaseStatus}
+            <span style="margin-left: 8px; color: var(--accent);">· {apiBaseStatus}</span>
+          {/if}
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -387,6 +435,36 @@
     margin-top: 3px;
     font-size: 12px;
     line-height: 1.45;
+  }
+
+  .settings-desc code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 11px;
+    padding: 2px 6px;
+    background: var(--bg-layer);
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  .settings-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg-layer);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .settings-input:focus {
+    border-color: var(--accent);
+  }
+
+  .settings-input::placeholder {
+    color: var(--text-tertiary);
   }
 
   .segmented-control {

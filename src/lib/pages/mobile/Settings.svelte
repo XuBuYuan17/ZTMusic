@@ -23,6 +23,29 @@
   let idbCacheText = $state('计算中…')
   let idbCleared = $state('')
   let cookieCheckMsg = $state('')
+  let apiBaseStatus = $state('')
+  let apiBaseValue = $state(ncm.getBase())
+
+  let saveBaseTimer = null
+
+  function handleSetApiBase(url) {
+    apiBaseValue = url
+    clearTimeout(saveBaseTimer)
+    const value = url.trim()
+    if (!value) return
+
+    saveBaseTimer = setTimeout(() => {
+      try {
+        new URL(value) // 验证格式
+        ncm.setBase(value)
+        apiBaseStatus = '已保存'
+        setTimeout(() => apiBaseStatus = '', 2000)
+      } catch {
+        apiBaseStatus = '地址格式无效'
+        setTimeout(() => apiBaseStatus = '', 2000)
+      }
+    }, 500)
+  }
 
   const qualityLabels = {
     lossless: '无损',
@@ -207,12 +230,12 @@
       <div class="m-settings-row">
         <div class="m-settings-row-info">
           <span class="m-settings-label">布局模式</span>
-          <span class="m-settings-desc">自动时手机使用移动布局，平板和电脑使用 PC 布局</span>
+          <span class="m-settings-desc">自动时手机使用移动布局，平板可手动切换到 PC 布局获得更大内容空间</span>
         </div>
         <select class="m-settings-select" value={layoutMode} onchange={(e) => handleLayoutMode(e.target.value)}>
           <option value="auto">自动</option>
-          <option value="pc">PC</option>
-          <option value="mobile">移动</option>
+          <option value="pc">PC 布局（大屏推荐）</option>
+          <option value="mobile">移动布局</option>
         </select>
       </div>
 
@@ -304,6 +327,31 @@
       </div>
     </section>
   {/if}
+
+  <!-- 高级 -->
+  <section class="m-settings-group">
+    <div class="m-settings-group-label">高级</div>
+    <div class="m-settings-card">
+      <div class="m-settings-row m-settings-row--input">
+        <div class="m-settings-row-info">
+          <span class="m-settings-label">API 后端地址</span>
+          <span class="m-settings-desc">
+            内置地址：<code>https://music.xubuyuan.top</code>
+              {#if apiBaseStatus}
+                <span class="m-settings-status"> · {apiBaseStatus}</span>
+              {/if}
+          </span>
+        </div>
+        <input
+          type="url"
+          class="m-settings-input"
+          placeholder="https://your-api-server.com"
+          value={apiBaseValue}
+          oninput={(e) => handleSetApiBase(e.target.value)}
+        />
+      </div>
+    </div>
+  </section>
 
   <!-- 关于 -->
   <section class="m-settings-group">
@@ -436,6 +484,33 @@
     padding: 14px 16px;
   }
 
+  .m-settings-row--input {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    cursor: default;
+  }
+
+  .m-settings-row--input:active {
+    background: transparent;
+  }
+
+  .m-settings-input {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg-layer);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+  }
+
+  .m-settings-input:focus {
+    border-color: var(--accent);
+  }
+
   .m-settings-row-info {
     display: flex;
     flex-direction: column;
@@ -454,6 +529,19 @@
     color: var(--text-tertiary);
     font-size: 11px;
     line-height: 1.4;
+  }
+
+  .m-settings-desc code {
+    font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 10px;
+    padding: 1px 5px;
+    background: var(--bg-layer);
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
+  .m-settings-status {
+    color: var(--accent);
   }
 
   .m-settings-value {

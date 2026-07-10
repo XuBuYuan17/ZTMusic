@@ -9,7 +9,17 @@
     <title>哲听</title>
     <style>
       body { margin: 0; background: #0a0a0a; }
+      /* 移动端启动默认样式：避免 FOUC */
+      @media (max-width: 600px) {
+        html:not(.mobile-runtime) body { overflow-x: hidden; }
+      }
     </style>
+    <script>
+      // 同步判定移动端，提前设置 class，避免样式闪烁
+      if (window.innerWidth <= 600 || window.location.search.includes('mobile')) {
+        document.documentElement.classList.add('mobile-runtime')
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

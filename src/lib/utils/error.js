@@ -2,12 +2,82 @@
  * 统一错误处理工具
  *
  * 用法：
- *   import { handleError } from '../utils/error.js'
+ *   import { AppError, handleError } from '../utils/error.js'
  *
  *   catch (err) {
  *     return handleError('Player', err, '操作失败')
  *   }
  */
+
+/**
+ * 统一应用错误类
+ * 标准化 Tauri 字符串错误 和 浏览器 Error 对象
+ */
+export class AppError extends Error {
+  constructor(message, options = {}) {
+    super(message)
+    this.name = 'AppError'
+    this.kind = options.kind || ERROR_KIND.UNKNOWN
+    this.code = options.code || 0
+    this.retryable = options.retryable !== false
+    this.detail = options.detail || ''
+    this.context = options.context || ''
+
+    // 保持原始堆栈
+    if (options.cause instanceof Error) {
+      this.cause = options.cause
+      this.stack = options.cause.stack
+    }
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      kind: this.kind,
+      code: this.code,
+      retryable: this.retryable,
+      detail: this.detail,
+      context: this.context,
+    }
+  }
+}
+
+/**
+ * 将任意错误转换为标准化 AppError
+ * @param {unknown} err - Error 对象 / 字符串 / 数字
+ * @param {string} context - 错误上下文
+ * @param {string} [defaultMessage] - 默认消息
+ */
+export function normalizeError(err, context = '', defaultMessage = '未知错误') {
+  if (err instanceof AppError) {
+    if (!err.context) err.context = context
+    return err
+  }
+
+  if (err instanceof Error) {
+    return new AppError(err.message, {
+      cause: err,
+      kind: classifyError(err),
+      context,
+    })
+  }
+
+  // Tauri 返回的字符串错误
+  if (typeof err === 'string') {
+    return new AppError(err, {
+      kind: classifyError({ message: err }),
+      detail: err,
+      context,
+    })
+  }
+
+  return new AppError(defaultMessage, {
+    kind: classifyError(err),
+    detail: String(err),
+    context,
+  })
+}
 
 export const ERROR_KIND = {
   UNKNOWN: 'unknown',

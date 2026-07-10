@@ -10,6 +10,7 @@
   import { coverUrl } from './lib/utils/image.js'
   import { getAppBackAction } from './lib/app/back.js'
   import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.js'
+  import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.js'
   import { createThemeTransition } from './lib/app/theme-transition.js'
   import { initDB } from './lib/db/init.js'
   import Icon from './lib/components/ui/Icon.svelte'
@@ -21,7 +22,7 @@
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import SearchOverlay from './lib/components/SearchOverlay.svelte'
   import MobileApp from './lib/components/MobileApp.svelte'
-  import { responsive } from './lib/utils/responsive.js'
+  import { isMobileDevice, responsive } from './lib/utils/responsive.js'
   import HomePage from './lib/pages/pc/Home.svelte'
   import ExplorePage from './lib/pages/pc/Explore.svelte'
   import DailyHistoryPage from './lib/pages/pc/DailyHistory.svelte'
@@ -35,7 +36,7 @@
   import PlaylistPage from './lib/pages/PlaylistPage.svelte'
   import AboutPage from './lib/pages/AboutPage.svelte'
 
-  const isMobileRuntime = () => typeof document !== 'undefined' && document.documentElement.classList.contains('mobile-runtime')
+  const isMobileRuntime = () => isMobileDevice()
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
@@ -50,7 +51,7 @@
   let lyricsOrigin = $state(null)
   let messageTargetUser = $state(null)
   let notificationUnread = $state(0)
-  let isMobile = $state(false)
+  let isMobile = $state(isMobileRuntime())
 
   // ── 主题 ──
   migrateSettings()
@@ -71,7 +72,16 @@
 
   $effect(() => { player.restore() })
 
-  $effect(() => { const u = responsive.subscribe(r => { isMobile = r.isMobile }); return () => u() })
+  $effect(() => {
+    const u = responsive.subscribe(r => {
+      if (r.isMobile !== isMobile) {
+        isMobile = r.isMobile
+        // 切换到移动布局默认收起侧栏，切回 PC 默认展开
+        sidebarCollapsed = r.isMobile
+      }
+    })
+    return () => u()
+  })
 
   $effect(() => { if (!auth.cookieOk && auth.isLoggedIn) showLogin = true })
 
@@ -90,7 +100,10 @@
   // Android 侧滑手势
   $effect(() => installAndroidEdgeBack({ hasBackTarget: hasAppBackTarget, onBack: handleAppBack }))
 
-  $effect(() => { document.documentElement.style.backgroundColor = isMobileRuntime() ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
+  // PC 端全局键盘快捷键（移动布局自动忽略）
+  $effect(() => installKeyboardShortcuts({ player, isMobile: () => isMobile }))
+
+  $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
 
   $effect(() => {
@@ -310,7 +323,7 @@
 </main>
 
 <!-- PlayerBar: 两端共享，PC 由 app-pc.css 定位，移动端由 app-mobile.css 覆盖 -->
-<div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed} class:m-runtime={isMobileRuntime()} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
+<div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed} class:m-runtime={isMobile} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
   <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={router.goArtist} />
 </div>
 
@@ -318,4 +331,4 @@
 <SearchOverlay show={showSearch} onClose={() => showSearch = false} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
-<QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobileRuntime()} />
+<QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />

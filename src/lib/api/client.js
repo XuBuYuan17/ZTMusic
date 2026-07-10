@@ -7,6 +7,7 @@ import {
   writeApiCache,
 } from './cache-policy.js'
 import { apiSession, DEFAULT_API_BASE, DEV_PROXY_API_BASE } from './session.js'
+import { normalizeError } from '../utils/error.js'
 
 export { DEFAULT_API_BASE }
 
@@ -110,7 +111,7 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
         }
         const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
         if (stale) return stale
-        throw error
+        throw normalizeError(error, 'ncm_request')
       }
     }
   }
@@ -151,7 +152,7 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
       }
       const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
       if (stale) return stale
-      throw error
+      throw normalizeError(error, 'fetch')
     }
   }
 }
@@ -373,11 +374,11 @@ export const ncm = {
   // ===== 私信 & 通知 =====
   /** 获取私信列表 */
   msgPrivate(limit = 30, offset = 0) {
-    return request('/msg/private', { limit, offset })
+    return request('/msg/private', { limit, offset }, 'GET', null, { allowErrorBody: true })
   },
   /** 获取最近联系人 */
   msgRecentContact() {
-    return request('/msg/recentcontact')
+    return request('/msg/recentcontact', {}, 'GET', null, { allowErrorBody: true })
   },
   /** 获取私信详情 */
   msgPrivateHistory(uid, limit = 30, before) {
@@ -405,10 +406,10 @@ export const ncm = {
   },
   /** 获取@我通知 */
   msgForwards(limit = 30, offset = 0) {
-    return request('/msg/forwards', { limit, offset })
+    return request('/msg/forwards', { limit, offset }, 'GET', null, { allowErrorBody: true })
   },
   /** 获取系统通知 */
   msgNotices(limit = 30, lasttime = -1) {
-    return request('/msg/notices', { limit, lasttime })
+    return request('/msg/notices', { limit, lasttime }, 'GET', null, { allowErrorBody: true })
   },
 }

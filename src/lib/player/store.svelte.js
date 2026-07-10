@@ -355,6 +355,10 @@ class PlayerState {
     const playableTrack = compactTrack(track)
     if (!playableTrack) return
 
+    // 取消挂起的自动切歌与预加载，避免与本次手动/自动切歌产生竞态（放错歌）
+    this._advanceLock = false
+    engine.cancelPreload()
+
     const requestId = ++this._playRequestId
     this._fallback.updateUrls([])
     this.id = playableTrack.id

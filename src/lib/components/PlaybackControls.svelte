@@ -34,6 +34,13 @@
     shuffle: '随机播放'
   }
 
+  // 统一按钮处理：阻止事件冒泡到歌词页容器（避免重复触发/误关闭）
+  function handleClick(event, action) {
+    event.preventDefault()
+    event.stopPropagation()
+    action?.()
+  }
+
   function cycleMode() {
     let nextMode = mode
     if (mode === 'list') nextMode = 'repeat'
@@ -111,7 +118,7 @@
 <div class="pc" class:ly-play-row={isLyrics} class:pc-disabled={disabled} style:gap={isLyrics ? undefined : gap}>
   <!-- 播放模式循环按钮: list → repeat → shuffle → list -->
   <button class={btnClass} class:active={mode === 'repeat' || mode === 'shuffle'}
-    onclick={cycleMode} aria-label={modeLabels[mode]}
+    onclick={(e) => handleClick(e, cycleMode)} aria-label={modeLabels[mode]}
     disabled={isLyrics ? false : disabled}>
     {#if mode === 'shuffle'}
       <Icon name="shuffle-lg" size={sz} fill="currentColor" />
@@ -121,12 +128,12 @@
   </button>
 
   <!-- 上一首 -->
-  <button class={btnClass} onclick={() => onprev?.()} aria-label="上一首" disabled={isLyrics ? false : disabled}>
+  <button class={btnClass} onclick={(e) => handleClick(e, onprev)} aria-label="上一首" disabled={isLyrics ? false : disabled}>
     <Icon name="prev" size={sz} fill="currentColor" />
   </button>
 
   <!-- 播放/暂停 -->
-  <button class={playClass} onclick={() => onplaypause?.()} aria-label={playing ? '暂停' : '播放'} disabled={isLyrics ? false : disabled}>
+  <button class={playClass} onclick={(e) => handleClick(e, onplaypause)} aria-label={playing ? '暂停' : '播放'} disabled={isLyrics ? false : disabled}>
     {#if loading}
       <Spinner size={isLyrics ? 'md' : (size === 'lg' ? 'md' : 'sm')} />
     {:else if playing}
@@ -137,13 +144,13 @@
   </button>
 
   <!-- 下一首 -->
-  <button class={btnClass} onclick={() => onnext?.()} aria-label="下一首" disabled={isLyrics ? false : disabled}>
+  <button class={btnClass} onclick={(e) => handleClick(e, onnext)} aria-label="下一首" disabled={isLyrics ? false : disabled}>
     <Icon name="next" size={sz} fill="currentColor" />
   </button>
 
   <!-- 播放列表 - 歌词模式下在PC端显示，移动端在下方操作按钮组显示 -->
   <!-- 播放列表按钮 - 总是显示 -->
-  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={() => onqueue?.()} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
+  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={(e) => handleClick(e, onqueue)} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
     <Icon name="list" size={sz} strokeWidth={2.2} />
   </button>
 

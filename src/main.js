@@ -1,5 +1,5 @@
 import './app.css'
-import { getLayoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
+import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -68,26 +68,18 @@ async function installDevErrorReporter() {
 
 installDevErrorReporter()
 
-function isMobileRuntime() {
-  // ponytail: ?mobile 参数强制启用手持端布局
-  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('mobile')) return true
-  return shouldUseMobileLayout(window.innerWidth, window.innerHeight, getLayoutMode())
-}
-
-function syncMobileRuntime() {
-  const mobile = isMobileRuntime()
+function syncMobileRuntime(state) {
+  const mobile = state.isMobile
   document.documentElement.classList.toggle('mobile-runtime', mobile)
   void loadRuntimeStyles(mobile)
 }
 
-syncMobileRuntime()
-window.addEventListener('resize', syncMobileRuntime)
-window.addEventListener('orientationchange', syncMobileRuntime)
-window.addEventListener('layout-mode-change', syncMobileRuntime)
+// 唯一响应式来源：layoutMode store
+layoutMode.subscribe(syncMobileRuntime)
 
 ;(async () => {
   try {
-    await loadRuntimeStyles(isMobileRuntime())
+    await loadRuntimeStyles(shouldUseMobileLayout(window.innerWidth, window.innerHeight))
     const { mount } = await import('svelte')
     const { default: App } = await import('./App.svelte')
     mount(App, { target: document.getElementById('app') })

@@ -19,6 +19,7 @@ function assertEqual(actual, expected, msg) {
 }
 
 globalThis.window = {
+  location: { search: '' },
   matchMedia(query) {
     return { matches: query === '(pointer: coarse)' }
   },
@@ -28,6 +29,11 @@ assertEqual(shouldUseMobileLayout(390, 844, 'auto'), true, 'auto uses mobile lay
 assertEqual(shouldUseMobileLayout(768, 1024, 'auto'), false, 'auto uses pc layout on tablets')
 assertEqual(shouldUseMobileLayout(390, 844, 'pc'), false, 'pc override wins on phones')
 assertEqual(shouldUseMobileLayout(1024, 768, 'mobile'), true, 'mobile override wins on tablets')
+
+// ?mobile 强制手持端布局，优先级高于 pc 覆盖
+globalThis.window.location.search = '?mobile'
+assertEqual(shouldUseMobileLayout(1440, 900, 'pc'), true, '?mobile forces mobile layout even with pc override')
+globalThis.window.location.search = ''
 
 console.log(`layout-mode.test.js: ${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)
