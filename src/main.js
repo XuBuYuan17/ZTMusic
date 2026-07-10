@@ -4,13 +4,18 @@ import { getLayoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
 
-const loadedStyles = new Set()
+const stylePromises = new Map()
 
 function loadRuntimeStyles(mobile) {
   const key = mobile ? 'mobile' : 'pc'
-  if (loadedStyles.has(key)) return Promise.resolve()
-  loadedStyles.add(key)
-  return mobile ? import('./app-mobile.css') : import('./app-pc.css')
+  if (!stylePromises.has(key)) {
+    const promise = mobile ? import('./app-mobile.css') : import('./app-pc.css')
+    stylePromises.set(key, promise.catch((error) => {
+      stylePromises.delete(key)
+      throw error
+    }))
+  }
+  return stylePromises.get(key)
 }
 
 function serializeClientError(value) {
@@ -72,7 +77,7 @@ function isMobileRuntime() {
 function syncMobileRuntime() {
   const mobile = isMobileRuntime()
   document.documentElement.classList.toggle('mobile-runtime', mobile)
-  loadRuntimeStyles(mobile)
+  void loadRuntimeStyles(mobile)
 }
 
 syncMobileRuntime()

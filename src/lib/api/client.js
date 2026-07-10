@@ -224,8 +224,17 @@ export const ncm = {
     const trackIds = Array.isArray(tracks) ? tracks.join(',') : tracks
     return request('/playlist/tracks', { op: 'del', pid: id, tracks: trackIds, timestamp: Date.now() })
   },
-  userPlaylist(uid) {
-    return request('/user/playlist', { uid })
+  playlistCreate(name) {
+    return request('/playlist/create', { name, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
+  playlistDelete(id) {
+    return request('/playlist/delete', { id, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
+  playlistSubscribe(id, subscribe = true) {
+    return request('/playlist/subscribe', { id, t: subscribe ? 1 : 2, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
+  userPlaylist(uid, options = {}) {
+    return request('/user/playlist', { uid }, 'GET', null, options)
   },
   userDetail(uid) {
     return request('/user/detail', { uid })

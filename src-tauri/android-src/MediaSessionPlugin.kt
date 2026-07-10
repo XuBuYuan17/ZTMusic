@@ -13,6 +13,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -31,6 +32,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Collections
 import java.util.concurrent.Executors
+import kotlin.math.max
 
 class MediaSessionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -106,6 +108,9 @@ data class PlaybackStateArgs(
 )
 class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(activity) {
     companion object {
+        private const val TAG = "ZhetingMediaSession"
+        private const val MAX_COVER_SIZE = 512
+
         @Volatile
         var pendingAction: String? = null
     }
@@ -270,12 +275,17 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
             putExtra("artist", artist)
             putExtra("isPlaying", isPlaying)
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            activity.startForegroundService(serviceIntent)
-        } else {
-            activity.startService(serviceIntent)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                activity.startForegroundService(serviceIntent)
+            } else {
+                activity.startService(serviceIntent)
+            }
+            foregroundServiceStarted = true
+        } catch (error: Exception) {
+            Log.w(TAG, "Unable to start media foreground service", error)
+            foregroundServiceStarted = false
         }
-        foregroundServiceStarted = true
     }
 
     private fun rememberPlaybackNotification(title: String, artist: String, isPlaying: Boolean) {
@@ -367,18 +377,38 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
     private fun loadCoverAsync(url: String, callback: (Bitmap?) -> Unit) {
         executor.execute {
             try {
-                val conn = URL(url).openConnection() as HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
-                conn.instanceFollowRedirects = true
-                val input = conn.inputStream
-                val bitmap = BitmapFactory.decodeStream(input)
-                input.close()
+                val conn = openCoverConnection(url)
+                val bytes = try {
+                    conn.inputStream.use { input -> input.readBytes() }
+                } finally {
+                    conn.disconnect()
+                }
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                val sampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight)
+                val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
                 callback(bitmap)
             } catch (_: Exception) {
                 callback(null)
             }
         }
+    }
+
+    private fun openCoverConnection(url: String): HttpURLConnection {
+        return (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 5000
+            readTimeout = 5000
+            instanceFollowRedirects = true
+        }
+    }
+
+    private fun calculateSampleSize(width: Int, height: Int): Int {
+        val largest = max(width, height)
+        if (largest <= MAX_COVER_SIZE || largest <= 0) return 1
+        var sampleSize = 1
+        while (largest / sampleSize > MAX_COVER_SIZE) sampleSize *= 2
+        return sampleSize
     }
 
     @Command

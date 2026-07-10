@@ -135,6 +135,7 @@ class PlayerState {
     })
 
     engine.onEnded((state) => {
+      this.playing = false
       this._handleEnded(state)
     })
 
@@ -162,6 +163,16 @@ class PlayerState {
       }
       this._setPlayerError('EngineError', state, ERROR_MESSAGES.PLAY_FAILED)
       this._fallbackNext('EngineErrorNoFallback')
+    })
+
+    engine.onPlay(() => {
+      this.playing = true
+      syncNativeMedia()
+    })
+
+    engine.onPause(() => {
+      if (!this.loading || !this._shouldAutoPlay) this.playing = false
+      syncNativeMedia()
     })
   }
 
@@ -345,6 +356,7 @@ class PlayerState {
     if (!playableTrack) return
 
     const requestId = ++this._playRequestId
+    this._fallback.updateUrls([])
     this.id = playableTrack.id
     this.title = playableTrack.name
     this.artist = playableTrack.ar.map(a => a.name).join(' / ')

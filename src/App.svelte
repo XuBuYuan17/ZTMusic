@@ -198,6 +198,9 @@
         onSetTheme={setTheme}
         onBack={router.goBack}
         onTabsHiddenChange={(hidden) => mobileTabsHidden = hidden}
+        targetUser={messageTargetUser}
+        {notificationUnread}
+        onUnreadChange={(count) => notificationUnread = count}
       />
     {:else}
     <button class="global-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
@@ -307,7 +310,7 @@
 </main>
 
 <!-- PlayerBar: 两端共享，PC 由 app-pc.css 定位，移动端由 app-mobile.css 覆盖 -->
-<div class="player-bar-wrap" class:queue-open={showQueuePanel} class:m-runtime={isMobileRuntime()} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
+<div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed} class:m-runtime={isMobileRuntime()} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
   <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={router.goArtist} />
 </div>
 

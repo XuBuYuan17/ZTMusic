@@ -22,12 +22,12 @@ export async function loadLibraryData(ncm, user) {
   }
 }
 
-export async function loadMobileLibraryData(ncm, user) {
+export async function loadMobileLibraryData(ncm, user, options = {}) {
   const uid = user?.userId || user?.id
   if (!uid) return { profile: null, stats: [], createdPlaylists: [], savedPlaylists: [], likedPlaylist: null }
 
   const [playlistResult, detailResult, subcountResult, likedResult, levelResult] = await Promise.allSettled([
-    ncm.userPlaylist(uid),
+    ncm.userPlaylist(uid, options),
     ncm.userDetail(uid),
     ncm.userSubcount(),
     ncm.likelist(uid),

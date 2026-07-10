@@ -134,8 +134,8 @@
   {:else if loading && userPlaylists.length === 0 && recommendPlaylists.length === 0 && recentTracks.length === 0}
     <div class="m-loading"><Spinner size="md" /></div>
   {:else}
-    <section class="m-section">
-      <div class="m-home-profile">
+    <section class="m-section m-home-hero-section">
+      <div class="m-home-hero">
         <div class="m-home-avatar">
           {#if profile.avatarUrl}<img src={coverUrl(profile.avatarUrl, 160)} alt="" referrerpolicy="no-referrer" />{/if}
         </div>
@@ -143,6 +143,17 @@
           <small>{auth.vipLabel || '我的账号'}</small>
           <strong>{profile.nickname || '用户'}</strong>
         </div>
+        {#if heroPlaylist}
+          <button class="m-home-now" onclick={() => onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>
+            {#if heroPlaylist.picUrl || auth.user?.avatarUrl}
+              <img src={coverUrl(heroPlaylist.picUrl || auth.user.avatarUrl, 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+            {/if}
+            <span>
+              <small>今日精选</small>
+              <strong>{heroPlaylist.name}</strong>
+            </span>
+          </button>
+        {/if}
         <div class="m-home-stats" aria-label="账号概览">
           {#each profileStats as stat}
             <div>
@@ -154,34 +165,18 @@
       </div>
     </section>
 
-    <!-- 日推大卡 -->
-    {#if heroPlaylist}
-      <section class="m-section">
-        <button class="m-hero-card" onclick={() => onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>
-          {#if heroPlaylist.picUrl || auth.user?.avatarUrl}
-            <img src={coverUrl(heroPlaylist.picUrl || auth.user.avatarUrl, 600)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-          {/if}
-          <div class="m-hero-copy">
-            <small>现在就听 · 今日精选</small>
-            <strong>{heroPlaylist.name}</strong>
-          </div>
-        </button>
-      </section>
-    {/if}
-
     <section class="m-section">
       <div class="m-section-head"><h2>为你整理</h2></div>
-      <div class="m-library-collection">
+      <div class="m-home-actions">
         {#each stationCards as card}
-          <button class="m-library-row" onclick={() => card.action?.()}>
+          <button class="m-home-action" onclick={() => card.action?.()}>
             <span class="m-library-row-icon">
               <Icon name={card.icon} size={20} />
             </span>
-            <div class="m-list-info">
+            <span>
               <strong>{card.title}</strong>
               <span>{card.value}</span>
-            </div>
-            <Icon name="chevron-right" size={18} />
+            </span>
           </button>
         {/each}
       </div>

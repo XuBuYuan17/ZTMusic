@@ -31,17 +31,45 @@
 
   let unreadTotal = $derived(messages.reduce((total, msg) => total + getMessageUnreadCount(msg), 0))
 
+  function extractMessages(res) {
+    if (Array.isArray(res)) return res
+    if (Array.isArray(res?.msgs)) return res.msgs
+    if (Array.isArray(res?.messages)) return res.messages
+    if (Array.isArray(res?.data)) return res.data
+    if (Array.isArray(res?.data?.msgs)) return res.data.msgs
+    if (Array.isArray(res?.data?.messages)) return res.data.messages
+    if (Array.isArray(res?.notices)) return res.notices
+    if (Array.isArray(res?.forwards)) return res.forwards
+    if (Array.isArray(res?.data?.notices)) return res.data.notices
+    if (Array.isArray(res?.data?.forwards)) return res.data.forwards
+    return []
+  }
+
+  async function loadMessageList() {
+    const loaders = [
+      () => ncm.msgPrivate(30, 0),
+      () => ncm.msgRecentContact(),
+      () => ncm.msgNotices(30),
+      () => ncm.msgForwards(30, 0),
+    ]
+    const results = await Promise.allSettled(loaders.map(load => load()))
+    const list = results.flatMap(result => result.status === 'fulfilled' ? extractMessages(result.value) : [])
+    if (list.length > 0) return list
+    const error = results.find(result => result.status === 'rejected')?.reason
+    if (error) throw error
+    return []
+  }
+
   async function loadMessages() {
     if (!auth.isLoggedIn) return
     loading = true
     error = ''
     try {
-      readState = await loadMessageReadState()
-      const res = await ncm.msgPrivate(30, 0)
-      messages = (res?.msgs || res?.messages || res?.data || []).map(msg => applyMessageReadState(msg, readState))
+      readState = await loadMessageReadState().catch(() => getInitialMessageReadState())
+      messages = (await loadMessageList()).map(msg => applyMessageReadState(msg, readState))
       messagesLoaded = true
     } catch (e) {
-      error = '加载私信失败'
+      error = e?.message ? `加载提醒失败：${e.message}` : '加载提醒失败'
       console.error(e)
     }
     loading = false
@@ -112,7 +140,7 @@
     chatLoading = true
     try {
       const res = await ncm.msgPrivateHistory(uid, 50)
-      chatMessages = res?.msgs || res?.messages || res?.data || []
+      chatMessages = extractMessages(res)
     } catch (e) {
       chatError = '加载聊天记录失败'
       console.error(e)

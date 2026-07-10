@@ -852,12 +852,16 @@ html.mobile-runtime .hero-cover {
 .player-bar-wrap {
   position: absolute;
   bottom: 12px;
-  left: 12px;
+  left: calc(12px + var(--sidebar-w) + 10px);
   right: 12px;
   z-index: 40;
   display: flex;
   justify-content: center;
   pointer-events: none;
+}
+
+.player-bar-wrap.sidebar-collapsed {
+  left: calc(12px + var(--sidebar-collapsed-w) + 10px);
 }
 
 .player-bar-wrap .player-bar {
@@ -945,7 +949,7 @@ html.mobile-runtime .hero-cover {
   height: 76px;
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: minmax(0, 260px) max-content 200px;
+  grid-template-columns: minmax(0, 260px) max-content max-content;
   align-items: center;
   justify-content: stretch;
   padding: 0 24px;
@@ -984,11 +988,11 @@ html.mobile-runtime .hero-cover {
 }
 
 .player-bar.with-lyrics {
-  grid-template-columns: minmax(0, 286px) max-content 200px;
+  grid-template-columns: minmax(0, 286px) max-content max-content;
 }
 
 .player-bar.compact {
-  grid-template-columns: minmax(0, 206px) max-content 200px;
+  grid-template-columns: minmax(0, 206px) max-content max-content;
 }
 
 [data-theme="dark"] .player-bar {
@@ -1261,6 +1265,7 @@ button.lcd-meta__artist:hover {
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -1352,7 +1357,8 @@ button.lcd-meta__artist:hover {
   justify-content: flex-end;
   gap: 8px;
   padding-left: 12px;
-  min-width: 200px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .player-bar.with-lyrics .player-bar__actions {
@@ -1404,11 +1410,12 @@ button.lcd-meta__artist:hover {
   cursor: pointer;
   border-radius: 1000px;
   flex: 0 0 40px;
+  min-width: 40px;
   transition: background 0.15s;
 }
 
 .volume-slider-inline.open {
-  flex-basis: 144px;
+  flex-basis: clamp(112px, 17vw, 144px);
 }
 
 .volume-slider-inline:hover {
@@ -1428,14 +1435,13 @@ button.lcd-meta__artist:hover {
   border-radius: 1000px;
   gap: 7px;
   overflow: hidden;
-  width: 40px;
+  width: 100%;
   max-width: 40px;
-  transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: max-width 0.35s cubic-bezier(0.16, 1, 0.3, 1), padding 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .volume-slider-inline.open .volume-slider-inline__bar {
-  width: 144px;
-  max-width: 144px;
+  max-width: clamp(112px, 17vw, 144px);
   padding: 0 12px;
 }
 
@@ -1458,9 +1464,9 @@ button.lcd-meta__artist:hover {
 }
 
 .volume-slider-inline__track {
-  width: 82px;
+  flex: 1 1 72px;
+  min-width: 56px;
   height: 8px;
-  flex-shrink: 0;
   background: rgba(0, 0, 0, 0.15);
   border-radius: 1000px;
   position: relative;
@@ -2557,6 +2563,8 @@ button.lcd-meta__artist:hover {
     gap: 18px;
     min-width: 0;
     max-width: 100%;
+    box-sizing: border-box;
+    padding: 16px 16px calc(var(--mobile-mini-player-h, 64px) + 48px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
   }
 

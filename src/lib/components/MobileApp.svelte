@@ -2,11 +2,10 @@
   import { player } from '../stores/player.svelte.js'
   import { auth } from '../stores/auth.svelte.js'
   import { coverUrl } from '../utils/image.js'
-  import { fade } from 'svelte/transition'
   import Icon from './ui/Icon.svelte'
   import Sidebar from './Sidebar.svelte'
 
-  import MobileHome from '../pages/mobile/Home.svelte'
+  import MobileHome from '../pages/pc/Home.svelte'
   import MobileBrowse from '../pages/mobile/Browse.svelte'
   import MobileLibrary from '../pages/mobile/Library.svelte'
   import MobileSettings from '../pages/mobile/Settings.svelte'
@@ -16,6 +15,7 @@
   import LikedPage from '../pages/pc/Liked.svelte'
   import RecentPage from '../pages/pc/Recent.svelte'
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
+  import MessagesPage from '../pages/pc/Messages.svelte'
   import { router } from '../stores/router.svelte.js'
 
   let {
@@ -32,11 +32,14 @@
     onSetTheme,
     onBack,
     onTabsHiddenChange,
+    targetUser = null,
+    onUnreadChange,
+    notificationUnread = 0,
   } = $props()
 
   const tabViews = ['home', 'explore', 'library']
   const isTabView = $derived(tabViews.includes(activeView))
-  const isDetailView = $derived(['playlist', 'album', 'artist', 'search'].includes(activeView))
+  const isDetailView = $derived(['playlist', 'album', 'artist', 'search', 'messages'].includes(activeView))
 
   let tabsHidden = $state(false)
   let lastScrollTop = $state(0)
@@ -136,7 +139,7 @@
     ontouchmove={handleTouchMove}
   >
     {#key activeView}
-      <div class="m-view-fade" transition:fade={{ duration: 200 }}>
+      <div class="m-view-fade">
         {#if activeView === 'home'}
           <MobileHome
             onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
@@ -175,6 +178,10 @@
         {:else if activeView === 'dailyHistory'}
           <div class="m-subpage m-subpage-enter">
             <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
+          </div>
+        {:else if activeView === 'messages'}
+          <div class="m-subpage m-subpage-enter">
+            <MessagesPage onNavigate={onNavigate} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
           </div>
         {:else if activeView === 'playlist' || activeView === 'album'}
           <PlaylistPage
@@ -227,7 +234,7 @@
       </button>
       <button class="m-tab" class:active={activeView === 'library'} onclick={() => onNavigate?.('library')}>
         <Icon name="liked" size={24} />
-        <span>我的</span>
+        <span>歌单</span>
       </button>
     </nav>
   {/if}
@@ -244,6 +251,7 @@
       collapsed={false}
       {theme}
       refreshKey={router.refreshKey}
+      {notificationUnread}
       inDrawer={true}
       onNavigate={handleNav}
       onToggleTheme={handleToggleTheme}

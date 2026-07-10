@@ -83,6 +83,20 @@ await runTest(async () => {
 })
 
 await runTest(async () => {
+  let networkCalls = 0
+  const prefetchCache = new Map([[91, ['https://cdn.example/prefetched-91.mp3']]])
+  dbCache.urlGet = async () => { throw new Error('prefetch hit should not read persistent cache') }
+  dbCache.urlSet = async () => {}
+  ncm.songUrl = async () => { networkCalls++; return { data: [{ url: '' }] } }
+
+  const result = await getPlayableUrls(91, 'standard', prefetchCache, 1)
+
+  assertDeepEqual(result.urls, ['https://cdn.example/prefetched-91.mp3'], 'uses and removes same-id prefetch cache only')
+  assertEqual(prefetchCache.has(91), false, 'removes consumed prefetch cache entry')
+  assertEqual(networkCalls, 0, 'does not fetch network when prefetch cache matches id')
+})
+
+await runTest(async () => {
   let matchCalls = 0
   let cachedUrls = null
   dbCache.urlGet = async () => null
