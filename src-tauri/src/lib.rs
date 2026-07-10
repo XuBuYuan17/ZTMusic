@@ -146,6 +146,19 @@ pub fn run() {
         .manage(AppState { client })
         .plugin(native_media_plugin())
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                // 单实例：桌面端再次启动时聚焦已有窗口，避免多开
+                app.handle().plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }))?;
+                // 窗口状态：记住桌面端窗口大小与位置
+                app.handle().plugin(tauri_plugin_window_state::Builder::default().build())?;
+            }
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
