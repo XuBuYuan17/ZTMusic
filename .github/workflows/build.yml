@@ -158,10 +158,9 @@ jobs:
             has_signing=true
           fi
 
-          if [[ "$GITHUB_REF" == refs/tags/v* && "$has_signing" != true ]]; then
-            echo "Android release APKs require signing secrets."
-            echo "Required secrets: ANDROID_KEY_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD"
-            exit 1
+          if [[ "$has_signing" != true ]]; then
+            echo "::warning::未配置 Android 签名密钥，将构建未签名 (unsigned) APK。"
+            echo "如需可直接安装/上架的正式 APK，请配置 secrets: ANDROID_KEY_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD"
           fi
 
           echo "has_signing=$has_signing" >> "$GITHUB_OUTPUT"
