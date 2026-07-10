@@ -5,7 +5,7 @@ use async_channel::{unbounded, Receiver, Sender};
 use windows::core::HSTRING;
 use windows::Foundation::TypedEventHandler;
 use windows::Media::{
-    MediaPlaybackStatus, SystemMediaTransportControls, SystemMediaTransportControlsButton,
+    MediaPlaybackStatus, SystemMediaTransportControlsButton,
     SystemMediaTransportControlsButtonPressedEventArgs,
 };
 use windows::Media::Playback::MediaPlayer;
@@ -126,7 +126,7 @@ fn run_smtc(
                 title,
                 artist,
                 cover_url,
-                duration,
+                duration: _,
             } => {
                 // Update display properties
                 display_updater.SetType(windows::Media::MediaPlaybackType::Music)?;
