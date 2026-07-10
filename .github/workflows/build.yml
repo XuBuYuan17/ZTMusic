@@ -46,15 +46,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -77,10 +77,10 @@ jobs:
         include:
           - arch: x64
             target: x86_64-pc-windows-msvc
-            bundles: msi
+            bundles: nsis
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -95,12 +95,12 @@ jobs:
           key: windows-${{ matrix.target }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -122,7 +122,7 @@ jobs:
         run: pnpm tauri build --ci --verbose --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: zheting-windows-${{ matrix.arch }}
           path: src-tauri/target/${{ matrix.target }}/release/bundle/**
@@ -142,7 +142,7 @@ jobs:
             tauriTarget: aarch64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check Android signing secrets
         id: android_signing
@@ -197,12 +197,12 @@ jobs:
           key: android-${{ matrix.rustTarget }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -362,7 +362,7 @@ jobs:
           find src-tauri/gen/android/app/build/outputs/apk -name "*.apk" -print -exec apksigner verify --verbose {} \;
 
       - name: Upload Android APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: zheting-android-${{ matrix.abi }}
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
@@ -379,7 +379,7 @@ jobs:
         format: [deb, rpm]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -404,12 +404,12 @@ jobs:
           key: linux-${{ matrix.format }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -422,7 +422,7 @@ jobs:
         run: pnpm tauri build --ci --verbose --bundles ${{ matrix.format }}
 
       - name: Upload Linux ${{ matrix.format }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: zheting-linux-${{ matrix.format }}
           path: src-tauri/target/release/bundle/${{ matrix.format }}/**
@@ -434,10 +434,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
           merge-multiple: true
@@ -464,7 +464,7 @@ jobs:
         with:
           body: ${{ steps.changelog.outputs.body }}
           files: |
-            artifacts/**/*.msi
+            artifacts/**/*.exe
             artifacts/**/*.deb
             artifacts/**/*.rpm
             artifacts/**/*.apk
