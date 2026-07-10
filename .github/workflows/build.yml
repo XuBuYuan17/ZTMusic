@@ -448,7 +448,11 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          NOTES=$(awk "/^## \\[$VERSION\\] - /{flag=1;next} /^## \\[/{flag=0} flag" CHANGELOG.md)
+          if [[ -f CHANGELOG.md ]]; then
+            NOTES=$(awk "/^## \\[$VERSION\\] - /{flag=1;next} /^## \\[/{flag=0} flag" CHANGELOG.md)
+          else
+            NOTES=""
+          fi
           if [[ -z "$NOTES" ]]; then
             NOTES="See full changelog in CHANGELOG.md"
           fi
