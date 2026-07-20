@@ -86,9 +86,24 @@
         isMobile = r.isMobile
         // 切换到移动布局默认收起侧栏，切回 PC 默认展开
         sidebarCollapsed = r.isMobile
+        // 同步更新 CSS 依赖的根元素 class（控制 Sidebar/PC 元素显示隐藏）
+        if (isMobile) {
+          document.documentElement.classList.add('mobile-runtime')
+        } else {
+          document.documentElement.classList.remove('mobile-runtime')
+        }
       }
     })
     return () => u()
+  })
+
+  // 初始化时设置根元素 class
+  $effect(() => {
+    if (isMobile) {
+      document.documentElement.classList.add('mobile-runtime')
+    } else {
+      document.documentElement.classList.remove('mobile-runtime')
+    }
   })
 
   $effect(() => { if (!auth.cookieOk && auth.isLoggedIn) showLogin = true })
