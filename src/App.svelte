@@ -70,6 +70,14 @@
   auth.init()
   initDB()
 
+  // 注入 auth provider 到 player（解耦依赖）
+  player.setAuthProvider({
+    isLoggedIn: () => auth.isLoggedIn,
+    getVipInfo: () => auth.vipInfo,
+    isVip: () => auth.isVip,
+    checkLoginStatus: () => auth.checkLoginStatus(),
+  })
+
   $effect(() => { player.restore() })
 
   $effect(() => {

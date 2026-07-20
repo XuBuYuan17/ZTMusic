@@ -13,6 +13,242 @@
       @media (max-width: 600px) {
         html:not(.mobile-runtime) body { overflow-x: hidden; }
       }
+
+      /* ── 启动画屏（纯 CSS + 内联 SVG，HTML 解析即刻显示，盖住 JS 加载空窗）── */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        /* 极光紫蓝渐变背景 */
+        background: 
+          radial-gradient(ellipse 80% 50% at 20% -20%, rgba(120, 119, 198, 0.3), transparent),
+          radial-gradient(ellipse 60% 40% at 80% 0%, rgba(255, 150, 200, 0.15), transparent),
+          radial-gradient(ellipse 100% 80% at 50% 100%, rgba(25, 25, 35, 1) 0%, rgba(15, 15, 25, 1) 50%, #0a0a0f 100%);
+        opacity: 1;
+        transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #splash.splash-hide { opacity: 0; pointer-events: none; }
+
+      /* 星点背景 */
+      .splash-stars {
+        position: absolute;
+        inset: 0;
+        background-image: 
+          radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.8), transparent),
+          radial-gradient(2px 2px at 60% 70%, rgba(255, 255, 255, 0.6), transparent),
+          radial-gradient(1px 1px at 50% 50%, rgba(255, 255, 255, 0.9), transparent),
+          radial-gradient(2px 2px at 80% 10%, rgba(255, 255, 255, 0.5), transparent),
+          radial-gradient(1px 1px at 90% 60%, rgba(255, 255, 255, 0.7), transparent),
+          radial-gradient(2px 2px at 33% 85%, rgba(255, 255, 255, 0.6), transparent),
+          radial-gradient(1px 1px at 10% 50%, rgba(255, 255, 255, 0.8), transparent),
+          radial-gradient(2px 2px at 70% 40%, rgba(255, 255, 255, 0.4), transparent);
+        background-size: 200% 200%;
+        animation: splash-twinkle 8s ease-in-out infinite;
+      }
+
+      /* 极光层 */
+      .splash-aurora {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        opacity: 0.6;
+      }
+      .splash-aurora::before,
+      .splash-aurora::after {
+        content: '';
+        position: absolute;
+        width: 200%;
+        height: 200%;
+        top: -50%;
+        left: -50%;
+        background: conic-gradient(
+          from 0deg at 50% 50%,
+          transparent 0deg,
+          rgba(139, 92, 246, 0.3) 60deg,
+          rgba(59, 130, 246, 0.2) 120deg,
+          transparent 180deg,
+          rgba(236, 72, 153, 0.25) 240deg,
+          rgba(168, 85, 247, 0.2) 300deg,
+          transparent 360deg
+        );
+        animation: splash-rotate 30s linear infinite;
+      }
+      .splash-aurora::after {
+        animation-direction: reverse;
+        animation-duration: 45s;
+        opacity: 0.5;
+        filter: blur(40px);
+      }
+
+      /* 中心标题光环 */
+      .splash-title-glow {
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 30%, transparent 70%);
+        animation: splash-glow 4s ease-in-out infinite;
+      }
+
+      /* 哲听大字标题 */
+      .splash-title {
+        position: relative;
+        font-family: 'SF Pro Display', 'Segoe UI Variable', 'PingFang SC', -apple-system, sans-serif;
+        font-size: 72px;
+        font-weight: 300;
+        letter-spacing: 0.25em;
+        text-indent: 0.25em;
+        color: transparent;
+        background: linear-gradient(135deg, #fff 0%, #e0d4ff 30%, #c4b5fd 60%, #fff 100%);
+        background-size: 200% 200%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        animation: splash-title-gradient 6s ease infinite, splash-title-float 6s ease-in-out infinite;
+        text-shadow: none;
+        filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.5)) drop-shadow(0 0 60px rgba(139, 92, 246, 0.3));
+        z-index: 1;
+      }
+
+      /* 标题装饰线 */
+      .splash-title::before,
+      .splash-title::after {
+        content: '';
+        position: absolute;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(196, 181, 253, 0.6), transparent);
+        left: -20%;
+        right: -20%;
+      }
+      .splash-title::before {
+        top: -20px;
+        animation: splash-line-expand 2s ease-out 0.3s both;
+      }
+      .splash-title::after {
+        bottom: -20px;
+        animation: splash-line-expand 2s ease-out 0.5s both;
+      }
+
+      /* 副标题装饰 */
+      .splash-subtitle {
+        position: relative;
+        margin-top: 16px;
+        font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
+        font-size: 14px;
+        letter-spacing: 0.5em;
+        text-indent: 0.5em;
+        color: rgba(196, 181, 253, 0.7);
+        opacity: 0;
+        animation: splash-subtitle-in 1s ease-out 0.8s both;
+      }
+
+      /* 音乐波形装饰 */
+      .splash-wave {
+        position: absolute;
+        bottom: 28%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 4px;
+        height: 40px;
+        opacity: 0;
+        animation: splash-wave-in 1s ease-out 1.2s both;
+      }
+      .splash-wave-bar {
+        width: 3px;
+        background: linear-gradient(to top, rgba(139, 92, 246, 0.8), rgba(236, 72, 153, 0.6));
+        border-radius: 2px;
+        animation: splash-wave-bounce 1.5s ease-in-out infinite;
+      }
+      .splash-wave-bar:nth-child(1) { height: 12px; animation-delay: 0s; }
+      .splash-wave-bar:nth-child(2) { height: 24px; animation-delay: 0.15s; }
+      .splash-wave-bar:nth-child(3) { height: 36px; animation-delay: 0.3s; }
+      .splash-wave-bar:nth-child(4) { height: 28px; animation-delay: 0.45s; }
+      .splash-wave-bar:nth-child(5) { height: 20px; animation-delay: 0.6s; }
+      .splash-wave-bar:nth-child(6) { height: 32px; animation-delay: 0.75s; }
+      .splash-wave-bar:nth-child(7) { height: 16px; animation-delay: 0.9s; }
+
+      /* 底部祈祷文案 */
+      .splash-brand {
+        position: absolute;
+        bottom: 10%;
+        font-family: 'Segoe UI Variable', 'Segoe UI', -apple-system, sans-serif;
+        font-size: 15px;
+        letter-spacing: 0.4em;
+        text-indent: 0.4em;
+        color: rgba(243, 227, 214, 0.9);
+        text-shadow: 0 0 20px rgba(255, 150, 200, 0.3);
+        opacity: 0;
+        animation: splash-brand-in 1s ease-out 1.5s both, splash-brand-glow 3s ease-in-out 1.5s infinite;
+      }
+      /* 循环省略号，营造"进行中"的感觉 */
+      .splash-brand::after {
+        content: '';
+        display: inline-block;
+        width: 1.2em;
+        animation: splash-dots 1.8s steps(4, end) infinite;
+      }
+
+      @keyframes splash-twinkle {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+      @keyframes splash-rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splash-glow {
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.15); opacity: 1; }
+      }
+      @keyframes splash-title-gradient {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+      @keyframes splash-title-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+      @keyframes splash-line-expand {
+        from { transform: scaleX(0); opacity: 0; }
+        to { transform: scaleX(1); opacity: 1; }
+      }
+      @keyframes splash-subtitle-in {
+        from { transform: translateY(10px); opacity: 0; letter-spacing: 0.8em; }
+        to { transform: translateY(0); opacity: 1; letter-spacing: 0.5em; }
+      }
+      @keyframes splash-wave-in {
+        from { transform: translateY(20px) scaleY(0); opacity: 0; }
+        to { transform: translateY(0) scaleY(1); opacity: 1; }
+      }
+      @keyframes splash-wave-bounce {
+        0%, 100% { transform: scaleY(0.4); }
+        50% { transform: scaleY(1); }
+      }
+      @keyframes splash-brand-in {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes splash-brand-glow {
+        0%, 100% { text-shadow: 0 0 20px rgba(255, 150, 200, 0.3); }
+        50% { text-shadow: 0 0 30px rgba(255, 150, 200, 0.5), 0 0 60px rgba(139, 92, 246, 0.3); }
+      }
+      @keyframes splash-dots {
+        0% { content: ''; }
+        25% { content: '·'; }
+        50% { content: '··'; }
+        75% { content: '···'; }
+        100% { content: '···'; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash-stars, .splash-aurora, .splash-title-glow, .splash-title, .splash-wave, .splash-brand { animation: none; }
+        .splash-stars, .splash-aurora { display: none; }
+        .splash-title { background: #e0d4ff; -webkit-background-clip: text; background-clip: text; }
+      }
     </style>
     <script>
       // 同步判定移动端，提前设置 class，避免样式闪烁
@@ -23,6 +259,23 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="splash">
+      <div class="splash-stars"></div>
+      <div class="splash-aurora"></div>
+      <div class="splash-title-glow"></div>
+      <div class="splash-title">哲听</div>
+      <div class="splash-subtitle">音乐是时间的艺术</div>
+      <div class="splash-wave">
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+        <div class="splash-wave-bar"></div>
+      </div>
+      <div class="splash-brand">少女祈祷中</div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
