@@ -16,6 +16,7 @@ import { player } from '../stores/player.svelte.js'
 import { auth } from '../stores/auth.svelte.js'
 import { ncm } from '../api/client.js'
 import { parseLikeCheck } from '../utils/like-check.js'
+import { debugLog } from '../utils/error.js'
 
 export function useLike(onMessage) {
   let liked = $state(false)
@@ -35,7 +36,7 @@ export function useLike(onMessage) {
     try {
       const res = await ncm.songLikeCheck(id)
       if (rid === requestId && player.id === id) liked = parseLikeCheck(res, id)
-    } catch {}
+    } catch (err) { debugLog('useLike', 'check-error', { id, error: err?.message || String(err) }) }
   }
 
   async function toggle() {

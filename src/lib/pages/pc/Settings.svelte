@@ -24,22 +24,34 @@
   let preferredQuality = $state(player.preferredLevel)
   let currentLocale = $state(i18n.locale)
 
+  // 定时器管理器：防止组件销毁后定时器仍运行
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
+
   let saveBaseTimer = null
 
   function handleSetApiBase(url) {
     clearTimeout(saveBaseTimer)
+    timers.delete(saveBaseTimer)
     const value = url.trim()
     if (!value) return
 
-    saveBaseTimer = setTimeout(() => {
+    saveBaseTimer = safeTimeout(() => {
       try {
         new URL(value) // 验证格式
         ncm.setBase(value)
         apiBaseStatus = '已保存'
-        setTimeout(() => apiBaseStatus = '', 2000)
+        safeTimeout(() => apiBaseStatus = '', 2000)
       } catch {
         apiBaseStatus = '地址格式无效'
-        setTimeout(() => apiBaseStatus = '', 2000)
+        safeTimeout(() => apiBaseStatus = '', 2000)
       }
     }, 500)
   }
@@ -75,12 +87,13 @@
   $effect(() => {
     refreshCacheSize()
     refreshIdbCache()
+    return () => timers.forEach(id => clearTimeout(id)) // 组件销毁清理
   })
 
   function handleClearHistory() {
     clearHistory()
     clearMsg = '已清除'
-    setTimeout(() => clearMsg = '', 2000)
+    safeTimeout(() => clearMsg = '', 2000)
   }
 
   async function handleClearCache() {
@@ -88,14 +101,14 @@
     refreshCacheSize()
     await refreshIdbCache()
     clearCacheMsg = '已清除'
-    setTimeout(() => clearCacheMsg = '', 2000)
+    safeTimeout(() => clearCacheMsg = '', 2000)
   }
 
   async function handleClearIdbCache() {
     await dbCache.clearAll()
     await refreshIdbCache()
     idbCleared = '已清除'
-    setTimeout(() => idbCleared = '', 2000)
+    safeTimeout(() => idbCleared = '', 2000)
   }
 
   function handleDefaultPage(val) {

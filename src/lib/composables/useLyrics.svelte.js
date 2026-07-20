@@ -7,6 +7,7 @@
 import { player } from '../stores/player.svelte.js'
 import { ncm } from '../api/client.js'
 import { parseLyricResponse, parseYrc } from '../utils/lyrics.js'
+import { debugLog } from '../utils/error.js'
 
 function splitWords(text = '') {
   return (text || '').trim().split(/\s+/).map(w => w.trim()).filter(Boolean)
@@ -41,7 +42,7 @@ export function useLyrics() {
         translation: l.translation,
         words: l.content ? splitWords(l.content) : [],
       }))
-    } catch {}
+    } catch (err) { debugLog('useLyrics', 'fetch-error', { id, error: err?.message || String(err) }) }
 
     try {
       const newRes = await ncm.lyricNew(id).catch(() => null)
@@ -50,7 +51,7 @@ export function useLyrics() {
         const yrc = parseYrc(newRes.yrc.lyric)
         if (yrc.length > 0) yrcLines = yrc
       }
-    } catch {}
+    } catch (err) { debugLog('useLyrics', 'yrc-fetch-error', { id, error: err?.message || String(err) }) }
 
     if (reqId === requestId) loading = false
   }

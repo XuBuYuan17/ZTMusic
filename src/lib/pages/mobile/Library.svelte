@@ -40,6 +40,17 @@
     } finally { if (rid === _requestId) loading = false }
   }
 
+  // 定时器管理器
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
+
   function resultError(result, fallback) {
     if (!result || result.code === 200) return ''
     return result.message || result.msg || fallback
@@ -72,7 +83,7 @@
 
   function showNotice(text) {
     notice = text
-    window.setTimeout(() => { if (notice === text) notice = '' }, 1800)
+    safeTimeout(() => { if (notice === text) notice = '' }, 1800)
   }
 
   function openCreateSheet() {
@@ -172,7 +183,10 @@
     }
   }
 
-  $effect(() => { if (auth.isLoggedIn) load() })
+  $effect(() => {
+    if (auth.isLoggedIn) load()
+    return () => timers.forEach(id => clearTimeout(id)) // 组件销毁清理所有定时器
+  })
 </script>
 
 <div class="m-page m-library">

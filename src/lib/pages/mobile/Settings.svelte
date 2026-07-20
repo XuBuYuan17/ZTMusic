@@ -30,21 +30,36 @@
 
   function handleSetApiBase(url) {
     apiBaseValue = url
-    clearTimeout(saveBaseTimer)
+    clearSafeTimer(saveBaseTimer)
     const value = url.trim()
     if (!value) return
 
-    saveBaseTimer = setTimeout(() => {
+    saveBaseTimer = safeTimeout(() => {
       try {
         new URL(value) // 验证格式
         ncm.setBase(value)
         apiBaseStatus = '已保存'
-        setTimeout(() => apiBaseStatus = '', 2000)
+        safeTimeout(() => apiBaseStatus = '', 2000)
       } catch {
         apiBaseStatus = '地址格式无效'
-        setTimeout(() => apiBaseStatus = '', 2000)
+        safeTimeout(() => apiBaseStatus = '', 2000)
       }
     }, 500)
+  }
+
+  // 定时器管理器：组件销毁时自动清理所有定时器，防止内存泄漏
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
+  function clearSafeTimer(id) {
+    clearTimeout(id)
+    timers.delete(id)
   }
 
   const qualityLabels = {
@@ -84,6 +99,7 @@
   $effect(() => {
     refreshCacheSize()
     refreshIdbCache()
+    return () => timers.forEach(id => clearTimeout(id)) // 组件销毁清理所有定时器
   })
 
   function setQuality(level) {
@@ -121,7 +137,7 @@
   function handleClearHistory() {
     clearHistory()
     clearMsg = '已清除'
-    setTimeout(() => clearMsg = '', 2000)
+    safeTimeout(() => clearMsg = '', 2000)
   }
 
   async function handleClearCache() {
@@ -129,20 +145,20 @@
     refreshCacheSize()
     await refreshIdbCache()
     clearCacheMsg = '已清除'
-    setTimeout(() => clearCacheMsg = '', 2000)
+    safeTimeout(() => clearCacheMsg = '', 2000)
   }
 
   async function handleClearIdbCache() {
     await dbCache.clearAll()
     await refreshIdbCache()
     idbCleared = '已清除'
-    setTimeout(() => idbCleared = '', 2000)
+    safeTimeout(() => idbCleared = '', 2000)
   }
 
   async function handleCheckCookie() {
     if (!auth.isLoggedIn) {
       cookieCheckMsg = '未登录，无需检测'
-      setTimeout(() => cookieCheckMsg = '', 3000)
+      safeTimeout(() => cookieCheckMsg = '', 3000)
       return
     }
     cookieCheckMsg = '检测中…'
@@ -156,7 +172,7 @@
     } catch {
       cookieCheckMsg = '检测失败，请重试'
     }
-    setTimeout(() => cookieCheckMsg = '', 4000)
+    safeTimeout(() => cookieCheckMsg = '', 4000)
   }
 </script>
 

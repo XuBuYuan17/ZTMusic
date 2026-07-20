@@ -3,6 +3,7 @@
   import { ncm } from '../api/client.js'
   import { coverUrl } from '../utils/image.js'
   import { parseLikeCheck } from '../utils/like-check.js'
+  import { debugLog } from '../utils/error.js'
 
   let {
     show = false,
@@ -25,6 +26,17 @@
   let userPlaylistsOwnerId = $state(null)
   let playlistApplyingId = $state(null)
   let likeCheckRequestId = 0
+
+  // 定时器管理器
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
 
   const MENU_WIDTH = 278
   const MENU_MARGIN = 12
@@ -65,6 +77,9 @@
     }
   })
 
+  // 组件销毁时清理所有定时器
+  $effect(() => () => timers.forEach(id => clearTimeout(id)))
+
   function artistsOf(t) {
     return t?.artists || t?.ar || []
   }
@@ -97,23 +112,22 @@
     try {
       const res = await ncm.songLikeCheck(trackId)
       if (requestId === likeCheckRequestId && track?.id === trackId) liked = parseLikeCheck(res, trackId)
-    } catch {
+    } catch (err) {
+      debugLog('SongContextMenu', 'like-check-fallback', { error: err?.message || String(err) })
       const uid = auth.user?.userId || auth.user?.id
       if (!uid) return
       try {
         const res = await ncm.likelist(uid)
         const ids = res?.ids || res?.data || []
         if (requestId === likeCheckRequestId && track?.id === trackId) liked = ids.map(Number).includes(Number(trackId))
-      } catch {}
+      } catch (err2) { debugLog('SongContextMenu', 'likelist-error', { error: err2?.message || String(err2) }) }
     }
   }
 
   function showToast(text) {
     toastText = text
     onToast?.(text)
-    window.setTimeout(() => {
-      if (toastText === text) toastText = ''
-    }, 1600)
+    safeTimeout(() => { if (toastText === text) toastText = '' }, 1600)
   }
 
   async function toggleLike() {
