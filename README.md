@@ -62,6 +62,7 @@
 - 多音质选择，VIP/试听智能回退
 - 下一首音频预加载，零延迟切歌
 - IndexedDB 持久缓存，二次加载更快
+- 歌曲收藏/点赞（PC/移动端共享状态）
 - 桌面端系统媒体控制（SMTC / MPRIS）
 
 **体验**
@@ -83,6 +84,11 @@ pnpm tauri:build      # 构建当前平台安装包
 ```
 
 默认 API 为 `https://music.xubuyuan.top`，浏览器开发时由 Vite 代理转发以规避跨域。
+
+运行测试：
+```bash
+pnpm test             # 运行全部单元测试
+```
 
 ---
 
