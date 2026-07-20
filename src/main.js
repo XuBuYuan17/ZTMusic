@@ -1,25 +1,14 @@
 import './app.css'
-import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
+// 布局 CSS 静态加载：由 html.mobile-runtime 选择器分流，避免动态 import + 宽度媒体查询双轨打架
+import './app-mobile.css'
+import './app-pc.css'
+import { layoutMode } from './lib/utils/layout-mode.js'
 import { installNativeShell } from './lib/app/native-shell.js'
 
 installNativeShell()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
-
-const stylePromises = new Map()
-
-function loadRuntimeStyles(mobile) {
-  const key = mobile ? 'mobile' : 'pc'
-  if (!stylePromises.has(key)) {
-    const promise = mobile ? import('./app-mobile.css') : import('./app-pc.css')
-    stylePromises.set(key, promise.catch((error) => {
-      stylePromises.delete(key)
-      throw error
-    }))
-  }
-  return stylePromises.get(key)
-}
 
 function serializeClientError(value) {
   if (value instanceof Error) {
@@ -72,12 +61,10 @@ async function installDevErrorReporter() {
 installDevErrorReporter()
 
 function syncMobileRuntime(state) {
-  const mobile = state.isMobile
-  document.documentElement.classList.toggle('mobile-runtime', mobile)
-  void loadRuntimeStyles(mobile)
+  document.documentElement.classList.toggle('mobile-runtime', state.isMobile)
 }
 
-// 唯一响应式来源：layoutMode store
+// 唯一响应式来源：layoutMode store → mobile-runtime class → CSS 选择器
 layoutMode.subscribe(syncMobileRuntime)
 
 function hideSplash() {
@@ -94,7 +81,10 @@ function hideSplash() {
 
 ;(async () => {
   try {
-    await loadRuntimeStyles(shouldUseMobileLayout(window.innerWidth, window.innerHeight))
+    // 开屏最小展示时间：ZT Music 光弧扫过 + Music/Loading 入场
+    const MIN_SPLASH_DURATION = 3800
+    await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_DURATION))
+
     const { mount } = await import('svelte')
     const { default: App } = await import('./App.svelte')
     mount(App, { target: document.getElementById('app') })

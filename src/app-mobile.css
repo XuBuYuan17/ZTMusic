@@ -3,2919 +3,2919 @@
    覆盖 app.css 末尾的旧 MobileShell 规则
    ================================================ */
 
-/* 断点 1024px 而非 760px：覆盖手机横屏(如小米11横屏~873px)。
-   main.js 已用 shouldUseMobileLayout() 精确控制何时 import 本文件，
-   PC 永不加载，故提高上限对 PC 零影响。 */
-@media (max-width: 1024px) {
-  html.mobile-runtime,
-  html.mobile-runtime body,
-  html.mobile-runtime #app,
-  html.mobile-runtime .app-shell {
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    min-height: 100%;
-    overflow: hidden;
-  }
+/* 由 html.mobile-runtime 控制，不再依赖宽度媒体查询 */
 
-  html.mobile-runtime body,
-  html.mobile-runtime #app,
-  html.mobile-runtime .app-shell {
-    display: flex;
-  }
+html.mobile-runtime,
+html.mobile-runtime body,
+html.mobile-runtime #app,
+html.mobile-runtime .app-shell {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
 
-  html.mobile-runtime #app,
-  html.mobile-runtime .app-shell {
-    flex: 1;
-  }
+html.mobile-runtime body,
+html.mobile-runtime #app,
+html.mobile-runtime .app-shell {
+  display: flex;
+}
 
-  html.mobile-runtime .main-area,
-  .mobile-app {
-    min-height: 0;
-  }
+html.mobile-runtime #app,
+html.mobile-runtime .app-shell {
+  flex: 1;
+}
 
-  .mobile-app {
-    width: 100%;
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+html.mobile-runtime .main-area,
+html.mobile-runtime .mobile-app {
+  min-height: 0;
+}
 
-  .m-avatar-btn {
-    top: calc(8px + env(safe-area-inset-top));
-    z-index: 60;
-    width: var(--mobile-avatar-size);
-    height: var(--mobile-avatar-size);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    color: var(--text);
-    box-shadow:
-      0 4px 12px rgba(0,0,0,0.08),
-      inset 0 1px 0 rgba(255,255,255,0.55);
-    cursor: pointer;
-    transition: transform 0.15s var(--ease-out), background 0.15s var(--ease-out);
-  }
+html.mobile-runtime .mobile-app {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-  [data-theme="dark"] .m-avatar-btn {
-    background: rgba(40,40,42,0.72);
-    border-color: rgba(255,255,255,0.08);
-    box-shadow:
-      0 4px 14px rgba(0,0,0,0.35),
-      inset 0 1px 0 rgba(255,255,255,0.12);
-  }
+html.mobile-runtime .m-avatar-btn {
+  top: calc(8px + env(safe-area-inset-top));
+  z-index: 60;
+  width: var(--mobile-avatar-size);
+  height: var(--mobile-avatar-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  color: var(--text);
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.55);
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
 
-  .m-avatar-btn { left: 12px; }
+html.mobile-runtime[data-theme="dark"] .m-avatar-btn {
+  background: rgba(40,40,42,0.72);
+  border-color: rgba(255,255,255,0.08);
+  box-shadow:
+    0 4px 14px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
 
-  .m-avatar-btn:active {
-    transform: scale(0.94);
-    background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
-  }
+html.mobile-runtime .m-avatar-btn { left: 12px; }
 
-  .m-avatar-btn img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid var(--accent);
-  }
+html.mobile-runtime .m-avatar-btn:active {
+  transform: scale(0.94);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
+}
 
-  /* 内容区 */
-  .m-content {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-    padding: calc(14px + var(--mobile-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
-  }
+html.mobile-runtime .m-avatar-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+}
 
-  .m-content-detail {
-    padding-bottom: calc(20px + env(safe-area-inset-bottom));
-  }
+/* 内容区 */
+html.mobile-runtime .m-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding: calc(14px + var(--mobile-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
+}
 
-  .m-blank {
-    min-height: 100%;
-  }
+html.mobile-runtime .m-content-detail {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
 
-  /* 底部 2-Tab */
-  .m-tabs {
-    position: fixed;
-    left: 14px;
-    right: 14px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    z-index: 50;
-    overflow: hidden;
-    height: var(--mobile-tabs-h);
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px;
-    padding: 5px 6px;
-    border-radius: 12px;
-    background: transparent;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
-    transition: transform 0.32s var(--ease-out), opacity 0.25s ease;
-  }
+html.mobile-runtime .m-blank {
+  min-height: 100%;
+}
 
-  .m-tabs::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    /* ponytail: 移动端关闭毛玻璃避免底 tab 常驻 blur(32px) 滚动掉帧；
-       提高背景不透明度(0.82→0.94)补偿透光。上限：纯色近似不透明，牺牲一点通透感。 */
-    background: rgba(245, 245, 247, 0.94);
-    z-index: -1;
-  }
+/* 底部 2-Tab */
+html.mobile-runtime .m-tabs {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 50;
+  overflow: hidden;
+  height: var(--mobile-tabs-h);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
+  transition: transform 0.32s var(--ease-out), opacity 0.25s ease;
+}
 
-  .m-tabs::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow:
-      inset 0 0 0 1px rgba(0, 0, 0, 0.08),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.06);
-    pointer-events: none;
-    z-index: 1;
-  }
+html.mobile-runtime .m-tabs::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* ponytail: 移动端关闭毛玻璃避免底 tab 常驻 blur(32px) 滚动掉帧；
+     提高背景不透明度(0.82→0.94)补偿透光。上限：纯色近似不透明，牺牲一点通透感。 */
+  background: rgba(245, 245, 247, 0.94);
+  z-index: -1;
+}
 
-  [data-theme="dark"] .m-tabs::before {
-    background: rgba(35, 35, 38, 0.94);
-  }
+html.mobile-runtime .m-tabs::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 1;
+}
 
-  [data-theme="dark"] .m-tabs::after {
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-  }
+html.mobile-runtime[data-theme="dark"] .m-tabs::before {
+  background: rgba(35, 35, 38, 0.94);
+}
 
-  .mobile-app.tabs-hidden .m-tabs {
-    transform: translateY(calc(100% + 28px));
+html.mobile-runtime[data-theme="dark"] .m-tabs::after {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+html.mobile-runtime .mobile-app.tabs-hidden .m-tabs {
+  transform: translateY(calc(100% + 28px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.mobile-runtime .mobile-app.drawer-open .m-tabs {
+  transform: translateY(calc(100% + 28px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.mobile-runtime .m-tab {
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 12px;
+  color: color-mix(in srgb, var(--text-secondary) 88%, var(--text) 12%);
+  font-size: 10px;
+  font-weight: 780;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+}
+
+html.mobile-runtime .m-tab svg {
+  width: 22px;
+  height: 22px;
+}
+
+html.mobile-runtime .m-tab.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-bg) 48%, transparent);
+}
+
+html.mobile-runtime[data-theme="dark"] .m-tab:not(.active) {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+html.mobile-runtime[data-theme="dark"] .m-tab.active {
+  color: var(--accent);
+}
+
+html.mobile-runtime .m-tab:active {
+  transform: scale(0.96);
+}
+
+/* ---------- 抽屉 ---------- */
+html.mobile-runtime .m-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0,0,0,0.38);
+  animation: m-fade-in 0.22s var(--ease-out);
+}
+
+html.mobile-runtime .m-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(280px, 82vw);
+  z-index: 91;
+  background: var(--bg-surface);
+  transform: translateX(-105%);
+  transition: transform 0.28s var(--ease-out);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.22);
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-drawer.open {
+  transform: translateX(0);
+}
+
+html.mobile-runtime .m-drawer .sidebar,
+html.mobile-runtime .m-drawer .sidebar.in-drawer {
+  display: flex !important;
+  width: 100% !important;
+  height: 100%;
+  border-radius: 0 !important;
+  background: var(--bg-surface) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 抽屉内头像区 */
+html.mobile-runtime .m-drawer .sidebar-avatar-btn {
+  padding: calc(18px + env(safe-area-inset-top)) 18px 16px;
+  pointer-events: none;
+}
+
+html.mobile-runtime .m-drawer .sidebar-avatar {
+  width: 56px;
+  height: 56px;
+}
+
+html.mobile-runtime .m-drawer .sidebar-avatar-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+html.mobile-runtime .m-drawer .sidebar-avatar-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-drawer .sidebar-login-link {
+  pointer-events: auto;
+  font-size: 13px;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-drawer .sidebar-nav {
+  padding-top: 0;
+}
+
+/* ---------- PlayerBar 移动端适配 ---------- */
+html.mobile-runtime .player-bar-wrap {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: calc(var(--mobile-tabs-h) + 28px + env(safe-area-inset-bottom));
+  z-index: 55;
+  pointer-events: auto;
+  transition: bottom 0.32s var(--ease-out), transform 0.32s var(--ease-out);
+}
+
+html.mobile-runtime .player-bar-wrap.tabs-hidden {
+  bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+/* 抽屉打开时 PlayerBar 降到 drawer 下方 */
+html.mobile-runtime .player-bar-wrap.drawer-open {
+  z-index: 40;
+  transform: translateY(calc(100% + 28px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.mobile-runtime .player-bar-wrap.m-runtime {
+  display: block !important;
+}
+
+html.mobile-runtime .player-bar-wrap .player-bar,
+html.mobile-runtime .player-bar-wrap .player-bar.compact,
+html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
+  display: grid !important;
+  width: 100% !important;
+  max-width: none !important;
+  height: 64px;
+  margin: 0;
+  padding: 0 12px 0 8px;
+  grid-template-columns: minmax(0, 1fr) 48px 42px;
+  gap: 6px;
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
+  transform: none !important;
+}
+
+html.mobile-runtime .player-bar-wrap:hover .player-bar,
+html.mobile-runtime .player-bar-wrap:hover .player-bar.compact,
+html.mobile-runtime .player-bar-wrap:hover .player-bar.with-lyrics {
+  max-width: none !important;
+  transform: none !important;
+}
+
+html.mobile-runtime .player-bar .player-bar__lcd,
+html.mobile-runtime .player-bar.compact .player-bar__lcd,
+html.mobile-runtime .player-bar.with-lyrics .player-bar__lcd {
+  max-width: none;
+  padding-right: 4px;
+  gap: 10px;
+}
+
+html.mobile-runtime .player-bar .lcd-artwork {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+
+html.mobile-runtime .player-bar .lcd-meta__title,
+html.mobile-runtime .player-bar .lcd-meta__lyric {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+html.mobile-runtime .player-bar .lcd-meta__artist,
+html.mobile-runtime .player-bar .lcd-meta__translation {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text-secondary) 86%, var(--text) 14%);
+}
+
+html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__artist,
+html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__translation,
+html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__artist,
+html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__translation {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+html.mobile-runtime .player-bar .player-bar__controls {
+  align-items: center;
+  justify-content: center;
+}
+
+html.mobile-runtime .player-bar .playback-controls {
+  gap: 0;
+}
+
+/* 移动端隐藏复杂控制：随机/上一首/下一首/循环/音量只保留播放 */
+html.mobile-runtime .player-bar .ctrl-btn--shuffle,
+html.mobile-runtime .player-bar .ctrl-btn--prev,
+html.mobile-runtime .player-bar .ctrl-btn--next,
+html.mobile-runtime .player-bar .ctrl-btn--repeat,
+html.mobile-runtime .player-bar .volume-slider-inline,
+html.mobile-runtime .player-bar .player-bar__volume {
+  display: none !important;
+}
+
+html.mobile-runtime .player-bar .ctrl-btn--play {
+  width: 42px;
+  height: 42px;
+  transform: none;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
+  color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54);
+}
+
+html.mobile-runtime .player-bar .player-bar__actions {
+  justify-content: center;
+  padding-left: 0;
+  gap: 0;
+  min-width: 0;
+  width: 42px;
+  height: 42px;
+}
+
+html.mobile-runtime .player-bar .action-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
+  color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.54);
+}
+
+html.mobile-runtime .player-bar .action-btn.active {
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
+  color: var(--accent);
+}
+
+html.mobile-runtime[data-theme="dark"] .player-bar .ctrl-btn--play,
+html.mobile-runtime[data-theme="dark"] .player-bar .action-btn,
+html.mobile-runtime[data-theme="dark"] .player-bar .ctrl-btn--play,
+html.mobile-runtime[data-theme="dark"] .player-bar .action-btn {
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
+  color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+html.mobile-runtime[data-theme="dark"] .player-bar .action-btn.active,
+html.mobile-runtime[data-theme="dark"] .player-bar .action-btn.active {
+  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
+  color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
+}
+
+html.mobile-runtime .player-bar .action-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* 移动端点击整个 PlayerBar 打开歌词页，控制按钮仍在上层 */
+html.mobile-runtime .player-bar__open-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  z-index: 3;
+}
+
+/* 禁用旧 mobile-bottom / mobile-mini 等 */
+html.mobile-runtime .mobile-bottom,
+html.mobile-runtime .mobile-mini-row,
+html.mobile-runtime .mobile-tabs,
+html.mobile-runtime .mobile-tab,
+html.mobile-runtime .mobile-topbar {
+  display: none !important;
+}
+
+html.mobile-runtime .m-subpage {
+  min-height: 100%;
+}
+
+@keyframes m-slide-up {
+  from {
     opacity: 0;
-    pointer-events: none;
+    transform: translateY(28px);
   }
-
-  .mobile-app.drawer-open .m-tabs {
-    transform: translateY(calc(100% + 28px));
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .m-tab {
-    min-width: 0;
-    min-height: 44px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    border-radius: 12px;
-    color: color-mix(in srgb, var(--text-secondary) 88%, var(--text) 12%);
-    font-size: 10px;
-    font-weight: 780;
-    line-height: 1;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out), transform 0.16s var(--ease-out);
-  }
-
-  .m-tab svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  .m-tab.active {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent-bg) 48%, transparent);
-  }
-
-  [data-theme="dark"] .m-tab:not(.active) {
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  [data-theme="dark"] .m-tab.active {
-    color: var(--accent);
-  }
-
-  .m-tab:active {
-    transform: scale(0.96);
-  }
-
-  /* ---------- 抽屉 ---------- */
-  .m-drawer-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 90;
-    background: rgba(0,0,0,0.38);
-    animation: m-fade-in 0.22s var(--ease-out);
-  }
-
-  .m-drawer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: min(280px, 82vw);
-    z-index: 91;
-    background: var(--bg-surface);
-    transform: translateX(-105%);
-    transition: transform 0.28s var(--ease-out);
-    box-shadow: 4px 0 32px rgba(0,0,0,0.22);
-    overflow: hidden;
-  }
-
-  .m-drawer.open {
-    transform: translateX(0);
-  }
-
-  html.mobile-runtime .m-drawer .sidebar,
-  html.mobile-runtime .m-drawer .sidebar.in-drawer {
-    display: flex !important;
-    width: 100% !important;
-    height: 100%;
-    border-radius: 0 !important;
-    background: var(--bg-surface) !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  /* 抽屉内头像区 */
-  .m-drawer .sidebar-avatar-btn {
-    padding: calc(18px + env(safe-area-inset-top)) 18px 16px;
-    pointer-events: none;
-  }
-
-  .m-drawer .sidebar-avatar {
-    width: 56px;
-    height: 56px;
-  }
-
-  .m-drawer .sidebar-avatar-meta {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-  }
-
-  .m-drawer .sidebar-avatar-name {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text);
-  }
-
-  .m-drawer .sidebar-login-link {
-    pointer-events: auto;
-    font-size: 13px;
-    color: var(--accent);
-    background: transparent;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-  }
-
-  .m-drawer .sidebar-nav {
-    padding-top: 0;
-  }
-
-  /* ---------- PlayerBar 移动端适配 ---------- */
-  html.mobile-runtime .player-bar-wrap {
-    position: fixed;
-    left: 14px;
-    right: 14px;
-    bottom: calc(var(--mobile-tabs-h) + 28px + env(safe-area-inset-bottom));
-    z-index: 55;
-    pointer-events: auto;
-    transition: bottom 0.32s var(--ease-out), transform 0.32s var(--ease-out);
-  }
-
-  html.mobile-runtime .player-bar-wrap.tabs-hidden {
-    bottom: calc(12px + env(safe-area-inset-bottom));
-  }
-
-  /* 抽屉打开时 PlayerBar 降到 drawer 下方 */
-  html.mobile-runtime .player-bar-wrap.drawer-open {
-    z-index: 40;
-    transform: translateY(calc(100% + 28px));
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  html.mobile-runtime .player-bar-wrap.m-runtime {
-    display: block !important;
-  }
-
-  html.mobile-runtime .player-bar-wrap .player-bar,
-  html.mobile-runtime .player-bar-wrap .player-bar.compact,
-  html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
-    display: grid !important;
-    width: 100% !important;
-    max-width: none !important;
-    height: 64px;
-    margin: 0;
-    padding: 0 12px 0 8px;
-    grid-template-columns: minmax(0, 1fr) 48px 42px;
-    gap: 6px;
-    border-radius: 12px;
-    box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
-    transform: none !important;
-  }
-
-  html.mobile-runtime .player-bar-wrap:hover .player-bar,
-  html.mobile-runtime .player-bar-wrap:hover .player-bar.compact,
-  html.mobile-runtime .player-bar-wrap:hover .player-bar.with-lyrics {
-    max-width: none !important;
-    transform: none !important;
-  }
-
-  html.mobile-runtime .player-bar .player-bar__lcd,
-  html.mobile-runtime .player-bar.compact .player-bar__lcd,
-  html.mobile-runtime .player-bar.with-lyrics .player-bar__lcd {
-    max-width: none;
-    padding-right: 4px;
-    gap: 10px;
-  }
-
-  html.mobile-runtime .player-bar .lcd-artwork {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-  }
-
-  html.mobile-runtime .player-bar .lcd-meta__title,
-  html.mobile-runtime .player-bar .lcd-meta__lyric {
-    font-size: 14px;
-    line-height: 1.25;
-  }
-
-  html.mobile-runtime .player-bar .lcd-meta__artist,
-  html.mobile-runtime .player-bar .lcd-meta__translation {
-    font-size: 11px;
-    color: color-mix(in srgb, var(--text-secondary) 86%, var(--text) 14%);
-  }
-
-  html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__artist,
-  html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__translation,
-  html.mobile-runtime [data-theme="dark"] .player-bar .lcd-meta__artist,
-  html.mobile-runtime [data-theme="dark"] .player-bar .lcd-meta__translation {
-    color: rgba(255, 255, 255, 0.72);
-  }
-
-  html.mobile-runtime .player-bar .player-bar__controls {
-    align-items: center;
-    justify-content: center;
-  }
-
-  html.mobile-runtime .player-bar .playback-controls {
-    gap: 0;
-  }
-
-  /* 移动端隐藏复杂控制：随机/上一首/下一首/循环/音量只保留播放 */
-  html.mobile-runtime .player-bar .ctrl-btn--shuffle,
-  html.mobile-runtime .player-bar .ctrl-btn--prev,
-  html.mobile-runtime .player-bar .ctrl-btn--next,
-  html.mobile-runtime .player-bar .ctrl-btn--repeat,
-  html.mobile-runtime .player-bar .volume-slider-inline,
-  html.mobile-runtime .player-bar .player-bar__volume {
-    display: none !important;
-  }
-
-  html.mobile-runtime .player-bar .ctrl-btn--play {
-    width: 42px;
-    height: 42px;
-    transform: none;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
-    color: var(--accent);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.54);
-  }
-
-  html.mobile-runtime .player-bar .player-bar__actions {
-    justify-content: center;
-    padding-left: 0;
-    gap: 0;
-    min-width: 0;
-    width: 42px;
-    height: 42px;
-  }
-
-  html.mobile-runtime .player-bar .action-btn {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
-    color: var(--accent);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.54);
-  }
-
-  html.mobile-runtime .player-bar .action-btn.active {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
-    color: var(--accent);
-  }
-
-  html.mobile-runtime[data-theme="dark"] .player-bar .ctrl-btn--play,
-  html.mobile-runtime[data-theme="dark"] .player-bar .action-btn,
-  html.mobile-runtime [data-theme="dark"] .player-bar .ctrl-btn--play,
-  html.mobile-runtime [data-theme="dark"] .player-bar .action-btn {
-    background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
-    color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent),
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 8px 18px rgba(0, 0, 0, 0.24);
-  }
-
-  html.mobile-runtime[data-theme="dark"] .player-bar .action-btn.active,
-  html.mobile-runtime [data-theme="dark"] .player-bar .action-btn.active {
-    background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
-    color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
-  }
-
-  html.mobile-runtime .player-bar .action-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  /* 移动端点击整个 PlayerBar 打开歌词页，控制按钮仍在上层 */
-  html.mobile-runtime .player-bar__open-hit {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    z-index: 3;
-  }
-
-  /* 禁用旧 mobile-bottom / mobile-mini 等 */
-  .mobile-bottom,
-  .mobile-mini-row,
-  .mobile-tabs,
-  .mobile-tab,
-  .mobile-topbar {
-    display: none !important;
-  }
-
-  .m-subpage {
-    min-height: 100%;
-  }
-
-  @keyframes m-slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(28px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .m-subpage-enter {
-    animation: m-slide-up 0.32s var(--ease-out) both;
-  }
-
-  @keyframes m-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
+
+html.mobile-runtime .m-subpage-enter {
+  animation: m-slide-up 0.32s var(--ease-out) both;
+}
+
+@keyframes m-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 
 /* ================================================
    Mobile Player Styles
    ================================================ */
 
-@media (max-width: 1024px) {
-  /* Mobile container */
-  .ly-container {
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    gap: 0;
-    padding: calc(16px + env(safe-area-inset-top)) clamp(20px, 6vw, 28px) calc(18px + env(safe-area-inset-bottom));
-    overflow: hidden;
-  }
 
-  .ly-back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    top: calc(6px + env(safe-area-inset-top));
-    left: 50%;
-    right: auto;
-    width: 96px;
-    height: 44px;
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    transform: translateX(-50%);
-    z-index: 1020;
-  }
-
-  .ly-back-btn::before {
-    content: '';
-    width: 54px;
-    height: 5px;
-    border-radius: 999px;
-    background: rgba(255,255,255,0.72);
-    box-shadow: 0 1px 10px rgba(0,0,0,0.22);
-  }
-
-  .ly-back-btn svg {
-    display: none;
-  }
-
-  .ly-back-btn {
-    opacity: 1;
-    transition: opacity 0.45s ease, transform 0.45s ease;
-  }
-  .ly-container.controls-hidden .ly-back-btn {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  /* Apple Music style: close button at top-left */
-  .ly-mobile-close-btn {
-    position: absolute;
-    top: calc(8px + env(safe-area-inset-top));
-    left: 20px;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: rgba(255,255,255,0.8);
-    cursor: pointer;
-    z-index: 10;
-  }
-
-  .ly-mobile-close-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .ly-top-bar {
-    top: calc(48px + env(safe-area-inset-top));
-    left: auto;
-    right: 26px;
-    z-index: 31;
-  }
-
-  .ly-top-bar .ly-queue-btn {
-    display: flex;
-  }
-
-  /* Hide PC panels */
-  .ly-left,
-  .ly-right {
-    display: none !important;
-  }
-
-  /* ===== Mobile Player - Apple Music Style ===== */
-  .ly-mobile-player {
-    display: flex !important;
-    flex: 1;
-    min-height: 0;
-    padding: 0;
-    justify-content: flex-start;
-    align-items: center;
-    overflow: hidden;
-    padding-top: calc(8vh + env(safe-area-inset-top));
-    padding-bottom: calc(20px + env(safe-area-inset-bottom));
-    transition: transform 0.5s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.5s ease;
-    flex-direction: column;
-  }
-
-  .ly-mobile-player .ly-left-cover {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 32px;
-    width: 100%;
-    padding: 0 24px;
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
-    will-change: transform;
-  }
-
-  .ly-mobile-player .ly-cover-wrap {
-    cursor: pointer;
-    width: 100%;
-    max-width: 360px;
-    margin: 0 auto;
-    aspect-ratio: 1;
-    border-radius: 16px;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-radius 0.3s ease, box-shadow 0.3s ease;
-    will-change: transform;
-    transform-origin: center center;
-    border: none !important;
-    outline: none !important;
-  }
-
-  /* Remove any pseudo-element that could cause white lines */
-  .ly-mobile-player .ly-cover-wrap::before,
-  .ly-mobile-player .ly-cover-wrap::after {
-    display: none !important;
-    border: none !important;
-    outline: none !important;
-  }
-
-  .ly-mobile-player .ly-cover-wrap:active {
-    transform: scale(0.96);
-  }
-
-  .ly-mobile-player .ly-cover {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 16px;
-  }
-
-  .ly-mobile-player .ly-track-wrap {
-    width: 100%;
-    text-align: left;
-    transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
-  }
-
-  .ly-mobile-player .ly-track-title {
-    font-size: 24px !important;
-    font-weight: 700 !important;
-    color: white !important;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
-    line-height: 1.25 !important;
-    margin-bottom: 8px;
-  }
-
-  .ly-mobile-player .ly-artist {
-    font-size: 16px !important;
-    color: rgba(255,255,255,0.8) !important;
-    font-weight: 500 !important;
-  }
-
-  .ly-mobile-player .ly-album,
-  .ly-mobile-player .ly-sep {
-    display: none;
-  }
-
-  .ly-mobile-player .ly-track-actions {
-    display: none;
-  }
-
-  .ly-mobile-player .ly-left-controls {
-    width: 100%;
-    padding: 0 4px;
-    margin-top: 40px;
-    transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
-    overflow: visible;
-  }
-
-  .ly-mobile-player .ly-mobile-action-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 24px;
-    padding: 0 4px;
-  }
-
-  .ly-mobile-action-btn {
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    background: transparent;
-    color: rgba(255,255,255,0.7);
-    cursor: pointer;
-    border-radius: 50%;
-    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
-  }
-
-  .ly-mobile-action-btn:active {
-    transform: scale(0.9);
-    background: rgba(255,255,255,0.1);
-  }
-
-  .ly-mobile-action-btn:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .ly-mobile-player .ly-mobile-volume-row {
-    display: none;
-  }
-
-  /* Apple Music style progress bar & time */
-  .ly-mobile-player .ly-progress-row {
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .ly-mobile-player .ly-progress-track {
-    height: 4px;
-    background: rgba(255,255,255,0.25);
-    border-radius: 2px;
-  }
-
-  .ly-mobile-player .ly-progress-fill {
-    background: white;
-    border-radius: 2px;
-  }
-
-  .ly-mobile-player .ly-time-row {
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .ly-mobile-player .ly-time {
-    font-size: 11px;
-    font-weight: 500;
-    color: rgba(255,255,255,0.6);
-  }
-
-  /* Apple Music style control buttons */
-  .ly-mobile-player .ly-play-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
-    padding: 8px 0 0;
-    gap: 0;
-    overflow: visible;
-  }
-
-  .ly-mobile-player .ly-ctrl-btn {
-    /* 热区提升到 44px（iOS/Android 推荐可点击下限），图标居中不受影响 */
-    width: 44px;
-    height: 44px;
-    color: #fff !important;
-    flex-shrink: 0;
-    min-width: 44px;
-    opacity: 1 !important;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .ly-mobile-player .ly-play-btn {
-    width: 56px;
-    height: 56px;
-    color: white;
-    flex-shrink: 0;
-    min-width: 56px;
-  }
-
-  /* Lyrics mode - Optimized transform animation for performance */
-  .ly-mobile-player.lyrics-mode {
-    padding-top: calc(20px + env(safe-area-inset-top));
-    justify-content: flex-start;
-    flex-direction: column;
-    transform: none;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-left-cover {
-    position: relative;
-    padding: 0 20px;
-    margin-bottom: 16px;
-    flex: none;
-    min-height: 72px;
-  }
-
-  /* Cover flies to top-left corner using transform only for GPU acceleration */
-  .ly-mobile-player.lyrics-mode .ly-cover-wrap {
-    position: absolute;
-    left: 20px;
-    top: 0;
-    width: 100%;
-    max-width: 262px;  /* Original cover width */
-    height: auto;
-    margin: 0;
-    /* Scale down using transform only (72px / 262px ≈ 0.275) */
-    transform: scale(0.275);
-    transform-origin: left top;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    border: none !important;
-    outline: none !important;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-cover {
-    border-radius: 8px;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Track info positioned to the right of small cover */
-  .ly-mobile-player.lyrics-mode .ly-track-wrap {
-    position: absolute;
-    left: 104px;  /* 72px cover + 32px spacing */
-    top: 0;
-    width: calc(100% - 124px);
-    padding-top: 4px;
-  }
-
-  /* Hide context strip completely in lyrics mode */
-  .ly-mobile-player.lyrics-mode .ly-mobile-context {
-    display: none !important;
-  }
-
-  /* ============================================
-     Mobile Context Strip - NORMAL Mode
-     ============================================ */
-  .ly-mobile-context {
-    width: 100% !important;
-    padding: 0 24px !important;
-    margin-top: 24px !important;
-    overflow: hidden !important;
-    min-height: 0 !important;
-  }
-
-  .ly-mobile-context .ly-context-strip {
-    display: flex !important;
-    flex-direction: row !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    padding-bottom: 4px !important;
-    scroll-snap-type: x mandatory !important;
-    grid-template-columns: none !important;
-    grid-auto-flow: row !important;
-  }
-
-  .ly-mobile-context .ly-context-strip::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  /* Context cards - Compact size - FORCE flex, disable grid */
-  .ly-mobile-context .ly-context-card,
-  .ly-mobile-context .ly-context-comment {
-    flex-shrink: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    width: 112px !important;
-    min-height: 96px !important;
-    max-height: 96px !important;
-    padding: 8px !important;
-    border-radius: 14px !important;
-    background: rgba(255,255,255,0.06) !important;
-    scroll-snap-align: start !important;
-    /* OVERRIDE legacy grid */
-    grid-template-columns: none !important;
-    grid-template-rows: none !important;
-    justify-items: normal !important;
-  }
-
-  /* Card image - Fix white background issue */
-  .ly-mobile-context .ly-context-card img {
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 8px !important;
-    object-fit: cover !important;
-    background: transparent !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-    -webkit-mask-image: none !important;
-    mask-image: none !important;
-  }
-
-  /* Kill any pseudo-elements that could cause white boxes */
-  .ly-mobile-context .ly-context-card::before,
-  .ly-mobile-context .ly-context-card::after,
-  .ly-mobile-context .ly-context-cover-stack::before,
-  .ly-mobile-context .ly-context-cover-stack::after {
-    display: none !important;
-    content: none !important;
-    background: transparent !important;
-  }
-
-  /* Playlist cover stack */
-  .ly-mobile-context .ly-context-cover-stack {
-    position: relative !important;
-    width: 48px !important;
-    height: 40px !important;
-  }
-
-  .ly-mobile-context .ly-context-cover-stack img {
-    position: absolute !important;
-    width: 36px !important;
-    height: 36px !important;
-  }
-
-  .ly-mobile-context .ly-context-cover-stack img:nth-child(1) {
-    left: 0 !important;
-    top: 0 !important;
-    z-index: 3 !important;
-  }
-
-  .ly-mobile-context .ly-context-cover-stack img:nth-child(2) {
-    left: 6px !important;
-    top: 2px !important;
-    z-index: 2 !important;
-  }
-
-  .ly-mobile-context .ly-context-cover-stack img:nth-child(3) {
-    left: 12px !important;
-    top: 4px !important;
-    z-index: 1 !important;
-  }
-
-  /* Text content */
-  .ly-mobile-context .ly-context-copy {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 3px !important;
-    margin-top: 6px !important;
-    width: 100% !important;
-    align-items: flex-start !important;
-  }
-
-  .ly-mobile-context .ly-context-copy small {
-    font-size: 9px !important;
-    color: rgba(255,255,255,0.5) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    writing-mode: horizontal-tb !important;
-    position: static !important;
-  }
-
-  .ly-mobile-context .ly-context-copy strong {
-    font-size: 11px !important;
-    font-weight: 600 !important;
-    color: rgba(255,255,255,0.9) !important;
-    line-height: 1.3 !important;
-    display: -webkit-box !important;
-    -webkit-line-clamp: 2 !important;
-    line-clamp: 2 !important;
-    -webkit-box-orient: vertical !important;
-    overflow: hidden !important;
-    text-align: left !important;
-  }
-
-  .ly-mobile-context .ly-context-copy em {
-    display: none !important;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-track-title {
-    font-size: 16px !important;
-    font-weight: 700 !important;
-    line-height: 1.3 !important;
-    margin-bottom: 4px;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-track-sub {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    margin-top: 0;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-artist {
-    font-size: 13px !important;
-    color: rgba(255,255,255,0.7) !important;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-track-info {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  /* Apple Music style playing badge */
-  .ly-playing-badge {
-    display: none;
-    font-size: 11px;
-    font-weight: 700;
-    color: #fc3c44;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    margin-top: 6px;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-playing-badge {
-    display: block;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-album,
-  .ly-mobile-player.lyrics-mode .ly-sep {
-    display: inline;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-track-actions {
-    display: none;
-  }
-
-  .ly-mobile-player.lyrics-mode .ly-left-controls {
-    display: none;
-    opacity: 0;
-    transform: translateY(16px);
-    pointer-events: none;
-  }
-
-  /* Mobile lyrics overlay */
-  .ly-mobile-lyrics {
-    display: none;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
-    width: 100%;
-  }
-
-  .ly-mobile-lyrics::-webkit-scrollbar { display: none; }
-
-  .ly-mobile-player.lyrics-mode .ly-mobile-lyrics {
-    display: block;
-    animation: lyFadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  @keyframes lyFadeIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Optimized lyrics scrolling animation - GPU accelerated */
-  .ly-mobile-lyrics {
-    will-change: transform;
-    -webkit-overflow-scrolling: touch;
-    padding-left: 20px;
-    padding-right: 20px;
-  }
-
-  .ly-mobile-lyrics .ly-line {
-    padding: 10px 0;
-    border-radius: 0;
-    text-align: left;
-    /* Use only transform and opacity for 60fps animation */
-    transition: transform 0.2s ease-out, opacity 0.2s ease-out;
-    will-change: transform, opacity;
-    opacity: 0.35;
-  }
-
-  .ly-mobile-lyrics .ly-line.prev {
-    opacity: 0.65;
-  }
-
-  .ly-mobile-lyrics .ly-line.active {
-    opacity: 1;
-    transform: scale(1.02);
-  }
-
-  .ly-mobile-lyrics .ly-line-text {
-    font-size: 22px;
-    line-height: 1.35;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    color: rgba(255,255,255,0.3);
-    transform-origin: left center;
-    transition: transform 0.2s ease-out, color 0.2s ease-out;
-  }
-
-  .ly-mobile-lyrics .ly-line.prev .ly-line-text {
-    color: rgba(255,255,255,0.65);
-  }
-
-  .ly-mobile-lyrics .ly-line.active .ly-line-text {
-    font-weight: 800;
-    color: #fff;
-    transform: scale(1.27); /* 28/22 ≈ 1.27, GPU-accelerated, no layout */
-  }
-
-  .ly-mobile-lyrics .ly-line-trans {
-    font-size: 14px;
-    margin-top: 2px;
-  }
-
-  /* Mobile queue panel */
-  .ly-local-queue .queue-panel-backdrop {
-    background: rgba(0,0,0,0.28);
-    backdrop-filter: blur(6px);
-  }
-
-  .ly-local-queue .queue-panel {
-    top: calc(92px + env(safe-area-inset-top)) !important;
-    right: 16px !important;
-    bottom: auto !important;
-    left: 16px !important;
-    width: auto !important;
-    max-height: min(58dvh, 460px) !important;
-    border-radius: 22px !important;
-    animation: lyQueueDrop 0.2s ease both !important;
-  }
-
-  .ly-local-queue .queue-list {
-    max-height: calc(min(58dvh, 460px) - 72px);
-  }
-
-  .ly-context-toggle {
-    right: 24px;
-    bottom: calc(28px + env(safe-area-inset-bottom));
-    width: 44px;
-    height: 44px;
-    z-index: 32;
-  }
-
-  .ly-context-toggle.open {
-    transform: translate(0, 0) scale(1);
-  }
-
-  .ly-context-strip {
-    left: 18px;
-    right: 18px;
-    bottom: calc(82px + env(safe-area-inset-bottom));
-    width: auto;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    padding: 0 34px 0 0;
-  }
-
-  .ly-context-card {
-    height: 80px;
-    border-radius: 16px;
-  }
-
-  .ly-context-card.ly-context-playlists {
-    display: none;
-  }
-
-  .ly-context-scrim {
-    position: fixed;
-    inset: 0;
-    background: transparent;
-    z-index: -1;
-  }
-
-  .ly-context-detail {
-    position: static;
-    width: 100%;
-    max-height: min(30vh, 260px);
-    margin-top: 10px;
-    padding: 12px;
-    border-radius: 22px;
-  }
-
-  .ly-context-detail-list,
-  .ly-context-comment-list,
-  .ly-context-detail-grid {
-    max-height: calc(min(30vh, 260px) - 54px);
-  }
-
-  .player-bar-wrap.queue-open {
-    right: 10px !important;
-  }
+/* Mobile container */
+html.mobile-runtime .ly-container {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  gap: 0;
+  padding: calc(16px + env(safe-area-inset-top)) clamp(20px, 6vw, 28px) calc(18px + env(safe-area-inset-bottom));
+  overflow: hidden;
 }
+
+html.mobile-runtime .ly-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: calc(6px + env(safe-area-inset-top));
+  left: 50%;
+  right: auto;
+  width: 96px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transform: translateX(-50%);
+  z-index: 1020;
+}
+
+html.mobile-runtime .ly-back-btn::before {
+  content: '';
+  width: 54px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  box-shadow: 0 1px 10px rgba(0,0,0,0.22);
+}
+
+html.mobile-runtime .ly-back-btn svg {
+  display: none;
+}
+
+html.mobile-runtime .ly-back-btn {
+  opacity: 1;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+html.mobile-runtime .ly-container.controls-hidden .ly-back-btn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Apple Music style: close button at top-left */
+html.mobile-runtime .ly-mobile-close-btn {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 20px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  z-index: 10;
+}
+
+html.mobile-runtime .ly-mobile-close-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+html.mobile-runtime .ly-top-bar {
+  top: calc(48px + env(safe-area-inset-top));
+  left: auto;
+  right: 26px;
+  z-index: 31;
+}
+
+html.mobile-runtime .ly-top-bar .ly-queue-btn {
+  display: flex;
+}
+
+/* Hide PC panels */
+html.mobile-runtime .ly-left,
+html.mobile-runtime .ly-right {
+  display: none !important;
+}
+
+/* ===== Mobile Player - Apple Music Style ===== */
+html.mobile-runtime .ly-mobile-player {
+  display: flex !important;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  justify-content: flex-start;
+  align-items: center;
+  overflow: hidden;
+  padding-top: calc(8vh + env(safe-area-inset-top));
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  transition: transform 0.5s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.5s ease;
+  flex-direction: column;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-left-cover {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 32px;
+  width: 100%;
+  padding: 0 24px;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease;
+  will-change: transform;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-cover-wrap {
+  cursor: pointer;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-radius 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform;
+  transform-origin: center center;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Remove any pseudo-element that could cause white lines */
+html.mobile-runtime .ly-mobile-player .ly-cover-wrap::before,
+html.mobile-runtime .ly-mobile-player .ly-cover-wrap::after {
+  display: none !important;
+  border: none !important;
+  outline: none !important;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-cover-wrap:active {
+  transform: scale(0.96);
+}
+
+html.mobile-runtime .ly-mobile-player .ly-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-track-wrap {
+  width: 100%;
+  text-align: left;
+  transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-track-title {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: white !important;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+  line-height: 1.25 !important;
+  margin-bottom: 8px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-artist {
+  font-size: 16px !important;
+  color: rgba(255,255,255,0.8) !important;
+  font-weight: 500 !important;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-album,
+html.mobile-runtime .ly-mobile-player .ly-sep {
+  display: none;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-track-actions {
+  display: none;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-left-controls {
+  width: 100%;
+  padding: 0 4px;
+  margin-top: 40px;
+  transition: transform 0.4s cubic-bezier(0.32, 1.25, 0.38, 1), opacity 0.4s ease;
+  overflow: visible;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-mobile-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 0 4px;
+}
+
+html.mobile-runtime .ly-mobile-action-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+html.mobile-runtime .ly-mobile-action-btn:active {
+  transform: scale(0.9);
+  background: rgba(255,255,255,0.1);
+}
+
+html.mobile-runtime .ly-mobile-action-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-mobile-volume-row {
+  display: none;
+}
+
+/* Apple Music style progress bar & time */
+html.mobile-runtime .ly-mobile-player .ly-progress-row {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-progress-track {
+  height: 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 2px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-progress-fill {
+  background: white;
+  border-radius: 2px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-time-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.6);
+}
+
+/* Apple Music style control buttons */
+html.mobile-runtime .ly-mobile-player .ly-play-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 8px 0 0;
+  gap: 0;
+  overflow: visible;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-ctrl-btn {
+  /* 热区提升到 44px（iOS/Android 推荐可点击下限），图标居中不受影响 */
+  width: 44px;
+  height: 44px;
+  color: #fff !important;
+  flex-shrink: 0;
+  min-width: 44px;
+  opacity: 1 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-play-btn {
+  width: 56px;
+  height: 56px;
+  color: white;
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+/* Lyrics mode - Optimized transform animation for performance */
+html.mobile-runtime .ly-mobile-player.lyrics-mode {
+  padding-top: calc(20px + env(safe-area-inset-top));
+  justify-content: flex-start;
+  flex-direction: column;
+  transform: none;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-left-cover {
+  position: relative;
+  padding: 0 20px;
+  margin-bottom: 16px;
+  flex: none;
+  min-height: 72px;
+}
+
+/* Cover flies to top-left corner using transform only for GPU acceleration */
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-cover-wrap {
+  position: absolute;
+  left: 20px;
+  top: 0;
+  width: 100%;
+  max-width: 262px;  /* Original cover width */
+  height: auto;
+  margin: 0;
+  /* Scale down using transform only (72px / 262px ≈ 0.275) */
+  transform: scale(0.275);
+  transform-origin: left top;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  border: none !important;
+  outline: none !important;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-cover {
+  border-radius: 8px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Track info positioned to the right of small cover */
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-track-wrap {
+  position: absolute;
+  left: 104px;  /* 72px cover + 32px spacing */
+  top: 0;
+  width: calc(100% - 124px);
+  padding-top: 4px;
+}
+
+/* Hide context strip completely in lyrics mode */
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-mobile-context {
+  display: none !important;
+}
+
+/* ============================================
+   Mobile Context Strip - NORMAL Mode
+   ============================================ */
+html.mobile-runtime .ly-mobile-context {
+  width: 100% !important;
+  padding: 0 24px !important;
+  margin-top: 24px !important;
+  overflow: hidden !important;
+  min-height: 0 !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-strip {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+  padding-bottom: 4px !important;
+  scroll-snap-type: x mandatory !important;
+  grid-template-columns: none !important;
+  grid-auto-flow: row !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-strip::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Context cards - Compact size - FORCE flex, disable grid */
+html.mobile-runtime .ly-mobile-context .ly-context-card,
+html.mobile-runtime .ly-mobile-context .ly-context-comment {
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  width: 112px !important;
+  min-height: 96px !important;
+  max-height: 96px !important;
+  padding: 8px !important;
+  border-radius: 14px !important;
+  background: rgba(255,255,255,0.06) !important;
+  scroll-snap-align: start !important;
+  /* OVERRIDE legacy grid */
+  grid-template-columns: none !important;
+  grid-template-rows: none !important;
+  justify-items: normal !important;
+}
+
+/* Card image - Fix white background issue */
+html.mobile-runtime .ly-mobile-context .ly-context-card img {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+/* Kill any pseudo-elements that could cause white boxes */
+html.mobile-runtime .ly-mobile-context .ly-context-card::before,
+html.mobile-runtime .ly-mobile-context .ly-context-card::after,
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack::before,
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack::after {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+}
+
+/* Playlist cover stack */
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack {
+  position: relative !important;
+  width: 48px !important;
+  height: 40px !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack img {
+  position: absolute !important;
+  width: 36px !important;
+  height: 36px !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack img:nth-child(1) {
+  left: 0 !important;
+  top: 0 !important;
+  z-index: 3 !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack img:nth-child(2) {
+  left: 6px !important;
+  top: 2px !important;
+  z-index: 2 !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-cover-stack img:nth-child(3) {
+  left: 12px !important;
+  top: 4px !important;
+  z-index: 1 !important;
+}
+
+/* Text content */
+html.mobile-runtime .ly-mobile-context .ly-context-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  margin-top: 6px !important;
+  width: 100% !important;
+  align-items: flex-start !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-copy small {
+  font-size: 9px !important;
+  color: rgba(255,255,255,0.5) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  writing-mode: horizontal-tb !important;
+  position: static !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-copy strong {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: rgba(255,255,255,0.9) !important;
+  line-height: 1.3 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-align: left !important;
+}
+
+html.mobile-runtime .ly-mobile-context .ly-context-copy em {
+  display: none !important;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-track-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  margin-bottom: 4px;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-track-sub {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 0;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-artist {
+  font-size: 13px !important;
+  color: rgba(255,255,255,0.7) !important;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-track-info {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Apple Music style playing badge */
+html.mobile-runtime .ly-playing-badge {
+  display: none;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fc3c44;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 6px;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-playing-badge {
+  display: block;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-album,
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-sep {
+  display: inline;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-track-actions {
+  display: none;
+}
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-left-controls {
+  display: none;
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+}
+
+/* Mobile lyrics overlay */
+html.mobile-runtime .ly-mobile-lyrics {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom));
+  width: 100%;
+}
+
+html.mobile-runtime .ly-mobile-lyrics::-webkit-scrollbar { display: none; }
+
+html.mobile-runtime .ly-mobile-player.lyrics-mode .ly-mobile-lyrics {
+  display: block;
+  animation: lyFadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes lyFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Optimized lyrics scrolling animation - GPU accelerated */
+html.mobile-runtime .ly-mobile-lyrics {
+  will-change: transform;
+  -webkit-overflow-scrolling: touch;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line {
+  padding: 10px 0;
+  border-radius: 0;
+  text-align: left;
+  /* Use only transform and opacity for 60fps animation */
+  transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+  will-change: transform, opacity;
+  opacity: 0.35;
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line.prev {
+  opacity: 0.65;
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line.active {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line-text {
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: rgba(255,255,255,0.3);
+  transform-origin: left center;
+  transition: transform 0.2s ease-out, color 0.2s ease-out;
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line.prev .ly-line-text {
+  color: rgba(255,255,255,0.65);
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line.active .ly-line-text {
+  font-weight: 800;
+  color: #fff;
+  transform: scale(1.27); /* 28/22 ≈ 1.27, GPU-accelerated, no layout */
+}
+
+html.mobile-runtime .ly-mobile-lyrics .ly-line-trans {
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* Mobile queue panel */
+html.mobile-runtime .ly-local-queue .queue-panel-backdrop {
+  background: rgba(0,0,0,0.28);
+  backdrop-filter: blur(6px);
+}
+
+html.mobile-runtime .ly-local-queue .queue-panel {
+  top: calc(92px + env(safe-area-inset-top)) !important;
+  right: 16px !important;
+  bottom: auto !important;
+  left: 16px !important;
+  width: auto !important;
+  max-height: min(58dvh, 460px) !important;
+  border-radius: 22px !important;
+  animation: lyQueueDrop 0.2s ease both !important;
+}
+
+html.mobile-runtime .ly-local-queue .queue-list {
+  max-height: calc(min(58dvh, 460px) - 72px);
+}
+
+html.mobile-runtime .ly-context-toggle {
+  right: 24px;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  width: 44px;
+  height: 44px;
+  z-index: 32;
+}
+
+html.mobile-runtime .ly-context-toggle.open {
+  transform: translate(0, 0) scale(1);
+}
+
+html.mobile-runtime .ly-context-strip {
+  left: 18px;
+  right: 18px;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  width: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 34px 0 0;
+}
+
+html.mobile-runtime .ly-context-card {
+  height: 80px;
+  border-radius: 16px;
+}
+
+html.mobile-runtime .ly-context-card.ly-context-playlists {
+  display: none;
+}
+
+html.mobile-runtime .ly-context-scrim {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: -1;
+}
+
+html.mobile-runtime .ly-context-detail {
+  position: static;
+  width: 100%;
+  max-height: min(30vh, 260px);
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 22px;
+}
+
+html.mobile-runtime .ly-context-detail-list,
+html.mobile-runtime .ly-context-comment-list,
+html.mobile-runtime .ly-context-detail-grid {
+  max-height: calc(min(30vh, 260px) - 54px);
+}
+
+html.mobile-runtime .player-bar-wrap.queue-open {
+  right: 10px !important;
+}
+
 
 /* ================================================
    Mobile Page Components
    ================================================ */
 
-@media (max-width: 1024px) {
-  .m-page {
-    width: 100%;
-    min-width: 0;
-    color: var(--text);
-  }
-
-  .m-page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 8px 2px 16px;
-  }
-
-  .m-page-kicker {
-    display: block;
-    margin-bottom: 3px;
-    color: var(--accent);
-    font-size: 12px;
-    font-weight: 800;
-  }
-
-  .m-page-header h1 {
-    font-size: 28px;
-    font-weight: 850;
-    letter-spacing: -0.5px;
-    color: var(--text);
-  }
-
-  .m-icon-btn {
-    width: 44px;
-    height: 44px;
-    display: grid;
-    place-items: center;
-    border: none;
-    border-radius: 50%;
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .m-icon-btn:disabled {
-    opacity: 0.55;
-  }
-
-  .m-page-header--sticky {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    background: linear-gradient(to bottom, var(--bg) 70%, transparent);
-  }
-
-  .m-loading {
-    display: flex;
-    justify-content: center;
-    padding: 48px 0;
-  }
-
-  /* 搜索 Pill */
-  .m-search-pill {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 14px;
-    margin-bottom: 18px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--bg-elevated);
-    color: var(--text-tertiary);
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .m-search-pill:active {
-    background: var(--bg-hover);
-  }
-
-  /* 空状态 */
-  .m-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-    gap: 12px;
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 0 24px;
-  }
-
-  .m-empty-state h2 {
-    font-size: 18px;
-    font-weight: 750;
-    color: var(--text);
-  }
-
-  .m-empty-state p {
-    font-size: 13px;
-    color: var(--text-tertiary);
-  }
-
-  .m-empty-state.small {
-    min-height: auto;
-    padding: 32px 0;
-  }
-
-  .m-primary-btn {
-    margin-top: 8px;
-    padding: 12px 24px;
-    border-radius: 1000px;
-    border: none;
-    background: var(--accent);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-  }
-
-  .m-primary-btn:active {
-    background: var(--accent-hover);
-    transform: scale(0.97);
-  }
-
-  /* Section */
-  .m-section {
-    width: 100%;
-    min-width: 0;
-    margin-bottom: 22px;
-  }
-
-  .m-section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-
-  .m-section-head h2 {
-    font-size: 18px;
-    font-weight: 800;
-    color: var(--text);
-  }
-
-  .m-section-action {
-    border: none;
-    background: transparent;
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: 780;
-  }
-
-  /* Hero 大卡 */
-  .m-hero-card {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    border-radius: 18px;
-    overflow: hidden;
-    border: none;
-    background: var(--bg-layer);
-    cursor: pointer;
-    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
-  }
-
-  .m-hero-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.4s var(--ease-out);
-  }
-
-  .m-hero-card:active img {
-    transform: scale(1.03);
-  }
-
-  .m-hero-copy {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 18px 16px;
-    background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
-    color: #fff;
-    text-align: left;
-  }
-
-  .m-hero-copy small {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 4px;
-    opacity: 0.82;
-  }
-
-  .m-hero-copy strong {
-    font-size: 20px;
-    font-weight: 800;
-    line-height: 1.2;
-  }
-
-  /* 横向滚动 rail */
-  .m-rail {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    display: flex;
-    gap: 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 2px 4px 12px;
-    scroll-snap-type: x mandatory;
-  }
-
-  .m-rail::-webkit-scrollbar {
-    display: none;
-  }
-
-  .m-rail > * {
-    scroll-snap-align: start;
-    flex-shrink: 0;
-  }
-
-  .m-cover-rail {
-    margin-right: -18px;
-    padding-right: 18px;
-  }
-
-  /* 通用封面卡片 */
-  .m-cover-card,
-  .m-editor-card,
-  .m-song-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-    width: 130px;
-  }
-
-  .m-editor-card {
-    width: 180px;
-  }
-
-  .m-song-card {
-    width: 110px;
-  }
-
-  .m-cover-wrap,
-  .m-editor-card img,
-  .m-song-cover {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--bg-layer);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-  }
-
-  .m-editor-card img {
-    aspect-ratio: 16 / 10;
-    object-fit: cover;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-  }
-
-  .m-cover-wrap img,
-  .m-song-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-cover-title,
-  .m-editor-title,
-  .m-song-title,
-  .m-grid-title {
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.3;
-    color: var(--text);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .m-cover-sub,
-  .m-song-sub,
-  .m-grid-sub {
-    font-size: 11px;
-    color: var(--text-tertiary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-editor-title {
-    font-size: 13px;
-    font-weight: 700;
-  }
-
-  /* 网格 */
-  .m-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
-
-  .m-grid-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .m-grid-cover {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--bg-layer);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-  }
-
-  .m-grid-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-grid-sub {
-    font-size: 11px;
-  }
-
-  /* 列表 */
-  .m-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .m-list-item {
-    display: grid;
-    grid-template-columns: 56px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 10px;
-    border-radius: 12px;
-    border: none;
-    background: var(--bg-elevated);
-    color: var(--text);
-    cursor: pointer;
-    text-align: left;
-    transition: background 0.15s;
-  }
-
-  .m-list-item:active {
-    background: var(--bg-hover);
-  }
-
-  .m-list-cover {
-    width: 56px;
-    height: 56px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--bg-layer);
-  }
-
-  .m-list-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-list-info {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .m-list-info strong {
-    font-size: 14px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-list-info span {
-    font-size: 12px;
-    color: var(--text-tertiary);
-  }
-
-  .m-list-item svg {
-    color: var(--text-tertiary);
-  }
-
-  /* 快速入口 2x2 */
-  .m-quick-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .m-quick-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 16px 14px;
-    border-radius: 14px;
-    border: none;
-    background: var(--bg-elevated);
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .m-quick-tile:active {
-    background: var(--bg-hover);
-  }
-
-  .m-quick-tile svg {
-    color: var(--accent);
-  }
-
-  .m-quick-tile--liked svg {
-    color: #fff;
-  }
-
-  .m-quick-tile--liked {
-    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-    color: #fff;
-  }
-
-  .m-library {
-    --library-radius-lg: 24px;
-    --library-radius-md: 16px;
-    --library-radius-sm: 11px;
-    --library-surface: color-mix(in srgb, var(--bg-elevated) 92%, var(--text) 8%);
-    --library-line: color-mix(in srgb, var(--border) 72%, transparent);
-    --library-shadow: 0 12px 28px rgba(0,0,0,0.12);
-  }
-
-  .m-library-notice {
-    margin: 0 0 14px;
-    padding: 10px 12px;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
-    color: var(--accent);
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  .m-library-card-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 13px;
-  }
-
-  .m-library-card-grid-featured {
-    margin-top: 2px;
-  }
-
-  .m-library-card {
-    position: relative;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 7px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-card:disabled {
-    opacity: 0.55;
-  }
-
-  .m-library-card-main {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-card-cover {
-    width: 100%;
-    aspect-ratio: 1;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-    color: var(--accent);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.13);
-  }
-
-  .m-library-card-liked .m-library-card-cover {
-    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-    color: #fff;
-  }
-
-  .m-library-card-add .m-library-card-cover {
-    border: 1.5px dashed color-mix(in srgb, var(--text-tertiary) 58%, transparent);
-    background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
-    box-shadow: none;
-  }
-
-  .m-library-card-add:disabled {
-    opacity: 0.6;
-  }
-
-  .m-library-card-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-library-card strong,
-  .m-library-card-main strong {
-    min-width: 0;
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 760;
-    line-height: 1.25;
-    display: -webkit-box;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .m-library-card span:not(.m-library-card-cover),
-  .m-library-card-main span:not(.m-library-card-cover) {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 650;
-  }
-
-  .m-library-card-menu {
-    position: absolute;
-    top: 7px;
-    right: 7px;
-    width: 30px;
-    height: 30px;
-    display: grid;
-    place-items: center;
-    border: none;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.42);
-    color: #fff;
-    font-size: 18px;
-    line-height: 1;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.16);
-  }
-
-  /* 视觉保持 30px，用伪元素把可点击热区扩到 44px */
-  .m-library-card-menu::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-
-  .m-library-card-menu:disabled {
-    opacity: 0.5;
-  }
-
-  .m-library-sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 74;
-    background: rgba(0,0,0,0.32);
-  }
-
-  .m-library-sheet {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    z-index: 75;
-    display: grid;
-    gap: 14px;
-    padding: 18px;
-    border-radius: 22px;
-    background: color-mix(in srgb, var(--bg-elevated) 92%, #000 8%);
-    box-shadow: 0 24px 60px rgba(0,0,0,0.28);
-  }
-
-  .m-library-sheet h2 {
-    color: var(--text);
-    font-size: 20px;
-    font-weight: 820;
-  }
-
-  .m-library-sheet p,
-  .m-library-sheet label span {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 680;
-  }
-
-  .m-library-sheet label {
-    display: grid;
-    gap: 8px;
-  }
-
-  .m-library-sheet input {
-    width: 100%;
-    padding: 13px 14px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--bg-layer);
-    color: var(--text);
-    font-size: 16px;
-  }
-
-  .m-library-sheet strong {
-    color: var(--text);
-    font-size: 15px;
-    font-weight: 760;
-    line-height: 1.35;
-  }
-
-  .m-library-sheet-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-  }
-
-  .m-library-sheet-actions button {
-    min-height: 44px;
-    border: none;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--text) 8%, transparent);
-    color: var(--text);
-    font-size: 15px;
-    font-weight: 780;
-  }
-
-  .m-library-sheet-actions button[type="submit"] {
-    background: var(--accent);
-    color: #fff;
-  }
-
-  .m-library-sheet-actions button.danger {
-    background: #ff3b30;
-    color: #fff;
-  }
-
-  .m-library-hero {
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    min-height: 260px;
-    margin: 0 0 24px;
-    padding: 18px;
-    border-radius: var(--library-radius-lg);
-    background: #181818;
-    color: #fff;
-    box-shadow: 0 18px 45px rgba(0,0,0,0.2);
-  }
-
-  .m-library-hero::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(to bottom, rgba(0,0,0,0.04), rgba(0,0,0,0.72)),
-      linear-gradient(135deg, rgba(250,42,85,0.5), transparent 48%);
-  }
-
-  .m-library-hero-bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: blur(18px) saturate(1.2);
-    transform: scale(1.12);
-    opacity: 0.82;
-  }
-
-  .m-library-hero-content {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    gap: 14px;
-    margin-bottom: 16px;
-  }
-
-  .m-library-avatar {
-    width: 92px;
-    height: 92px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: rgba(255,255,255,0.16);
-    border: 2px solid rgba(255,255,255,0.32);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.28);
-    flex-shrink: 0;
-  }
-
-  .m-library-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-library-identity {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .m-library-identity h2 {
-    font-size: 28px;
-    font-weight: 850;
-    line-height: 1.05;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-library-identity small,
-  .m-library-identity span {
-    font-size: 12px;
-    font-weight: 750;
-    color: rgba(255,255,255,0.76);
-  }
-
-  .m-library-stats {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 7px;
-    position: relative;
-    z-index: 1;
-  }
-
-  .m-library-stats div {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    padding: 10px 5px;
-    border-radius: var(--library-radius-sm);
-    background: rgba(255,255,255,0.14);
-    backdrop-filter: blur(18px);
-    text-align: center;
-  }
-
-  .m-library-stats strong {
-    font-size: 16px;
-    font-weight: 850;
-    color: #fff;
-  }
-
-  .m-library-stats span {
-    font-size: 11px;
-    color: rgba(255,255,255,0.68);
-  }
-
-  .m-library-collection {
-    overflow: hidden;
-    border-radius: 20px;
-    background: color-mix(in srgb, var(--bg-elevated) 86%, #000 14%);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.16);
-  }
-
-  .m-library-menu {
-    box-shadow: none;
-    background: transparent;
-    border-radius: 0;
-  }
-
-  .m-home-profile {
-    display: grid;
-    grid-template-columns: 58px 1fr;
-    gap: 12px;
-    padding: 16px;
-    border-radius: 22px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.14);
-  }
-
-  .m-home-hero-section {
-    margin-bottom: 18px;
-  }
-
-  .m-home-hero {
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr);
-    gap: 10px;
-    padding: 14px;
-    border-radius: 22px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.14);
-  }
-
-  .m-home-avatar {
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: var(--bg-layer);
-  }
-
-  .m-home-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-home-identity {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-  }
-
-  .m-home-identity small {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 750;
-  }
-
-  .m-home-identity strong {
-    min-width: 0;
-    color: var(--text);
-    font-size: 22px;
-    font-weight: 850;
-    line-height: 1.1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-home-stats {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 7px;
-  }
-
-  .m-home-stats div {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 8px 7px;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--bg-layer) 82%, #000 18%);
-    text-align: center;
-  }
-
-  .m-home-stats strong {
-    font-size: 17px;
-    font-weight: 850;
-    color: var(--text);
-  }
-
-  .m-home-stats span {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-tertiary);
-  }
-
-  .m-home-now {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 54px minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-    min-height: 64px;
-    padding: 8px 9px;
-    border: none;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--bg-layer) 84%, #000 16%);
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-home-now img {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    object-fit: cover;
-  }
-
-  .m-home-now span {
-    min-width: 0;
-    display: grid;
-    gap: 4px;
-  }
-
-  .m-home-now small {
-    color: var(--text-tertiary);
-    font-size: 11px;
-    font-weight: 760;
-  }
-
-  .m-home-now strong {
-    color: var(--text);
-    font-size: 16px;
-    font-weight: 820;
-    line-height: 1.2;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .m-home-actions {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 9px;
-  }
-
-  .m-home-action {
-    min-width: 0;
-    display: grid;
-    gap: 8px;
-    padding: 10px 9px;
-    border: none;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-home-action .m-library-row-icon {
-    width: 36px;
-    height: 36px;
-  }
-
-  .m-home-action > span:last-child {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  .m-home-action strong {
-    color: var(--text);
-    font-size: 13px;
-    font-weight: 820;
-    line-height: 1.18;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-home-action span span {
-    color: var(--text-tertiary);
-    font-size: 11px;
-    font-weight: 650;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .m-library-strip {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .m-library-tile {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    padding: 14px 10px;
-    border: none;
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-    color: var(--text);
-    text-align: left;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.12);
-  }
-
-  .m-library-tile .m-library-row-icon {
-    width: 46px;
-    height: 46px;
-  }
-
-  .m-library-tile strong {
-    font-size: 14px;
-    font-weight: 820;
-    line-height: 1.2;
-  }
-
-  .m-library-tile small {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  .m-library-row {
-    width: 100%;
-    display: grid;
-    grid-template-columns: 52px 1fr auto 16px;
-    align-items: center;
-    gap: 14px;
-    min-height: 72px;
-    padding: 10px 16px 10px 18px;
-    border: none;
-    border-bottom: 1px solid var(--library-line);
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-row:last-child {
-    border-bottom: none;
-  }
-
-  .m-library-row:active {
-    background: color-mix(in srgb, var(--text) 7%, transparent);
-  }
-
-  .m-library-row strong {
-    min-width: 0;
-    font-size: 17px;
-    font-weight: 820;
-    line-height: 1.2;
-  }
-
-  .m-library-row small {
-    color: var(--text-tertiary);
-    font-size: 13px;
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .m-library-row > svg {
-    color: var(--text-tertiary);
-  }
-
-  .m-library-row-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 13px;
-    display: grid;
-    place-items: center;
-    background: color-mix(in srgb, var(--bg-layer) 82%, #000 18%);
-    color: var(--accent);
-  }
-
-  .m-library-row-icon svg {
-    width: 25px;
-    height: 25px;
-  }
-
-  .m-library-row-icon.liked {
-    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-    color: #fff;
-  }
-
-  .m-library-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 14px;
-  }
-
-  .m-library-added {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-added-cover {
-    width: 100%;
-    aspect-ratio: 1;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    border-radius: 8px;
-    background: var(--bg-layer);
-    color: var(--text-tertiary);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.13);
-  }
-
-  .m-library-added-cover img,
-  .m-library-playlist-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-library-added strong {
-    min-width: 0;
-    font-size: 14px;
-    font-weight: 760;
-    line-height: 1.25;
-    display: -webkit-box;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .m-library-added span {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 650;
-  }
-
-  .m-library-list {
-    overflow: hidden;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
-  }
-
-  .m-library-playlist-row {
-    width: 100%;
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    min-height: 74px;
-    padding: 8px 10px 8px 8px;
-    border: none;
-    border-bottom: 1px solid var(--library-line);
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-playlist-row:last-child {
-    border-bottom: none;
-  }
-
-  .m-library-playlist-row > svg {
-    color: var(--text-tertiary);
-  }
-
-  .m-library-playlist-main {
-    min-width: 0;
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-library-action {
-    flex-shrink: 0;
-    padding: 7px 10px;
-    border: none;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--text) 8%, transparent);
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 780;
-    white-space: nowrap;
-  }
-
-  .m-library-action.danger {
-    background: color-mix(in srgb, #ff3b30 13%, transparent);
-    color: #ff453a;
-  }
-
-  .m-library-action:disabled {
-    opacity: 0.5;
-  }
-
-  .m-library-playlist-cover {
-    width: 58px;
-    height: 58px;
-    overflow: hidden;
-    display: grid;
-    place-items: center;
-    border-radius: 7px;
-    background: var(--bg-layer);
-    color: var(--text-tertiary);
-  }
-
-  .m-playlist-rail {
-    gap: 14px;
-    padding: 2px 2px 8px;
-  }
-
-  .m-playlist-card {
-    width: 136px;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    border: none;
-    background: transparent;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .m-playlist-cover {
-    width: 136px;
-    aspect-ratio: 1;
-    border-radius: 13px;
-    overflow: hidden;
-    background: var(--bg-layer);
-    box-shadow: 0 10px 22px rgba(0,0,0,0.14);
-    display: grid;
-    place-items: center;
-    color: var(--text-tertiary);
-  }
-
-  .m-playlist-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .m-playlist-card strong {
-    font-size: 13px;
-    font-weight: 750;
-    line-height: 1.25;
-    display: -webkit-box;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .m-playlist-card span {
-    font-size: 12px;
-    color: var(--text-tertiary);
-  }
-
-  html.mobile-runtime .hero-section,
-  html.mobile-runtime .hero-section[style] {
-    margin: calc(-14px - var(--mobile-avatar-size)) -16px 0 !important;
-    padding: calc(52px + env(safe-area-inset-top)) 16px 18px !important;
-    display: grid !important;
-    grid-template-columns: 116px minmax(0, 1fr);
-    align-items: end;
-    gap: 14px;
-    border-radius: 0 !important;
-    background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
-  }
-
-  html.mobile-runtime .hero-back-btn {
-    top: calc(10px + env(safe-area-inset-top));
-    left: 14px;
-  }
-
-  html.mobile-runtime .hero-cover {
-    width: 116px;
-    height: 116px;
-    border-radius: 10px;
-    box-shadow: 0 10px 26px rgba(0,0,0,0.18);
-  }
-
-  html.mobile-runtime .hero-info {
-    min-width: 0;
-  }
-
-  html.mobile-runtime .hero-info h1 {
-    margin: 0 0 6px;
-    font-size: 22px;
-    line-height: 1.12;
-    letter-spacing: 0;
-    display: -webkit-box;
-    line-clamp: 3;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  html.mobile-runtime .hero-meta,
-  html.mobile-runtime .hero-desc {
-    min-width: 0;
-    line-height: 1.35;
-  }
-
-  html.mobile-runtime .hero-play-btn {
-    min-height: 44px;
-    margin-top: 12px;
-    padding: 0 18px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 760;
-  }
-
-  html.mobile-runtime .playlist-toolbar {
-    display: grid;
-    gap: 10px;
-    margin: 14px 0 8px;
-  }
-
-  html.mobile-runtime .playlist-search {
-    width: 100%;
-    min-width: 0;
-  }
-
-  html.mobile-runtime .playlist-toolbar-count {
-    justify-self: end;
-    color: var(--text-tertiary);
-    font-size: 12px;
-  }
-
-  html.mobile-runtime .track-table,
-  html.mobile-runtime .track-table tbody,
-  html.mobile-runtime .track-table tr,
-  html.mobile-runtime .track-table td {
-    display: block;
-  }
-
-  html.mobile-runtime .track-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-  }
-
-  html.mobile-runtime .track-table thead,
-  html.mobile-runtime .track-table .col-num,
-  html.mobile-runtime .track-table .col-album,
-  html.mobile-runtime .track-table .col-dur {
-    display: none !important;
-  }
-
-  html.mobile-runtime .track-table tbody {
-    display: grid;
-    gap: 4px;
-  }
-
-  html.mobile-runtime .track-table tbody tr {
-    min-width: 0;
-    min-height: 58px;
-    display: grid;
-    grid-template-columns: 46px minmax(0, 1fr);
-    grid-template-areas:
-      "cover title"
-      "cover artist";
-    align-items: center;
-    column-gap: 10px;
-    padding: 7px 8px;
-    border-radius: 10px;
-  }
-
-  html.mobile-runtime .track-table tbody tr.active {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-  }
-
-  html.mobile-runtime .track-table .col-cover {
-    grid-area: cover;
-    width: 46px;
-    padding: 0;
-  }
-
-  html.mobile-runtime .track-cover-img,
-  html.mobile-runtime .track-cover-placeholder {
-    width: 46px;
-    height: 46px;
-    border-radius: 8px;
-  }
-
-  html.mobile-runtime .track-table .col-title,
-  html.mobile-runtime .track-table .col-artist {
-    min-width: 0;
-    padding: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  html.mobile-runtime .track-table .col-title {
-    grid-area: title;
-    font-size: 14px;
-    font-weight: 720;
-    line-height: 1.25;
-  }
-
-  html.mobile-runtime .track-table .col-artist {
-    grid-area: artist;
-    padding-top: 3px;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    line-height: 1.25;
-  }
-
-  html.mobile-runtime .track-table .artist-links {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: nowrap;
-  }
-
-  html.mobile-runtime .track-table .artist-link {
-    max-width: 110px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  html.mobile-runtime .track-empty-row,
-  html.mobile-runtime .loading-more-row {
-    display: block !important;
-  }
-
-  html.mobile-runtime .track-empty-row td,
-  html.mobile-runtime .loading-more-row td {
-    display: flex !important;
-    justify-content: center;
-    padding: 18px 0 !important;
-  }
-
-  /* Settings */
-  .m-segmented {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    padding: 4px;
-    border-radius: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-  }
-
-  .m-segmented button {
-    padding: 10px;
-    border-radius: 9px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-  }
-
-  .m-segmented button.active {
-    background: var(--bg-layer);
-    color: var(--text);
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  }
-
-  .m-option-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-  }
-
-  .m-option-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    border-radius: 9px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .m-option-item.active {
-    color: var(--accent);
-    background: var(--accent-bg);
-  }
-
-  .m-hint {
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--text-tertiary);
-  }
-
-  .m-toggle-row,
-  .m-info-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px;
-    border-radius: 12px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .m-toggle {
-    width: 44px;
-    height: 26px;
-    border-radius: 999px;
-    background: var(--bg-layer);
-    position: relative;
-    transition: background 0.2s;
-  }
-
-  .m-toggle::after {
-    content: '';
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-    transition: transform 0.2s;
-  }
-
-  .m-toggle.on {
-    background: var(--accent);
-  }
-
-  .m-toggle.on::after {
-    transform: translateX(18px);
-  }
-
-  .m-info-row {
-    cursor: default;
-  }
-
-  .m-info-row span:last-child {
-    color: var(--text-tertiary);
-  }
-
-  .m-danger-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 14px;
-    border-radius: 12px;
-    border: none;
-    background: var(--bg-elevated);
-    color: var(--accent);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .m-view-fade {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    animation: m-view-enter 0.16s var(--ease-out) both;
-    will-change: opacity, transform;
-  }
-
-  @keyframes m-view-enter {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes m-tab-fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  html.mobile-runtime .m-avatar-btn,
-  html.mobile-runtime .m-tabs,
-  html.mobile-runtime .search-toggle,
-  html.mobile-runtime .search-panel,
-  html.mobile-runtime .queue-panel,
-  html.mobile-runtime .m-drawer .sidebar,
-  html.mobile-runtime .m-library-stats div {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-
-  html.mobile-runtime .m-library-hero-bg,
-  html.mobile-runtime .now-cover-bg,
-  html.mobile-runtime .player-bg,
-  html.mobile-runtime .hero-blur,
-  html.mobile-runtime .ambient-glow {
-    filter: none !important;
-  }
-
-  html.mobile-runtime .m-tabs,
-  html.mobile-runtime .m-avatar-btn,
-  html.mobile-runtime .m-hero-card,
-  html.mobile-runtime .m-library-collection,
-  html.mobile-runtime .m-home-profile,
-  html.mobile-runtime .m-home-hero,
-  html.mobile-runtime .m-home-action,
-  html.mobile-runtime .m-library-added-cover,
-  html.mobile-runtime .m-library-playlist-cover,
-  html.mobile-runtime .m-playlist-cover,
-  html.mobile-runtime .ly-cover,
-  html.mobile-runtime .queue-panel,
-  html.mobile-runtime .search-panel {
-    box-shadow: none !important;
-  }
-
-  html.mobile-runtime .m-subpage-enter {
-    animation-duration: 0.18s;
-  }
-
-  html.mobile-runtime .m-tabs,
-  html.mobile-runtime .m-drawer,
-  html.mobile-runtime .m-tab,
-  html.mobile-runtime .m-avatar-btn {
-    transition-duration: 0.16s !important;
-  }
 
-  @media (prefers-reduced-motion: reduce) {
-    .m-view-fade,
-    .m-subpage-enter,
-    .m-drawer-backdrop {
-      animation: none !important;
-    }
-
-    .m-tabs,
-    .m-drawer,
-    .m-tab,
-    .m-avatar-btn {
-      transition: none !important;
-    }
+html.mobile-runtime .m-page {
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 2px 16px;
+}
+
+html.mobile-runtime .m-page-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+html.mobile-runtime .m-page-header h1 {
+  font-size: 28px;
+  font-weight: 850;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+
+html.mobile-runtime .m-icon-btn:disabled {
+  opacity: 0.55;
+}
+
+html.mobile-runtime .m-page-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, var(--bg) 70%, transparent);
+}
+
+html.mobile-runtime .m-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+/* 搜索 Pill */
+html.mobile-runtime .m-search-pill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-search-pill:active {
+  background: var(--bg-hover);
+}
+
+/* 空状态 */
+html.mobile-runtime .m-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 24px;
+}
+
+html.mobile-runtime .m-empty-state h2 {
+  font-size: 18px;
+  font-weight: 750;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-empty-state p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-empty-state.small {
+  min-height: auto;
+  padding: 32px 0;
+}
+
+html.mobile-runtime .m-primary-btn {
+  margin-top: 8px;
+  padding: 12px 24px;
+  border-radius: 1000px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+html.mobile-runtime .m-primary-btn:active {
+  background: var(--accent-hover);
+  transform: scale(0.97);
+}
+
+/* Section */
+html.mobile-runtime .m-section {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 22px;
+}
+
+html.mobile-runtime .m-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+html.mobile-runtime .m-section-head h2 {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-section-action {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 780;
+}
+
+/* Hero 大卡 */
+html.mobile-runtime .m-hero-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  border: none;
+  background: var(--bg-layer);
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-hero-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--ease-out);
+}
+
+html.mobile-runtime .m-hero-card:active img {
+  transform: scale(1.03);
+}
+
+html.mobile-runtime .m-hero-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
+  color: #fff;
+  text-align: left;
+}
+
+html.mobile-runtime .m-hero-copy small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+  opacity: 0.82;
+}
+
+html.mobile-runtime .m-hero-copy strong {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* 横向滚动 rail */
+html.mobile-runtime .m-rail {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 4px 12px;
+  scroll-snap-type: x mandatory;
+}
+
+html.mobile-runtime .m-rail::-webkit-scrollbar {
+  display: none;
+}
+
+html.mobile-runtime .m-rail > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+html.mobile-runtime .m-cover-rail {
+  margin-right: -18px;
+  padding-right: 18px;
+}
+
+/* 通用封面卡片 */
+html.mobile-runtime .m-cover-card,
+html.mobile-runtime .m-editor-card,
+html.mobile-runtime .m-song-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  width: 130px;
+}
+
+html.mobile-runtime .m-editor-card {
+  width: 180px;
+}
+
+html.mobile-runtime .m-song-card {
+  width: 110px;
+}
+
+html.mobile-runtime .m-cover-wrap,
+html.mobile-runtime .m-editor-card img,
+html.mobile-runtime .m-song-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+html.mobile-runtime .m-editor-card img {
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-cover-wrap img,
+html.mobile-runtime .m-song-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-cover-title,
+html.mobile-runtime .m-editor-title,
+html.mobile-runtime .m-song-title,
+html.mobile-runtime .m-grid-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-cover-sub,
+html.mobile-runtime .m-song-sub,
+html.mobile-runtime .m-grid-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-editor-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 网格 */
+html.mobile-runtime .m-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+html.mobile-runtime .m-grid-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-grid-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+html.mobile-runtime .m-grid-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-grid-sub {
+  font-size: 11px;
+}
+
+/* 列表 */
+html.mobile-runtime .m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+html.mobile-runtime .m-list-item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-list-item:active {
+  background: var(--bg-hover);
+}
+
+html.mobile-runtime .m-list-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-layer);
+}
+
+html.mobile-runtime .m-list-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-list-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+html.mobile-runtime .m-list-info strong {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-list-info span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-list-item svg {
+  color: var(--text-tertiary);
+}
+
+/* 快速入口 2x2 */
+html.mobile-runtime .m-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+html.mobile-runtime .m-quick-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 14px;
+  border-radius: 14px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-quick-tile:active {
+  background: var(--bg-hover);
+}
+
+html.mobile-runtime .m-quick-tile svg {
+  color: var(--accent);
+}
+
+html.mobile-runtime .m-quick-tile--liked svg {
+  color: #fff;
+}
+
+html.mobile-runtime .m-quick-tile--liked {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+}
+
+html.mobile-runtime .m-library {
+  --library-radius-lg: 24px;
+  --library-radius-md: 16px;
+  --library-radius-sm: 11px;
+  --library-surface: color-mix(in srgb, var(--bg-elevated) 92%, var(--text) 8%);
+  --library-line: color-mix(in srgb, var(--border) 72%, transparent);
+  --library-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-library-notice {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+html.mobile-runtime .m-library-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 13px;
+}
+
+html.mobile-runtime .m-library-card-grid-featured {
+  margin-top: 2px;
+}
+
+html.mobile-runtime .m-library-card {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-card:disabled {
+  opacity: 0.55;
+}
+
+html.mobile-runtime .m-library-card-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-card-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+  color: var(--accent);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.13);
+}
+
+html.mobile-runtime .m-library-card-liked .m-library-card-cover {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+}
+
+html.mobile-runtime .m-library-card-add .m-library-card-cover {
+  border: 1.5px dashed color-mix(in srgb, var(--text-tertiary) 58%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+  box-shadow: none;
+}
+
+html.mobile-runtime .m-library-card-add:disabled {
+  opacity: 0.6;
+}
+
+html.mobile-runtime .m-library-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-library-card strong,
+html.mobile-runtime .m-library-card-main strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.25;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-library-card span:not(.m-library-card-cover),
+html.mobile-runtime .m-library-card-main span:not(.m-library-card-cover) {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+html.mobile-runtime .m-library-card-menu {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.42);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+}
+
+/* 视觉保持 30px，用伪元素把可点击热区扩到 44px */
+html.mobile-runtime .m-library-card-menu::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+html.mobile-runtime .m-library-card-menu:disabled {
+  opacity: 0.5;
+}
+
+html.mobile-runtime .m-library-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 74;
+  background: rgba(0,0,0,0.32);
+}
+
+html.mobile-runtime .m-library-sheet {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 75;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-elevated) 92%, #000 8%);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+}
+
+html.mobile-runtime .m-library-sheet h2 {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 820;
+}
+
+html.mobile-runtime .m-library-sheet p,
+html.mobile-runtime .m-library-sheet label span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+html.mobile-runtime .m-library-sheet label {
+  display: grid;
+  gap: 8px;
+}
+
+html.mobile-runtime .m-library-sheet input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-layer);
+  color: var(--text);
+  font-size: 16px;
+}
+
+html.mobile-runtime .m-library-sheet strong {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+html.mobile-runtime .m-library-sheet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+html.mobile-runtime .m-library-sheet-actions button {
+  min-height: 44px;
+  border: none;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 780;
+}
+
+html.mobile-runtime .m-library-sheet-actions button[type="submit"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+html.mobile-runtime .m-library-sheet-actions button.danger {
+  background: #ff3b30;
+  color: #fff;
+}
+
+html.mobile-runtime .m-library-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 260px;
+  margin: 0 0 24px;
+  padding: 18px;
+  border-radius: var(--library-radius-lg);
+  background: #181818;
+  color: #fff;
+  box-shadow: 0 18px 45px rgba(0,0,0,0.2);
+}
+
+html.mobile-runtime .m-library-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,0.04), rgba(0,0,0,0.72)),
+    linear-gradient(135deg, rgba(250,42,85,0.5), transparent 48%);
+}
+
+html.mobile-runtime .m-library-hero-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(18px) saturate(1.2);
+  transform: scale(1.12);
+  opacity: 0.82;
+}
+
+html.mobile-runtime .m-library-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+html.mobile-runtime .m-library-avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255,255,255,0.16);
+  border: 2px solid rgba(255,255,255,0.32);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+  flex-shrink: 0;
+}
+
+html.mobile-runtime .m-library-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-library-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+html.mobile-runtime .m-library-identity h2 {
+  font-size: 28px;
+  font-weight: 850;
+  line-height: 1.05;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-library-identity small,
+html.mobile-runtime .m-library-identity span {
+  font-size: 12px;
+  font-weight: 750;
+  color: rgba(255,255,255,0.76);
+}
+
+html.mobile-runtime .m-library-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  position: relative;
+  z-index: 1;
+}
+
+html.mobile-runtime .m-library-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 5px;
+  border-radius: var(--library-radius-sm);
+  background: rgba(255,255,255,0.14);
+  backdrop-filter: blur(18px);
+  text-align: center;
+}
+
+html.mobile-runtime .m-library-stats strong {
+  font-size: 16px;
+  font-weight: 850;
+  color: #fff;
+}
+
+html.mobile-runtime .m-library-stats span {
+  font-size: 11px;
+  color: rgba(255,255,255,0.68);
+}
+
+html.mobile-runtime .m-library-collection {
+  overflow: hidden;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--bg-elevated) 86%, #000 14%);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.16);
+}
+
+html.mobile-runtime .m-library-menu {
+  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
+}
+
+html.mobile-runtime .m-home-profile {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.14);
+}
+
+html.mobile-runtime .m-home-hero-section {
+  margin-bottom: 18px;
+}
+
+html.mobile-runtime .m-home-hero {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.14);
+}
+
+html.mobile-runtime .m-home-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-layer);
+}
+
+html.mobile-runtime .m-home-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-home-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+html.mobile-runtime .m-home-identity small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+html.mobile-runtime .m-home-identity strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 850;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-home-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+html.mobile-runtime .m-home-stats div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 7px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-layer) 82%, #000 18%);
+  text-align: center;
+}
+
+html.mobile-runtime .m-home-stats strong {
+  font-size: 17px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-home-stats span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-home-now {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 8px 9px;
+  border: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-layer) 84%, #000 16%);
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-home-now img {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-home-now span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+html.mobile-runtime .m-home-now small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+html.mobile-runtime .m-home-now strong {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 820;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-home-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+html.mobile-runtime .m-home-action {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  padding: 10px 9px;
+  border: none;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-home-action .m-library-row-icon {
+  width: 36px;
+  height: 36px;
+}
+
+html.mobile-runtime .m-home-action > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+html.mobile-runtime .m-home-action strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.18;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-home-action span span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-library-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+html.mobile-runtime .m-library-tile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px 10px;
+  border: none;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+  color: var(--text);
+  text-align: left;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-library-tile .m-library-row-icon {
+  width: 46px;
+  height: 46px;
+}
+
+html.mobile-runtime .m-library-tile strong {
+  font-size: 14px;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+html.mobile-runtime .m-library-tile small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.mobile-runtime .m-library-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 52px 1fr auto 16px;
+  align-items: center;
+  gap: 14px;
+  min-height: 72px;
+  padding: 10px 16px 10px 18px;
+  border: none;
+  border-bottom: 1px solid var(--library-line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-row:last-child {
+  border-bottom: none;
+}
+
+html.mobile-runtime .m-library-row:active {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+html.mobile-runtime .m-library-row strong {
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 820;
+  line-height: 1.2;
+}
+
+html.mobile-runtime .m-library-row small {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .m-library-row > svg {
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-library-row-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-layer) 82%, #000 18%);
+  color: var(--accent);
+}
+
+html.mobile-runtime .m-library-row-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+html.mobile-runtime .m-library-row-icon.liked {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+}
+
+html.mobile-runtime .m-library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 14px;
+}
+
+html.mobile-runtime .m-library-added {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-added-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--bg-layer);
+  color: var(--text-tertiary);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.13);
+}
+
+html.mobile-runtime .m-library-added-cover img,
+html.mobile-runtime .m-library-playlist-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-library-added strong {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.25;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-library-added span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+html.mobile-runtime .m-library-list {
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, #000 12%);
+}
+
+html.mobile-runtime .m-library-playlist-row {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 74px;
+  padding: 8px 10px 8px 8px;
+  border: none;
+  border-bottom: 1px solid var(--library-line);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-playlist-row:last-child {
+  border-bottom: none;
+}
+
+html.mobile-runtime .m-library-playlist-row > svg {
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-library-playlist-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-library-action {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .m-library-action.danger {
+  background: color-mix(in srgb, #ff3b30 13%, transparent);
+  color: #ff453a;
+}
+
+html.mobile-runtime .m-library-action:disabled {
+  opacity: 0.5;
+}
+
+html.mobile-runtime .m-library-playlist-cover {
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--bg-layer);
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-playlist-rail {
+  gap: 14px;
+  padding: 2px 2px 8px;
+}
+
+html.mobile-runtime .m-playlist-card {
+  width: 136px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+html.mobile-runtime .m-playlist-cover {
+  width: 136px;
+  aspect-ratio: 1;
+  border-radius: 13px;
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 10px 22px rgba(0,0,0,0.14);
+  display: grid;
+  place-items: center;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-playlist-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-playlist-card strong {
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.25;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-playlist-card span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .hero-section,
+html.mobile-runtime .hero-section[style] {
+  margin: calc(-14px - var(--mobile-avatar-size)) -16px 0 !important;
+  padding: calc(52px + env(safe-area-inset-top)) 16px 18px !important;
+  display: grid !important;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: end;
+  gap: 14px;
+  border-radius: 0 !important;
+  background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
+}
+
+html.mobile-runtime .hero-back-btn {
+  top: calc(10px + env(safe-area-inset-top));
+  left: 14px;
+}
+
+html.mobile-runtime .hero-cover {
+  width: 116px;
+  height: 116px;
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.18);
+}
+
+html.mobile-runtime .hero-info {
+  min-width: 0;
+}
+
+html.mobile-runtime .hero-info h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  line-height: 1.12;
+  letter-spacing: 0;
+  display: -webkit-box;
+  line-clamp: 3;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .hero-meta,
+html.mobile-runtime .hero-desc {
+  min-width: 0;
+  line-height: 1.35;
+}
+
+html.mobile-runtime .hero-play-btn {
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+html.mobile-runtime .playlist-toolbar {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 8px;
+}
+
+html.mobile-runtime .playlist-search {
+  width: 100%;
+  min-width: 0;
+}
+
+html.mobile-runtime .playlist-toolbar-count {
+  justify-self: end;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+html.mobile-runtime .track-table,
+html.mobile-runtime .track-table tbody,
+html.mobile-runtime .track-table tr,
+html.mobile-runtime .track-table td {
+  display: block;
+}
+
+html.mobile-runtime .track-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+html.mobile-runtime .track-table thead,
+html.mobile-runtime .track-table .col-num,
+html.mobile-runtime .track-table .col-album,
+html.mobile-runtime .track-table .col-dur {
+  display: none !important;
+}
+
+html.mobile-runtime .track-table tbody {
+  display: grid;
+  gap: 4px;
+}
+
+html.mobile-runtime .track-table tbody tr {
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  grid-template-areas:
+    "cover title"
+    "cover artist";
+  align-items: center;
+  column-gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+
+html.mobile-runtime .track-table tbody tr.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+html.mobile-runtime .track-table .col-cover {
+  grid-area: cover;
+  width: 46px;
+  padding: 0;
+}
+
+html.mobile-runtime .track-cover-img,
+html.mobile-runtime .track-cover-placeholder {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+}
+
+html.mobile-runtime .track-table .col-title,
+html.mobile-runtime .track-table .col-artist {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .track-table .col-title {
+  grid-area: title;
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+html.mobile-runtime .track-table .col-artist {
+  grid-area: artist;
+  padding-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+html.mobile-runtime .track-table .artist-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+html.mobile-runtime .track-table .artist-link {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .track-empty-row,
+html.mobile-runtime .loading-more-row {
+  display: block !important;
+}
+
+html.mobile-runtime .track-empty-row td,
+html.mobile-runtime .loading-more-row td {
+  display: flex !important;
+  justify-content: center;
+  padding: 18px 0 !important;
+}
+
+/* Settings */
+html.mobile-runtime .m-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+html.mobile-runtime .m-segmented button {
+  padding: 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+html.mobile-runtime .m-segmented button.active {
+  background: var(--bg-layer);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+html.mobile-runtime .m-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+html.mobile-runtime .m-option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-option-item.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+html.mobile-runtime .m-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-toggle-row,
+html.mobile-runtime .m-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--bg-layer);
+  position: relative;
+  transition: background 0.2s;
+}
+
+html.mobile-runtime .m-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+html.mobile-runtime .m-toggle.on {
+  background: var(--accent);
+}
+
+html.mobile-runtime .m-toggle.on::after {
+  transform: translateX(18px);
+}
+
+html.mobile-runtime .m-info-row {
+  cursor: default;
+}
+
+html.mobile-runtime .m-info-row span:last-child {
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-danger-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-view-fade {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: m-view-enter 0.16s var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+@keyframes m-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
+
+@keyframes m-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html.mobile-runtime .m-avatar-btn,
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .search-toggle,
+html.mobile-runtime .search-panel,
+html.mobile-runtime .queue-panel,
+html.mobile-runtime .m-drawer .sidebar,
+html.mobile-runtime .m-library-stats div {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.mobile-runtime .m-library-hero-bg,
+html.mobile-runtime .now-cover-bg,
+html.mobile-runtime .player-bg,
+html.mobile-runtime .hero-blur,
+html.mobile-runtime .ambient-glow {
+  filter: none !important;
+}
+
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-avatar-btn,
+html.mobile-runtime .m-hero-card,
+html.mobile-runtime .m-library-collection,
+html.mobile-runtime .m-home-profile,
+html.mobile-runtime .m-home-hero,
+html.mobile-runtime .m-home-action,
+html.mobile-runtime .m-library-added-cover,
+html.mobile-runtime .m-library-playlist-cover,
+html.mobile-runtime .m-playlist-cover,
+html.mobile-runtime .ly-cover,
+html.mobile-runtime .queue-panel,
+html.mobile-runtime .search-panel {
+  box-shadow: none !important;
+}
+
+html.mobile-runtime .m-subpage-enter {
+  animation-duration: 0.18s;
+}
+
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-drawer,
+html.mobile-runtime .m-tab,
+html.mobile-runtime .m-avatar-btn {
+  transition-duration: 0.16s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .m-view-fade,
+html.mobile-runtime .m-subpage-enter,
+html.mobile-runtime .m-drawer-backdrop {
+    animation: none !important;
+  }
+
+  html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-drawer,
+html.mobile-runtime .m-tab,
+html.mobile-runtime .m-avatar-btn {
+    transition: none !important;
+  }
+}
+
 
 /* ================================================
    横屏适配（手机横屏，垂直空间受限）
    仅在移动布局已加载 app-mobile.css 时生效（JS 门控 + .mobile-runtime）。
    歌词播放器竖屏为纵向堆叠，横屏高度不足时压缩占用避免封面与控制重叠溢出。
    ================================================ */
-@media (max-width: 1024px) and (orientation: landscape) and (max-height: 560px) {
-  /* 歌词播放器：减小顶部留白，封面按高度收缩，间距压紧 */
-  html.mobile-runtime .ly-mobile-player {
-    padding-top: calc(12px + env(safe-area-inset-top));
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
-    justify-content: center;
-  }
+@media (orientation: landscape) and (max-height: 560px) {
 
-  html.mobile-runtime .ly-mobile-player .ly-left-cover {
-    gap: 14px;
-  }
-
-  /* 封面以视口高度为上限，避免纵向溢出 */
-  html.mobile-runtime .ly-mobile-player .ly-cover-wrap {
-    max-width: min(300px, 42vh);
-  }
-
-  html.mobile-runtime .ly-mobile-player .ly-track-title {
-    font-size: 20px !important;
-    margin-bottom: 4px;
-  }
-
-  html.mobile-runtime .ly-mobile-player .ly-left-controls {
-    margin-top: 16px;
-  }
-
-  html.mobile-runtime .ly-mobile-player .ly-mobile-action-row {
-    margin-top: 12px;
-  }
-
-  /* 内容区：横屏减小顶/底部富余留白，横向可用空间更充分 */
-  html.mobile-runtime .m-content {
-    padding-top: calc(10px + var(--mobile-avatar-size));
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-  }
-
-  /* 底部 tab 横屏收窄留白，并避让左右挖孔/手势区 */
-  html.mobile-runtime .m-tabs {
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    left: max(14px, env(safe-area-inset-left));
-    right: max(14px, env(safe-area-inset-right));
-  }
-
-  /* 顶栏头像按钮横屏避让左侧挖孔 */
-  html.mobile-runtime .m-avatar-btn {
-    left: max(12px, env(safe-area-inset-left));
-  }
+/* 歌词播放器：减小顶部留白，封面按高度收缩，间距压紧 */
+html.mobile-runtime .ly-mobile-player {
+  padding-top: calc(12px + env(safe-area-inset-top));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  justify-content: center;
 }
+
+html.mobile-runtime .ly-mobile-player .ly-left-cover {
+  gap: 14px;
+}
+
+/* 封面以视口高度为上限，避免纵向溢出 */
+html.mobile-runtime .ly-mobile-player .ly-cover-wrap {
+  max-width: min(300px, 42vh);
+}
+
+html.mobile-runtime .ly-mobile-player .ly-track-title {
+  font-size: 20px !important;
+  margin-bottom: 4px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-left-controls {
+  margin-top: 16px;
+}
+
+html.mobile-runtime .ly-mobile-player .ly-mobile-action-row {
+  margin-top: 12px;
+}
+
+/* 内容区：横屏减小顶/底部富余留白，横向可用空间更充分 */
+html.mobile-runtime .m-content {
+  padding-top: calc(10px + var(--mobile-avatar-size));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+/* 底部 tab 横屏收窄留白，并避让左右挖孔/手势区 */
+html.mobile-runtime .m-tabs {
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+}
+
+/* 顶栏头像按钮横屏避让左侧挖孔 */
+html.mobile-runtime .m-avatar-btn {
+  left: max(12px, env(safe-area-inset-left));
+}
+}
+

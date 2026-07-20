@@ -36,10 +36,26 @@ src/
 - **LyricsPageV2.svelte**: 根据设备类型自动选择组件
 - **SongContextStrip.svelte**: 复用的相似歌曲/歌单/热评组件
 
-### 2. CSS 隔离
-- `app.css`: 基础样式（全屏、动画、通用变量）
-- `app-pc.css`: 仅在 `@media (min-width: 761px)` 生效
-- `app-mobile.css`: 仅在 `@media (max-width: 760px)` 生效
+### 2. CSS 隔离 (2026-07 二次架构修正)
+变更：从宽度媒体查询**改为 runtime class 单一信源**
+
+- **之前**:
+  - `app.css`: 基础样式 + 依赖宽度媒体切布局
+  - `app-pc.css`: 外层包 `@media (min-width: 761px)`
+  - `app-mobile.css`: 外层包 `@media (max-width: 1024px)`
+  - JS 动态 import 对应 CSS + `layoutMode` 算 isMobile → JS 和 CSS 两套判断规则，不匹配时规则失效，导致裸 HTML。
+- **现在**:
+  - `app.css`/`app-mobile.css`/`app-pc.css` **全静态加载**
+  - **移动端规则**: 全前缀 `html.mobile-runtime`
+  - **PC 端规则**: 全前缀 `html:not(.mobile-runtime)`
+  - **唯一真值**: `layoutMode` store 在启动时更新 `document.documentElement.classList.toggle('mobile-runtime', isMobile)`，切换全靠类名，再也不会 JS/媒体不匹配。
+  - 保留 `@media (orientation: landscape)` 和 `prefers-reduced-motion` 等原生媒体查询嵌套。
+  - 解决问题：
+    1. 消除了 "JS 说 mobile but CSS 媒体说 PC → 移动端规则不生效 → 裸 HTML 无布局" 间歇性故障
+    2. 消除了 Tauri 自定义协议下动态 CSS import 的跨源加载失败
+- `app.css`: 基础样式（全屏、动画、通用变量）+ 移动端 shell 规则已转 runtime 前缀
+- `app-pc.css`: PC 端独立样式，全部前缀 `html:not(.mobile-runtime)`
+- `app-mobile.css`: 移动端独立样式，全部前缀 `html.mobile-runtime`
 
 ### 3. 响应式工具
 ```javascript

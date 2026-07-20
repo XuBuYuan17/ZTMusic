@@ -3321,13 +3321,11 @@ button.lcd-meta__artist:hover {
   .track-table .col-album { display: none; }
 }
 
-@media (min-width: 761px) {
-  .ly-mobile-swipe {
-    display: none !important;
-  }
-  .ly-mobile-player {
-    display: none !important;
-  }
+html:not(.mobile-runtime) .ly-mobile-swipe {
+  display: none !important;
+}
+html:not(.mobile-runtime) .ly-mobile-player {
+  display: none !important;
 }
 
 html.mobile-runtime,
@@ -3565,14 +3563,16 @@ html.mobile-runtime .global-search-btn {
   display: none;
 }
 
-@media (max-width: 760px) {
-  html,
-  body {
+/* mobile shell: html.mobile-runtime (was max-width:760) */
+
+  html.mobile-runtime,
+
+  html.mobile-runtime body {
     height: 100%;
     overscroll-behavior: none;
   }
 
-  .app-shell {
+  html.mobile-runtime .app-shell {
     display: flex;
     height: 100dvh;
     padding: 0;
@@ -3580,15 +3580,15 @@ html.mobile-runtime .global-search-btn {
     background: var(--bg);
   }
 
-  .sidebar {
+  html.mobile-runtime .sidebar {
     display: none !important;
   }
 
-  .global-search-btn {
+  html.mobile-runtime .global-search-btn {
     display: none;
   }
 
-  .main-area {
+  html.mobile-runtime .main-area {
     flex: 1;
     min-width: 0;
     height: 100dvh;
@@ -3597,12 +3597,12 @@ html.mobile-runtime .global-search-btn {
     box-shadow: none;
   }
 
-  [data-theme="dark"] .main-area {
+    html.mobile-runtime[data-theme="dark"] .main-area {
     background: var(--bg);
     box-shadow: none;
   }
 
-  .mobile-topbar {
+  html.mobile-runtime .mobile-topbar {
     position: relative;
     z-index: 42;
     display: flex;
@@ -3616,7 +3616,7 @@ html.mobile-runtime .global-search-btn {
     -webkit-backdrop-filter: blur(28px) saturate(160%);
   }
 
-  .mobile-topbar__title {
+  html.mobile-runtime .mobile-topbar__title {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3626,15 +3626,17 @@ html.mobile-runtime .global-search-btn {
     letter-spacing: 0;
   }
 
-  .mobile-topbar__actions {
+  html.mobile-runtime .mobile-topbar__actions {
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  .mobile-icon-btn,
-  .mobile-search-btn,
-  .mobile-login-btn {
+  html.mobile-runtime .mobile-icon-btn,
+
+  html.mobile-runtime .mobile-search-btn,
+
+  html.mobile-runtime .mobile-login-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3644,11 +3646,11 @@ html.mobile-runtime .global-search-btn {
     color: var(--text);
   }
 
-  .mobile-icon-btn {
+  html.mobile-runtime .mobile-icon-btn {
     width: 34px;
   }
 
-  .mobile-search-btn {
+  html.mobile-runtime .mobile-search-btn {
     gap: 6px;
     min-width: 76px;
     padding: 0 12px;
@@ -3659,11 +3661,11 @@ html.mobile-runtime .global-search-btn {
     border: 1px solid var(--border);
   }
 
-  .mobile-search-btn:active {
+  html.mobile-runtime .mobile-search-btn:active {
     transform: scale(0.98);
   }
 
-  .mobile-login-btn {
+  html.mobile-runtime .mobile-login-btn {
     padding: 0 14px;
     font-size: 13px;
     font-weight: 750;
@@ -3671,20 +3673,21 @@ html.mobile-runtime .global-search-btn {
     background: var(--accent);
   }
 
-  .content-scroll {
+  html.mobile-runtime .content-scroll {
     height: calc(100dvh - var(--mobile-topbar-h) - env(safe-area-inset-top));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
 
-  .content-inner,
-  .content-inner[style] {
+  html.mobile-runtime .content-inner,
+
+  html.mobile-runtime .content-inner[style] {
     max-width: none;
     padding: 18px 14px calc(var(--mobile-mini-player-h) + var(--mobile-tabs-h) + var(--mobile-tabs-bottom-gap) + 32px + env(safe-area-inset-bottom)) !important;
   }
 
-  .player-bar-wrap {
+  html.mobile-runtime .player-bar-wrap {
     position: fixed;
     left: 10px;
     right: 10px;
@@ -3693,22 +3696,24 @@ html.mobile-runtime .global-search-btn {
     pointer-events: auto;
   }
 
-  .player-bar-wrap.queue-open {
+  html.mobile-runtime .player-bar-wrap.queue-open {
     right: 10px;
   }
 
-  .player-bar-wrap:hover .player-bar,
-  .player-bar-wrap:hover .player-bar.compact,
-  .player-bar-wrap:hover .player-bar.with-lyrics {
+  html.mobile-runtime .player-bar-wrap:hover .player-bar,
+
+  html.mobile-runtime .player-bar-wrap:hover .player-bar.compact,
+
+  html.mobile-runtime .player-bar-wrap:hover .player-bar.with-lyrics {
     max-width: none;
     transform: none;
   }
 
-  .player-bar-wrap > .player-bar {
+  html.mobile-runtime .player-bar-wrap > .player-bar {
     display: none;
   }
 
-  .mobile-mini-player {
+  html.mobile-runtime .mobile-mini-player {
     width: 100%;
     height: var(--mobile-mini-player-h);
     display: grid;
@@ -3728,20 +3733,20 @@ html.mobile-runtime .global-search-btn {
     -webkit-user-select: none;
   }
 
-  [data-theme="dark"] .mobile-mini-player {
+    html.mobile-runtime[data-theme="dark"] .mobile-mini-player {
     background: rgba(30, 30, 30, 0.78);
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
 
-  .mobile-mini-player.pressing {
+  html.mobile-runtime .mobile-mini-player.pressing {
     transform: scale(0.985);
   }
 
-  .mobile-mini-player.empty {
+  html.mobile-runtime .mobile-mini-player.empty {
     opacity: 0.86;
   }
 
-  .mobile-mini-player__art {
+  html.mobile-runtime .mobile-mini-player__art {
     width: 46px;
     height: 46px;
     border-radius: 10px;
@@ -3753,41 +3758,43 @@ html.mobile-runtime .global-search-btn {
     flex-shrink: 0;
   }
 
-  .mobile-mini-player__art img {
+  html.mobile-runtime .mobile-mini-player__art img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
 
-  .mobile-mini-player__meta {
+  html.mobile-runtime .mobile-mini-player__meta {
     min-width: 0;
     display: grid;
     gap: 2px;
     text-align: left;
   }
 
-  .mobile-mini-player__title,
-  .mobile-mini-player__artist {
+  html.mobile-runtime .mobile-mini-player__title,
+
+  html.mobile-runtime .mobile-mini-player__artist {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .mobile-mini-player__title {
+  html.mobile-runtime .mobile-mini-player__title {
     font-size: 14px;
     font-weight: 780;
     line-height: 1.25;
   }
 
-  .mobile-mini-player__artist {
+  html.mobile-runtime .mobile-mini-player__artist {
     color: var(--text-secondary);
     font-size: 11px;
     line-height: 1.25;
   }
 
-  .mobile-mini-player__play,
-  .mobile-mini-player__queue {
+  html.mobile-runtime .mobile-mini-player__play,
+
+  html.mobile-runtime .mobile-mini-player__queue {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -3799,7 +3806,7 @@ html.mobile-runtime .global-search-btn {
     flex-shrink: 0;
   }
 
-  .mobile-mini-player__play {
+  html.mobile-runtime .mobile-mini-player__play {
     width: 42px;
     height: 42px;
     color: var(--accent);
@@ -3809,31 +3816,38 @@ html.mobile-runtime .global-search-btn {
       inset 0 1px 0 rgba(255, 255, 255, 0.54);
   }
 
-  .mobile-mini-player__play:disabled {
+  html.mobile-runtime .mobile-mini-player__play:disabled {
     opacity: 0.55;
   }
 
-  .mobile-mini-player__queue.active {
+  html.mobile-runtime .mobile-mini-player__queue.active {
     color: var(--accent);
     background: var(--accent-bg);
   }
 
-  .player-bar-wrap > .player-bar,
-  .player-bar-wrap > .player-bar.compact,
-  .player-bar-wrap > .player-bar.with-lyrics {
+  html.mobile-runtime .player-bar-wrap > .player-bar,
+
+  html.mobile-runtime .player-bar-wrap > .player-bar.compact,
+
+  html.mobile-runtime .player-bar-wrap > .player-bar.with-lyrics {
     display: none !important;
   }
 
-  .player-bar-wrap > .mobile-mini-player {
+  html.mobile-runtime .player-bar-wrap > .mobile-mini-player {
     display: grid !important;
   }
 
-  .player-bar,
-  .player-bar.compact,
-  .player-bar.with-lyrics,
-  .player-bar-wrap .player-bar,
-  .player-bar-wrap .player-bar.compact,
-  .player-bar-wrap .player-bar.with-lyrics {
+  html.mobile-runtime .player-bar,
+
+  html.mobile-runtime .player-bar.compact,
+
+  html.mobile-runtime .player-bar.with-lyrics,
+
+  html.mobile-runtime .player-bar-wrap .player-bar,
+
+  html.mobile-runtime .player-bar-wrap .player-bar.compact,
+
+  html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
     width: 100%;
     max-width: none;
     height: 62px;
@@ -3846,54 +3860,62 @@ html.mobile-runtime .global-search-btn {
     box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   }
 
-  [data-theme="dark"] .player-bar,
-  [data-theme="dark"] .player-bar-wrap:hover .player-bar {
+    html.mobile-runtime[data-theme="dark"] .player-bar,
+  html.mobile-runtime[data-theme="dark"] .player-bar-wrap:hover .player-bar {
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
 
-  .player-bar__lcd,
-  .player-bar.compact .player-bar__lcd,
-  .player-bar.with-lyrics .player-bar__lcd {
+  html.mobile-runtime .player-bar__lcd,
+
+  html.mobile-runtime .player-bar.compact .player-bar__lcd,
+
+  html.mobile-runtime .player-bar.with-lyrics .player-bar__lcd {
     max-width: none;
     padding-right: 4px;
     gap: 10px;
   }
 
-  .lcd-artwork {
+  html.mobile-runtime .lcd-artwork {
     width: 46px;
     height: 46px;
     border-radius: 10px;
   }
 
-  .lcd-meta__title,
-  .lcd-meta__lyric {
+  html.mobile-runtime .lcd-meta__title,
+
+  html.mobile-runtime .lcd-meta__lyric {
     font-size: 14px;
     line-height: 1.25;
   }
 
-  .lcd-meta__artist,
-  .lcd-meta__translation {
+  html.mobile-runtime .lcd-meta__artist,
+
+  html.mobile-runtime .lcd-meta__translation {
     font-size: 11px;
   }
 
-  .player-bar__controls {
+  html.mobile-runtime .player-bar__controls {
     align-items: center;
     justify-content: center;
   }
 
-  .playback-controls {
+  html.mobile-runtime .playback-controls {
     gap: 0;
   }
 
-  .ctrl-btn--shuffle,
-  .ctrl-btn--prev,
-  .ctrl-btn--next,
-  .ctrl-btn--repeat,
-  .volume-slider-inline {
+  html.mobile-runtime .ctrl-btn--shuffle,
+
+  html.mobile-runtime .ctrl-btn--prev,
+
+  html.mobile-runtime .ctrl-btn--next,
+
+  html.mobile-runtime .ctrl-btn--repeat,
+
+  html.mobile-runtime .volume-slider-inline {
     display: none;
   }
 
-  .ctrl-btn--play {
+  html.mobile-runtime .ctrl-btn--play {
     width: 42px;
     height: 42px;
     transform: none;
@@ -3905,13 +3927,14 @@ html.mobile-runtime .global-search-btn {
       inset 0 1px 0 rgba(255, 255, 255, 0.54);
   }
 
-  [data-theme="dark"] .ctrl-btn--play,
-  .ctrl-btn--play:hover,
-  [data-theme="dark"] .ctrl-btn--play:hover {
+    html.mobile-runtime[data-theme="dark"] .ctrl-btn--play,
+
+  html.mobile-runtime .ctrl-btn--play:hover,
+  html.mobile-runtime[data-theme="dark"] .ctrl-btn--play:hover {
     color: var(--accent);
   }
 
-  .player-bar__actions {
+  html.mobile-runtime .player-bar__actions {
     justify-content: center;
     padding-left: 0;
     gap: 0;
@@ -3920,7 +3943,7 @@ html.mobile-runtime .global-search-btn {
     height: 42px;
   }
 
-  .action-btn {
+  html.mobile-runtime .action-btn {
     width: 42px;
     height: 42px;
     border-radius: 12px;
@@ -3931,16 +3954,16 @@ html.mobile-runtime .global-search-btn {
       inset 0 1px 0 rgba(255, 255, 255, 0.54);
   }
 
-  .action-btn svg {
+  html.mobile-runtime .action-btn svg {
     width: 24px;
     height: 24px;
   }
 
-  [data-theme="dark"] .ctrl-btn--play,
-  [data-theme="dark"] .action-btn,
-  [data-theme="dark"] .ctrl-btn--play:hover,
-  [data-theme="dark"] .action-btn:hover,
-  [data-theme="dark"] .action-btn.active {
+    html.mobile-runtime[data-theme="dark"] .ctrl-btn--play,
+  html.mobile-runtime[data-theme="dark"] .action-btn,
+  html.mobile-runtime[data-theme="dark"] .ctrl-btn--play:hover,
+  html.mobile-runtime[data-theme="dark"] .action-btn:hover,
+  html.mobile-runtime[data-theme="dark"] .action-btn.active {
     background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
     color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
     box-shadow:
@@ -3949,7 +3972,7 @@ html.mobile-runtime .global-search-btn {
       0 8px 18px rgba(0, 0, 0, 0.24);
   }
 
-  .mobile-bottom {
+  html.mobile-runtime .mobile-bottom {
     display: block;
     position: fixed;
     left: 0;
@@ -3959,11 +3982,11 @@ html.mobile-runtime .global-search-btn {
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .mobile-bottom.has-player {
+  html.mobile-runtime .mobile-bottom.has-player {
     padding-bottom: calc(var(--mobile-mini-player-h) + var(--mobile-tabs-bottom-gap) + var(--mobile-tabs-h) + env(safe-area-inset-bottom));
   }
 
-  .mobile-mini-row {
+  html.mobile-runtime .mobile-mini-row {
     position: fixed;
     left: 10px;
     right: 10px;
@@ -3984,11 +4007,11 @@ html.mobile-runtime .global-search-btn {
     transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
   }
 
-  .mobile-mini-row:active {
+  html.mobile-runtime .mobile-mini-row:active {
     transform: scale(0.985);
   }
 
-  .mobile-mini-progress {
+  html.mobile-runtime .mobile-mini-progress {
     position: absolute;
     top: 0;
     left: 0;
@@ -3998,13 +4021,13 @@ html.mobile-runtime .global-search-btn {
     border-radius: 16px 16px 0 0;
   }
 
-  .mobile-mini-progress-bar {
+  html.mobile-runtime .mobile-mini-progress-bar {
     height: 100%;
     background: var(--accent);
     transition: width 0.1s linear;
   }
 
-  .mobile-mini {
+  html.mobile-runtime .mobile-mini {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -4013,7 +4036,7 @@ html.mobile-runtime .global-search-btn {
     text-align: left;
   }
 
-  .mobile-mini-art {
+  html.mobile-runtime .mobile-mini-art {
     width: 46px;
     height: 46px;
     border-radius: 10px;
@@ -4023,20 +4046,20 @@ html.mobile-runtime .global-search-btn {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
-  .mobile-mini-art img {
+  html.mobile-runtime .mobile-mini-art img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
   }
 
-  .mobile-mini-meta {
+  html.mobile-runtime .mobile-mini-meta {
     min-width: 0;
     display: grid;
     gap: 3px;
   }
 
-  .mobile-mini-title {
+  html.mobile-runtime .mobile-mini-title {
     font-size: 14px;
     font-weight: 600;
     color: var(--text);
@@ -4046,7 +4069,7 @@ html.mobile-runtime .global-search-btn {
     line-height: 1.3;
   }
 
-  .mobile-mini-artist {
+  html.mobile-runtime .mobile-mini-artist {
     font-size: 12px;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -4055,8 +4078,9 @@ html.mobile-runtime .global-search-btn {
     line-height: 1.2;
   }
 
-  .mobile-mini-play,
-  .mobile-mini-next {
+  html.mobile-runtime .mobile-mini-play,
+
+  html.mobile-runtime .mobile-mini-next {
     width: 44px;
     height: 44px;
     display: grid;
@@ -4066,19 +4090,21 @@ html.mobile-runtime .global-search-btn {
     transition: background 0.15s var(--ease-out), transform 0.1s var(--ease-out);
   }
 
-  .mobile-mini-play:active,
-  .mobile-mini-next:active {
+  html.mobile-runtime .mobile-mini-play:active,
+
+  html.mobile-runtime .mobile-mini-next:active {
     background: var(--bg-hover);
     transform: scale(0.92);
   }
 
-  .mobile-mini-play svg,
-  .mobile-mini-next svg {
+  html.mobile-runtime .mobile-mini-play svg,
+
+  html.mobile-runtime .mobile-mini-next svg {
     width: 24px;
     height: 24px;
   }
 
-  .mobile-tabs {
+  html.mobile-runtime .mobile-tabs {
     position: fixed;
     left: 12px;
     right: 12px;
@@ -4097,7 +4123,7 @@ html.mobile-runtime .global-search-btn {
     -webkit-backdrop-filter: blur(30px) saturate(170%);
   }
 
-  .mobile-tab {
+  html.mobile-runtime .mobile-tab {
     min-width: 0;
     min-height: 46px;
     display: grid;
@@ -4114,13 +4140,13 @@ html.mobile-runtime .global-search-btn {
     transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out), transform 0.16s var(--ease-out);
   }
 
-  .mobile-tab svg {
+  html.mobile-runtime .mobile-tab svg {
     width: 21px;
     height: 21px;
     justify-self: center;
   }
 
-  .mobile-tab span {
+  html.mobile-runtime .mobile-tab span {
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -4128,21 +4154,22 @@ html.mobile-runtime .global-search-btn {
     letter-spacing: 0;
   }
 
-  .mobile-tab.active {
+  html.mobile-runtime .mobile-tab.active {
     color: var(--accent);
     background: color-mix(in srgb, var(--accent-bg) 82%, transparent);
   }
 
-  .mobile-tab:active {
+  html.mobile-runtime .mobile-tab:active {
     transform: scale(0.96);
   }
 
-  .page-header h1,
-  .library-header-info h1 {
+  html.mobile-runtime .page-header h1,
+
+  html.mobile-runtime .library-header-info h1 {
     font-size: 24px;
   }
 
-  .hero-section {
+  html.mobile-runtime .hero-section {
     display: grid;
     grid-template-columns: 116px minmax(0, 1fr);
     align-items: end;
@@ -4150,18 +4177,18 @@ html.mobile-runtime .global-search-btn {
     padding: 14px 0 18px;
   }
 
-  .hero-section[style] {
+  html.mobile-runtime .hero-section[style] {
     margin: -18px -14px 0 !important;
     padding: 18px 14px 20px !important;
   }
 
-  .hero-cover {
+  html.mobile-runtime .hero-cover {
     width: 116px;
     height: 116px;
     border-radius: 14px;
   }
 
-  .hero-info h1 {
+  html.mobile-runtime .hero-info h1 {
     font-size: 24px;
     line-clamp: 3;
     -webkit-line-clamp: 3;
@@ -4170,42 +4197,47 @@ html.mobile-runtime .global-search-btn {
     overflow: hidden;
   }
 
-  .track-table thead,
-  .track-table .col-num,
-  .track-table .col-dur {
+  html.mobile-runtime .track-table thead,
+
+  html.mobile-runtime .track-table .col-num,
+
+  html.mobile-runtime .track-table .col-dur {
     display: none;
   }
 
-  .playlist-toolbar {
+  html.mobile-runtime .playlist-toolbar {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
     margin-top: 14px;
   }
 
-  .playlist-sort { width: 100%; }
+  html.mobile-runtime .playlist-sort { width: 100%; }
 
-  .playlist-sort button { flex: 1; }
+  html.mobile-runtime .playlist-sort button { flex: 1; }
 
-  .playlist-toolbar-count { align-self: flex-end; }
+  html.mobile-runtime .playlist-toolbar-count { align-self: flex-end; }
 
-  .track-table tbody td {
+  html.mobile-runtime .track-table tbody td {
     padding: 9px 6px;
   }
 
-  .track-table,
-  .track-table tbody,
-  .track-table tr,
-  .track-table td {
+  html.mobile-runtime .track-table,
+
+  html.mobile-runtime .track-table tbody,
+
+  html.mobile-runtime .track-table tr,
+
+  html.mobile-runtime .track-table td {
     display: block;
   }
 
-  .track-table tbody {
+  html.mobile-runtime .track-table tbody {
     display: grid;
     gap: 2px;
   }
 
-  .track-table tbody tr {
+  html.mobile-runtime .track-table tbody tr {
     display: grid;
     grid-template-columns: 44px minmax(0, 1fr);
     grid-template-areas:
@@ -4218,22 +4250,23 @@ html.mobile-runtime .global-search-btn {
     border-radius: 12px;
   }
 
-  .track-table tbody tr:hover,
-  .track-table tbody tr.active {
+  html.mobile-runtime .track-table tbody tr:hover,
+
+  html.mobile-runtime .track-table tbody tr.active {
     background: var(--bg-hover);
   }
 
-  .track-table tbody tr.active {
+  html.mobile-runtime .track-table tbody tr.active {
     color: var(--accent);
   }
 
-  .track-table .col-cover {
+  html.mobile-runtime .track-table .col-cover {
     grid-area: cover;
     width: 44px;
     padding: 0;
   }
 
-  .track-table .col-title {
+  html.mobile-runtime .track-table .col-title {
     grid-area: title;
     min-width: 0;
     padding: 0;
@@ -4244,7 +4277,7 @@ html.mobile-runtime .global-search-btn {
     line-height: 1.25;
   }
 
-  .track-table .col-artist {
+  html.mobile-runtime .track-table .col-artist {
     grid-area: artist;
     min-width: 0;
     padding: 2px 0 0;
@@ -4254,31 +4287,32 @@ html.mobile-runtime .global-search-btn {
     line-height: 1.25;
   }
 
-  .track-table .artist-link {
+  html.mobile-runtime .track-table .artist-link {
     max-width: 96px;
   }
 
-  .track-table .col-album {
+  html.mobile-runtime .track-table .col-album {
     display: none;
   }
 
-  .loading-more-row {
+  html.mobile-runtime .loading-more-row {
     display: block !important;
     padding: 12px 0 !important;
   }
 
-  .loading-more-row td {
+  html.mobile-runtime .loading-more-row td {
     display: flex !important;
     justify-content: center;
   }
 
-  .track-cover-img,
-  .track-cover-placeholder {
+  html.mobile-runtime .track-cover-img,
+
+  html.mobile-runtime .track-cover-placeholder {
     width: 44px;
     height: 44px;
     border-radius: 9px;
   }
-}
+
 
 /* ===== Hero (Detail Page) ===== */
 .hero-section {
