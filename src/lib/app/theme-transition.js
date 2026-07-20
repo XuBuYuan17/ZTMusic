@@ -26,7 +26,9 @@ export function createThemeTransition({ getTheme, setTheme, tick }) {
         await tick()
       })
       timer = setTimeout(() => shell?.classList.remove('theme-transitioning'), 920)
-      transition.finished.finally(finish)
+      // 快速连点会中止上一个过渡，ready/finished 随之 reject；吞掉以免未捕获错误
+      transition.ready.catch(() => {})
+      transition.finished.catch(() => {}).finally(finish)
       return
     }
 

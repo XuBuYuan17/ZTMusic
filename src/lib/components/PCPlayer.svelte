@@ -1,8 +1,9 @@
 <script>
   import { player } from '../stores/player.svelte.js';
-  import { auth } from '../stores/auth.svelte.js';
   import { coverUrl } from '../utils/image.js';
   import { useLyrics } from '../composables/useLyrics.svelte.js';
+  import { useLike } from '../composables/useLike.svelte.js';
+  import { scrollLyricIntoView } from '../utils/scroll-lyric.js';
   import PlaybackControls from './PlaybackControls.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
@@ -12,26 +13,15 @@
   let { onClose, onOpenArtist, showLocalQueue = false, toggleLocalQueue } = $props();
 
   const lyricState = useLyrics();
+  const like = useLike();
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
-  let liked = $state(false);
   let lyricsEl = $state(null);
 
   $effect(() => {
     if (!lyricsEl) return;
-    const idx = lyricState.highlightIndex;
-    if (idx < 0) return;
-    const lines = lyricsEl.querySelectorAll('.ly-line');
-    const target = lines[idx];
-    if (target) {
-      const offset = target.offsetTop - lyricsEl.clientHeight / 2 + target.clientHeight / 2;
-      lyricsEl.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
-    }
+    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5);
   });
-
-  function toggleLike() {
-    liked = !liked;
-  }
 </script>
 
 <!-- PC Layout: Two Columns -->
@@ -53,8 +43,8 @@
             <span class="ly-album">{player.album || player.title || ''}</span>
           </div>
           <div class="ly-track-actions">
-            <button class="ly-star-btn" class:active={liked} onclick={toggleLike} aria-label="喜欢">
-              {#if liked}
+            <button class="ly-star-btn" class:active={like.liked} onclick={like.toggle} disabled={like.busy} aria-label="喜欢">
+              {#if like.liked}
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
               {:else}
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>

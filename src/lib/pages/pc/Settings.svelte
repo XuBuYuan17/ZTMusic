@@ -399,7 +399,7 @@
   .settings-panel {
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
     backdrop-filter: blur(24px) saturate(150%);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
@@ -454,7 +454,7 @@
     color: var(--text);
     background: var(--bg-layer);
     border: 1px solid var(--border);
-    border-radius: var(--r-md);
+    border-radius: var(--radius-md);
     outline: none;
     transition: border-color 0.2s;
   }
@@ -472,7 +472,7 @@
     gap: 3px;
     padding: 3px;
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
     background: var(--bg-layer);
   }
 
@@ -480,7 +480,7 @@
     min-width: 64px;
     min-height: 32px;
     padding: 0 14px;
-    border-radius: var(--r-md);
+    border-radius: var(--radius-md);
     color: var(--text-secondary);
     font-size: 13px;
     font-weight: 700;
@@ -496,7 +496,7 @@
   .settings-secondary-btn {
     min-height: 36px;
     padding: 0 16px;
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
     font-size: 13px;
     font-weight: 750;
     white-space: nowrap;
@@ -520,7 +520,7 @@
     min-width: 138px;
     min-height: 36px;
     padding: 0 34px 0 12px;
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
     font-size: 13px;
     font-weight: 650;
     background: var(--bg-surface);

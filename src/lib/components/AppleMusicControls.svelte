@@ -113,7 +113,7 @@
     background: none;
     color: rgba(255,255,255,0.5);
     cursor: pointer;
-    transition: color 0.15s, transform 0.15s cubic-bezier(.2,.9,.2,1);
+    transition: color var(--dur-fast), transform var(--dur-fast) var(--ease-spring);
     flex-shrink: 0;
   }
 

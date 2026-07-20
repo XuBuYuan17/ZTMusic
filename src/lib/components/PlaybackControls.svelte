@@ -173,12 +173,12 @@
     align-items: center;
     justify-content: center;
     opacity: 0.8;
-    transition: opacity 0.15s, transform 0.15s;
+    transition: opacity var(--dur-fast), transform var(--dur-fast);
   }
   .pc-btn:hover:not(:disabled) { opacity: 1; transform: scale(1.1); }
   .pc-btn:active:not(:disabled) { transform: scale(0.95); }
   .pc-btn:disabled { opacity: 0.35; cursor: default; }
-  .pc-btn.active { opacity: 1; color: var(--color-accent, #ec4141); }
+  .pc-btn.active { opacity: 1; color: var(--accent); }
   .pc-btn--play { padding: 0.3rem; }
   /* lyrics variant: disabled is visual only, never blocks clicks */
   .pc-disabled .pc-btn,

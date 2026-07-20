@@ -36,7 +36,7 @@
     border-radius: 999px;
     font-size: 13px;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: background var(--dur-fast);
   }
   .error-retry:hover { background: var(--bg-hover); }
 </style>

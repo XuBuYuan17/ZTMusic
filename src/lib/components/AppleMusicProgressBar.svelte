@@ -124,7 +124,7 @@
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0.62);
     opacity: 0;
-    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all var(--dur-base) var(--ease-spring);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 

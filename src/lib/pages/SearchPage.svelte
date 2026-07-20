@@ -313,7 +313,6 @@
   .search-submit:hover { filter: brightness(1.04); }
   .search-loading { display: flex; justify-content: center; padding: 82px 0; }
   .search-spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
   .search-category-tabs { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 5px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--bg-layer) 82%, transparent); overflow-x: auto; }
   .search-category-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px; border: none; border-radius: 12px; background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 800; white-space: nowrap; cursor: pointer; }
   .search-category-tabs button:hover { background: var(--bg-hover); color: var(--text); }

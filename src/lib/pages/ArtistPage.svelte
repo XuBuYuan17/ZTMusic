@@ -276,7 +276,7 @@
   .artist-page { min-height: 100%; padding-bottom: 18px; }
   .artist-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; min-height: 360px; color: var(--text-secondary); }
   .artist-empty p { margin: 0; }
-  .artist-empty button { min-height: 36px; padding: 0 16px; border-radius: var(--r-lg); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 750; }
+  .artist-empty button { min-height: 36px; padding: 0 16px; border-radius: var(--radius-lg); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 750; }
   .artist-empty button:hover { background: var(--accent-bg-hover); }
   .artist-hero { position: relative; display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); align-items: end; gap: 34px; min-height: 390px; margin: -24px -32px 22px; padding: 78px 40px 40px; overflow: hidden; isolation: isolate; }
   .artist-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; filter: blur(10px) saturate(1.2); transform: scale(1.04); opacity: 0.58; }

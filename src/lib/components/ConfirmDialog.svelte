@@ -26,7 +26,7 @@
   .confirm-overlay {
     position: fixed;
     inset: 0;
-    z-index: 400;
+    z-index: var(--z-dialog);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -41,11 +41,7 @@
     max-width: 360px;
     width: 90%;
     box-shadow: 0 16px 64px rgba(0,0,0,0.32);
-    animation: confirmEnter 0.2s cubic-bezier(0.32, 0, 0.38, 1);
-  }
-  @keyframes confirmEnter {
-    from { opacity: 0; transform: scale(0.92); }
-    to { opacity: 1; transform: scale(1); }
+    animation: scaleIn var(--dur-base) var(--ease-emphasized);
   }
   .confirm-title {
     font-size: 17px;
@@ -71,7 +67,7 @@
     font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: background 0.15s, transform 0.15s;
+    transition: background var(--dur-fast), transform var(--dur-fast);
   }
   .confirm-btn:active {
     transform: scale(0.96);
@@ -91,9 +87,9 @@
     background: var(--accent-hover);
   }
   .confirm-btn-confirm.danger {
-    background: #e74c3c;
+    background: var(--danger);
   }
   .confirm-btn-confirm.danger:hover {
-    background: #c0392b;
+    background: var(--danger-hover);
   }
 </style>

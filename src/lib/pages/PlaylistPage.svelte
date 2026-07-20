@@ -278,7 +278,7 @@
   .detail-state button {
     min-height: 36px;
     padding: 0 16px;
-    border-radius: var(--r-lg);
+    border-radius: var(--radius-lg);
     background: var(--accent-bg);
     color: var(--accent);
     font-size: 13px;
@@ -306,9 +306,5 @@
     animation: spin 0.6s linear infinite;
     vertical-align: middle;
     margin-right: 6px;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
   }
 </style>

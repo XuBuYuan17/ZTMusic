@@ -99,7 +99,7 @@
     display: flex;
     align-items: center;
     opacity: 0.7;
-    transition: opacity 0.15s;
+    transition: opacity var(--dur-fast);
     flex-shrink: 0;
   }
   .vs-icon:hover:not(:disabled) {
@@ -120,7 +120,7 @@
     outline: none;
   }
   .vs-track:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-accent, #ec4141);
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .vs-track:hover .vs-thumb,
   .vs-track.dragging .vs-thumb {
@@ -133,7 +133,7 @@
   }
   .vs-fill {
     height: 100%;
-    background: var(--color-accent, #ec4141);
+    background: var(--accent);
     border-radius: 3px;
     transition: width 0.1s linear;
   }
@@ -145,11 +145,11 @@
     top: 50%;
     width: 12px;
     height: 12px;
-    background: var(--color-accent, #ec4141);
+    background: var(--accent);
     border-radius: 50%;
     transform: translate(-50%, -50%);
     opacity: 0;
-    transition: opacity 0.15s;
+    transition: opacity var(--dur-fast);
     pointer-events: none;
     box-shadow: 0 0 4px rgba(0,0,0,0.3);
   }
@@ -185,7 +185,7 @@
     height: 18px;
     background: #fff;
     transform: translate(-50%, -50%) scale(0.62);
-    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all var(--dur-base) var(--ease-spring);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   .vs.apple-music .vs-track:hover .vs-thumb,

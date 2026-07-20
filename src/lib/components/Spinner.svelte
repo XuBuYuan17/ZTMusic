@@ -68,13 +68,4 @@
     color: var(--text-secondary);
     letter-spacing: 0.01em;
   }
-
-  @keyframes macSpinning {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
 </style>

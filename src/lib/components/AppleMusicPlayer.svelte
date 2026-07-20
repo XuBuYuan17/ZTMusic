@@ -1,10 +1,11 @@
 <script>
   import { player } from '../stores/player.svelte.js';
-  import { auth } from '../stores/auth.svelte.js';
   import { ncm } from '../api/client.js';
   import { coverUrl } from '../utils/image.js';
   import { QUALITY_ORDER } from '../utils/constants.js';
   import { useLyrics } from '../composables/useLyrics.svelte.js';
+  import { useLike } from '../composables/useLike.svelte.js';
+  import { scrollLyricIntoView } from '../utils/scroll-lyric.js';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
@@ -18,11 +19,9 @@
   let showMoreMenu = $state(false);
   let menuMessage = $state('');
   let actionBusy = $state('');
-  let liked = $state(false);
   let contextPanelRequest = $state(null);
   let secondaryPanel = $state(null);
   let playerTheme = $state('card');
-  let likeRequestId = 0;
   let entered = $state(false);
   let closing = $state(false);
   let lyricsEl = $state(null);
@@ -31,6 +30,7 @@
   let suppressCoverClick = false;
 
   const lyricState = useLyrics();
+  const like = useLike(showMenuMessage);
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
   let album = $derived(player.currentTrack?.al || player.currentTrack?.album || null);
@@ -47,7 +47,7 @@
   ];
 
   let moreMenuItems = $derived([
-    { label: liked ? '取消收藏' : '收藏', icon: liked ? 'heart-filled' : 'heart', action: toggleLike, disabled: !player.id || actionBusy === 'like' },
+    { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
     { label: '专辑', icon: 'music', action: openAlbum, disabled: !album?.id },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
@@ -70,14 +70,6 @@
     setTimeout(() => { entered = true; }, 30);
   });
 
-  $effect(() => {
-    if (!player.id) {
-      liked = false;
-      return;
-    }
-    checkLiked(player.id);
-  });
-
   function handleClose() {
     closing = true;
     setTimeout(() => { onClose?.(); }, 220);
@@ -86,15 +78,7 @@
   // ---- Auto-scroll lyrics ----
   $effect(() => {
     if (!lyricsMode || !lyricsEl) return;
-    const idx = lyricState.highlightIndex;
-    if (idx < 0) return;
-    const lines = lyricsEl.querySelectorAll('.am-lyric-line');
-    const target = lines[idx];
-    if (target) {
-      const container = lyricsEl;
-      const offset = target.offsetTop - container.clientHeight * 0.25 + target.clientHeight / 2;
-      container.scrollTo({ top: Math.max(0, offset), behavior: 'smooth' });
-    }
+    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.am-lyric-line', 0.25);
   });
 
   function toggleLyricsMode() {
@@ -156,56 +140,6 @@
     window.setTimeout(() => {
       if (menuMessage === text) menuMessage = '';
     }, 1600);
-  }
-
-  function parseLikeCheck(res, id) {
-    const data = res?.data ?? res?.result ?? res;
-    if (typeof data === 'boolean') return data;
-    if (Array.isArray(data)) {
-      const item = data.find(value => value?.id === id || value?.songId === id) ?? data[0];
-      if (typeof item === 'boolean') return item;
-      return !!(item?.liked ?? item?.like ?? item?.isLike ?? item?.success);
-    }
-    if (data && typeof data === 'object') {
-      if (id in data) return !!data[id];
-      return !!(data.liked ?? data.like ?? data.isLike ?? data.success);
-    }
-    return false;
-  }
-
-  async function checkLiked(id) {
-    if (!auth.isLoggedIn || !id) return;
-    const requestId = ++likeRequestId;
-    try {
-      const res = await ncm.songLikeCheck(id);
-      if (requestId === likeRequestId && player.id === id) liked = parseLikeCheck(res, id);
-    } catch {}
-  }
-
-  async function toggleLike() {
-    if (!player.id) return;
-    if (!auth.isLoggedIn) {
-      showMenuMessage('请先登录');
-      return;
-    }
-    const uid = auth.user?.userId || auth.user?.id;
-    if (!uid) {
-      showMenuMessage('登录状态异常');
-      return;
-    }
-    actionBusy = 'like';
-    const nextLiked = !liked;
-    const trackId = player.id;
-    try {
-      await ncm.like(trackId, nextLiked, uid);
-      if (player.id !== trackId) return;
-      liked = nextLiked;
-      showMenuMessage(nextLiked ? '已收藏' : '已取消收藏');
-    } catch {
-      showMenuMessage('收藏失败');
-    } finally {
-      if (player.id === trackId) actionBusy = '';
-    }
   }
 
   async function shareTrack() {
@@ -1006,7 +940,7 @@
     text-align: left;
     opacity: 0;
     transform: translateY(20px);
-    transition: opacity 0.35s ease 0.12s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.12s;
+    transition: opacity 0.35s ease 0.12s, transform 0.35s var(--ease-spring) 0.12s;
   }
   .entered .am-track-info {
     opacity: 1;
@@ -1080,7 +1014,7 @@
     border: none;
     opacity: 0;
     transform: translateY(20px);
-    transition: opacity 0.35s ease 0.22s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.22s;
+    transition: opacity 0.35s ease 0.22s, transform 0.35s var(--ease-spring) 0.22s;
   }
   .entered .am-bottom-controls {
     opacity: 1;

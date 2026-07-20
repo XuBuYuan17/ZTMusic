@@ -9,11 +9,11 @@
   --player-h: 64px;
   --mobile-topbar-h: 52px;
   --mobile-tabs-h: 56px;
-  --m-avatar-size: 40px;
+  --mobile-avatar-size: 40px;
 
-  --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 8px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 
   --bg: #e8e8ed;
   --bg-surface: #f5f5f7;
@@ -40,13 +40,33 @@
   --border: rgba(0,0,0,0.08);
   --border-strong: rgba(0,0,0,0.12);
 
+  /* 语义色：危险/删除操作，替换散落的 #e74c3c 等硬编码 */
+  --danger: #e74c3c;
+  --danger-hover: #c0392b;
+
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.04);
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
 
+  /* 动画时长：统一散落的 0.15s/0.2s/0.3s/0.55s 等硬编码 */
+  --dur-fast: 0.15s;
+  --dur-base: 0.2s;
+  --dur-slow: 0.3s;
+  --dur-slower: 0.55s;
+
+  /* 缓动曲线：归并散落的 cubic-bezier */
   --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0, 0.38, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* z-index 层级：统一浮层堆叠顺序 */
+  --z-sidebar: 50;
+  --z-player: 100;
+  --z-overlay: 200;
+  --z-dialog: 400;
+  --z-toast: 600;
 }
 
 [data-theme="dark"] {
@@ -75,16 +95,30 @@
   --border: rgba(255,255,255,0.06);
   --border-strong: rgba(255,255,255,0.1);
 
+  --danger: #ff5449;
+  --danger-hover: #ff6b60;
+
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.3);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.5);
 }
 
+/* ================================================
+   共享动画：全局定义一次，组件复用（scoped <style>
+   不含同名 @keyframes 时会解析到这里）
+   ================================================ */
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+/* macSpinning：旧名保留兼容，等价 spin */
+@keyframes macSpinning { to { transform: rotate(360deg); } }
+
 html, body { height: 100%; overflow: hidden; }
 
 html {
-  transition: background-color 0.55s var(--ease-in-out);
+  transition: background-color var(--dur-slower) var(--ease-in-out);
 }
 
 body {
@@ -93,7 +127,7 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.55s var(--ease-in-out), color 0.55s var(--ease-in-out);
+  transition: background-color var(--dur-slower) var(--ease-in-out), color var(--dur-slower) var(--ease-in-out);
 }
 
 ::-webkit-scrollbar { width: 4px; }
@@ -128,6 +162,27 @@ input, textarea {
 }
 
 img { display: block; }
+
+/* ================================================
+   原生外壳（Tauri 打包）：抹去浏览器痕迹
+   仅在 html.native-shell 时启用，浏览器开发不受影响
+   ================================================ */
+html.native-shell,
+html.native-shell body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+  cursor: default;
+}
+/* 白名单：真正需要选中/复制的文本与输入 */
+html.native-shell :is(input, textarea, [contenteditable], .selectable) {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
+html.native-shell :is(img, a) { -webkit-user-drag: none; }
+/* 鼠标操作不显示焦点框，仅键盘导航保留可达性 */
+html.native-shell :focus:not(:focus-visible) { outline: none; }
 
 html.mobile-runtime,
 html.mobile-runtime body,
@@ -1520,12 +1575,6 @@ button.lcd-meta__artist:hover {
   opacity: 1;
 }
 
-@keyframes macSpinning {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes macSpinning { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 /* ===== Profile Page (Home) ===== */
 /* ===== Profile Header Banner ===== */
 /* ===== Home Page (Apple Music Style) ===== */
@@ -3225,7 +3274,7 @@ button.lcd-meta__artist:hover {
 .track-table tbody tr {
   cursor: pointer;
   transition: background 0.1s;
-  border-radius: var(--r-md);
+  border-radius: var(--radius-md);
 }
 
 .track-table tbody tr:hover { background: var(--bg-hover); }
@@ -4270,7 +4319,7 @@ html.mobile-runtime .global-search-btn {
 .hero-cover {
   width: 180px;
   height: 180px;
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-lg);
   object-fit: cover;
   box-shadow: 8px 12px 48px rgba(0,0,0,0.3), 2px 4px 16px rgba(0,0,0,0.18);
   flex-shrink: 0;
@@ -5059,7 +5108,7 @@ html.mobile-runtime .global-search-btn {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  border-radius: var(--r-lg);
+  border-radius: var(--radius-lg);
   background: var(--bg-layer);
   color: white;
   text-align: left;
@@ -5358,11 +5407,6 @@ html.mobile-runtime .global-search-btn {
 /* Fade in animation */
 .fade-in {
   animation: fadeIn 0.35s var(--ease-out) both;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Responsive */
@@ -6602,11 +6646,6 @@ button.ly-context-card.active {
 .page-enter.book-turn {
   animation: bookPageTurn 360ms var(--ease-out) both;
   will-change: transform, opacity;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pageEnter {

@@ -1,5 +1,8 @@
 import './app.css'
 import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
+import { installNativeShell } from './lib/app/native-shell.js'
+
+installNativeShell()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -77,12 +80,25 @@ function syncMobileRuntime(state) {
 // 唯一响应式来源：layoutMode store
 layoutMode.subscribe(syncMobileRuntime)
 
+function hideSplash() {
+  const splash = document.getElementById('splash')
+  if (!splash) return
+  // 读一次布局强制 reflow，确保 opacity 过渡有起点（mount 极快时同帧加 class 会被合并）
+  void splash.offsetHeight
+  splash.classList.add('splash-hide')
+  // transitionend 兜底：万一未触发也移除，避免 splash 永久挡住界面
+  const remove = () => splash.remove()
+  splash.addEventListener('transitionend', remove, { once: true })
+  setTimeout(remove, 700)
+}
+
 ;(async () => {
   try {
     await loadRuntimeStyles(shouldUseMobileLayout(window.innerWidth, window.innerHeight))
     const { mount } = await import('svelte')
     const { default: App } = await import('./App.svelte')
     mount(App, { target: document.getElementById('app') })
+    hideSplash()
   } catch (e) {
     // HMR 重载时的临时编译错误不覆盖页面
     if (import.meta.hot) {

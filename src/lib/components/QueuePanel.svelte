@@ -131,7 +131,7 @@
   .queue-panel-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 45;
+    z-index: var(--z-overlay);
   }
 
   .queue-panel {
@@ -146,11 +146,11 @@
     border-radius: 16px;
     border: 1px solid var(--border);
     box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
-    z-index: 50;
+    z-index: calc(var(--z-overlay) + 1);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: slideIn 0.3s var(--ease-out);
+    animation: slideIn var(--dur-slow) var(--ease-out);
   }
 
   @keyframes slideIn {
@@ -189,12 +189,12 @@
     color: var(--text-tertiary);
     cursor: pointer;
     border-radius: 50%;
-    transition: all 0.15s;
+    transition: all var(--dur-fast);
   }
 
   .queue-close-btn:active {
-    background: rgba(255,255,255,0.1);
-    color: #fff;
+    background: var(--bg-active);
+    color: var(--text);
   }
 
   .queue-title {
@@ -212,7 +212,7 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 6px;
-    transition: all 0.15s;
+    transition: all var(--dur-fast);
   }
 
   .queue-clear-btn:hover:not(:disabled) {

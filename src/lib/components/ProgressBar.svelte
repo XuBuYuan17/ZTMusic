@@ -113,7 +113,7 @@
     outline: none;
   }
   .pb-track:focus-visible {
-    box-shadow: 0 0 0 2px var(--color-accent, #ec4141);
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .pb-track:hover .pb-thumb,
   .pb-track.dragging .pb-thumb {
@@ -126,7 +126,7 @@
   }
   .pb-fill {
     height: 100%;
-    background: var(--color-accent, #ec4141);
+    background: var(--accent);
     border-radius: 3px;
     transition: width 0.1s linear;
   }
@@ -138,11 +138,11 @@
     top: 50%;
     width: 12px;
     height: 12px;
-    background: var(--color-accent, #ec4141);
+    background: var(--accent);
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0);
     opacity: 0;
-    transition: opacity 0.15s, transform 0.15s;
+    transition: opacity var(--dur-fast), transform var(--dur-fast);
     pointer-events: none;
     box-shadow: 0 0 4px rgba(0,0,0,0.3);
   }

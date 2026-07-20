@@ -3,7 +3,10 @@
    覆盖 app.css 末尾的旧 MobileShell 规则
    ================================================ */
 
-@media (max-width: 760px) {
+/* 断点 1024px 而非 760px：覆盖手机横屏(如小米11横屏~873px)。
+   main.js 已用 shouldUseMobileLayout() 精确控制何时 import 本文件，
+   PC 永不加载，故提高上限对 PC 零影响。 */
+@media (max-width: 1024px) {
   html.mobile-runtime,
   html.mobile-runtime body,
   html.mobile-runtime #app,
@@ -42,8 +45,8 @@
   .m-avatar-btn {
     top: calc(8px + env(safe-area-inset-top));
     z-index: 60;
-    width: var(--m-avatar-size);
-    height: var(--m-avatar-size);
+    width: var(--mobile-avatar-size);
+    height: var(--mobile-avatar-size);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -91,7 +94,7 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
-    padding: calc(14px + var(--m-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
+    padding: calc(14px + var(--mobile-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
   }
 
   .m-content-detail {
@@ -126,9 +129,9 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: rgba(245, 245, 247, 0.82);
-    backdrop-filter: saturate(240%) blur(32px);
-    -webkit-backdrop-filter: saturate(240%) blur(32px);
+    /* ponytail: 移动端关闭毛玻璃避免底 tab 常驻 blur(32px) 滚动掉帧；
+       提高背景不透明度(0.82→0.94)补偿透光。上限：纯色近似不透明，牺牲一点通透感。 */
+    background: rgba(245, 245, 247, 0.94);
     z-index: -1;
   }
 
@@ -145,7 +148,7 @@
   }
 
   [data-theme="dark"] .m-tabs::before {
-    background: rgba(35, 35, 38, 0.85);
+    background: rgba(35, 35, 38, 0.94);
   }
 
   [data-theme="dark"] .m-tabs::after {
@@ -490,10 +493,10 @@
 }
 
 /* ================================================
-   Mobile Player Styles (760px以下
+   Mobile Player Styles
    ================================================ */
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   /* Mobile container */
   .ly-container {
     display: flex;
@@ -506,11 +509,13 @@
 
   .ly-back-btn {
     display: flex;
+    align-items: center;
+    justify-content: center;
     top: calc(6px + env(safe-area-inset-top));
     left: 50%;
     right: auto;
     width: 96px;
-    height: 32px;
+    height: 44px;
     border: none;
     background: transparent;
     box-shadow: none;
@@ -756,13 +761,16 @@
   }
 
   .ly-mobile-player .ly-ctrl-btn {
-    width: 38px;
-    height: 38px;
+    /* 热区提升到 44px（iOS/Android 推荐可点击下限），图标居中不受影响 */
+    width: 44px;
+    height: 44px;
     color: #fff !important;
     flex-shrink: 0;
-    min-width: 38px;
+    min-width: 44px;
     opacity: 1 !important;
     display: flex !important;
+    align-items: center;
+    justify-content: center;
   }
 
   .ly-mobile-player .ly-play-btn {
@@ -1184,7 +1192,7 @@
    Mobile Page Components
    ================================================ */
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .m-page {
     width: 100%;
     min-width: 0;
@@ -1215,8 +1223,8 @@
   }
 
   .m-icon-btn {
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
     border: none;
@@ -1762,6 +1770,17 @@
     font-size: 18px;
     line-height: 1;
     box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+  }
+
+  /* 视觉保持 30px，用伪元素把可点击热区扩到 44px */
+  .m-library-card-menu::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
   }
 
   .m-library-card-menu:disabled {
@@ -2444,7 +2463,7 @@
 
   html.mobile-runtime .hero-section,
   html.mobile-runtime .hero-section[style] {
-    margin: calc(-14px - var(--m-avatar-size)) -16px 0 !important;
+    margin: calc(-14px - var(--mobile-avatar-size)) -16px 0 !important;
     padding: calc(52px + env(safe-area-inset-top)) 16px 18px !important;
     display: grid !important;
     grid-template-columns: 116px minmax(0, 1fr);
@@ -2489,7 +2508,7 @@
   }
 
   html.mobile-runtime .hero-play-btn {
-    min-height: 36px;
+    min-height: 44px;
     margin-top: 12px;
     padding: 0 18px;
     border-radius: 999px;
@@ -2843,5 +2862,60 @@
     .m-avatar-btn {
       transition: none !important;
     }
+  }
+}
+
+/* ================================================
+   横屏适配（手机横屏，垂直空间受限）
+   仅在移动布局已加载 app-mobile.css 时生效（JS 门控 + .mobile-runtime）。
+   歌词播放器竖屏为纵向堆叠，横屏高度不足时压缩占用避免封面与控制重叠溢出。
+   ================================================ */
+@media (max-width: 1024px) and (orientation: landscape) and (max-height: 560px) {
+  /* 歌词播放器：减小顶部留白，封面按高度收缩，间距压紧 */
+  html.mobile-runtime .ly-mobile-player {
+    padding-top: calc(12px + env(safe-area-inset-top));
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    justify-content: center;
+  }
+
+  html.mobile-runtime .ly-mobile-player .ly-left-cover {
+    gap: 14px;
+  }
+
+  /* 封面以视口高度为上限，避免纵向溢出 */
+  html.mobile-runtime .ly-mobile-player .ly-cover-wrap {
+    max-width: min(300px, 42vh);
+  }
+
+  html.mobile-runtime .ly-mobile-player .ly-track-title {
+    font-size: 20px !important;
+    margin-bottom: 4px;
+  }
+
+  html.mobile-runtime .ly-mobile-player .ly-left-controls {
+    margin-top: 16px;
+  }
+
+  html.mobile-runtime .ly-mobile-player .ly-mobile-action-row {
+    margin-top: 12px;
+  }
+
+  /* 内容区：横屏减小顶/底部富余留白，横向可用空间更充分 */
+  html.mobile-runtime .m-content {
+    padding-top: calc(10px + var(--mobile-avatar-size));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+
+  /* 底部 tab 横屏收窄留白，并避让左右挖孔/手势区 */
+  html.mobile-runtime .m-tabs {
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: max(14px, env(safe-area-inset-left));
+    right: max(14px, env(safe-area-inset-right));
+  }
+
+  /* 顶栏头像按钮横屏避让左侧挖孔 */
+  html.mobile-runtime .m-avatar-btn {
+    left: max(12px, env(safe-area-inset-left));
   }
 }
