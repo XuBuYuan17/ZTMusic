@@ -24,6 +24,17 @@
   let requestId = 0
   let _debounceTimer = null
 
+  // ---- 定时器管理器 ----
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
+
   const categories = $derived([
     { id: 'songs', label: '歌曲', count: results.songs.length },
     { id: 'artists', label: '歌手', count: results.artists.length },
@@ -35,9 +46,18 @@
   function withTimeout(promise, fallback, timeout = 4500) {
     return Promise.race([
       promise.catch(() => fallback),
-      new Promise(resolve => setTimeout(() => resolve(fallback), timeout)),
+      new Promise(resolve => safeTimeout(() => resolve(fallback), timeout)),
     ])
   }
+
+  $effect(() => {
+    if (show) {
+      tick().then(() => inputEl?.focus())
+    } else {
+      timers.forEach(id => clearTimeout(id))
+    }
+    return () => timers.forEach(id => clearTimeout(id))
+  })
 
   $effect(() => {
     if (show) {
@@ -52,8 +72,11 @@
   })
 
   function handleInput() {
-    if (_debounceTimer) clearTimeout(_debounceTimer)
-    _debounceTimer = setTimeout(() => doSearch(), 250)
+    if (_debounceTimer) {
+      clearTimeout(_debounceTimer)
+      timers.delete(_debounceTimer)
+    }
+    _debounceTimer = safeTimeout(() => doSearch(), 250)
   }
 
   async function doSearch() {

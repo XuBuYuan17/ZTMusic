@@ -12,12 +12,27 @@
   let mounted = $state(false);
   let entered = $state(false);
   let closing = $state(false);
+  // ---- 定时器管理器 ----
+  const timers = new Set();
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id);
+      fn();
+    }, ms);
+    timers.add(id);
+    return id;
+  }
+  function clearSafeTimer(id) {
+    clearTimeout(id);
+    timers.delete(id);
+  }
+
   let hideTimer = $state(null);
 
   function showControls() {
     controlsVisible = true;
-    if (hideTimer) clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => { controlsVisible = false; }, 4000);
+    if (hideTimer) clearSafeTimer(hideTimer);
+    hideTimer = safeTimeout(() => { controlsVisible = false; }, 4000);
   }
 
   function resetControls() {
@@ -27,9 +42,9 @@
   // Auto-hide after entering
   $effect(() => {
     if (entered) {
-      hideTimer = setTimeout(() => { controlsVisible = false; }, 4000);
+      hideTimer = safeTimeout(() => { controlsVisible = false; }, 4000);
     }
-    return () => { if (hideTimer) clearTimeout(hideTimer); };
+    return () => timers.forEach(id => clearTimeout(id));
   });
 
   function toggleLocalQueue() {
@@ -45,18 +60,18 @@
     if (show) {
       mounted = true;
       closing = false;
-      setTimeout(() => { entered = true; }, 10);
+      safeTimeout(() => { entered = true; }, 10);
     } else {
       entered = false;
       closing = true;
-      setTimeout(() => { mounted = false; closing = false; }, 250);
+      safeTimeout(() => { mounted = false; closing = false; }, 250);
     }
   });
 
   function handleClose(e) {
     if (e.target.closest('.ly-keep-open')) return;
     closing = true;
-    setTimeout(() => { onClose?.(); }, 250);
+    safeTimeout(() => { onClose?.(); }, 250);
   }
 </script>
 

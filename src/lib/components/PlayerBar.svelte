@@ -32,7 +32,7 @@
       if (!originEl) return
       isPressing = true
       
-      setTimeout(() => {
+      safeTimeout(() => {
         isPressing = false
         onOpenSheet?.(originEl)
       }, 150)
@@ -69,12 +69,26 @@
     gestureStart = null
   }
 
+  // ---- 定时器管理器 ----
+  const timers = new Set()
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id)
+      fn()
+    }, ms)
+    timers.add(id)
+    return id
+  }
+
+  $effect(() => () => timers.forEach(id => clearTimeout(id)))
+
   function playSwipeAnimation(direction) {
     swipeDirection = ''
     clearTimeout(swipeTimer)
+    timers.delete(swipeTimer)
     requestAnimationFrame(() => {
       swipeDirection = direction
-      swipeTimer = setTimeout(() => { swipeDirection = '' }, 360)
+      swipeTimer = safeTimeout(() => { swipeDirection = '' }, 360)
     })
   }
 

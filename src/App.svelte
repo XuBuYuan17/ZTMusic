@@ -97,14 +97,15 @@
     return () => u()
   })
 
-  // 初始化时设置根元素 class
-  $effect(() => {
+  // 初始化时设置根元素 class（同步执行，消除 FOUC 窗口）
+  {
+    // 在脚本执行阶段同步设置，不等待 $effect 微任务
     if (isMobile) {
       document.documentElement.classList.add('mobile-runtime')
     } else {
       document.documentElement.classList.remove('mobile-runtime')
     }
-  })
+  }
 
   $effect(() => { if (!auth.cookieOk && auth.isLoggedIn) showLogin = true })
 

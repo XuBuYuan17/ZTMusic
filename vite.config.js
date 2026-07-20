@@ -21,19 +21,22 @@ process.env.https_proxy = ''
 // Tauri/Android 的 WebView 通过自定义协议加载资源，带 crossorigin 的 module 脚本/样式
 // 会因 CORS 被拦截，导致只显示未渲染的裸 HTML。此插件移除 crossorigin 属性。
 // - transformIndexHtml：处理 index.html 里的静态入口标签
-// - generateBundle：处理 Vite 预加载 helper 运行时动态注入的 <link>（如按需加载的
-//   app-mobile.css），它会执行 `o.crossOrigin=''`，改成 `=null` 即不写入该属性，
+// - generateBundle：处理 Vite 预加载 helper 运行时动态注入的 <link>/<script>
+//   将所有 `.crossOrigin=''` 改成 `.crossOrigin=null` 即不写入该属性，
 //   同时不影响封面取色用的 `crossOrigin="anonymous"`。
 const stripCrossorigin = () => ({
   name: 'strip-crossorigin',
   transformIndexHtml(html) {
-    return html.replace(/\s+crossorigin(=["'][^"']*["'])?/g, '')
+    return html.replace(/\s+crossorigin(=["'][^"']*["'])?/gi, '')
   },
   generateBundle(_options, bundle) {
     for (const file of Object.values(bundle)) {
       if (file.type !== 'chunk') continue
-      // 仅匹配空字符串赋值（预加载 helper 注入的 link），保留 ="anonymous" 等有值写法
-      file.code = file.code.replace(/\.crossOrigin\s*=\s*(""|''|``)/g, '.crossOrigin=null')
+      // 匹配所有 crossOrigin 空字符串赋值（预加载 helper、Svelte 动态注入等）
+      // 覆盖：= '', = "", = ``, ='' , ="" , =``
+      file.code = file.code.replace(/\.crossOrigin\s*=\s*(["'`])\1\s*(?=[,;\n)])/g, '.crossOrigin=null')
+      // 额外处理可能的属性设置
+      file.code = file.code.replace(/setAttribute\s*\(\s*(["'`])crossorigin\1\s*,\s*(["'`])\2\s*\)/g, '')
     }
   },
 })
@@ -41,6 +44,12 @@ const stripCrossorigin = () => ({
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
+  build: {
+    // Android WebView 兼容性：禁用 CSS 动态注入和 modulepreload
+    target: 'chrome100',
+    cssCodeSplit: false,
+    modulePreload: false,
+  },
   plugins: [
     svelte(),
     stripCrossorigin(),

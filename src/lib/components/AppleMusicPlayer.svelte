@@ -65,14 +65,26 @@
     return '';
   });
 
+  // ---- 定时器管理器 ----
+  const timers = new Set();
+  function safeTimeout(fn, ms) {
+    const id = setTimeout(() => {
+      timers.delete(id);
+      fn();
+    }, ms);
+    timers.add(id);
+    return id;
+  }
+
   // ---- Enter animation on mount ----
   $effect(() => {
-    setTimeout(() => { entered = true; }, 30);
+    safeTimeout(() => { entered = true; }, 30);
+    return () => timers.forEach(id => clearTimeout(id));
   });
 
   function handleClose() {
     closing = true;
-    setTimeout(() => { onClose?.(); }, 220);
+    safeTimeout(() => { onClose?.(); }, 220);
   }
 
   // ---- Auto-scroll lyrics ----
@@ -100,7 +112,7 @@
     if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
     suppressCoverClick = true;
     lyricsMode = dx < 0;
-    window.setTimeout(() => { suppressCoverClick = false; }, 80);
+    safeTimeout(() => { suppressCoverClick = false; }, 80);
   }
 
   function handleCoverClick() {
@@ -137,7 +149,7 @@
 
   function showMenuMessage(text) {
     menuMessage = text;
-    window.setTimeout(() => {
+    safeTimeout(() => {
       if (menuMessage === text) menuMessage = '';
     }, 1600);
   }

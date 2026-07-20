@@ -88,10 +88,13 @@
     `
     document.body.appendChild(toast)
 
-    setTimeout(() => {
+    const id = setTimeout(() => {
       toast.style.animation = 'modeToastFadeOut 0.3s ease-out forwards'
       setTimeout(() => toast.remove(), 300)
     }, 1500)
+
+    // 组件销毁时清理 toast
+    $effect(() => () => clearTimeout(id))
   }
 
   // Add toast keyframes if not present
