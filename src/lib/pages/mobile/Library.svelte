@@ -184,8 +184,9 @@
   }
 
   $effect(() => {
-    if (auth.isLoggedIn) load()
-    return () => timers.forEach(id => clearTimeout(id)) // 组件销毁清理所有定时器
+    // auth.user 可能异步加载（登录后 user 从 null 变为有值），所以同时追踪 isLoggedIn 和 user
+    if (auth.isLoggedIn && auth.user) load()
+    return () => timers.forEach(id => clearTimeout(id))
   })
 </script>
 

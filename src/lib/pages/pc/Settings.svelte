@@ -38,8 +38,10 @@
   let saveBaseTimer = null
 
   function handleSetApiBase(url) {
-    clearTimeout(saveBaseTimer)
-    timers.delete(saveBaseTimer)
+    if (saveBaseTimer) {
+      clearTimeout(saveBaseTimer)
+      timers.delete(saveBaseTimer)
+    }
     const value = url.trim()
     if (!value) return
 
