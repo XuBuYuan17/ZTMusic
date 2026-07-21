@@ -198,7 +198,7 @@
   </header>
 
   {#if !auth.isLoggedIn}
-    <div class="m-empty-state">
+    <div class="m-empty-state small">
       <Icon name="liked" size={48} />
       <h2>登录查看收藏</h2>
       <p>登录后可查看收藏的歌单、最近播放与历史日推</p>

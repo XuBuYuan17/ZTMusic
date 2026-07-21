@@ -180,7 +180,7 @@
   <header class="m-settings-header">
     <span class="m-settings-kicker">Preferences</span>
     <h1>设置</h1>
-    <p>调整播放、启动和界面偏好，让哲听更贴近你的使用习惯。</p>
+    <p>调整播放、启动和界面偏好。</p>
   </header>
 
   <!-- 外观 -->

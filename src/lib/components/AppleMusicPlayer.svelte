@@ -987,7 +987,7 @@
   /* ---- Corner Info ---- */
   .am-corner-info {
     position: absolute;
-    top: calc(40px + env(safe-area-inset-top));
+    top: calc(64px + env(safe-area-inset-top));
     left: 92px;
     right: 56px;
     z-index: 11;
@@ -1114,8 +1114,7 @@
     font-weight: 500;
     color: rgba(255,255,255,0.3);
     line-height: 1.6;
-    transform-origin: left center;
-    transition: transform 0.3s ease, color 0.3s ease;
+    transition: font-size 0.3s ease, color 0.3s ease;
   }
   .am-lyric-line.before .am-lyric-text {
     color: rgba(255,255,255,0.6);
@@ -1123,7 +1122,7 @@
   .am-lyric-line.active .am-lyric-text {
     font-weight: 700;
     color: #fff;
-    transform: scale(1.3); /* 26/20 = 1.3, GPU-accelerated, no layout */
+    font-size: 26px; /* 用 font-size 变化，浏览器会正确 wrap；scale 不参与 layout 会溢出屏幕 */
   }
   .am-lyric-trans {
     display: block;
