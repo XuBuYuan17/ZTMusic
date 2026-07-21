@@ -1,12 +1,13 @@
 import './app.css'
-import { layoutMode } from './lib/utils/layout-mode.js'
+import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
 import { installNativeShell } from './lib/app/native-shell.js'
 
 installNativeShell()
 
 async function loadLayoutCss() {
-  const mode = layoutMode()
-  if (mode === 'mobile') {
+  // 初始化时直接判断，不需要订阅 store —— 此时 DOM 已经有尺寸了
+  const { isMobile } = shouldUseMobileLayout(window.innerWidth, window.innerHeight)
+  if (isMobile) {
     await import('./app-mobile.css')
   } else {
     await import('./app-pc.css')

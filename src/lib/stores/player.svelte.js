@@ -705,6 +705,9 @@ class PlayerState {
     this._restoreSeeking = savedTime > 0
     this._shouldAutoPlay = false
     this.playing = false
+    this.loading = true
+    this._clearError()
+    this._startLoadingTimeout()
 
     abortAllRequests()
     this._abortController.abort()
@@ -713,18 +716,28 @@ class PlayerState {
 
     getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId, {}, signal)
       .then(({ urls }) => {
-        if (requestId !== this._playRequestId) return
+        if (requestId !== this._playRequestId) {
+          this._clearLoadingTimer()
+          this.loading = false
+          return
+        }
         this._fallback.updateUrls(urls)
         if (urls.length > 0) {
           const first = this._fallback.next()
           if (first.status === 'playing') engine.load(first.url)
         } else {
+          this._clearLoadingTimer()
           this.loading = false
           this._setNoUrlError('RestoreNoUrl')
         }
       })
       .catch((err) => {
-        if (requestId !== this._playRequestId) return
+        if (requestId !== this._playRequestId) {
+          this._clearLoadingTimer()
+          this.loading = false
+          return
+        }
+        this._clearLoadingTimer()
         this.loading = false
         this._setPlayerError('RestorePlayableUrlsFailed', err, ERROR_MESSAGES.NO_URL)
       })
