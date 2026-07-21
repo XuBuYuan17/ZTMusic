@@ -228,11 +228,27 @@ jobs:
           api = os.environ['ANDROID_API_LEVEL']
           gradle = Path('src-tauri/gen/android/app/build.gradle.kts')
           text = gradle.read_text()
-          text = re.sub(r'compileSdk\s*=\s*\d+', f'compileSdk = {api}', text)
-          text = re.sub(r'targetSdk\s*=\s*\d+', f'targetSdk = {api}', text)
-          text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 24', text)
-          text = text.replace('manifestPlaceholders["usesCleartextTraffic"] = "false"', 'manifestPlaceholders["usesCleartextTraffic"] = "false"')
+
+          # 编译/目标 SDK：正则替换，未命中则失败
+          new_text = re.sub(r'compileSdk\s*=\s*\d+', f'compileSdk = {api}', text)
+          if new_text == text:
+              raise SystemExit('Patch Android compatibility: could not find compileSdk in build.gradle.kts')
+          text = new_text
+
+          new_text = re.sub(r'targetSdk\s*=\s*\d+', f'targetSdk = {api}', text)
+          if new_text == text:
+              raise SystemExit('Patch Android compatibility: could not find targetSdk in build.gradle.kts')
+          text = new_text
+
+          new_text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 24', text)
+          if new_text == text:
+              raise SystemExit('Patch Android compatibility: could not find minSdk in build.gradle.kts')
+          text = new_text
+
+          # androidx.media 依赖：未找到 activity-ktx 行则失败
           if 'androidx.media:media:' not in text:
+              if 'implementation("androidx.activity:activity-ktx:1.10.1")' not in text:
+                  raise SystemExit('Patch Android compatibility: could not find activity-ktx dependency to patch androidx.media')
               text = text.replace(
                   'implementation("androidx.activity:activity-ktx:1.10.1")',
                   'implementation("androidx.activity:activity-ktx:1.10.1")\n    implementation("androidx.media:media:1.7.0")'
@@ -247,11 +263,14 @@ jobs:
               'android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK',
               'android.permission.POST_NOTIFICATIONS',
           ]
+          manifest_opening = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
           for permission in permissions:
               if permission not in manifest_text:
+                  if manifest_opening not in manifest_text:
+                      raise SystemExit(f'Patch Android compatibility: could not find manifest opening tag to add permission {permission}')
                   manifest_text = manifest_text.replace(
-                      '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
-                      f'<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="{permission}" />',
+                      manifest_opening,
+                      f'{manifest_opening}\n    <uses-permission android:name="{permission}" />',
                       1,
                   )
           service = '''        <service
@@ -259,6 +278,8 @@ jobs:
               android:exported="false"
               android:foregroundServiceType="mediaPlayback" />'''
           if 'com.zheting.music.MediaSessionService' not in manifest_text:
+              if '</application>' not in manifest_text:
+                  raise SystemExit('Patch Android compatibility: could not find </application> to add MediaSessionService')
               manifest_text = manifest_text.replace('</application>', f'{service}\n    </application>', 1)
           manifest.write_text(manifest_text)
 
@@ -268,6 +289,8 @@ jobs:
               source = Path('src-tauri/android-src') / source_name
               if source.exists():
                   (package_dir / source_name).write_text(source.read_text())
+              else:
+                  raise SystemExit(f'Patch Android compatibility: source file {source} not found')
           PY
 
       - name: Print Android build context

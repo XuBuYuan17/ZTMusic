@@ -17,6 +17,10 @@ name: Prepare Release
 permissions:
   contents: write
 
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
 jobs:
   prepare:
     name: Calculate version and create release tag
@@ -199,7 +203,7 @@ jobs:
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md
           git diff --cached --quiet && { echo "No changes"; exit 1; }
 
-          git commit -m "chore(release): $TAG"
+          git commit -m "chore(release): $TAG [skip ci]"
           git tag "$TAG"
           git push origin HEAD:main
           git push origin "$TAG"
