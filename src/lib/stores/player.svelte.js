@@ -25,6 +25,7 @@ import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEM
 import { ERROR_KIND, createErrorSnapshot, debugLog, swallowError } from '../utils/error.js'
 import { getBooleanSetting, getSetting, setSetting } from '../utils/settings.js'
 import { createFallbackController } from '../player/fallback.js'
+import { abortAllRequests } from '../utils/request.js'
 
 class PlayerState {
   // ===== 当前歌曲 =====
@@ -84,6 +85,10 @@ class PlayerState {
     isVip: () => false,
     checkLoginStatus: () => Promise.resolve(true),
   }
+  /** 当前播放请求的中止控制器 */
+  _abortController = new AbortController()
+  /** 洗牌状态：保存当前队列的 Fisher-Yates 顺序 */
+  shuffleState = { order: [], position: -1 }
 
   constructor() {
     // 从 localStorage 恢复初始状态
@@ -366,6 +371,12 @@ class PlayerState {
     const playableTrack = compactTrack(track)
     if (!playableTrack) return
 
+    // 中止上次未完成的播放请求
+    abortAllRequests()
+    this._abortController.abort()
+    this._abortController = new AbortController()
+    const signal = this._abortController.signal
+
     // 取消挂起的自动切歌与预加载，避免与本次手动/自动切歌产生竞态（放错歌）
     this._advanceLock = false
     engine.cancelPreload()
@@ -403,7 +414,7 @@ class PlayerState {
 
     // 获取可播放 URL，传入 auth 状态供 url-resolver 使用（而非 url-resolver 直接 import auth）
     const authOpts = { isLoggedIn: this._authProvider.isLoggedIn(), checkLoginStatus: () => this._authProvider.checkLoginStatus() }
-    getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId, authOpts)
+    getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId, authOpts, signal)
       .then(({ urls, firstUrlLevel, isTrial }) => {
         if (requestId !== this._playRequestId) return
         this._firstUrlLevel = firstUrlLevel
@@ -450,10 +461,10 @@ class PlayerState {
       })
 
     // 后台填充更多 URL
-    this._fillFallbackInBackground(playableTrack.id, requestId)
+    this._fillFallbackInBackground(playableTrack.id, requestId, signal)
   }
 
-  async _fillFallbackInBackground(id, reqId) {
+  async _fillFallbackInBackground(id, reqId, signal) {
     this._fallback.setFillPending(true)
     try {
       const result = await fillFallbackUrls(id, reqId, {
@@ -482,6 +493,7 @@ class PlayerState {
           }
         },
         isStale: () => reqId !== this._playRequestId,
+        signal,
       })
 
       if (reqId === this._playRequestId) {
@@ -502,6 +514,7 @@ class PlayerState {
           reqId,
           isStale: () => reqId !== this._playRequestId,
           preload: (url) => engine.preload(url),
+          shuffleState: this.shuffleState,
         })
       }
 
@@ -524,6 +537,7 @@ class PlayerState {
    * @param {number} startIndex - 开始播放的索引
    */
   playQueue(tracks, startIndex = 0) {
+    this.shuffleState = { order: [], position: -1 }
     this.queue = compactQueue(tracks)
     this.queueIndex = Math.min(Math.max(startIndex, 0), Math.max(this.queue.length - 1, 0))
     setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
@@ -535,6 +549,7 @@ class PlayerState {
 
   /** 下一首 */
   next() {
+    abortAllRequests()
     engine.cancelPreload()
     if (this.queue.length === 0) return
 
@@ -546,6 +561,7 @@ class PlayerState {
       currentIndex: this.queueIndex,
       queueLength: this.queue.length,
       mode: this.mode,
+      shuffleState: this.shuffleState,
     })
 
     this.playTrack(this.queue[idx], idx)
@@ -553,6 +569,7 @@ class PlayerState {
 
   /** 上一首 */
   prev() {
+    abortAllRequests()
     engine.cancelPreload()
     if (this.queue.length === 0) return
 
@@ -624,6 +641,7 @@ class PlayerState {
 
   /** 清空队列 */
   clearQueue() {
+    abortAllRequests()
     this.queue = []
     this.queueIndex = -1
     removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
@@ -700,7 +718,12 @@ class PlayerState {
     this._shouldAutoPlay = false
     this.playing = false
 
-    getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId)
+    abortAllRequests()
+    this._abortController.abort()
+    this._abortController = new AbortController()
+    const signal = this._abortController.signal
+
+    getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId, {}, signal)
       .then(({ urls }) => {
         if (requestId !== this._playRequestId) return
         this._fallback.updateUrls(urls)

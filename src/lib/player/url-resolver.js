@@ -54,10 +54,23 @@ function addCandidate(candidates, candidate) {
   candidates.push(candidate)
 }
 
-function withTimeout(promise, timeout) {
+function withTimeout(promise, timeout, signal) {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('play url timeout')), timeout)),
+    new Promise((_, reject) => {
+      const timer = setTimeout(() => reject(new Error('play url timeout')), timeout)
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timer)
+          reject(new DOMException('Aborted', 'AbortError'))
+        } else {
+          signal.addEventListener('abort', () => {
+            clearTimeout(timer)
+            reject(new DOMException('Aborted', 'AbortError'))
+          }, { once: true })
+        }
+      }
+    }),
   ])
 }
 
@@ -99,9 +112,9 @@ function isBetterThanLevel(level, baseLevel) {
 
 // ===== 核心 API =====
 
-async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}) {
+async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}, signal) {
   try {
-    const res = await withTimeout(ncm.songUrl(id, level, unblock), timeout)
+    const res = await withTimeout(ncm.songUrl(id, level, unblock), timeout, signal)
     const item = res?.data?.[0]
     logPlayUrlAttempt('result', {
       id,
@@ -144,9 +157,9 @@ async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}) {
   }
 }
 
-async function fetchMatchedSongUrl(id, timeout) {
+async function fetchMatchedSongUrl(id, timeout, signal) {
   try {
-    const res = await withTimeout(ncm.songUrlMatch(id), timeout)
+    const res = await withTimeout(ncm.songUrlMatch(id), timeout, signal)
     const url = res?.data?.[0]?.url || res?.data?.url || res?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
@@ -161,9 +174,9 @@ async function fetchMatchedSongUrl(id, timeout) {
   }
 }
 
-async function fetchOldSongUrl(id, timeout) {
+async function fetchOldSongUrl(id, timeout, signal) {
   try {
-    const res = await withTimeout(ncm.songUrlOld(id, 320000), timeout)
+    const res = await withTimeout(ncm.songUrlOld(id, 320000), timeout, signal)
     const url = res?.data?.[0]?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
@@ -210,6 +223,7 @@ export async function refreshSongUrlsBg(id, preferredLevel) {
  * @param {number} options.currentTime - 当前播放位置
  * @param {Function} options.onQualityUpgrade - 音质升级回调
  * @param {Function} options.isStale - () => boolean 判断请求是否过期
+ * @param {AbortSignal} options.signal - 中止信号
  */
 export async function fillFallbackUrls(id, reqId, options = {}) {
   const {
@@ -221,6 +235,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
     onQualityUpgrade,
     isStale = () => false,
     authOpts = {},
+    signal,
   } = options
 
   const urls = [...currentUrls]
@@ -233,15 +248,18 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
   // Step 1: 后台获取偏好音质
   for (const level of allLevels) {
     if (!isActive()) return urls
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT, authOpts)
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
     if (!result || urls.includes(result.url)) continue
 
     if (!upgraded && urls.length > 0 && isBetterThanLevel(level, firstUrlLevel)) {
-      // 升级到更优音质
+      // 升级到更优音质：仅当未在播放中才无缝切换，否则仅入队
       urls.unshift(result.url)
       upgraded = true
       logPlayback('quality-upgrade', { level, firstUrlLevel, url: result.url })
-      if (isPlaying && isActive()) {
+      if (isPlaying && isActive() && currentTime > 30) {
+        // 播放超过 30s 后不再中途切 URL，避免 pop/静音
+        logPlayback('quality-upgrade-deferred', { level, currentTime })
+      } else if (isPlaying && isActive()) {
         onQualityUpgrade?.({
           url: result.url,
           currentTime,
@@ -263,13 +281,13 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
 
   // Step 3: UnblockNeteaseMusic 直接解灰
   if (isActive() && urls.length <= 2) {
-    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT)
+    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT, signal)
     if (matched?.url && !urls.includes(matched.url)) urls.push(matched.url)
   }
 
   // Step 4: 老版 /song/url 兜底
   if (isActive() && urls.length <= 2) {
-    const old = await fetchOldSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT)
+    const old = await fetchOldSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT, signal)
     if (old?.url && !urls.includes(old.url)) urls.push(old.url)
   }
 
@@ -294,7 +312,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
  * @param {number} reqId - 当前请求 ID（用于竞态控制）
  * @returns {Promise<{urls: string[], firstUrlLevel: string, isTrial: boolean}>}
  */
-export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, authOpts = {}) {
+export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, authOpts = {}, signal) {
   // 0. 检查预取缓存
   const cached = prefetchCache?.get(id)
   if (cached) {
@@ -322,7 +340,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
   // Phase 1: 快速出声
   const fastTiers = uniqueLevels(['standard', 'higher', preferredLevel])
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, authOpts)
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, authOpts, signal)
     if (!result) continue
     if (result.isTrial) {
       addCandidate(trialCandidates, result)
@@ -350,7 +368,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
 
   // Phase 3: 官方 match 解灰
   if (candidates.length === 0) {
-    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FAST_TIMEOUT)
+    const matched = await fetchMatchedSongUrl(id, PLAYBACK.FAST_TIMEOUT, signal)
     if (matched?.url) {
       addCandidate(candidates, matched)
       firstUrlLevel = 'match'
@@ -359,7 +377,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
 
   // Phase 4: 老版 /song/url 兜底
   if (candidates.length === 0) {
-    const old = await fetchOldSongUrl(id, PLAYBACK.FAST_TIMEOUT)
+    const old = await fetchOldSongUrl(id, PLAYBACK.FAST_TIMEOUT, signal)
     if (old?.url) {
       addCandidate(candidates, old)
       firstUrlLevel = 'old-api'
@@ -378,13 +396,14 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
 
   const urls = candidates.map(candidate => candidate.url)
 
-  const cacheableUrls = candidates.filter(candidate => candidate.cacheable).map(candidate => candidate.url)
-  if (cacheableUrls.length > 0) {
-    dbCache.urlSet(id, cacheableUrls).catch(swallowError)
-  }
-
   // 判断是否为试听：所有 URL 都是试听片段或 fallback
   const isTrial = candidates.length > 0 && candidates.every(candidate => candidate.isTrial || candidate.source === 'template-fallback')
+
+  const cacheableUrls = candidates.filter(candidate => candidate.cacheable).map(candidate => candidate.url)
+  if (cacheableUrls.length > 0) {
+    const ttl = isTrial ? 10 * 60 * 1000 : 60 * 60 * 1000
+    dbCache.urlSet(id, cacheableUrls, ttl).catch(swallowError)
+  }
 
   return { urls, firstUrlLevel, isTrial }
 }

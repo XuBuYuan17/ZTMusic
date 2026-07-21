@@ -68,7 +68,8 @@
   }
 
   auth.init()
-  initDB()
+  // 不再主动启动初始化，改为首次使用缓存时按需懒加载
+  // initDB()
 
   // 注入 auth provider 到 player（解耦依赖）
   player.setAuthProvider({

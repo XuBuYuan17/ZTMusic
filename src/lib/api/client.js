@@ -346,13 +346,13 @@ export const ncm = {
     return request('/login/qr/check', { key, timestamp: Date.now(), noCookie: true }, 'GET', null, { noCookie: true, allowErrorBody: true, randomCNIP: false, saveCookie: false, browserCredentials: 'omit' })
   },
   loginCellphone(phone, password) {
-    return request('/login/cellphone', { phone, password }, 'GET', null, { randomCNIP: false })
+    return request('/login/cellphone', {}, 'POST', { phone, password }, { randomCNIP: false })
   },
   loginEmail(email, password) {
-    return request('/login', { email, password }, 'GET', null, { randomCNIP: false })
+    return request('/login', {}, 'POST', { email, password }, { randomCNIP: false })
   },
   logout() {
-    return request('/logout', {}, 'GET', null, { randomCNIP: false })
+    return request('/logout', {}, 'POST', null, { randomCNIP: false })
   },
   loginStatus(cookie) {
     return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })

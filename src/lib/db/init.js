@@ -35,6 +35,7 @@ export async function initDB() {
   if (isTauriRuntime()) {
     console.debug('[DB] Tauri runtime detected, skipping SQLite')
     _errored = true
+    try { setStorage('db_fallback_reason', 'tauri_runtime') } catch { /* ignore */ }
     return false
   }
 
@@ -50,8 +51,14 @@ export async function initDB() {
         duration INTEGER, played_at INTEGER NOT NULL
       )`)
       await _db.sql(`CREATE TABLE IF NOT EXISTS song_urls (
-        song_id INTEGER PRIMARY KEY, urls TEXT NOT NULL, saved_at INTEGER NOT NULL
+        song_id INTEGER PRIMARY KEY, urls TEXT NOT NULL,
+        expires_at INTEGER NOT NULL DEFAULT 0, saved_at INTEGER NOT NULL
       )`)
+      try {
+        await _db.sql(`ALTER TABLE song_urls ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0`)
+      } catch {
+        // 列已存在时 ALTER 抛错，忽略
+      }
       await _db.sql(`CREATE TABLE IF NOT EXISTS api_cache (
         key TEXT PRIMARY KEY, value TEXT NOT NULL,
         expires_at INTEGER NOT NULL, saved_at INTEGER NOT NULL
@@ -63,8 +70,10 @@ export async function initDB() {
       console.debug('[DB] SQLite initialized successfully')
       return true
     } catch (err) {
-      console.warn('[DB] SQLite initialization failed, falling back:', err?.message || err)
+      const reason = err?.message || String(err)
+      console.warn('[DB] SQLite initialization failed, falling back:', reason)
       _errored = true
+      try { setStorage('db_fallback_reason', reason.slice(0, 200)) } catch { /* ignore */ }
       return false
     }
   })()
@@ -75,3 +84,7 @@ export async function initDB() {
 export function getDB() { return _ready ? _db : null }
 export function isReady() { return _ready }
 export function isTauri() { return isTauriRuntime() }
+export function getFallbackReason() {
+  if (!_errored) return null
+  return getStorage('db_fallback_reason', 'unknown')
+}
