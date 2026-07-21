@@ -1,5 +1,6 @@
 <script>
-  import { tick, untrack } from 'svelte'
+  import { fade } from 'svelte/transition'
+import { tick, untrack } from 'svelte'
   import { player } from './lib/stores/player.svelte.js'
   import { auth } from './lib/stores/auth.svelte.js'
   import { router } from './lib/stores/router.svelte.js'
@@ -265,10 +266,11 @@
 
     <div class="content-scroll" bind:this={contentScrollEl}>
       <div class="content-inner">
-        <div class="page-enter">
-          <!-- 所有页面常驻 DOM，用 display:none 隐藏非活跃页面，避免切换时重建 + 重复加载 -->
-          <div style:display={router.activeView === 'home' ? 'block' : 'none'}>
-            <HomePage
+        {#key router.activeView}
+          <div class="page-enter" transition:fade={{ duration: 150 }}>
+            <!-- 常驻 DOM 页面：非活跃页 display:none，活跃页由 transition:fade 过渡进入 -->
+            <div style:display={router.activeView === 'home' ? 'block' : 'none'}>
+              <HomePage
               onNavigate={router.handleNav}
               onOpenLogin={() => showLogin = true}
               onOpenPlaylist={router.goPlaylist}
@@ -368,6 +370,7 @@
             <AboutPage />
           </div>
         </div>
+      {/key}
       </div>
     </div>
 

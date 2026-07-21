@@ -16,6 +16,11 @@
     player.clearQueue()
   }
 
+  function handlePlayNext(e, track) {
+    e.stopPropagation()
+    player.playNext(track)
+  }
+
   function handleRemove(e, index) {
     e.stopPropagation()
     player.removeFromQueue(index)
@@ -120,6 +125,12 @@
             <div class="queue-item-duration">
               {formatDuration(track.dt || track.duration || 0)}
             </div>
+            <button class="queue-item-playnext" onclick={(e) => handlePlayNext(e, track)} aria-label="下一首播放" title="下一首播放">
+              <Icon name="arrow-up" size={14} />
+            </button>
+            <button class="queue-item-remove" onclick={(e) => handleRemove(e, i)} aria-label="移除" title="移除">
+              <Icon name="close" size={14} />
+            </button>
           </div>
         {/each}
       {/if}
@@ -324,6 +335,27 @@
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
+
+  .queue-item-playnext,
+  .queue-item-remove {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    flex-shrink: 0;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+  }
+  .queue-item-playnext:hover { background: var(--accent-bg); color: var(--accent); }
+  .queue-item-remove:hover { background: rgba(255, 59, 48, 0.12); color: #ff3b30; }
+  .queue-item:hover .queue-item-playnext,
+  .queue-item:hover .queue-item-remove { opacity: 1; }
 
   .queue-empty {
     display: flex;

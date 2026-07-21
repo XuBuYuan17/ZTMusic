@@ -563,6 +563,30 @@ class PlayerState {
     this.playTrack(this.queue[idx], idx)
   }
 
+  /**
+   * 插入到下一首播放（当前曲目之后）
+   */
+  playNext(track) {
+    const tracks = Array.isArray(track) ? track : [track]
+    if (tracks.length === 0) return
+    const insertAt = this.queueIndex + 1
+    this.queue = [
+      ...this.queue.slice(0, insertAt),
+      ...compactQueue(tracks),
+      ...this.queue.slice(insertAt),
+    ]
+    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
+  }
+
+  /** 添加到队列末尾 */
+  addToQueue(track) {
+    const tracks = Array.isArray(track) ? track : [track]
+    if (tracks.length === 0) return
+    this.queue = [...this.queue, ...compactQueue(tracks)]
+    if (this.queueIndex < 0 && this.queue.length > 0) this.queueIndex = 0
+    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
+  }
+
   /** 上一首 */
   prev() {
     abortAllRequests()
