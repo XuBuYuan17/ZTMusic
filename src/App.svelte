@@ -1,5 +1,5 @@
 <script>
-  import { tick } from 'svelte'
+  import { tick, untrack } from 'svelte'
   import { player } from './lib/stores/player.svelte.js'
   import { auth } from './lib/stores/auth.svelte.js'
   import { router } from './lib/stores/router.svelte.js'
@@ -79,7 +79,8 @@
     checkLoginStatus: () => auth.checkLoginStatus(),
   })
 
-  $effect(() => { player.restore() })
+  // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
+  $effect(() => { untrack(() => player.restore()) })
 
   $effect(() => {
     const u = responsive.subscribe(r => {
@@ -108,14 +109,30 @@
     }
   }
 
-  $effect(() => { if (!auth.cookieOk && auth.isLoggedIn) showLogin = true })
+  // 只在 cookieOk 从 true 变 false 的边沿触发弹窗，避免用户手动关闭后被 auth 抖动重新弹起
+  let _prevCookieOk = $state(true)
+  $effect(() => {
+    if (_prevCookieOk && !auth.cookieOk && auth.isLoggedIn) showLogin = true
+    _prevCookieOk = auth.cookieOk
+  })
 
   // Tauri 关闭拦截
   $effect(() => {
-    if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
-      import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
-        getCurrentWindow().onCloseRequested(async (event) => { if (handleAppBack()) event.preventDefault() })
+    if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return
+    let unlisten = null
+    let disposed = false
+    import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+      if (disposed) return
+      return getCurrentWindow().onCloseRequested(async (event) => {
+        if (handleAppBack()) event.preventDefault()
+      }).then((fn) => {
+        if (disposed) fn()  // effect 已被清理，立即注销避免叠加
+        else unlisten = fn
       })
+    })
+    return () => {
+      disposed = true
+      unlisten?.()
     }
   })
 

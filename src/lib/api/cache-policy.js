@@ -43,12 +43,13 @@ export function getApiCacheTtl(endpoint, method, options = {}) {
 
 export function createApiCacheKey({ base, endpoint, params, body, cookie, ttl }) {
   if (!ttl) return ''
+  // 使用完整 cookie 参与 key 生成，避免 slice(0,48) 因不同账号前缀相同（MUSIC_A_T=/os=pc; MUSIC_U=）导致跨账号缓存串数据
   return dbCache.createKey([
     base,
     endpoint,
     params,
     body,
-    cookie ? cookie.slice(0, 48) : 'public',
+    cookie || 'public',
   ])
 }
 

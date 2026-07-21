@@ -151,7 +151,11 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     try {
       const res = await fetchWithTimeout(url, opts, DEFAULT_TIMEOUT, signal)
       if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
-      const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
+      // JSON 解析失败：用 code:-1 显式标记非法响应，避免 res.ok=true 时用 code:200 掩盖解析失败
+      const data = await res.json().catch(() => ({
+        code: res.ok ? -1 : res.status,
+        message: res.ok ? `API response not JSON: ${res.status}` : `API error: ${res.status}`,
+      }))
       if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
       writeApiCache(cacheKey, data, cacheTtl).catch(() => {})
       return data

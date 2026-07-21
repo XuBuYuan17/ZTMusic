@@ -49,6 +49,14 @@ export default defineConfig({
     target: 'chrome100',
     cssCodeSplit: false,
     modulePreload: false,
+    // sql.js WASM 文件不能内联，必须作为独立资源加载
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        // 确保 WASM 使用可缓存的文件名格式
+        assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+    },
   },
   plugins: [
     svelte(),
@@ -107,16 +115,6 @@ export default defineConfig({
         headers: { Connection: 'keep-alive' },
       },
     }
-  },
-  build: {
-    // sql.js WASM 文件不能内联，必须作为独立资源加载
-    assetsInlineLimit: 0,
-    rollupOptions: {
-      output: {
-        // 确保 WASM 使用可缓存的文件名格式
-        assetFileNames: 'assets/[name]-[hash][extname]',
-      },
-    },
   },
   optimizeDeps: {
     force: false,

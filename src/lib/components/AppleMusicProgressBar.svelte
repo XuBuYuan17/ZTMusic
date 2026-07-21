@@ -3,7 +3,7 @@
 
   let progressBar = $state(null);
   let isDragging = $state(false);
-  let percent = $derived(duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
+  let displayPercent = $derived(duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
 
   function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -11,46 +11,33 @@
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  function handleSeek(e) {
-    if (disabled) return;
+  function clientXToPercent(clientX) {
+    if (!progressBar) return 0;
     const rect = progressBar.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    onseek?.(percent * duration);
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }
 
-  function handleMouseDown(e) {
+  function handlePointerDown(e) {
+    if (disabled || !duration) return;
+    e.preventDefault();
     isDragging = true;
-    handleSeek(e);
-    document.addEventListener('mousemove', handleSeek);
-    document.addEventListener('mouseup', handleMouseUp);
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+    onseek?.(clientXToPercent(e.clientX) * duration);
   }
 
-  function handleMouseUp() {
-    isDragging = false;
-    document.removeEventListener('mousemove', handleSeek);
-    document.removeEventListener('mouseup', handleMouseUp);
+  function handlePointerMove(e) {
+    if (!isDragging) return;
+    onseek?.(clientXToPercent(e.clientX) * duration);
   }
 
-  function handleTouchStart(e) {
-    isDragging = true;
-    handleSeek(e);
-  }
-
-  function handleTouchMove(e) {
-    if (isDragging) {
-      handleSeek(e);
-    }
-  }
-
-  function handleTouchEnd() {
+  function handlePointerUp() {
     isDragging = false;
   }
 </script>
 
 <div class="am-progress-container">
-  <div 
-    class="am-progress-bar" 
+  <div
+    class="am-progress-bar"
     bind:this={progressBar}
     role="slider"
     aria-label="播放进度"
@@ -58,17 +45,17 @@
     aria-valuemax={Math.round(duration || 0)}
     aria-valuenow={Math.round(currentTime || 0)}
     tabindex={disabled ? -1 : 0}
-    onmousedown={handleMouseDown}
-    ontouchstart={handleTouchStart}
-    ontouchmove={handleTouchMove}
-    ontouchend={handleTouchEnd}
+    onpointerdown={handlePointerDown}
+    onpointermove={handlePointerMove}
+    onpointerup={handlePointerUp}
+    onpointercancel={handlePointerUp}
   >
     <div class="am-progress-track">
-      <div class="am-progress-fill" style={`width: ${percent}%`}></div>
+      <div class="am-progress-fill" style={`width: ${displayPercent}%`}></div>
     </div>
-    <div class="am-progress-thumb" style={`left: ${percent}%`}></div>
+    <div class="am-progress-thumb" style={`left: ${displayPercent}%`}></div>
   </div>
-  
+
   <div class="am-progress-time">
     <span class="am-time-current">{formatTime(currentTime)}</span>
     <span class="am-time-duration">{formatTime(duration)}</span>

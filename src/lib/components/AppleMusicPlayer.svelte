@@ -27,6 +27,7 @@
   let lyricsEl = $state(null);
   let swipeStartX = 0;
   let swipeStartY = 0;
+  let swipeActive = false;
   let suppressCoverClick = false;
 
   const lyricState = useLyrics();
@@ -101,10 +102,12 @@
     if (secondaryPanel || showMoreMenu || showLocalQueue) return;
     swipeStartX = event.clientX;
     swipeStartY = event.clientY;
+    swipeActive = true;
   }
 
   function handlePlayerPointerUp(event) {
-    if (!swipeStartX && !swipeStartY) return;
+    if (!swipeActive) return;
+    swipeActive = false;
     const dx = event.clientX - swipeStartX;
     const dy = event.clientY - swipeStartY;
     swipeStartX = 0;
@@ -249,7 +252,7 @@
   </button>
 {/snippet}
 
-<div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">

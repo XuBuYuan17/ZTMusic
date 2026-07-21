@@ -18,10 +18,20 @@
   let qrCancel
   let pollActive = $state(false)
   let qrRequestId = 0
+  let loginRequestId = 0
+  let phoneInput = $state(null)
+  let emailInput = $state(null)
 
   $effect(() => {
     if (showLogin && mode === 'qr') startQr()
     return () => { qrCancel?.(); pollActive = false; qrRequestId += 1 }
+  })
+
+  // 切换模式后自动 focus 到输入框
+  $effect(() => {
+    if (!showLogin) return
+    if (mode === 'phone') tick().then(() => phoneInput?.focus())
+    else if (mode === 'email') tick().then(() => emailInput?.focus())
   })
 
   async function startQr() {
@@ -68,19 +78,26 @@
   }
 
   async function handleLogin() {
+    if (processing) return
     processing = true
     error = ''
+    const requestId = ++loginRequestId
     try {
       if (mode === 'phone') {
-        if (!phone || !password) { error = '请填写手机号和密码'; processing = false; return }
+        if (!/^1[3-9]\d{9}$/.test(phone)) { error = '请输入有效的手机号'; processing = false; return }
+        if (!password) { error = '请输入密码'; processing = false; return }
         await auth.login('phone', { phone, password })
       } else if (mode === 'email') {
-        if (!email || !password) { error = '请填写邮箱和密码'; processing = false; return }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { error = '请输入有效的邮箱'; processing = false; return }
+        if (!password) { error = '请输入密码'; processing = false; return }
         await auth.login('email', { email, password })
       }
+      if (requestId !== loginRequestId) return
+      password = ''
       onLoginSuccess?.()
       onClose?.()
     } catch (e) {
+      if (requestId !== loginRequestId) return
       error = e.message || '登录失败'
     }
     processing = false
@@ -97,13 +114,11 @@
   }
 
   function handleOverlayKeyDown(e) {
-    if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onClose?.()
-    }
+    if (e.key === 'Escape') { e.preventDefault(); onClose?.() }
   }
 
   function stopEvent(e) {
+    if (e.key === 'Escape') return  // 让 Escape 能穿透关闭
     e.stopPropagation()
   }
 </script>
@@ -148,8 +163,8 @@
 
         {:else if mode === 'phone'}
           <div class="form">
-            <input class="input" type="tel" placeholder="手机号" bind:value={phone} />
-            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && handleLogin()} />
+            <input class="input" type="tel" placeholder="手机号" bind:value={phone} bind:this={phoneInput} />
+            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} />
             {#if error}<p class="login-error">{error}</p>{/if}
             <button class="login-btn" onclick={handleLogin} disabled={processing}>
               {processing ? '登录中...' : '登录'}
@@ -158,8 +173,8 @@
 
         {:else if mode === 'email'}
           <div class="form">
-            <input class="input" type="email" placeholder="邮箱" bind:value={email} />
-            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && handleLogin()} />
+            <input class="input" type="email" placeholder="邮箱" bind:value={email} bind:this={emailInput} />
+            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} />
             {#if error}<p class="login-error">{error}</p>{/if}
             <button class="login-btn" onclick={handleLogin} disabled={processing}>
               {processing ? '登录中...' : '登录'}

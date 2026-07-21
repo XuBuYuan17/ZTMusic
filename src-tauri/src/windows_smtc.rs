@@ -37,10 +37,22 @@ impl WindowsSmtcState {
         let thread_pending_action = Arc::clone(&pending_action);
 
         thread::spawn(move || {
+            // COM 是线程绑定的，本线程只初始化一次；重连时复用同一 apartment。
+            // 线程退出时 Windows 会自动清理，无需 CoUninitialize。
+            unsafe {
+                if let Err(error) = CoInitializeEx(None, COINIT_MULTITHREADED).ok() {
+                    log::error!("Windows SMTC CoInitializeEx failed: {error}, aborting SMTC thread");
+                    return;
+                }
+            }
             loop {
                 if let Err(error) = run_smtc(&receiver, &thread_pending_action) {
                     log::warn!("Windows SMTC disconnected: {error}, reconnecting in 5s...");
                     std::thread::sleep(std::time::Duration::from_secs(5));
+                } else {
+                    // run_smtc 正常返回 = receiver 关闭（应用退出），结束线程
+                    log::debug!("Windows SMTC channel closed, exiting SMTC thread");
+                    return;
                 }
             }
         });
@@ -79,8 +91,7 @@ fn run_smtc(
     receiver: &Receiver<WindowsSmtcMessage>,
     pending_action: &Arc<Mutex<Option<String>>>,
 ) -> windows::core::Result<()> {
-    // Initialize COM
-    unsafe { CoInitializeEx(None, COINIT_MULTITHREADED).ok()? };
+    // COM 在外层线程入口已初始化一次，本函数不再重复初始化。
 
     // Create a MediaPlayer - this automatically creates the SMTC integration
     let player = MediaPlayer::new()?;

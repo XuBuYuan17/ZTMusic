@@ -4,7 +4,7 @@ use tauri::State;
 
 use crate::{AppState, NcmRequest, NcmResponse, APP_USER_AGENT};
 
-/// 允许代理的目标 API Host 白名单，防止 SSRF
+/// 允许代理的目标 API Host 白名单（精确匹配），防止 SSRF
 const ALLOWED_HOSTS: &[&str] = &[
     "music.xubuyuan.top",
     "music.163.com",
@@ -12,10 +12,9 @@ const ALLOWED_HOSTS: &[&str] = &[
     "interface3.music.163.com",
 ];
 
+/// 精确匹配 host（不做后缀匹配，避免 `attacker-music.163.com` 这类后缀绕过）
 fn is_allowed_host(host: &str) -> bool {
-    ALLOWED_HOSTS
-        .iter()
-        .any(|allowed| host == *allowed || host.ends_with(&format!(".{allowed}")))
+    ALLOWED_HOSTS.iter().any(|allowed| host == *allowed)
 }
 
 /// POST/GET 代理：将前端请求转发到 Netease API，并回传 cookie 变更。

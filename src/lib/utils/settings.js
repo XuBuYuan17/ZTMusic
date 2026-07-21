@@ -73,7 +73,8 @@ function normalizeSetting(key, value) {
  */
 export function migrateSettings() {
   const from = Number.parseInt(getStorage(SETTINGS_SCHEMA_KEY, '0'), 10) || 0
-  let changed = from < SETTINGS_SCHEMA_VERSION
+  // 幂等：只在真的写入/归一化时才置 true，避免仅版本号变动导致 UI 无谓刷新
+  let changed = false
 
   for (const [key, fallback] of Object.entries(SETTING_DEFAULTS)) {
     if (!hasStorageKey(key)) {

@@ -80,6 +80,14 @@
   // 组件销毁时清理所有定时器
   $effect(() => () => timers.forEach(id => clearTimeout(id)))
 
+  // Escape 键关闭菜单
+  $effect(() => {
+    if (!show) return
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.() }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  })
+
   function artistsOf(t) {
     return t?.artists || t?.ar || []
   }

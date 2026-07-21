@@ -44,7 +44,8 @@
     if (entered) {
       hideTimer = safeTimeout(() => { controlsVisible = false; }, 4000);
     }
-    return () => timers.forEach(id => clearTimeout(id));
+    // 只清 hideTimer，避免误杀开/关动画 effect 的定时器
+    return () => { if (hideTimer) clearSafeTimer(hideTimer) }
   });
 
   function toggleLocalQueue() {

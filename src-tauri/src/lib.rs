@@ -139,6 +139,8 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 pub fn run() {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(API_TIMEOUT_SECS))
+        // 禁用自动重定向：防止白名单 host 302 到内网/攻击者地址绕过 SSRF 校验
+        .redirect(reqwest::redirect::Policy::none())
         .build()
         .expect("failed to create HTTP client");
 

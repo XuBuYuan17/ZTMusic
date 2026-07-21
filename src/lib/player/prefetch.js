@@ -117,6 +117,8 @@ export function createPrefetchManager() {
         const item = res?.data?.[0]
         const urlStr = normalizePlayUrl(item?.url)
         if (!urlStr) continue
+        // 复检：await 期间用户可能切歌，避免把过期的下一首预加载到 engine
+        if (isStale() || prefetchId !== activePrefetchId) return null
 
         const urls = setCachedUrls(nextTrack.id, [urlStr], { source: 'network', level })
         debugLog('prefetch', 'network-cached', { id: nextTrack.id, level, url: urlStr })

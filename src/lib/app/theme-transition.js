@@ -18,21 +18,21 @@ export function createThemeTransition({ getTheme, setTheme, tick }) {
     }
 
     shell?.classList.add('theme-transitioning')
-    const finish = () => { timer = setTimeout(() => shell?.classList.remove('theme-transitioning'), 860) }
 
     if (!reduceMotion && document.startViewTransition) {
       const transition = document.startViewTransition(async () => {
         setTheme(nextTheme)
         await tick()
       })
+      // 单一定时器：外层 920ms 是唯一真源，避免 finished reject/finally 叠一个 860ms 造成闪烁
       timer = setTimeout(() => shell?.classList.remove('theme-transitioning'), 920)
       // 快速连点会中止上一个过渡，ready/finished 随之 reject；吞掉以免未捕获错误
       transition.ready.catch(() => {})
-      transition.finished.catch(() => {}).finally(finish)
+      transition.finished.catch(() => {})
       return
     }
 
     setTheme(nextTheme)
-    finish()
+    timer = setTimeout(() => shell?.classList.remove('theme-transitioning'), 860)
   }
 }

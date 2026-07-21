@@ -10,13 +10,13 @@
 </script>
 
 {#if show}
-  <div class="confirm-overlay" role="button" tabindex="0" aria-label="关闭" onclick={handleCancel} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCancel() } }}>
+  <div class="confirm-overlay" role="button" tabindex="0" aria-label="关闭" onclick={handleCancel} onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); handleCancel() } }}>
     <div class="confirm-card" role="dialog" tabindex="-1" aria-modal="true" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
       <div class="confirm-title">{title}</div>
       <p class="confirm-message">{message}</p>
       <div class="confirm-actions">
-        <button class="confirm-btn confirm-btn-cancel" onclick={handleCancel}>{cancelText}</button>
-        <button class="confirm-btn confirm-btn-confirm" class:danger onclick={handleConfirm}>{confirmText}</button>
+        <button class="confirm-btn confirm-btn-cancel" onclick={handleCancel} aria-label={cancelText}>{cancelText}</button>
+        <button class="confirm-btn confirm-btn-confirm" class:danger onclick={handleConfirm} autofocus aria-label={confirmText}>{confirmText}</button>
       </div>
     </div>
   </div>

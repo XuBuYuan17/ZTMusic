@@ -55,7 +55,8 @@ export function useLike(onMessage) {
     } catch {
       onMessage?.('收藏失败')
     } finally {
-      if (player.id === trackId) busy = false
+      // 无论用户是否已切歌，都要释放 busy，避免按钮永久卡在 loading
+      busy = false
     }
   }
 

@@ -17,6 +17,7 @@
   let gestureStart = null
   let swipeDirection = $state('')
   let swipeTimer = null
+  let lyricRequestId = 0
 
   function fmt(t) {
     if (!t || isNaN(t)) return '0:00'
@@ -42,7 +43,7 @@
   function handleBarPointerDown(e) {
     if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
     gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
-    e.currentTarget?.setPointerCapture?.(e.pointerId)
+    try { e.currentTarget?.setPointerCapture?.(e.pointerId) } catch {}
   }
 
   function handleBarPointerUp(e) {
@@ -139,18 +140,19 @@
     barLyrics = []
     currentLyric = null
     lyricLoading = true
+    const requestId = ++lyricRequestId
 
     ;(async () => {
       try {
         const res = await ncm.lyric(id)
-        if (player.id !== id) return
+        if (requestId !== lyricRequestId) return
         barLyrics = parseLyricResponse(res).lines
           .map(normalizeLyricLine)
           .filter((line) => line.text)
       } catch (err) {
-        if (player.id === id) barLyrics = []
+        if (requestId === lyricRequestId) barLyrics = []
       } finally {
-        if (player.id === id) lyricLoading = false
+        if (requestId === lyricRequestId) lyricLoading = false
       }
     })()
   })

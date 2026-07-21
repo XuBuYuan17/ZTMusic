@@ -9,7 +9,7 @@
  */
 
 import { getDB, isReady } from './init.js'
-import { getStorage, setStorage } from '../utils/storage.js'
+import { getStorage, setStorage, removeStorage } from '../utils/storage.js'
 
 function isAvailable() {
   return isReady() && getDB()
@@ -76,6 +76,11 @@ export const dbSettings = {
    * @param {*} value
    */
   async setJson(key, value) {
+    // undefined 无法被 JSON.stringify 序列化（返回 undefined），走 remove 语义避免落库 "undefined" 字面量
+    if (value === undefined) {
+      await this.remove(key)
+      return
+    }
     await this.set(key, JSON.stringify(value))
   },
 
@@ -84,7 +89,11 @@ export const dbSettings = {
    * @param {string} key
    */
   async remove(key) {
-    if (!isAvailable()) return
+    if (!isAvailable()) {
+      // 保持与 get/set 一致：SQLite 不可用时清理 localStorage fallback，避免遗留脏值
+      removeStorage(key)
+      return
+    }
     try {
       const db = getDB()
       await db.sql(`DELETE FROM settings WHERE key = ?`, [key])

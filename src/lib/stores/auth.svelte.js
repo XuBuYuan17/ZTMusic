@@ -33,14 +33,19 @@ function deepFind(obj, key) {
 /** 检测登录 cookie 是否仍然有效，无效则自动清除登录状态 */
 async function checkLoginStatus() {
   if (!_loginMode) return true
+  const modeSnapshot = _loginMode  // 记录本次检测时的登录会话
   try {
     const res = await ncm.loginStatus()
     const ok = res.code === 200 || res.data?.code === 200
     const isAnon = res.account?.anonimousUser || res.data?.account?.anonimousUser
     if (!ok || isAnon) {
+      // 二次校验：await 期间用户可能已重新登录，_loginMode 会被 setUser 覆盖
+      if (_loginMode !== modeSnapshot) return true
       _cookieOk = false
       // 延迟一点清除登录态，让 UI 可以捕捉到 cookieOk 变化
       setTimeout(() => {
+        // 定时器触发时再次校验：这 100ms 内用户可能刚登录成功
+        if (_loginMode !== modeSnapshot) return
         clearCookie()
         _user = null
         _loginMode = null
@@ -67,6 +72,8 @@ function normalizeUser(user) {
     nickname: user.nickname || user.profile?.nickname || user.account?.nickname || deepFind(user, 'nickname') || '用户',
   }
 }
+
+let _currentQrPoll = null
 
 export const auth = {
   get user() { return _user },
@@ -95,9 +102,10 @@ export const auth = {
         _user = normalizeUser(stored)
         _vipInfo = vip
         _loginMode = mode
-        this.refreshVipInfo()
-        // 启动时主动校验 cookie 是否仍有效，失效则自动登出，避免“显示已登录但实际失效”
-        checkLoginStatus()
+        // 串行：先校验 cookie，通过后再刷新 VIP，避免失效 cookie 下的过期 VIP 信息被写回缓存
+        checkLoginStatus().then((valid) => {
+          if (valid) this.refreshVipInfo()
+        })
       } catch { this.clear() }
     }
   },
@@ -216,12 +224,26 @@ export const auth = {
   },
 
   startQrPolling(key, onStatus) {
+    // 幂等：新一轮轮询开始前先取消上一个，避免并发 poll 造成 cookie 静默覆盖
+    _currentQrPoll?.cancel()
+
     let canceled = false
     let timer
+    let retry = 0
+    const MAX_RETRIES = 3
+    const MAX_DURATION_MS = 90_000  // 硬超时：NCM QR 一般 2 分钟过期，90s 后主动放弃
+    const startedAt = Date.now()
+
     const promise = new Promise((resolve, reject) => {
       const poll = async () => {
+        if (canceled) return
+        if (Date.now() - startedAt > MAX_DURATION_MS) {
+          return reject(new Error('二维码轮询超时'))
+        }
         try {
           const check = await ncm.loginQrCheck(key)
+          if (canceled) return
+          retry = 0  // 成功一次就重置重试计数
           const code = check.code ?? check.data?.code
           onStatus?.(code)
           if (code === 803) {
@@ -235,13 +257,18 @@ export const auth = {
             reject(new Error('二维码已过期'))
             return
           }
-          if (!canceled) timer = setTimeout(poll, 1500)
+          timer = setTimeout(poll, 1500)
         } catch (e) {
-          reject(e)
+          // 网络错误：指数退避重试，超过上限才 reject
+          if (++retry > MAX_RETRIES) return reject(e)
+          timer = setTimeout(poll, 1500 * 2 ** retry)
         }
       }
       poll()
     })
-    return { promise, cancel: () => { canceled = true; clearTimeout(timer) } }
+
+    const handle = { promise, cancel: () => { canceled = true; clearTimeout(timer) } }
+    _currentQrPoll = handle
+    return handle
   }
 }

@@ -137,17 +137,33 @@ class AudioEngine {
     if (!url) return
     const nextUrl = String(url).trim()
     if (!nextUrl) return
-    // 如果是预加载命中，直接 swap
+    // 重复下发同一 URL：直接返回，避免打断当前播放
+    if (nextUrl === this.currentUrl) return
+    // 如果是预加载命中，直接 swap（swap 前会检查健康状态）
     if (this.preloadedUrl && this.preloadedUrl === nextUrl) {
-      this.swapToPreloaded()
-      return
+      if (this._isPreloadHealthy()) {
+        this.swapToPreloaded()
+        return
+      }
+      // 预加载损坏：丢弃预加载，走普通 load
+      this.cancelPreload()
     }
     if (this.currentUrl && this.currentUrl !== nextUrl) {
       this._resetAudio(this.audio)
     }
+    // 加载新 URL 时清理过期的预加载，避免后续 load 命中失效的 preloadedUrl
+    if (this.preloadedUrl && this.preloadedUrl !== nextUrl) {
+      this.cancelPreload()
+    }
     this.currentUrl = nextUrl
     this.audio.src = nextUrl
     this.audio.load()
+  }
+
+  /** 判断预加载元素是否可用于 swap（无 error、metadata 已加载） */
+  _isPreloadHealthy() {
+    // HAVE_METADATA=1；error 非空表示加载已失败
+    return !this.preloadAudio.error && this.preloadAudio.readyState >= 1
   }
 
   play() {

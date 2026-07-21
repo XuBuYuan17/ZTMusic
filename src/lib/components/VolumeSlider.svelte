@@ -27,7 +27,7 @@
     if (disabled) return
     e.preventDefault()
     dragging = true
-    e.currentTarget.setPointerCapture(e.pointerId)
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
     setFromPct(clientXToPct(e.clientX))
   }
 

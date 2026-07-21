@@ -126,8 +126,6 @@ export const router = {
   get routeStack() { return _routeStack }, get routeTransition() { return _routeTransition },
   get refreshKey() { return _refreshKey },
 
-  get recommendPlaylists() { return _recommendPlaylists },
-
   // 共享详情
   get heroColor() { return _heroColor },
   get playlistDetail() { return _playlistDetail }, get playlistDetailLoading() { return _playlistDetailLoading },

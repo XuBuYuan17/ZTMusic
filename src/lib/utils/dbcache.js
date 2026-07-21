@@ -63,8 +63,7 @@ export async function dbApiRead(key) {
         const entry = req.result
         if (!entry) return resolve(null)
         if (entry.expiresAt < Date.now()) {
-          // 过期，后台删除
-          dbApiDelete(key).catch(() => {})
+          // 过期：dbCleanExpired() 统一清理，此处不再开 readwrite 事务
           return resolve(null)
         }
         resolve(entry.value)
@@ -84,18 +83,6 @@ export async function dbApiWrite(key, value, ttl) {
       tx.objectStore(STORE_API).put({ key, value, expiresAt: Date.now() + ttl, savedAt: Date.now() })
       tx.oncomplete = resolve
       tx.onerror = () => resolve()
-    } catch { resolve() }
-  })
-}
-
-async function dbApiDelete(key) {
-  let db
-  try { db = await openDB() } catch { return }
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(STORE_API, 'readwrite')
-      tx.objectStore(STORE_API).delete(key)
-      tx.oncomplete = resolve
     } catch { resolve() }
   })
 }
@@ -158,31 +145,41 @@ export async function dbUrlSet(id, urls, ttlMs = 60 * 60 * 1000) {
       const expiresAt = Date.now() + Math.max(0, ttlMs)
       const tx = db.transaction(STORE_URL, 'readwrite')
       tx.objectStore(STORE_URL).put({ id: String(id), urls, expiresAt, savedAt: Date.now() })
-      tx.oncomplete = () => { trimUrlCache(); resolve(true) }
+      tx.oncomplete = () => { trimUrlCache().catch(() => {}); resolve(true) }
       tx.onerror = () => resolve(false)
     } catch { resolve(false) }
   })
 }
 
-async function trimUrlCache() {
-  let db
-  try { db = await openDB() } catch { return }
-  const tx = db.transaction(STORE_URL, 'readwrite')
-  const store = tx.objectStore(STORE_URL)
-  try {
-    const count = await new Promise((r) => { const c = store.count(); c.onsuccess = () => r(c.result) })
-    if (count <= MAX_URL_ENTRIES) return
-    const idx = store.index('savedAt')
-    const excess = count - MAX_URL_ENTRIES
-    let deleted = 0
-    idx.openCursor(IDBKeyRange.lowerBound(0)).onsuccess = (e) => {
-      const cursor = e.target.result
-      if (!cursor || deleted >= excess) return
-      cursor.delete()
-      deleted++
-      cursor.continue()
-    }
-  } catch {}
+function trimUrlCache() {
+  return new Promise((resolve) => {
+    openDB().then((db) => {
+      let tx
+      try {
+        tx = db.transaction(STORE_URL, 'readwrite')
+      } catch { return resolve() }
+      const store = tx.objectStore(STORE_URL)
+      const countReq = store.count()
+      // 全程在同一事务内以回调排队，避免 await 让事务提前 auto-commit
+      countReq.onsuccess = () => {
+        const count = countReq.result
+        if (count <= MAX_URL_ENTRIES) return
+        const excess = count - MAX_URL_ENTRIES
+        let deleted = 0
+        const cursorReq = store.index('savedAt').openCursor(IDBKeyRange.lowerBound(0))
+        cursorReq.onsuccess = (e) => {
+          const cursor = e.target.result
+          if (!cursor || deleted >= excess) return
+          cursor.delete()
+          deleted++
+          cursor.continue()
+        }
+      }
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => resolve()
+      tx.onabort = () => resolve()
+    }, () => resolve())
+  })
 }
 
 // ===== 统计 & 管理 =====

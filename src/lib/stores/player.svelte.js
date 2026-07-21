@@ -339,6 +339,8 @@ class PlayerState {
       this._waitingForFill = false
       this.loading = true
       this._clearError()
+      // 切换 URL 前保留 currentTime：fallback 触发时多半播到中途，切完让 onCanPlay 里的 seek 恢复进度
+      if (this.currentTime > 0) this._restoreSeeking = true
       engine.load(result.url)
       engine.play().catch(() => {
         this._setPlayerError('FallbackPlayFailed', { message: 'fallback play failed' }, ERROR_MESSAGES.PLAY_FAILED)
@@ -714,7 +716,10 @@ class PlayerState {
     this._abortController = new AbortController()
     const signal = this._abortController.signal
 
-    getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId, {}, signal)
+    getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId, {
+      isLoggedIn: this._authProvider.isLoggedIn(),
+      checkLoginStatus: () => this._authProvider.checkLoginStatus(),
+    }, signal)
       .then(({ urls }) => {
         if (requestId !== this._playRequestId) {
           this._clearLoadingTimer()

@@ -16,7 +16,12 @@ export function isNativeShell() {
 
 function onKeyDown(e) {
   const k = e.key.toLowerCase()
-  if (k === 'f5' || k === 'f3') {
+  // F5 及其修饰组合（Shift+F5 = 硬刷新）都拦；F3 仅在 Ctrl 组合时拦（避免误伤自定义无修饰快捷键）
+  if (k === 'f5') {
+    e.preventDefault()
+    return
+  }
+  if (k === 'f3' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault()
     return
   }

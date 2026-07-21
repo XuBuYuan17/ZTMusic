@@ -27,14 +27,16 @@
   let btnClass = $derived(isLyrics ? 'ly-ctrl-btn' : 'pc-btn')
   let playClass = $derived(isLyrics ? 'ly-play-btn' : 'pc-btn pc-btn--play')
 
-  // Mode cycle: list -> repeat -> shuffle -> list
   const modeLabels = {
     list: '顺序播放',
     repeat: '单曲循环',
     shuffle: '随机播放'
   }
 
-  // 统一按钮处理：阻止事件冒泡到歌词页容器（避免重复触发/误关闭）
+  // 组件级 toast 清理：收集所有 toast timer id，组件销毁时统一清理
+  const toastTimers = new Set()
+
+  // Mode cycle: list -> repeat -> shuffle -> list
   function handleClick(event, action) {
     event.preventDefault()
     event.stopPropagation()
@@ -92,9 +94,10 @@
       toast.style.animation = 'modeToastFadeOut 0.3s ease-out forwards'
       setTimeout(() => toast.remove(), 300)
     }, 1500)
+    toastTimers.add(id)
 
-    // 组件销毁时清理 toast
-    $effect(() => () => clearTimeout(id))
+    // 组件销毁时清理所有 toast 定时器
+    $effect(() => () => { toastTimers.forEach(clearTimeout); toastTimers.clear() })
   }
 
   // Add toast keyframes if not present

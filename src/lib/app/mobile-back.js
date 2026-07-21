@@ -13,13 +13,22 @@ export function installAndroidHistoryBack(onBack) {
   history.replaceState(state, '', location.href)
   history.pushState(state, '', location.href)
 
-  const handlePopState = () => {
+  const handlePopState = (event) => {
+    // forward/后退越过 guard 时，state 里不含标记 → 补一格 guard，避免 onBack 永远失效
+    if (!event.state?.zhetingBackGuard) {
+      history.pushState(state, '', location.href)
+      return
+    }
     if (!onBack()) return
     history.pushState(state, '', location.href)
   }
 
   window.addEventListener('popstate', handlePopState)
-  return () => window.removeEventListener('popstate', handlePopState)
+  return () => {
+    window.removeEventListener('popstate', handlePopState)
+    // 卸载时抵消 install 时 push 的那一格，避免残留空历史条目
+    if (history.state?.zhetingBackGuard) history.back()
+  }
 }
 
 export function installAndroidEdgeBack({ hasBackTarget, onBack }) {

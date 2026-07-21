@@ -55,23 +55,24 @@ function addCandidate(candidates, candidate) {
 }
 
 function withTimeout(promise, timeout, signal) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      const timer = setTimeout(() => reject(new Error('play url timeout')), timeout)
-      if (signal) {
-        if (signal.aborted) {
-          clearTimeout(timer)
-          reject(new DOMException('Aborted', 'AbortError'))
-        } else {
-          signal.addEventListener('abort', () => {
-            clearTimeout(timer)
-            reject(new DOMException('Aborted', 'AbortError'))
-          }, { once: true })
-        }
+  let timer = null
+  let onAbort = null
+  const cleanup = () => {
+    if (timer !== null) { clearTimeout(timer); timer = null }
+    if (onAbort && signal) { signal.removeEventListener('abort', onAbort); onAbort = null }
+  }
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('play url timeout')), timeout)
+    if (signal) {
+      if (signal.aborted) {
+        reject(new DOMException('Aborted', 'AbortError'))
+        return
       }
-    }),
-  ])
+      onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+      signal.addEventListener('abort', onAbort, { once: true })
+    }
+  })
+  return Promise.race([promise, timeoutPromise]).finally(cleanup)
 }
 
 function uniqueLevels(levels) {
@@ -275,7 +276,7 @@ export async function fillFallbackUrls(id, reqId, options = {}) {
   // Step 2: unblock 版本
   for (const level of allLevels) {
     if (!isActive()) return urls
-    const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT, authOpts)
+    const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
     if (result && !urls.includes(result.url)) urls.push(result.url)
   }
 
@@ -354,7 +355,7 @@ export async function getPlayableUrls(id, preferredLevel, prefetchCache, reqId, 
   // Phase 2: unblock 尝试（仍快速）
   if (candidates.length === 0) {
     for (const level of fastTiers) {
-      const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, authOpts)
+      const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, authOpts, signal)
       if (!result) continue
       if (result.isTrial) {
         addCandidate(trialCandidates, result)

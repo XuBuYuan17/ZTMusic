@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -32,9 +33,21 @@ impl LinuxMprisState {
         thread::spawn(move || {
             future::block_on(async move {
                 loop {
-                    if let Err(error) = run_mpris(&receiver, &thread_pending_action).await {
-                        log::warn!("Linux MPRIS disconnected: {error}, reconnecting in 5s...");
-                        std::thread::sleep(std::time::Duration::from_secs(5));
+                    match run_mpris(&receiver, &thread_pending_action).await {
+                        Ok(true) => {
+                            // channel 关闭：应用退出，结束线程
+                            log::debug!("Linux MPRIS channel closed, exiting MPRIS thread");
+                            return;
+                        }
+                        Ok(false) => {
+                            // run_task 主动结束（zbus 断连等），5s 后重连
+                            log::warn!("Linux MPRIS run_task ended, reconnecting in 5s...");
+                            std::thread::sleep(std::time::Duration::from_secs(5));
+                        }
+                        Err(error) => {
+                            log::warn!("Linux MPRIS disconnected: {error}, reconnecting in 5s...");
+                            std::thread::sleep(std::time::Duration::from_secs(5));
+                        }
                     }
                 }
             });
@@ -73,7 +86,11 @@ impl LinuxMprisState {
 async fn run_mpris(
     receiver: &async_channel::Receiver<LinuxMprisMessage>,
     pending_action: &Arc<Mutex<Option<String>>>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<bool, Box<dyn std::error::Error>> {
+    // 独立追踪播放状态：play_pause 回调不再跨线程读 player.playback_status()，
+    // 避免 Player 的 Sync 边界与 async 任务修改状态之间的数据竞争。
+    let is_playing = Arc::new(AtomicBool::new(false));
+
     let player = Player::builder("zheting")
         .identity("哲听")
         .desktop_entry("zheting")
@@ -109,11 +126,10 @@ async fn run_mpris(
     });
 
     let play_pause_pending = Arc::clone(pending_action);
-    player.connect_play_pause(move |player| {
-        let action = match player.playback_status() {
-            PlaybackStatus::Playing => "pause",
-            _ => "play",
-        };
+    let play_pause_state = Arc::clone(&is_playing);
+    player.connect_play_pause(move |_player| {
+        // 从共享原子读，而非从 player 读，回避 Player: Sync 未确定的问题
+        let action = if play_pause_state.load(Ordering::Relaxed) { "pause" } else { "play" };
         set_pending_action(&play_pause_pending, action);
     });
 
@@ -137,6 +153,7 @@ async fn run_mpris(
                     let _ = player.set_metadata(builder.build()).await;
                 }
                 LinuxMprisMessage::Playback { playing, position } => {
+                    is_playing.store(playing, Ordering::Relaxed);
                     player.set_position(seconds_to_time(position));
                     let status = if playing {
                         PlaybackStatus::Playing
@@ -150,7 +167,13 @@ async fn run_mpris(
     };
 
     future::race(run_task, message_task).await;
-    Ok(())
+    // race 结束：drop 两个 future 释放对 player 的借用；channel 关闭表示应用退出（返回
+    // true），否则是 run_task 主动结束（返回 false，需重连）。
+    let channel_closed = receiver.is_closed();
+    // 显式 drop player，触发 mpris-server 从 D-Bus 注销 org.mpris.MediaPlayer2.zheting，
+    // 避免重连时旧 bus name 与新 Player 冲突或泄漏。
+    drop(player);
+    Ok(channel_closed)
 }
 
 fn set_pending_action(pending_action: &Arc<Mutex<Option<String>>>, action: &str) {
