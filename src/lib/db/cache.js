@@ -16,6 +16,7 @@
 
 import { getDB, isReady, initDB } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
+import { debugLog } from '../utils/error.js'
 import {
   clearCache as clearLegacyApiCache,
   createCacheKey,
@@ -36,7 +37,12 @@ function isAvailable() {
 let _ensureDBPromise = null
 function ensureDB() {
   if (isReady()) return Promise.resolve(true)
-  if (!_ensureDBPromise) _ensureDBPromise = initDB().catch(() => false)
+  if (!_ensureDBPromise) {
+    _ensureDBPromise = initDB().catch((err) => {
+      debugLog('db', 'ensureDB failed', { message: err?.message || String(err) })
+      return false
+    })
+  }
   return _ensureDBPromise
 }
 
@@ -60,6 +66,7 @@ export const dbCache = {
     await ensureDB()
     const { allowExpired = false } = options
     if (!isAvailable()) {
+      debugLog('db', 'apiGet SQLite unavailable, using fallback', { key: key?.slice(0, 32) })
       const idbCached = allowExpired ? null : await dbApiRead(key).catch(() => null)
       if (idbCached) return idbCached
       return readCache(key, { allowExpired }) ?? null
@@ -182,6 +189,7 @@ export const dbCache = {
       if (rows.length > 0 && rows[0].urls) {
         const expiresAt = rows[0].expires_at
         if (expiresAt && expiresAt > 0 && expiresAt < Date.now()) {
+          debugLog('db', 'urlGet expired', { songId, expiresAt: new Date(expiresAt).toISOString() })
           return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
         }
         return JSON.parse(rows[0].urls)

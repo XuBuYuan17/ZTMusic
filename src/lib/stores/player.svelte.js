@@ -474,23 +474,11 @@ class PlayerState {
         isPlaying: this.playing,
         currentTime: this.currentTime,
         authOpts: { isLoggedIn: this._authProvider.isLoggedIn(), checkLoginStatus: () => this._authProvider.checkLoginStatus() },
-        onQualityUpgrade: ({ url, currentTime, urls }) => {
+        onQualityUpgrade: ({ urls }) => {
+          // ponytail: 仅更新 URL 列表，不中途切 URL —— 避免 pop/静音
+          // 音质升级后的 URL 会在下次切歌或 fallback 链遍历时被使用
           if (reqId !== this._playRequestId) return
           this._fallback.updateUrls(urls)
-          if (this.playing && !engine.paused) {
-            this.currentTime = currentTime
-            this._restoreSeeking = currentTime > 0
-            const next = this._fallback.next()
-            if (next.status === 'playing') {
-              engine.load(next.url)
-              engine.play().catch((err) => {
-                if (reqId !== this._playRequestId) return
-                this._setPlayerError('QualityUpgradePlayFailed', err, ERROR_MESSAGES.PLAY_FAILED, { silent: true })
-                this._fallback.removeUrl(url)
-                this._fallbackNext()
-              })
-            }
-          }
         },
         isStale: () => reqId !== this._playRequestId,
         signal,
