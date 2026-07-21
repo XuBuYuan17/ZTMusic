@@ -59,15 +59,39 @@ export function compactQueue(tracks) {
  * @param {string} options.mode - 播放模式: 'list' | 'shuffle' | 'repeat'
  * @returns {number}
  */
-export function getNextIndex({ currentIndex, queueLength, mode }) {
+export function getNextIndex({ currentIndex, queueLength, mode, shuffleState }) {
   if (queueLength === 0) return -1
-  if (mode === 'shuffle') {
-    return Math.floor(Math.random() * queueLength)
-  }
   if (mode === 'repeat') {
     return currentIndex
   }
+  if (mode === 'shuffle') {
+    return pickShuffleIndex(queueLength, currentIndex, shuffleState)
+  }
   return (currentIndex + 1) % queueLength
+}
+
+function pickShuffleIndex(queueLength, currentIndex, shuffleState) {
+  if (queueLength <= 1) return 0
+  if (!shuffleState) return Math.floor(Math.random() * queueLength)
+  if (!Array.isArray(shuffleState.order) || shuffleState.order.length !== queueLength) {
+    const arr = Array.from({ length: queueLength }, (_, i) => i)
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    if (arr[0] === currentIndex && queueLength > 1) {
+      const swapIdx = 1 + Math.floor(Math.random() * (queueLength - 1))
+      ;[arr[0], arr[swapIdx]] = [arr[swapIdx], arr[0]]
+    }
+    shuffleState.order = arr
+    shuffleState.position = -1
+  }
+  const pos = shuffleState.position ?? -1
+  if (pos < shuffleState.order.length - 1) {
+    shuffleState.position = pos + 1
+    return shuffleState.order[pos + 1]
+  }
+  return Math.floor(Math.random() * queueLength)
 }
 
 /**
@@ -82,16 +106,4 @@ export function getPrevIndex({ currentIndex, queueLength }) {
   return currentIndex <= 0 ? queueLength - 1 : currentIndex - 1
 }
 
-/**
- * 从队列中移除指定索引的曲目
- * @param {Array} queue
- * @param {number} index
- * @returns {{ queue: Array, newIndex: number, wasCurrent: boolean }}
- */
-export function removeFromQueueInternal(queue, index) {
-  if (index < 0 || index >= queue.length) {
-    return { queue, newIndex: -1, wasCurrent: false }
-  }
-  const newQueue = queue.filter((_, i) => i !== index)
-  return { queue: newQueue, newIndex: -1, wasCurrent: true }
-}
+

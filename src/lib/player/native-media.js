@@ -88,19 +88,6 @@ export async function initNativeMedia(options = {}) {
     } catch (err) {
       swallowError('NativeMedia.addPluginListener', err)
     }
-
-    try {
-      const { listen } = await import('@tauri-apps/api/event')
-      await listen('media_button', (event) => {
-        const action = event?.payload?.action
-        debugLog('native-media', 'event-action', { action })
-        if (action && _onMediaButton) {
-          _onMediaButton(action)
-        }
-      })
-    } catch (err) {
-      swallowError('NativeMedia.listen', err)
-    }
   }
 
   // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
@@ -131,6 +118,9 @@ async function pollNativeAction() {
  * 同步播放状态到原生平台
  * 由 PlayerState 在 timeupdate / 切歌时调用
  */
+let _pendingSyncTimer = null
+let _pendingSyncPayload = null
+
 export function syncNativeMedia() {
   if (!isTauriRuntime()) return
 
@@ -141,40 +131,50 @@ export function syncNativeMedia() {
   const playing = !!state.playing
   const metaKey = `${meta.title}|${meta.artist}|${meta.cover}|${dur}`
 
-  if (shouldUseNativeBridge() && _tauriInvoke) {
-    if (metaKey !== _lastNativeMeta) {
-      _lastNativeMeta = metaKey
-      debugLog('native-media', 'metadata', { title: meta.title, artist: meta.artist, duration: dur })
-      invokeNative('updateMetadata', {
-        title: meta.title || '',
-        artist: meta.artist || '',
-        coverUrl: meta.cover || '',
-        duration: dur,
-      }, 'updateMetadata')
+  if (!shouldUseNativeBridge() || !_tauriInvoke) return
 
-      _lastNativePosition = pos
-      _lastNativePlaying = playing
-      invokeNative('updatePlaybackState', {
-        playing,
-        position: pos,
-        duration: dur,
-      }, 'updatePlaybackState')
-    } else if (
-      playing !== _lastNativePlaying ||
-      Math.abs(pos - _lastNativePosition) >= (
-        isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POSITION_THRESHOLD : PLAYBACK.NATIVE_POSITION_THRESHOLD
-      )
-    ) {
-      _lastNativePosition = pos
-      _lastNativePlaying = playing
-      invokeNative('updatePlaybackState', {
-        playing,
-        position: pos,
-        duration: dur,
-      }, 'updatePlaybackState')
+  const metaChanged = metaKey !== _lastNativeMeta
+  const stateChanged = playing !== _lastNativePlaying ||
+    Math.abs(pos - _lastNativePosition) >= (
+      isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POSITION_THRESHOLD : PLAYBACK.NATIVE_POSITION_THRESHOLD
+    )
+
+  if (metaChanged || stateChanged) {
+    _pendingSyncPayload = { metaChanged, playing, position: pos, duration: dur, meta }
+    if (metaChanged) {
+      // 元数据变化立即同步
+      _doSyncNative()
+    } else if (!_pendingSyncTimer) {
+      // 播放状态变化防抖 500ms
+      _pendingSyncTimer = setTimeout(() => _doSyncNative(), 500)
     }
   }
   // Windows/macOS: navigator.mediaSession（Web Media Session API）由 PlayerState 直接处理。
+}
+
+function _doSyncNative() {
+  if (_pendingSyncTimer) {
+    clearTimeout(_pendingSyncTimer)
+    _pendingSyncTimer = null
+  }
+  const payload = _pendingSyncPayload
+  if (!payload) return
+  const { metaChanged, playing, position, duration, meta } = payload
+
+  if (metaChanged) {
+    _lastNativeMeta = `${meta.title}|${meta.artist}|${meta.cover}|${duration}`
+    debugLog('native-media', 'metadata', { title: meta.title, artist: meta.artist, duration: duration })
+    invokeNative('updateMetadata', {
+      title: meta.title || '',
+      artist: meta.artist || '',
+      coverUrl: meta.cover || '',
+      duration,
+    }, 'updateMetadata')
+  }
+  _lastNativePosition = position
+  _lastNativePlaying = playing
+  invokeNative('updatePlaybackState', { playing, position, duration }, 'updatePlaybackState')
+  _pendingSyncPayload = null
 }
 
 /** 清理资源 */
@@ -183,6 +183,11 @@ export function destroyNativeMedia() {
     clearInterval(_nativeMediaPollTimer)
     _nativeMediaPollTimer = null
   }
+  if (_pendingSyncTimer) {
+    clearTimeout(_pendingSyncTimer)
+    _pendingSyncTimer = null
+  }
+  _pendingSyncPayload = null
   _tauriInvoke = null
   _lastNativeMeta = ''
   _lastNativePosition = 0

@@ -45,9 +45,14 @@ async function getTauriInvoke() {
   return tauriInvokePromise
 }
 
-async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
+async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT, signal) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
+  const onAbort = () => controller.abort()
+  if (signal) {
+    if (signal.aborted) controller.abort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+  }
   try {
     return await fetch(url, { ...opts, signal: controller.signal })
   } catch (err) {
@@ -55,8 +60,11 @@ async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT) {
     throw err
   } finally {
     clearTimeout(timer)
+    if (signal) signal.removeEventListener('abort', onAbort)
   }
 }
+
+export { fetchWithTimeout }
 
 function isProxyBadGateway(err, status) {
   if (status === 502 || status === 503 || status === 504) return true
@@ -134,11 +142,14 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     opts.body = new URLSearchParams(formBody).toString()
   }
 
+  // 从 invoke 路径透传 signal：在 options 里取 signal，让 withCancel 的 abort 能中止底层 fetch
+  const signal = options.signal
+
   let attempt = 0
   const maxFetchRetries = 2
   while (attempt <= maxFetchRetries) {
     try {
-      const res = await fetchWithTimeout(url, opts)
+      const res = await fetchWithTimeout(url, opts, DEFAULT_TIMEOUT, signal)
       if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
       const data = await res.json().catch(() => ({ code: res.status, message: `API error: ${res.status}` }))
       if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
@@ -346,13 +357,13 @@ export const ncm = {
     return request('/login/qr/check', { key, timestamp: Date.now(), noCookie: true }, 'GET', null, { noCookie: true, allowErrorBody: true, randomCNIP: false, saveCookie: false, browserCredentials: 'omit' })
   },
   loginCellphone(phone, password) {
-    return request('/login/cellphone', { phone, password }, 'GET', null, { randomCNIP: false })
+    return request('/login/cellphone', {}, 'POST', { phone, password }, { randomCNIP: false })
   },
   loginEmail(email, password) {
-    return request('/login', { email, password }, 'GET', null, { randomCNIP: false })
+    return request('/login', {}, 'POST', { email, password }, { randomCNIP: false })
   },
   logout() {
-    return request('/logout', {}, 'GET', null, { randomCNIP: false })
+    return request('/logout', {}, 'POST', null, { randomCNIP: false })
   },
   loginStatus(cookie) {
     return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })

@@ -18,19 +18,22 @@
  */
 
 let currentRequestId = 0
+const _abortControllers = new Map()
 
 /**
  * 包装异步函数，自动忽略过期（被取消）的请求结果
  * @template T
- * @param {(isStale: () => boolean) => Promise<T>} asyncFn
+ * @param {(isStale: () => boolean, signal: AbortSignal) => Promise<T>} asyncFn
  * @returns {Promise<T>}
  */
 export async function withCancel(asyncFn) {
   const reqId = ++currentRequestId
+  const controller = new AbortController()
+  _abortControllers.set(reqId, controller)
   const isStale = () => currentRequestId !== reqId
 
   try {
-    const result = await asyncFn(isStale)
+    const result = await asyncFn(isStale, controller.signal)
     if (isStale()) {
       throw createCancelledError()
     }
@@ -41,7 +44,16 @@ export async function withCancel(asyncFn) {
       return undefined
     }
     throw err
+  } finally {
+    _abortControllers.delete(reqId)
   }
+}
+
+export function abortAllRequests() {
+  for (const controller of _abortControllers.values()) {
+    try { controller.abort() } catch { /* ignore */ }
+  }
+  _abortControllers.clear()
 }
 
 /**

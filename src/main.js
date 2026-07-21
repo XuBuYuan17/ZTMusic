@@ -1,11 +1,18 @@
 import './app.css'
-// 布局 CSS 静态加载：由 html.mobile-runtime 选择器分流，避免动态 import + 宽度媒体查询双轨打架
-import './app-mobile.css'
-import './app-pc.css'
-import { layoutMode } from './lib/utils/layout-mode.js'
+import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
 import { installNativeShell } from './lib/app/native-shell.js'
 
 installNativeShell()
+
+async function loadLayoutCss() {
+  // 初始化时直接判断，不需要订阅 store —— 此时 DOM 已经有尺寸了
+  const { isMobile } = shouldUseMobileLayout(window.innerWidth, window.innerHeight)
+  if (isMobile) {
+    await import('./app-mobile.css')
+  } else {
+    await import('./app-pc.css')
+  }
+}
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -81,6 +88,9 @@ function hideSplash() {
 
 ;(async () => {
   try {
+    // 按需加载布局 CSS
+    await loadLayoutCss()
+    
     // 开屏最小展示时间：ZT Music 光弧扫过 + Music/Loading 入场
     const MIN_SPLASH_DURATION = 3800
     await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_DURATION))

@@ -13,6 +13,7 @@ const STORE_API = 'api_cache'
 const STORE_URL = 'song_urls'
 const MAX_URL_ENTRIES = 500
 const DB_TIMEOUT = 3000 // 3s timeout for IndexedDB operations
+const URL_CACHE_TTL = 12 * 60 * 60 * 1000  // 歌曲 URL 过期时间：12 小时
 let _idbFailed = false // fast-failure flag
 
 function openDB() {
@@ -121,20 +122,42 @@ export async function dbUrlGet(id) {
     try {
       const tx = db.transaction(STORE_URL, 'readonly')
       const req = tx.objectStore(STORE_URL).get(String(id))
-      req.onsuccess = () => resolve(req.result?.urls || null)
+      req.onsuccess = () => {
+        if (!req.result?.urls) {
+          resolve(null)
+          return
+        }
+        // 新格式有 expiresAt，优先检查
+        if (typeof req.result.expiresAt === 'number') {
+          if (req.result.expiresAt < Date.now()) {
+            resolve(null)
+          } else {
+            resolve(req.result.urls)
+          }
+          return
+        }
+        // 兼容旧格式用 savedAt
+        if (req.result.savedAt && Date.now() - req.result.savedAt < URL_CACHE_TTL) {
+          resolve(req.result.urls)
+        } else {
+          // 过期了，返回 null 让它重新请求
+          resolve(null)
+        }
+      }
       req.onerror = () => resolve(null)
     } catch { resolve(null) }
   })
 }
 
-export async function dbUrlSet(id, urls) {
+export async function dbUrlSet(id, urls, ttlMs = 60 * 60 * 1000) {
   if (!id || !urls?.length) return
   let db
   try { db = await openDB() } catch { return }
   return new Promise((resolve) => {
     try {
+      const expiresAt = Date.now() + Math.max(0, ttlMs)
       const tx = db.transaction(STORE_URL, 'readwrite')
-      tx.objectStore(STORE_URL).put({ id: String(id), urls, savedAt: Date.now() })
+      tx.objectStore(STORE_URL).put({ id: String(id), urls, expiresAt, savedAt: Date.now() })
       tx.oncomplete = () => { trimUrlCache(); resolve(true) }
       tx.onerror = () => resolve(false)
     } catch { resolve(false) }

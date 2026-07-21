@@ -66,6 +66,6 @@ export function clearApiCache() {
   return dbCache.apiClear()
 }
 
-export function getApiCacheStats() {
-  return dbCache.getLegacyApiStats()
+export async function getApiCacheStats() {
+  return dbCache.getLegacyApiStatsAsync()
 }

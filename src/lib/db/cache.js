@@ -14,8 +14,9 @@
  *   await dbCache.urlSet(songId, urls)
  */
 
-import { getDB, isReady } from './init.js'
+import { getDB, isReady, initDB } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
+import { debugLog } from '../utils/error.js'
 import {
   clearCache as clearLegacyApiCache,
   createCacheKey,
@@ -27,9 +28,22 @@ import { dbApiClear, dbApiRead, dbApiWrite, dbClearAll, dbGetStats, dbUrlGet } f
 
 // ==== 降级前缀 ====
 const URL_CACHE_PREFIX = 'db_fallback_url_'  // localStorage fallback for song URLs
+const URL_CACHE_TTL = 12 * 60 * 60 * 1000  // 歌曲 URL 过期时间：12 小时
 
 function isAvailable() {
   return isReady() && getDB()
+}
+
+let _ensureDBPromise = null
+function ensureDB() {
+  if (isReady()) return Promise.resolve(true)
+  if (!_ensureDBPromise) {
+    _ensureDBPromise = initDB().catch((err) => {
+      debugLog('db', 'ensureDB failed', { message: err?.message || String(err) })
+      return false
+    })
+  }
+  return _ensureDBPromise
 }
 
 export const dbCache = {
@@ -49,8 +63,10 @@ export const dbCache = {
    */
   async apiGet(key, options = {}) {
     if (!key) return null
+    await ensureDB()
     const { allowExpired = false } = options
     if (!isAvailable()) {
+      debugLog('db', 'apiGet SQLite unavailable, using fallback', { key: key?.slice(0, 32) })
       const idbCached = allowExpired ? null : await dbApiRead(key).catch(() => null)
       if (idbCached) return idbCached
       return readCache(key, { allowExpired }) ?? null
@@ -83,6 +99,7 @@ export const dbCache = {
    */
   async apiSet(key, value, ttl) {
     if (!key || !ttl || ttl <= 0) return
+    await ensureDB()
     if (!isAvailable()) {
       writeCache(key, value, ttl)
       dbApiWrite(key, value, ttl).catch(() => {})
@@ -124,7 +141,18 @@ export const dbCache = {
 
   /** localStorage API 缓存统计（保持设置页同步展示兼容） */
   getLegacyApiStats() {
-    return getLegacyApiCacheStats()
+    return getLegacyApiStatsAsync()
+  },
+  async getLegacyApiStatsAsync() {
+    if (isAvailable()) {
+      try {
+        const db = getDB()
+        const rows = await db.sql(`SELECT COUNT(*) as cnt FROM api_cache`)
+        return { entries: rows[0]?.cnt || 0, source: 'sqlite' }
+      } catch { /* fall through */ }
+    }
+    const legacy = getLegacyApiCacheStats()
+    return { ...legacy, source: 'localStorage' }
   },
 
   // ========================
@@ -138,10 +166,18 @@ export const dbCache = {
    */
   async urlGet(songId) {
     if (!songId) return null
+    await ensureDB()
     const readLocalFallback = () => {
       const raw = getStorage(URL_CACHE_PREFIX + songId, '')
       if (!raw) return null
-      try { return JSON.parse(raw) } catch { return null }
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object' && Array.isArray(parsed.urls)) {
+          if (parsed.expiresAt && parsed.expiresAt < Date.now()) return null
+          return parsed.urls
+        }
+        return Array.isArray(parsed) ? parsed : null
+      } catch { return null }
     }
 
     if (!isAvailable()) {
@@ -149,8 +185,13 @@ export const dbCache = {
     }
     try {
       const db = getDB()
-      const rows = await db.sql(`SELECT urls FROM song_urls WHERE song_id = ?`, [songId])
+      const rows = await db.sql(`SELECT urls, expires_at FROM song_urls WHERE song_id = ?`, [songId])
       if (rows.length > 0 && rows[0].urls) {
+        const expiresAt = rows[0].expires_at
+        if (expiresAt && expiresAt > 0 && expiresAt < Date.now()) {
+          debugLog('db', 'urlGet expired', { songId, expiresAt: new Date(expiresAt).toISOString() })
+          return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
+        }
         return JSON.parse(rows[0].urls)
       }
       return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
@@ -163,21 +204,24 @@ export const dbCache = {
    * 缓存歌曲 URL
    * @param {number} songId
    * @param {string[]} urls
+   * @param {number} ttlMs 过期时间，默认 1 小时
    */
-  async urlSet(songId, urls) {
+  async urlSet(songId, urls, ttlMs = 60 * 60 * 1000) {
     if (!songId || !urls || urls.length === 0) return
+    await ensureDB()
+    const expiresAt = Date.now() + Math.max(0, ttlMs)
     if (!isAvailable()) {
-      setStorage(URL_CACHE_PREFIX + songId, JSON.stringify(urls))
+      setStorage(URL_CACHE_PREFIX + songId, JSON.stringify({ urls, expiresAt }))
       return
     }
     try {
       const db = getDB()
       await db.sql(
-        `INSERT INTO song_urls (song_id, urls, saved_at) VALUES (?, ?, ?) ON CONFLICT(song_id) DO UPDATE SET urls = excluded.urls, saved_at = excluded.saved_at`,
-        [songId, JSON.stringify(urls), Date.now()]
+        `INSERT INTO song_urls (song_id, urls, expires_at, saved_at) VALUES (?, ?, ?, ?) ON CONFLICT(song_id) DO UPDATE SET urls = excluded.urls, expires_at = excluded.expires_at, saved_at = excluded.saved_at`,
+        [songId, JSON.stringify(urls), expiresAt, Date.now()]
       )
     } catch {
-      setStorage(URL_CACHE_PREFIX + songId, JSON.stringify(urls))
+      setStorage(URL_CACHE_PREFIX + songId, JSON.stringify({ urls, expiresAt }))
     }
   },
 

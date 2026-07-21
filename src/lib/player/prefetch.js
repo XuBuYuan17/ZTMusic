@@ -6,6 +6,7 @@
  */
 
 import { ncm } from '../api/client.js'
+import { getNextIndex } from './queue.js'
 import { dbCache } from '../db/cache.js'
 import { LIMITS } from '../utils/constants.js'
 import { debugLog, swallowError } from '../utils/error.js'
@@ -18,17 +19,6 @@ function normalizePlayUrl(url) {
   if (!url || typeof url !== 'string') return ''
   return url.trim().replace(/^http:\/\/([^/?#]+\.music\.126\.net)([/?#]|$)/i, 'https://$1$2')
 }
-
-function pickNextIndex(queue, queueIndex, mode) {
-  if (queue.length < 2 || queueIndex < 0) return -1
-  if (mode === 'repeat') return -1
-  if (mode === 'shuffle') {
-    const candidates = queue.map((_, index) => index).filter(index => index !== queueIndex)
-    return candidates[Math.floor(Math.random() * candidates.length)] ?? -1
-  }
-  return (queueIndex + 1) % queue.length
-}
-
 /**
  * 创建预取缓存管理器
  * @returns {{ cache: Map, clear: Function, prefetchNextTrackUrl: Function }}
@@ -96,12 +86,13 @@ export function createPrefetchManager() {
       reqId = 0,
       isStale = () => false,
       preload,
+      shuffleState,
     } = options
 
     const prefetchId = ++activePrefetchId
     if (queue.length < 2 || queueIndex < 0 || isStale()) return null
 
-    const nextIdx = pickNextIndex(queue, queueIndex, mode)
+    const nextIdx = getNextIndex({ currentIndex: queueIndex, queueLength: queue.length, mode, shuffleState })
     if (nextIdx < 0 || nextIdx === queueIndex) return null
     const nextTrack = queue[nextIdx]
     if (!nextTrack?.id) return null
