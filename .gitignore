@@ -38,3 +38,7 @@ src-tauri/gen/android/.gradle
 *.njsproj
 *.sln
 *.sw?
+
+# Agent / AI development files
+.agents/
+AGENTS.md
