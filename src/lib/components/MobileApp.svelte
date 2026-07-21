@@ -138,87 +138,104 @@
     ontouchstart={handleTouchStart}
     ontouchmove={handleTouchMove}
   >
-    {#key activeView}
-      <div class="m-view-fade">
-        {#if activeView === 'home'}
-          <MobileHome
-            onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-            onOpenAlbum={(id) => onOpenAlbum?.(id)}
-            onOpenArtist={(id) => onOpenArtist?.(id)}
-            onOpenLogin={() => onOpenLogin?.()}
-            onNavigate={onNavigate}
-          />
-        {:else if activeView === 'explore'}
-          <MobileBrowse
-            onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-            onOpenAlbum={(id) => onOpenAlbum?.(id)}
-            onOpenArtist={(id) => onOpenArtist?.(id)}
-            onPlaySong={router.playExploreSong}
-            onBannerClick={router.handleBannerClick}
-            onSearch={() => onSearch?.()}
-          />
-        {:else if activeView === 'library'}
-          <MobileLibrary
-            onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-            onOpenLogin={() => onOpenLogin?.()}
-            onNavigate={onNavigate}
-            {onOpenArtist}
-            {onOpenAlbum}
-          />
-        {:else if activeView === 'settings'}
-          <MobileSettings {theme} onSetTheme={onSetTheme} />
-        {:else if activeView === 'liked'}
-          <div class="m-subpage m-subpage-enter">
-            <LikedPage {onOpenArtist} {onOpenAlbum} onPlayAll={router.playAll} onPlayTrack={router.playTrack} />
-          </div>
-        {:else if activeView === 'recent'}
-          <div class="m-subpage m-subpage-enter">
-            <RecentPage {onOpenArtist} {onOpenAlbum} />
-          </div>
-        {:else if activeView === 'dailyHistory'}
-          <div class="m-subpage m-subpage-enter">
-            <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
-          </div>
-        {:else if activeView === 'messages'}
-          <div class="m-subpage m-subpage-enter">
-            <MessagesPage onNavigate={onNavigate} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
-          </div>
-        {:else if activeView === 'playlist' || activeView === 'album'}
-          <PlaylistPage
-            playlistDetail={router.playlistDetail}
-            loading={router.playlistDetailLoading}
-            loadingMore={router.playlistLoadingMore}
-            error={router.playlistDetailError}
-            selectedId={router.selectedId}
-            heroColor={router.heroColor}
-            detailType={activeView === 'album' ? '专辑' : '歌单'}
-            onBack={onBack}
-            onPlayAll={router.playAll}
-            onPlayTrack={router.playTrack}
-            onOpenArtist={onOpenArtist}
-            onOpenAlbum={onOpenAlbum}
-          />
-        {:else if activeView === 'search'}
-          <SearchPage onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onOpenPlaylist={onOpenPlaylist} />
-        {:else if activeView === 'artist'}
-          <ArtistPage
-            artist={router.artistDetail}
-            songs={router.artistSongs}
-            albums={router.artistAlbums}
-            loading={router.artistLoading}
-            error={router.artistError}
-            onBack={onBack}
-            onPlayAll={router.playArtistAll}
-            onPlayTrack={router.playArtistTrack}
-            onOpenAlbum={onOpenAlbum}
-            onOpenArtist={onOpenArtist}
-            onToggleFollow={router.toggleArtistFollow}
-          />
-        {:else}
-          <div class="m-blank"></div>
-        {/if}
+    <div class="m-view-fade">
+      <!-- 所有页面常驻 DOM，用 display:none 隐藏非活跃页面，避免切换时重建 + 重复加载 -->
+      <div style:display={activeView === 'home' ? 'block' : 'none'}>
+        <MobileHome
+          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
+          onOpenAlbum={(id) => onOpenAlbum?.(id)}
+          onOpenArtist={(id) => onOpenArtist?.(id)}
+          onOpenLogin={() => onOpenLogin?.()}
+          onNavigate={onNavigate}
+        />
       </div>
-    {/key}
+
+      <div style:display={activeView === 'explore' ? 'block' : 'none'}>
+        <MobileBrowse
+          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
+          onOpenAlbum={(id) => onOpenAlbum?.(id)}
+          onOpenArtist={(id) => onOpenArtist?.(id)}
+          onPlaySong={router.playExploreSong}
+          onBannerClick={router.handleBannerClick}
+          onSearch={() => onSearch?.()}
+        />
+      </div>
+
+      <div style:display={activeView === 'library' ? 'block' : 'none'}>
+        <MobileLibrary
+          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
+          onOpenLogin={() => onOpenLogin?.()}
+          onNavigate={onNavigate}
+          {onOpenArtist}
+          {onOpenAlbum}
+        />
+      </div>
+
+      <div style:display={activeView === 'settings' ? 'block' : 'none'}>
+        <MobileSettings {theme} onSetTheme={onSetTheme} />
+      </div>
+
+      <div style:display={activeView === 'liked' ? 'block' : 'none'}>
+        <div class="m-subpage m-subpage-enter">
+          <LikedPage {onOpenArtist} {onOpenAlbum} onPlayAll={router.playAll} onPlayTrack={router.playTrack} />
+        </div>
+      </div>
+
+      <div style:display={activeView === 'recent' ? 'block' : 'none'}>
+        <div class="m-subpage m-subpage-enter">
+          <RecentPage {onOpenArtist} {onOpenAlbum} />
+        </div>
+      </div>
+
+      <div style:display={activeView === 'dailyHistory' ? 'block' : 'none'}>
+        <div class="m-subpage m-subpage-enter">
+          <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
+        </div>
+      </div>
+
+      <div style:display={activeView === 'messages' ? 'block' : 'none'}>
+        <div class="m-subpage m-subpage-enter">
+          <MessagesPage onNavigate={onNavigate} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
+        </div>
+      </div>
+
+      <div style:display={activeView === 'playlist' || activeView === 'album' ? 'block' : 'none'}>
+        <PlaylistPage
+          playlistDetail={router.playlistDetail}
+          loading={router.playlistDetailLoading}
+          loadingMore={router.playlistLoadingMore}
+          error={router.playlistDetailError}
+          selectedId={router.selectedId}
+          heroColor={router.heroColor}
+          detailType={activeView === 'album' ? '专辑' : '歌单'}
+          onBack={onBack}
+          onPlayAll={router.playAll}
+          onPlayTrack={router.playTrack}
+          onOpenArtist={onOpenArtist}
+          onOpenAlbum={onOpenAlbum}
+        />
+      </div>
+
+      <div style:display={activeView === 'search' ? 'block' : 'none'}>
+        <SearchPage onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onOpenPlaylist={onOpenPlaylist} />
+      </div>
+
+      <div style:display={activeView === 'artist' ? 'block' : 'none'}>
+        <ArtistPage
+          artist={router.artistDetail}
+          songs={router.artistSongs}
+          albums={router.artistAlbums}
+          loading={router.artistLoading}
+          error={router.artistError}
+          onBack={onBack}
+          onPlayAll={router.playArtistAll}
+          onPlayTrack={router.playArtistTrack}
+          onOpenAlbum={onOpenAlbum}
+          onOpenArtist={onOpenArtist}
+          onToggleFollow={router.toggleArtistFollow}
+        />
+      </div>
+    </div>
   </main>
 
   <!-- 底部主导航 -->

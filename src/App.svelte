@@ -264,9 +264,9 @@
 
     <div class="content-scroll" bind:this={contentScrollEl}>
       <div class="content-inner">
-        {#key router.activeView}
-        <div class="page-enter" class:book-turn={router.routeTransition === 'book-turn'}>
-          {#if router.activeView === 'home'}
+        <div class="page-enter">
+          <!-- 所有页面常驻 DOM，用 display:none 隐藏非活跃页面，避免切换时重建 + 重复加载 -->
+          <div style:display={router.activeView === 'home' ? 'block' : 'none'}>
             <HomePage
               onNavigate={router.handleNav}
               onOpenLogin={() => showLogin = true}
@@ -275,8 +275,9 @@
               onOpenAlbum={router.goAlbum}
               onOpenFollows={openFollows}
             />
+          </div>
 
-          {:else if router.activeView === 'playlist' || router.activeView === 'album'}
+          <div style:display={router.activeView === 'playlist' || router.activeView === 'album' ? 'block' : 'none'}>
             <PlaylistPage
               playlistDetail={router.playlistDetail}
               loading={router.playlistDetailLoading}
@@ -291,11 +292,13 @@
               onOpenArtist={router.goArtist}
               onOpenAlbum={router.goAlbum}
             />
+          </div>
 
-          {:else if router.activeView === 'search'}
+          <div style:display={router.activeView === 'search' ? 'block' : 'none'}>
             <SearchPage onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
+          </div>
 
-          {:else if router.activeView === 'artist'}
+          <div style:display={router.activeView === 'artist' ? 'block' : 'none'}>
             <ArtistPage
               artist={router.artistDetail}
               songs={router.artistSongs}
@@ -309,8 +312,9 @@
               onOpenArtist={router.goArtist}
               onToggleFollow={router.toggleArtistFollow}
             />
+          </div>
 
-          {:else if router.activeView === 'explore'}
+          <div style:display={router.activeView === 'explore' ? 'block' : 'none'}>
             <ExplorePage
               onSearch={() => showSearch = true}
               onBannerClick={router.handleBannerClick}
@@ -319,44 +323,50 @@
               onPlaySong={router.playExploreSong}
               onOpenArtist={router.goArtist}
             />
+          </div>
 
-          {:else if router.activeView === 'dailyHistory'}
+          <div style:display={router.activeView === 'dailyHistory' ? 'block' : 'none'}>
             <DailyHistoryPage
               onOpenArtist={router.goArtist}
               onOpenAlbum={router.goAlbum}
             />
+          </div>
 
-          {:else if router.activeView === 'library'}
+          <div style:display={router.activeView === 'library' ? 'block' : 'none'}>
             <LibraryPage
               onOpenLogin={() => showLogin = true}
               onOpenPlaylist={router.goPlaylist}
             />
+          </div>
 
-          {:else if router.activeView === 'recent'}
+          <div style:display={router.activeView === 'recent' ? 'block' : 'none'}>
             <RecentPage
               onOpenArtist={router.goArtist}
               onOpenAlbum={router.goAlbum}
             />
+          </div>
 
-          {:else if router.activeView === 'messages'}
+          <div style:display={router.activeView === 'messages' ? 'block' : 'none'}>
             <MessagesPage onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
+          </div>
 
-          {:else if router.activeView === 'liked'}
+          <div style:display={router.activeView === 'liked' ? 'block' : 'none'}>
             <LikedPage
               onPlayAll={router.playAll}
               onPlayTrack={router.playTrack}
               onOpenArtist={router.goArtist}
               onOpenAlbum={router.goAlbum}
             />
+          </div>
 
-          {:else if router.activeView === 'settings'}
+          <div style:display={router.activeView === 'settings' ? 'block' : 'none'}>
             <SettingsPage {theme} onSetTheme={(value) => theme = value} />
+          </div>
 
-          {:else if router.activeView === 'about'}
+          <div style:display={router.activeView === 'about' ? 'block' : 'none'}>
             <AboutPage />
-          {/if}
+          </div>
         </div>
-        {/key}
       </div>
     </div>
 
