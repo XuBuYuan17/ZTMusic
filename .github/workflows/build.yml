@@ -230,20 +230,18 @@ jobs:
           text = gradle.read_text()
 
           # 编译/目标 SDK：正则替换，未命中则失败
-          new_text = re.sub(r'compileSdk\s*=\s*\d+', f'compileSdk = {api}', text)
-          if new_text == text:
+          # 注意：不能用 new_text == text 判断命中——值已经正确时 re.sub 也是 no-op，会被误判为未命中
+          if not re.search(r'compileSdk\s*=\s*\d+', text):
               raise SystemExit('Patch Android compatibility: could not find compileSdk in build.gradle.kts')
-          text = new_text
+          text = re.sub(r'compileSdk\s*=\s*\d+', f'compileSdk = {api}', text)
 
-          new_text = re.sub(r'targetSdk\s*=\s*\d+', f'targetSdk = {api}', text)
-          if new_text == text:
+          if not re.search(r'targetSdk\s*=\s*\d+', text):
               raise SystemExit('Patch Android compatibility: could not find targetSdk in build.gradle.kts')
-          text = new_text
+          text = re.sub(r'targetSdk\s*=\s*\d+', f'targetSdk = {api}', text)
 
-          new_text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 24', text)
-          if new_text == text:
+          if not re.search(r'minSdk\s*=\s*\d+', text):
               raise SystemExit('Patch Android compatibility: could not find minSdk in build.gradle.kts')
-          text = new_text
+          text = re.sub(r'minSdk\s*=\s*\d+', 'minSdk = 24', text)
 
           # androidx.media 依赖：未找到 activity-ktx 行则失败
           if 'androidx.media:media:' not in text:
