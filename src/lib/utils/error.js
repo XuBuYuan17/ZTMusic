@@ -182,3 +182,48 @@ export function swallowError(context, err) {
     console.warn(`[${context}] (swallowed)`, err?.message || String(err))
   }
 }
+
+// 动态 import toast 用（避免循环依赖：toast.svelte.js 不依赖 error.js）
+let _toast = null
+function getToast() {
+  if (!_toast) {
+    import('../stores/toast.svelte.js').then(m => { _toast = m.toast }).catch(() => {})
+  }
+  return _toast
+}
+
+/**
+ * 分类错误并显示对应 toast。
+ * 在 API 调用、数据加载等用户可见失败场景使用。
+ *
+ * 用法：
+ *   catch (err => handleErrorWithToast('加载失败', err))
+ */
+export function handleErrorWithToast(fallbackMessage, err) {
+  const kind = classifyError(err)
+  const toast = getToast()
+  const msg = err?.message || fallbackMessage
+  if (!toast) {
+    console.error('[error]', err)
+    return
+  }
+  switch (kind) {
+    case ERROR_KIND.NETWORK:
+      toast.error('网络连接失败，请检查网络')
+      break
+    case ERROR_KIND.TIMEOUT:
+      toast.warning('请求超时，请重试')
+      break
+    case ERROR_KIND.AUTH:
+      toast.warning('登录已过期，请重新登录')
+      break
+    case ERROR_KIND.TRIAL:
+      toast.warning('该歌曲需要 VIP')
+      break
+    case ERROR_KIND.NO_URL:
+      toast.error('无法获取播放地址')
+      break
+    default:
+      toast.error(msg || fallbackMessage)
+  }
+}

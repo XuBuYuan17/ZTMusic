@@ -35,6 +35,7 @@
   import LikedPage from './lib/pages/pc/Liked.svelte'
   import PlaylistPage from './lib/pages/PlaylistPage.svelte'
   import AboutPage from './lib/pages/AboutPage.svelte'
+  import Toast from './lib/components/ui/Toast.svelte'
 
   const isMobileRuntime = () => isMobileDevice()
 
@@ -384,3 +385,4 @@
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
+<Toast />

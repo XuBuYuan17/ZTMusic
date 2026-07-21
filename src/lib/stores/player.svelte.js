@@ -26,6 +26,7 @@ import { ERROR_KIND, createErrorSnapshot, debugLog, swallowError } from '../util
 import { getBooleanSetting, getSetting, setSetting } from '../utils/settings.js'
 import { createFallbackController } from '../player/fallback.js'
 import { abortAllRequests } from '../utils/request.js'
+import { toast } from './toast.svelte.js'
 
 class PlayerState {
   // ===== 当前歌曲 =====
@@ -68,6 +69,8 @@ class PlayerState {
   _firstUrlLevel = ''
   /** 自动切歌锁 */
   _advanceLock = false
+  /** 自动切歌定时器引用 —— destroy 时清理 */
+  _advanceTimer = null
   /** 媒体会话是否已初始化 */
   _mediaSessionInited = false
   /** fallback URL 遍历控制器 */
@@ -289,6 +292,8 @@ class PlayerState {
     })
     this.error = userMessage || ERROR_MESSAGES.PLAY_FAILED
     debugLog('player', 'error', snapshot)
+    // 用户可见错误显示 toast（silent 标记的跳过，如后台填充失败）
+    if (!extra?.silent) toast.error(this.error)
   }
 
   _setNoUrlError(context = 'PlayerNoUrl', extra = {}) {
@@ -313,9 +318,10 @@ class PlayerState {
     if (this._advanceLock || this.queue.length === 0) return
     this._advanceLock = true
     this._shouldAutoPlay = true
-    setTimeout(() => {
+    this._advanceTimer = setTimeout(() => {
       if (!this._advanceLock) return
       this._advanceLock = false
+      this._advanceTimer = null
       this.next()
     }, PLAYBACK.ADVANCE_DELAY)
   }
@@ -730,6 +736,8 @@ class PlayerState {
         if (urls.length > 0) {
           const first = this._fallback.next()
           if (first.status === 'playing') engine.load(first.url)
+          // 后台填充更多 URL，避免恢复时第一条 URL 过期导致无 fallback
+          this._fillFallbackInBackground(savedId, requestId, signal)
         } else {
           this._clearLoadingTimer()
           this.loading = false
@@ -758,6 +766,10 @@ class PlayerState {
   /** 销毁，释放资源 */
   destroy() {
     this._clearLoadingTimer()
+    if (this._advanceTimer) {
+      clearTimeout(this._advanceTimer)
+      this._advanceTimer = null
+    }
     if (this._saveTimer) {
       clearTimeout(this._saveTimer)
       this._saveTimer = null

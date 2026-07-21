@@ -1,4 +1,5 @@
 import { normalizeAlbum, normalizePlaylist, normalizeSong, parseHomepageBlocks } from '../utils/normalize.js'
+import { handleErrorWithToast } from '../utils/error.js'
 
 export async function loadExploreData(ncm) {
   const [bannerRes, personalizedRes, topPlaylistRes, newSongRes, recommendRes, albumNewestRes, homepageRes] = await Promise.allSettled([
@@ -10,6 +11,11 @@ export async function loadExploreData(ncm) {
     ncm.albumNewest().catch(() => ({ albums: [] })),
     ncm.homepageBlockPage(false).catch(() => null),
   ])
+
+  // 如果全部请求都失败，提示用户
+  const allFailed = [bannerRes, personalizedRes, topPlaylistRes, newSongRes, recommendRes, albumNewestRes]
+    .every(r => r.status === 'rejected')
+  if (allFailed) handleErrorWithToast('发现页加载失败', new Error('所有请求均失败'))
 
   const banners = ((bannerRes.status === 'fulfilled' ? bannerRes.value : {})?.banners || []).map((banner, index) => ({
     id: banner.targetId || banner.id || index,

@@ -1,5 +1,6 @@
 import { normalizeLocalHistorySong, normalizePlaylist } from '../utils/normalize.js'
 import { formatPlayCount } from '../format.js'
+import { handleErrorWithToast } from '../utils/error.js'
 
 function settledValue(result, fallback = null) {
   return result.status === 'fulfilled' ? result.value : fallback
@@ -89,7 +90,10 @@ export async function loadHomeData(ncm, user) {
     }
   }
 
-  const plRes = await ncm.userPlaylist(uid).catch(() => ({ playlist: [] }))
+  const plRes = await ncm.userPlaylist(uid).catch((err) => {
+    handleErrorWithToast('歌单加载失败', err)
+    return { playlist: [] }
+  })
   const allPlaylists = (plRes.playlist || []).slice(0, 50)
   const userPlaylists = allPlaylists.filter(playlist => playlist.creator?.userId !== uid && playlist.specialType !== 5).map(normalizePlaylist).filter(Boolean)
 

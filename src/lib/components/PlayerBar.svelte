@@ -18,6 +18,7 @@
   let swipeDirection = $state('')
   let swipeTimer = null
   let lyricRequestId = 0
+  let _lyricRequestedId = null
 
   function fmt(t) {
     if (!t || isNaN(t)) return '0:00'
@@ -134,7 +135,11 @@
       return
     }
 
-    if (lyricTrackId === id) return
+    // 注意：不能在这里读 lyricTrackId 做短路判断 —— effect 会追踪 lyricTrackId，
+    // 导致设置 lyricTrackId = id 后 effect 重入，直接 return，歌词请求永远发不出去。
+    // 改用局部变量记录已请求的 id，避免依赖自身状态。
+    if (_lyricRequestedId === id) return
+    _lyricRequestedId = id
 
     lyricTrackId = id
     barLyrics = []
