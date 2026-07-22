@@ -82,8 +82,17 @@ class MediaButtonReceiver : BroadcastReceiver() {
             "MEDIA_PAUSE" -> "pause"
             "MEDIA_NEXT" -> "next"
             "MEDIA_PREV" -> "prev"
-            // 耳机拔出/蓝牙断开 → 暂停
+            // 耳机拔出 → 暂停
             AudioManager.ACTION_AUDIO_BECOMING_NOISY -> "pause"
+            // 蓝牙 A2DP / Headset 断开 → 暂停
+            "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" -> {
+                val state = intent.getIntExtra("android.bluetooth.a2dp.profile.extra.STATE", -1)
+                if (state == 0) "pause" else null  // 0 = DISCONNECTED
+            }
+            "android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED" -> {
+                val state = intent.getIntExtra("android.bluetooth.headset.profile.extra.STATE", -1)
+                if (state == 0) "pause" else null  // 0 = DISCONNECTED
+            }
             else -> null
         }
         if (pluginAction != null) {
@@ -190,6 +199,9 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
                 addAction("MEDIA_PREV")
                 // 耳机拔出暂停
                 addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+                // 蓝牙 A2DP / Headset 断开
+                addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
+                addAction("android.bluetooth.headset.profile.action.CONNECTION_STATE_CHANGED")
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 activity.registerReceiver(MediaButtonReceiver(), filter, Context.RECEIVER_NOT_EXPORTED)
@@ -225,6 +237,17 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         @Suppress("DEPRECATION")
         val result = audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
         return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    /** 释放音频焦点——暂停/停止时调用，让其他 App 可以播放 */
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
+        }
+        audioFocusRequest = null
     }
 
     @Command
@@ -273,8 +296,8 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         val isPlaying = args.playing ?: false
         val position = ((args.position ?: 0.0) * 1000).toLong()
 
-        // 播放时请求音频焦点
-        if (isPlaying) requestAudioFocus()
+        // 音频焦点管理：播放时请求，暂停/停止时释放
+        if (isPlaying) requestAudioFocus() else abandonAudioFocus()
 
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
         val actions = (PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
@@ -292,9 +315,10 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         val meta = mediaSession?.controller?.metadata
         val title = meta?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
         val artist = meta?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
-        if (shouldRefreshPlaybackNotification(title, artist, isPlaying)) {
+        // 播放时持续更新通知（支持 Android 13+ 进度条），暂停时仅更新状态
+        if (shouldRefreshPlaybackNotification(title, artist, isPlaying) || isPlaying) {
             startPlaybackService(title, artist, isPlaying)
-            updateNotification(title, artist, null, isPlaying)
+            updateNotification(title, artist, null, isPlaying, position)
             rememberPlaybackNotification(title, artist, isPlaying)
         }
         invoke.resolve()
@@ -336,7 +360,8 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         title: String,
         artist: String,
         art: Bitmap?,
-        isPlaying: Boolean
+        isPlaying: Boolean,
+        positionMs: Long = 0
     ) {
         val ctx = activity
 
@@ -425,7 +450,18 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
                 val sampleSize = calculateSampleSize(bounds.outWidth, bounds.outHeight)
                 val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
-                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                // 解码超时保护：大图解码不应超过 3 秒
+                val bitmap = java.util.concurrent.Callable {
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                }.let { callable ->
+                    val future = java.util.concurrent.Executors.newSingleThreadExecutor().submit(callable)
+                    try {
+                        future.get(3, java.util.concurrent.TimeUnit.SECONDS)
+                    } catch (e: Exception) {
+                        future.cancel(true)
+                        null
+                    }
+                }
                 callback(bitmap)
             } catch (_: Exception) {
                 callback(null)
