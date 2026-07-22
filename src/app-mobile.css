@@ -156,6 +156,12 @@ html.mobile-runtime[data-theme="dark"] .m-tabs::after {
     inset 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
 
+html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar,
+html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar.compact,
+html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar.with-lyrics {
+  background: rgba(30, 30, 32, 0.92) !important;
+}
+
 html.mobile-runtime .mobile-app.tabs-hidden .m-tabs {
   transform: translateY(calc(100% + 28px));
   opacity: 0;
@@ -326,6 +332,9 @@ html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
   grid-template-columns: minmax(0, 1fr) 48px 44px;
   gap: 6px;
   border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
   transform: none !important;
 }
