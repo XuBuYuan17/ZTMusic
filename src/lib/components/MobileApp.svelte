@@ -5,7 +5,7 @@
   import Icon from './ui/Icon.svelte'
   import Sidebar from './Sidebar.svelte'
 
-  import MobileHome from '../pages/pc/Home.svelte'
+  import MobileHome from '../pages/mobile/Home.svelte'
   import MobileBrowse from '../pages/mobile/Browse.svelte'
   import MobileLibrary from '../pages/mobile/Library.svelte'
   import MobileSettings from '../pages/mobile/Settings.svelte'
@@ -138,6 +138,7 @@
           onOpenArtist={(id) => onOpenArtist?.(id)}
           onOpenLogin={() => onOpenLogin?.()}
           onNavigate={onNavigate}
+          onSearch={() => onSearch?.()}
         />
       </div>
 

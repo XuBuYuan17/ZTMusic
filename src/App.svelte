@@ -340,6 +340,7 @@ import { tick, untrack } from 'svelte'
             <LibraryPage
               onOpenLogin={() => showLogin = true}
               onOpenPlaylist={router.goPlaylist}
+              onNavigate={router.handleNav}
             />
           </div>
 

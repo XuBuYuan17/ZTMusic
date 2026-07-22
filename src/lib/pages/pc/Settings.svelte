@@ -373,6 +373,13 @@
       </div>
     </div>
 
+    <!-- 关于 -->
+    <div class="settings-group-label">关于</div>
+    <div class="settings-row settings-row--static">
+      <span class="settings-label">版本</span>
+      <span class="settings-value">1.3.0</span>
+    </div>
+
   </div>
 </div>
 
@@ -443,6 +450,16 @@
   .settings-label {
     font-size: 15px;
     font-weight: 700;
+  }
+
+  .settings-value {
+    color: var(--text-tertiary);
+    font-size: 14px;
+    font-weight: 520;
+  }
+
+  .settings-row--static {
+    cursor: default;
   }
 
   .settings-desc {

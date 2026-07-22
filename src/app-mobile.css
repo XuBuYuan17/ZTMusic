@@ -1121,6 +1121,28 @@ html.mobile-runtime .m-quick-tile--liked {
   color: #fff;
 }
 
+/* 日期芯片 */
+html.mobile-runtime .m-date-chip {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+html.mobile-runtime .m-date-chip:active {
+  background: var(--bg-hover);
+}
+html.mobile-runtime .m-date-chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 html.mobile-runtime .m-library {
   --library-radius-lg: 24px;
   --library-radius-md: 16px;
