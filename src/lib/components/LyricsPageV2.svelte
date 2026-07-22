@@ -56,8 +56,17 @@
     lyricsMode = !lyricsMode;
   }
 
-  // 开/关动画
+  let _fullscreenEl = null
+
+  // focus-trap：全屏打开时锁定焦点在内部
   $effect(() => {
+    if (entered && _fullscreenEl) {
+      const prev = document.activeElement
+      const focusable = _fullscreenEl.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])')
+      if (focusable) focusable.focus()
+      return () => { if (prev && document.contains(prev)) prev.focus() }
+    }
+  })
     if (show) {
       mounted = true;
       closing = false;
@@ -78,6 +87,7 @@
 
 {#if mounted}
   <div class="ly-fullscreen" class:mounted class:entered class:closing
+    bind:this={_fullscreenEl}
     class:ly-no-blur={$responsive.isMobile}
     style={`${player.cover ? `--ly-cover: url(${player.cover});` : ''} --ly-origin-x: ${origin?.x ?? (typeof window !== 'undefined' ? window.innerWidth / 2 : 0)}px; --ly-origin-y: ${origin?.y ?? (typeof window !== 'undefined' ? window.innerHeight : 0)}px;`}
     role="presentation" onclick={handleClose}>

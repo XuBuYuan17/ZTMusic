@@ -353,7 +353,7 @@
   {/if}
 
   <!-- Lyrics area -->
-  <div class="am-lyrics-area" bind:this={lyricsEl}>
+  <div class="am-lyrics-area" bind:this={lyricsEl} aria-live="polite" aria-atomic="false">
     <div class="am-lyrics-inner">
       {#if lyricState.lyrics.length > 0}
         {#each lyricState.lyrics as line, i}

@@ -228,6 +228,7 @@ import { tick, untrack } from 'svelte'
 </script>
 
 <main class="app-shell" data-theme={theme}>
+  <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
     activeView={router.activeView}
     bind:collapsed={sidebarCollapsed}
@@ -264,7 +265,7 @@ import { tick, untrack } from 'svelte'
       <Icon name="search" size={18} />
     </button>
 
-    <div class="content-scroll" bind:this={contentScrollEl}>
+    <div class="content-scroll" bind:this={contentScrollEl} id="main-content">
       <div class="content-inner">
         {#key router.activeView}
           <div class="page-enter" transition:fade={{ duration: 150 }}>
