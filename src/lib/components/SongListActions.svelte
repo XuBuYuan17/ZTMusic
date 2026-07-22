@@ -1,5 +1,6 @@
 <script>
   import SongContextMenu from './SongContextMenu.svelte'
+  import { untrack } from 'svelte'
 
   let { onOpenArtist, onOpenAlbum, onToast, onBindRow } = $props()
 
@@ -28,7 +29,7 @@
   }
 
   $effect(() => {
-    onBindRow?.(bindRow)
+    untrack(() => onBindRow?.(bindRow))
   })
 </script>
 

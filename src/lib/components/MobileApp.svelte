@@ -67,15 +67,6 @@
   }
 
   $effect(() => {
-    if (isDetailView) setTabsHidden(true)
-    else if (contentEl) {
-      const st = contentEl.scrollTop
-      lastScrollTop = st
-      if (st <= 20) setTabsHidden(false)
-    }
-  })
-
-  $effect(() => {
     if (isDetailView) return
     const el = contentEl ?? document.querySelector('.m-content')
     if (!el) return
@@ -139,8 +130,8 @@
     ontouchmove={handleTouchMove}
   >
     <div class="m-view-fade">
-      <!-- 所有页面常驻 DOM，用 display:none 隐藏非活跃页面，避免切换时重建 + 重复加载 -->
-      <div style:display={activeView === 'home' ? 'block' : 'none'}>
+      <!-- 常驻 DOM 页面：非活跃页 display:none + inert（阻止 focus/事件） -->
+      <div style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'}>
         <MobileHome
           onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
           onOpenAlbum={(id) => onOpenAlbum?.(id)}

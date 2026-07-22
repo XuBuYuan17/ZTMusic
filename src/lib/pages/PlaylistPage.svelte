@@ -62,7 +62,7 @@
   }
 
   function firstLetter(track) {
-    return (track.name || '').trim().localeCompare ? (track.name || '').trim() : ''
+    return (track.name || '').trim()
   }
 
   function addedTime(track) {
@@ -159,7 +159,7 @@
           {#if playlistDetail.description}
             <div class="hero-desc">{playlistDetail.description}</div>
           {/if}
-          <button class="hero-play-btn" onclick={() => onPlayAll?.(visibleTracks)} disabled={loading || !visibleTracks.length}>播放全部</button>
+          <button class="hero-play-btn" onclick={() => onPlayAll?.(visibleTracks)} disabled={!playlistDetail}>播放全部</button>
         </div>
       </div>
       <div class="playlist-toolbar">

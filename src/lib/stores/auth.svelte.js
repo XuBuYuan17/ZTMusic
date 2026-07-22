@@ -8,6 +8,7 @@ let _user = $state(null)
 let _loginMode = $state(null)
 let _cookieOk = $state(true)
 let _vipInfo = $state(null)
+let _authToken = 0
 
 function deepFind(obj, key) {
   if (!obj || typeof obj !== 'object') return undefined
@@ -43,9 +44,10 @@ async function checkLoginStatus() {
       if (_loginMode !== modeSnapshot) return true
       _cookieOk = false
       // 延迟一点清除登录态，让 UI 可以捕捉到 cookieOk 变化
+      const token = ++_authToken
       setTimeout(() => {
         // 定时器触发时再次校验：这 100ms 内用户可能刚登录成功
-        if (_loginMode !== modeSnapshot) return
+        if (token !== _authToken) return
         clearCookie()
         _user = null
         _loginMode = null

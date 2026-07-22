@@ -27,19 +27,28 @@
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
+  let lyricOpenTimer = null
+
   function openLyricsFromBar(e) {
     if (player.id) {
       const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
       const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
       if (!originEl) return
       isPressing = true
-      
-      safeTimeout(() => {
+
+      lyricOpenTimer = setTimeout(() => {
         isPressing = false
         onOpenSheet?.(originEl)
+        lyricOpenTimer = null
       }, 150)
     }
   }
+
+  // 组件销毁时清理定时器
+  $effect(() => () => {
+    if (swipeTimer) clearTimeout(swipeTimer)
+    if (lyricOpenTimer) clearTimeout(lyricOpenTimer)
+  })
 
   function handleBarPointerDown(e) {
     if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return

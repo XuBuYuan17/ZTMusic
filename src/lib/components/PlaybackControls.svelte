@@ -95,10 +95,10 @@
       setTimeout(() => toast.remove(), 300)
     }, 1500)
     toastTimers.add(id)
-
-    // 组件销毁时清理所有 toast 定时器
-    $effect(() => () => { toastTimers.forEach(clearTimeout); toastTimers.clear() })
   }
+
+  // 组件销毁时清理所有 toast 定时器（顶层 effect，不嵌套在 showToast 内）
+  $effect(() => () => { toastTimers.forEach(clearTimeout); toastTimers.clear() })
 
   // Add toast keyframes if not present
   function ensureKeyframes() {
