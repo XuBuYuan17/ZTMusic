@@ -3,6 +3,8 @@
   import { formatDuration } from '../format.js'
   import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
+  import { setStorage } from '../utils/storage.js'
+  import { STORAGE_KEYS } from '../utils/constants.js'
   import ArtistNames from './ArtistNames.svelte'
   import Icon from './ui/Icon.svelte'
 
@@ -57,6 +59,47 @@
   }
 
   let queueListEl = $state(null)
+  let dragIndex = $state(null)
+  let dragOverIndex = $state(null)
+
+  function handleDragStart(e, index) {
+    dragIndex = index
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, index) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverIndex !== index) dragOverIndex = index
+  }
+
+  function handleDragLeave() {
+    dragOverIndex = null
+  }
+
+  function handleDrop(e, index) {
+    e.preventDefault()
+    const from = dragIndex
+    if (from === null || from === index) { dragIndex = null; dragOverIndex = null; return }
+    const newQueue = [...player.queue]
+    const [moved] = newQueue.splice(from, 1)
+    newQueue.splice(index, 0, moved)
+    let newQi = player.queueIndex
+    if (from === newQi) newQi = index
+    else {
+      if (from < newQi && index >= newQi) newQi--
+      else if (from > newQi && index <= newQi) newQi++
+    }
+    player.queue = newQueue
+    player.queueIndex = newQi
+    dragIndex = null
+    dragOverIndex = null
+  }
+
+  function handleDragEnd() {
+    dragIndex = null
+    dragOverIndex = null
+  }
 
   $effect(() => {
     if (show && player.queue.length) {
@@ -97,10 +140,18 @@
           <div
             class="queue-item"
             class:active={player.queueIndex === i}
+            class:drag-over={dragOverIndex === i}
+            class:dragging={dragIndex === i}
+            draggable="true"
             role="button"
             tabindex="0"
             onclick={() => handlePlayTrack(track, i)}
             onkeydown={(e) => handleItemKeyDown(e, track, i)}
+            ondragstart={(e) => handleDragStart(e, i)}
+            ondragover={(e) => handleDragOver(e, i)}
+            ondragleave={handleDragLeave}
+            ondrop={(e) => handleDrop(e, i)}
+            ondragend={handleDragEnd}
           >
             <div class="queue-item-cover">
               {#if coverOf(track)}
@@ -259,11 +310,24 @@
     align-items: center;
     gap: 12px;
     padding: 10px 20px;
-    cursor: pointer;
-    transition: background 0.1s;
+    cursor: grab;
+    transition: background 0.1s, opacity 0.15s;
     width: 100%;
     text-align: left;
     border: none;
+    position: relative;
+  }
+  .queue-item:active { cursor: grabbing; }
+  .queue-item.dragging { opacity: 0.4; }
+  .queue-item.drag-over::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
     background: none;
     color: inherit;
   }
