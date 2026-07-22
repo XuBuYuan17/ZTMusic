@@ -56,8 +56,6 @@
     lyricsMode = !lyricsMode;
   }
 
-  let _fullscreenEl = null
-
   let _fullscreenEl = $state(null)
 
   // 开/关动画
