@@ -12,6 +12,7 @@ use windows::Media::Playback::MediaPlayer;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum WindowsSmtcMessage {
     Metadata {
         title: String,
