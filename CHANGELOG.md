@@ -5,6 +5,40 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] - 2026-07-22
+
+### 新增
+
+- 全局 Toast 通知系统：操作反馈、错误分类提示（网络/登录/超时/VIP）
+- 键盘快捷键帮助面板：按 `?` 显示所有快捷键
+- 播放队列"下一首播放"：将歌曲插入到当前播放之后
+- 播放队列拖拽排序：HTML5 拖拽调整播放顺序
+- 页面切换过渡动画：fade 150ms 平滑过渡
+
+### 修复
+
+- 修复 `_handleEnded` 定时器泄漏：destroy 后自动切歌导致状态冻结
+- 修复 `restore()` 无 fallback：恢复会话时后台填充更多 URL
+- 修复 `PlayerBar` 歌词 effect 竞态：快速切歌时歌词不加载
+- 修复 `checkLoginStatus` 竞态：100ms 内重新登录被误清
+- 修复 `MobileApp` $effect 状态循环依赖
+- 修复 `PlaybackControls` 嵌套 $effect 重复注册
+- 修复 `SongListActions` onBindRow 反复触发重渲染
+- 修复移动端 UI 布局 15 项问题（头像定位、歌词溢出、空状态等）
+- 删除 ~561 行死代码（旧移动端歌词页样式）
+
+### 可访问性
+
+- 全屏歌词页 focus-trap：焦点锁定在弹窗内
+- 歌词区域 `aria-live="polite"`
+- "跳到主要内容" skip-link
+
+## [1.2.0] - 2026-07-21
+
+### 修复
+
+- 修复 Android CI patch 脚本 no-op 误判导致 APK 构建失败
+
 ## [1.1.0] - 2026-07-10
 
 ### 新增
