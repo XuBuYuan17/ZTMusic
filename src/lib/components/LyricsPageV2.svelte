@@ -80,11 +80,6 @@
       return () => { if (prev && document.contains(prev)) prev.focus() }
     }
   })
-      entered = false;
-      closing = true;
-      safeTimeout(() => { mounted = false; closing = false; }, 250);
-    }
-  });
 
   function handleClose(e) {
     if (e.target.closest('.ly-keep-open')) return;
