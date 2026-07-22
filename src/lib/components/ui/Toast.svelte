@@ -1,11 +1,11 @@
 <script>
-  import { toast } from '../stores/toast.svelte.js'
+  import { toast } from '../../stores/toast.svelte.js'
 </script>
 
 {#if toast.visible}
-  <div class="toast toast--{toast.type}" role="status" aria-live="polite" onclick={toast.hide}>
+  <button class="toast toast--{toast.type}" type="button" onclick={toast.hide}>
     <span>{toast.message}</span>
-  </div>
+  </button>
 {/if}
 
 <style>
@@ -17,6 +17,8 @@
     z-index: 9999;
     padding: 10px 20px;
     border-radius: 22px;
+    border: none;
+    font-family: inherit;
     font-size: 14px;
     font-weight: 500;
     color: #fff;

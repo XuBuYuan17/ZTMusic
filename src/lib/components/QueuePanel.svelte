@@ -328,9 +328,6 @@
     height: 2px;
     background: var(--accent);
   }
-    background: none;
-    color: inherit;
-  }
 
   .queue-item:hover {
     background: var(--bg-hover);

@@ -58,6 +58,21 @@
 
   let _fullscreenEl = null
 
+  let _fullscreenEl = $state(null)
+
+  // 开/关动画
+  $effect(() => {
+    if (show) {
+      mounted = true;
+      closing = false;
+      safeTimeout(() => { entered = true; }, 10);
+    } else {
+      entered = false;
+      closing = true;
+      safeTimeout(() => { mounted = false; closing = false; }, 250);
+    }
+  })
+
   // focus-trap：全屏打开时锁定焦点在内部
   $effect(() => {
     if (entered && _fullscreenEl) {
@@ -67,11 +82,6 @@
       return () => { if (prev && document.contains(prev)) prev.focus() }
     }
   })
-    if (show) {
-      mounted = true;
-      closing = false;
-      safeTimeout(() => { entered = true; }, 10);
-    } else {
       entered = false;
       closing = true;
       safeTimeout(() => { mounted = false; closing = false; }, 250);
