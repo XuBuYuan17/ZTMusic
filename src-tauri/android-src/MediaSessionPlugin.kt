@@ -13,7 +13,9 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
@@ -80,6 +82,8 @@ class MediaButtonReceiver : BroadcastReceiver() {
             "MEDIA_PAUSE" -> "pause"
             "MEDIA_NEXT" -> "next"
             "MEDIA_PREV" -> "prev"
+            // 耳机拔出/蓝牙断开 → 暂停
+            AudioManager.ACTION_AUDIO_BECOMING_NOISY -> "pause"
             else -> null
         }
         if (pluginAction != null) {
@@ -127,6 +131,8 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
     private var lastNotificationTitle = ""
     private var lastNotificationArtist = ""
     private var lastNotificationPlaying: Boolean? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private val audioManager get() = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     override fun load(webView: android.webkit.WebView) {
         super.load(webView)
@@ -182,6 +188,8 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
                 addAction("MEDIA_PAUSE")
                 addAction("MEDIA_NEXT")
                 addAction("MEDIA_PREV")
+                // 耳机拔出暂停
+                addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 activity.registerReceiver(MediaButtonReceiver(), filter, Context.RECEIVER_NOT_EXPORTED)
@@ -190,6 +198,33 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
             }
             receiverRegistered = true
         } catch (_: Exception) {}
+    }
+
+    /** 请求音频焦点——其他 App 播放时自动暂停 */
+    private fun requestAudioFocus(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (audioFocusRequest == null) {
+                val attrs = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+                audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(attrs)
+                    .setOnAudioFocusChangeListener { focusChange ->
+                        when (focusChange) {
+                            AudioManager.AUDIOFOCUS_LOSS -> pendingAction = "pause"
+                            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> pendingAction = "pause"
+                            AudioManager.AUDIOFOCUS_GAIN -> { /* 恢复播放由用户触发 */ }
+                        }
+                    }
+                    .build()
+            }
+            val result = audioManager.requestAudioFocus(audioFocusRequest!!)
+            return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+        @Suppress("DEPRECATION")
+        val result = audioManager.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     }
 
     @Command
@@ -237,6 +272,9 @@ class MediaSessionPlugin(private val activity: android.app.Activity) : Plugin(ac
         val args = invoke.parseArgs(PlaybackStateArgs::class.java)
         val isPlaying = args.playing ?: false
         val position = ((args.position ?: 0.0) * 1000).toLong()
+
+        // 播放时请求音频焦点
+        if (isPlaying) requestAudioFocus()
 
         val state = if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
         val actions = (PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
