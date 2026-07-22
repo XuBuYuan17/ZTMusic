@@ -185,9 +185,6 @@ export function swallowError(context, err) {
   }
 }
 
-// 静态导入 toast（动态导入会产生 INEFFECTIVE_DYNAMIC_IMPORT 警告）
-import { toast } from '../stores/toast.svelte.js';
-
 /**
  * 分类错误并显示对应 toast。
  */
