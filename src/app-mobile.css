@@ -104,7 +104,7 @@ html.mobile-runtime .m-blank {
   min-height: 100%;
 }
 
-/* 底部 3-Tab */
+/* 底部 3-Tab —— 样式与 PlayerBar 统一 */
 html.mobile-runtime .m-tabs {
   position: fixed;
   left: 14px;
@@ -118,7 +118,7 @@ html.mobile-runtime .m-tabs {
   gap: 8px;
   padding: 6px 8px;
   border-radius: 12px;
-  background: transparent;
+  background: var(--bg-elevated);
   box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
   transition: transform 0.32s var(--ease-out), opacity 0.25s ease;
 }
@@ -128,9 +128,7 @@ html.mobile-runtime .m-tabs::before {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  /* ponytail: 移动端关闭毛玻璃避免底 tab 常驻 blur(32px) 滚动掉帧；
-     提高背景不透明度(0.82→0.94)补偿透光。上限：纯色近似不透明，牺牲一点通透感。 */
-  background: rgba(245, 245, 247, 0.94);
+  background: transparent;
   z-index: -1;
 }
 
@@ -146,20 +144,14 @@ html.mobile-runtime .m-tabs::after {
   z-index: 1;
 }
 
-html.mobile-runtime[data-theme="dark"] .m-tabs::before {
-  background: rgba(35, 35, 38, 0.94);
+html.mobile-runtime[data-theme="dark"] .m-tabs {
+  background: var(--bg-elevated);
 }
 
 html.mobile-runtime[data-theme="dark"] .m-tabs::after {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.08),
     inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-}
-
-html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar,
-html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar.compact,
-html.mobile-runtime[data-theme="dark"] .player-bar-wrap .player-bar.with-lyrics {
-  background: rgba(30, 30, 32, 0.92) !important;
 }
 
 html.mobile-runtime .mobile-app.tabs-hidden .m-tabs {
@@ -332,9 +324,6 @@ html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
   grid-template-columns: minmax(0, 1fr) 48px 44px;
   gap: 6px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
   box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
   transform: none !important;
 }
