@@ -24,7 +24,8 @@ concurrency:
 jobs:
   prepare:
     name: Calculate version and create release tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -32,10 +33,23 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.1
+
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source before tagging
+        run: pnpm verify
 
       - name: Calculate next version and changelog
         id: release
@@ -48,15 +62,22 @@ jobs:
           const { execSync } = require('node:child_process')
           const fs = require('node:fs')
 
-          function run(cmd) {
-            return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim()
+          function run(cmd, fallback = '') {
+            try {
+              return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim()
+            } catch {
+              return fallback
+            }
           }
 
-          const latestTag = run('git describe --tags --abbrev=0 2>/dev/null') || 'v0.0.0'
-          const latestVersion = latestTag.replace(/^v/, '')
-          const [major, minor, patch] = latestVersion.split('.').map(Number)
+          const latestTag = run('git describe --tags --abbrev=0', 'v0.0.0')
+          const versionMatch = latestTag.match(/^v(\d+)\.(\d+)\.(\d+)$/)
+          if (!versionMatch) throw new Error(`Latest tag is not valid semver: ${latestTag}`)
+          const [, majorText, minorText, patchText] = versionMatch
+          const [major, minor, patch] = [majorText, minorText, patchText].map(Number)
 
-          const log = run(`git log ${latestTag}..HEAD --pretty=format:%s`)
+          const range = latestTag === 'v0.0.0' ? 'HEAD' : `${latestTag}..HEAD`
+          const log = run(`git log ${range} --pretty=format:%s`)
           const commits = log ? log.split('\n').filter(Boolean) : []
 
           const groups = {
@@ -98,6 +119,7 @@ jobs:
 
           const version = `${nextMajor}.${nextMinor}.${nextPatch}`
           const tag = `v${version}`
+          if (run(`git tag --list ${tag}`)) throw new Error(`Tag ${tag} already exists`)
           const date = new Date().toISOString().split('T')[0]
 
           const sections = []
@@ -121,6 +143,9 @@ jobs:
           }
 
           const newEntry = `## [${version}] - ${date}\n\n${releaseNotes}`
+          if (!changelog.includes('## [Unreleased]')) {
+            throw new Error('CHANGELOG.md is missing the ## [Unreleased] section')
+          }
           changelog = changelog.replace('## [Unreleased]', `## [Unreleased]\n\n${newEntry}`)
 
           fs.writeFileSync('CHANGELOG.md', changelog)
@@ -203,7 +228,7 @@ jobs:
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md
           git diff --cached --quiet && { echo "No changes"; exit 1; }
 
-          git commit -m "chore(release): $TAG [skip ci]"
+          git commit -m "chore(release): $TAG"
           git tag "$TAG"
           git push origin HEAD:main
           git push origin "$TAG"

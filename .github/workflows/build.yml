@@ -26,7 +26,7 @@ on:
         default: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: installers-${{ github.ref }}
@@ -34,16 +34,23 @@ concurrency:
 
 env:
   NODE_VERSION: 22
-  PNPM_VERSION: 10
-  RUST_TOOLCHAIN: stable
+  PNPM_VERSION: 10.28.1
+  RUST_TOOLCHAIN: 1.85.1
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_TIMEOUT: 120
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  PNPM_CONFIG_FETCH_RETRIES: 5
+  PNPM_CONFIG_FETCH_RETRY_MINTIMEOUT: 10000
+  PNPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: 60000
   ANDROID_API_LEVEL: 36
   ANDROID_BUILD_TOOLS: 36.0.0
   ANDROID_NDK_VERSION: 27.2.12479018
 
 jobs:
   web-check:
-    name: Web build check
-    runs-on: ubuntu-latest
+    name: Tests and web build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -63,14 +70,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build frontend
-        run: pnpm build
+      - name: Test and build frontend
+        run: pnpm verify
 
   windows:
     name: Windows installer ${{ matrix.arch }}
     needs: web-check
-    if: github.event_name != 'workflow_dispatch' || inputs.build_windows
-    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.build_windows)
+    runs-on: windows-2022
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -131,8 +139,9 @@ jobs:
   android:
     name: Android APK ${{ matrix.abi }}
     needs: web-check
-    if: github.event_name != 'workflow_dispatch' || inputs.build_android
-    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.build_android)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -171,17 +180,30 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Cache Gradle dependencies
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-${ANDROID_API_LEVEL}" \
-            "build-tools;${ANDROID_BUILD_TOOLS}" \
-            "ndk;${ANDROID_NDK_VERSION}"
+          set -euo pipefail
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              echo "::warning::Command failed (attempt $attempt/3): $*"
+              sleep $((attempt * 10))
+            done
+            return 1
+          }
+          yes | sdkmanager --licenses >/dev/null || true
+          retry sdkmanager \
+              "platform-tools" \
+              "platforms;android-${ANDROID_API_LEVEL}" \
+              "build-tools;${ANDROID_BUILD_TOOLS}" \
+              "ndk;${ANDROID_NDK_VERSION}"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -389,14 +411,11 @@ jobs:
           if-no-files-found: error
 
   linux:
-    name: Linux ${{ matrix.format }}
+    name: Linux packages
     needs: web-check
-    if: github.event_name != 'workflow_dispatch' || inputs.build_linux
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        format: [deb, rpm]
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.build_linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v5
@@ -408,20 +427,16 @@ jobs:
 
       - name: Install Linux deps
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
             libayatana-appindicator3-dev librsvg2-dev patchelf \
-            libssl-dev libdbus-1-dev
-
-      - name: Install system deps for rpm
-        if: matrix.format == 'rpm'
-        run: sudo apt-get install -y rpm
+            libssl-dev libdbus-1-dev rpm
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: linux-${{ matrix.format }}
+          key: linux-packages
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -438,20 +453,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Linux ${{ matrix.format }}
-        run: pnpm tauri build --ci --verbose --bundles ${{ matrix.format }}
+      - name: Build Linux packages
+        run: pnpm tauri build --ci --verbose --bundles deb,rpm
 
-      - name: Upload Linux ${{ matrix.format }}
+      - name: Upload Linux packages
         uses: actions/upload-artifact@v5
         with:
-          name: zheting-linux-${{ matrix.format }}
-          path: src-tauri/target/release/bundle/${{ matrix.format }}/**
+          name: zheting-linux
+          path: |
+            src-tauri/target/release/bundle/deb/**
+            src-tauri/target/release/bundle/rpm/**
+          if-no-files-found: error
 
   release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [windows, android, linux]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v5

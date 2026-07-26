@@ -16,7 +16,7 @@
 import { ncm } from '../api/client.js'
 import { dbCache } from '../db/cache.js'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
-import { swallowError } from '../utils/error.js'
+import { swallowError } from '../utils/logging.js'
 
 // ===== 日志工具 =====
 

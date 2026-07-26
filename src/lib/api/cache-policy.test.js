@@ -3,7 +3,7 @@
  * Run: node src/lib/api/cache-policy.test.js
  */
 
-import { getApiCacheTtl } from './cache-policy.js'
+import { getApiCacheTtl } from './cache-ttl.js'
 
 let passed = 0
 let failed = 0

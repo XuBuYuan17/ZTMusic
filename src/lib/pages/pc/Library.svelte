@@ -92,6 +92,21 @@
     showCreateModal = true
   }
 
+  function focusOnMount(node) {
+    queueMicrotask(() => node.focus())
+  }
+
+  function handleCreateModalKeydown(event) {
+    if (showCreateModal && event.key === 'Escape') {
+      event.preventDefault()
+      closeCreateModal()
+    }
+  }
+
+  function handleCreateModalBackdrop(event) {
+    if (event.target === event.currentTarget) closeCreateModal()
+  }
+
   function closeCreateModal() {
     if (creating) return
     showCreateModal = false
@@ -147,6 +162,8 @@
     return () => timers.forEach(id => clearTimeout(id))
   })
 </script>
+
+<svelte:window onkeydown={handleCreateModalKeydown} />
 
 <div class="library-page fade-in">
   {#if !auth.isLoggedIn}
@@ -313,16 +330,16 @@
 
   <!-- 创建歌单弹窗 -->
   {#if showCreateModal}
-    <div class="library-modal-backdrop" role="button" tabindex="0" aria-label="关闭" onclick={closeCreateModal} onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); closeCreateModal() } }}>
-      <div class="library-modal" role="dialog" aria-modal="true" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-        <h3 class="library-modal-title">新建歌单</h3>
+    <div class="library-modal-backdrop" role="presentation" onclick={handleCreateModalBackdrop}>
+      <div class="library-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="create-playlist-title">
+        <h3 class="library-modal-title" id="create-playlist-title">新建歌单</h3>
         <input
           class="library-modal-input"
           type="text"
           placeholder="请输入歌单名称"
           bind:value={createName}
           maxlength="30"
-          autofocus
+          use:focusOnMount
           onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCreate() } }}
         />
         <div class="library-modal-actions">
