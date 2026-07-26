@@ -1,6 +1,6 @@
 # ZTmusic（哲听）
 
-一个网易云音乐第三方客户端，界面安静，专注听歌。用 Svelte 5 + Tauri 2 写的，跑在 Windows / Linux / Android / Web 上。
+一个简洁、安静的网易云音乐第三方客户端，专注于听歌体验。基于 Svelte 5 + Tauri 2，可运行在 Windows、Linux、Android 和 Web 上。
 
 > ⚠️ 本项目仅供个人学习与技术交流。音乐数据来自第三方 API，版权归网易云音乐及各版权方。请勿用于商业用途。
 
@@ -12,7 +12,7 @@
 
 ## 这是啥
 
-哲听是一个干净、轻量的网易云音乐桌面端。没有广告，没有花里胡哨的社交功能，就是听歌。
+哲听是一个干净、轻量的跨平台音乐客户端。没有广告，也没有喧宾夺主的社交功能，只想让听歌回归简单。
 
 最初是想给自己做一个安静的听歌工具，后来顺手支持了 Android 和 Linux。API 基于 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced)，默认后端是 `https://music.xubuyuan.top`。
 
@@ -47,7 +47,7 @@ pnpm dev                  # 浏览器开发（Vite，默认走 /ncm-api 代理�
 pnpm tauri:dev            # 桌面端开发（Tauri）
 pnpm build                # 前端构建
 pnpm tauri:build          # 构建当前平台安装包
-pnpm test                 # 跑单元测试（12 个脚本，纯 node 无框架）
+pnpm test                 # 在隔离的 Node.js 进程中运行全部自检脚本
 ```
 
 浏览器开发时，`/ncm-api` 会被 Vite 代理到后端，不用操心跨域。桌面端走 Tauri IPC 直接发请求。
@@ -93,7 +93,7 @@ ZTmusic/
 ├── vite.config.js        # Vite + /ncm-api 代理
 ├── svelte.config.js
 ├── jsconfig.json
-├── package.json          # 包名 zheting，当前 v1.2.0
+├── package.json          # 包名 zheting，版本以此文件为准
 └── pnpm-lock.yaml
 ```
 

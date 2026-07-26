@@ -22,7 +22,7 @@
     <div class="about-icon" aria-hidden="true">哲</div>
     <div class="about-title-block">
       <h1 id="about-title">哲听</h1>
-      <p>一个网易云音乐第三方客户端，主要给自己日常听歌、整理歌单和看歌词用。</p>
+      <p>一个简洁、安静的跨平台音乐客户端，专注于听歌、整理歌单和阅读歌词。</p>
     </div>
   </section>
 

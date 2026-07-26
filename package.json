@@ -10,7 +10,7 @@
     "dev:5173": "vite --host 127.0.0.1 --port 5173 --strictPort --clearScreen false",
     "build": "vite build",
     "check:versions": "node scripts/verify-versions.mjs",
-    "test": "node src/lib/app/back.test.js && node src/lib/app/rendering.test.js && node src/lib/utils/layout-mode.test.js && node src/lib/player/fallback.test.js && node src/lib/player/trial-message.test.js && node src/lib/auth/vip.test.js && node src/lib/api/session.test.js && node src/lib/api/cache-policy.test.js && node src/lib/player/url-resolver.test.js && node src/lib/app/keyboard-shortcuts.test.js && node src/lib/app/native-shell.test.js && node src/lib/utils/like-check.test.js && node src/lib/utils/scroll-lyric.test.js",
+    "test": "node scripts/run-tests.mjs",
     "preview": "vite preview",
     "verify": "pnpm check:versions && pnpm test && pnpm build",
     "verify:tauri": "pnpm build && pnpm tauri:build:linux",
