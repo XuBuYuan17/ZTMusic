@@ -7,7 +7,7 @@ import {
   writeApiCache,
 } from './cache-policy.js'
 import { apiSession, DEFAULT_API_BASE, DEV_PROXY_API_BASE } from './session.js'
-import { normalizeError } from '../utils/error.js'
+import { normalizeError } from '../utils/error-core.js'
 
 export { DEFAULT_API_BASE }
 

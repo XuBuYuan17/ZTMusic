@@ -7,16 +7,26 @@
   function handleCancel() {
     onCancel?.()
   }
+
+  function focusOnMount(node) {
+    queueMicrotask(() => node.focus())
+  }
+
+  function handleOverlayClick(event) {
+    if (event.target === event.currentTarget) handleCancel()
+  }
 </script>
 
+<svelte:window onkeydown={(event) => { if (show && event.key === 'Escape') handleCancel() }} />
+
 {#if show}
-  <div class="confirm-overlay" role="button" tabindex="0" aria-label="关闭" onclick={handleCancel} onkeydown={(e) => { if (e.key === 'Escape') { e.preventDefault(); handleCancel() } }}>
-    <div class="confirm-card" role="dialog" tabindex="-1" aria-modal="true" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-      <div class="confirm-title">{title}</div>
-      <p class="confirm-message">{message}</p>
+  <div class="confirm-overlay" role="presentation" onclick={handleOverlayClick}>
+    <div class="confirm-card" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <div class="confirm-title" id="confirm-title">{title}</div>
+      <p class="confirm-message" id="confirm-message">{message}</p>
       <div class="confirm-actions">
-        <button class="confirm-btn confirm-btn-cancel" onclick={handleCancel} aria-label={cancelText}>{cancelText}</button>
-        <button class="confirm-btn confirm-btn-confirm" class:danger onclick={handleConfirm} autofocus aria-label={confirmText}>{confirmText}</button>
+        <button class="confirm-btn confirm-btn-cancel" onclick={handleCancel} aria-label={cancelText} use:focusOnMount>{cancelText}</button>
+        <button class="confirm-btn confirm-btn-confirm" class:danger onclick={handleConfirm} aria-label={confirmText}>{confirmText}</button>
       </div>
     </div>
   </div>

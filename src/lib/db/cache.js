@@ -16,7 +16,7 @@
 
 import { getDB, isReady, initDB } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
-import { debugLog } from '../utils/error.js'
+import { debugLog } from '../utils/logging.js'
 import {
   clearCache as clearLegacyApiCache,
   createCacheKey,
