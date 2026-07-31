@@ -35,7 +35,9 @@ concurrency:
 env:
   NODE_VERSION: 22
   PNPM_VERSION: 10.28.1
-  RUST_TOOLCHAIN: 1.88.0
+  # Use the current stable compiler for packaging; Cargo.toml still enforces the
+  # project's minimum supported Rust version.
+  RUST_TOOLCHAIN: stable
   CARGO_NET_RETRY: 10
   CARGO_HTTP_TIMEOUT: 120
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
