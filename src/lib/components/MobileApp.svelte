@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte'
   import { player } from '../stores/player.svelte.js'
   import { auth } from '../stores/auth.svelte.js'
   import { coverUrl } from '../utils/image.js'
@@ -42,9 +43,38 @@
   const isDetailView = $derived(['playlist', 'album', 'artist', 'search', 'messages'].includes(activeView))
 
   let tabsHidden = $state(false)
+  let mountedTabs = $state([])
   let lastScrollTop = $state(0)
   let touchStartY = $state(0)
   let contentEl = $state(null)
+  let previousView = $state(null)
+  const tabScrollPositions = new Map()
+
+  $effect(() => {
+    if (isTabView && !mountedTabs.includes(activeView)) {
+      mountedTabs = [...mountedTabs, activeView]
+    }
+  })
+
+  $effect(() => {
+    const nextView = activeView
+    const el = contentEl
+    if (!el || nextView === previousView) return
+    if (previousView === null) {
+      previousView = nextView
+      lastScrollTop = el.scrollTop
+      return
+    }
+    if (tabViews.includes(previousView)) tabScrollPositions.set(previousView, el.scrollTop)
+    const nextScrollTop = tabViews.includes(nextView) ? (tabScrollPositions.get(nextView) || 0) : 0
+    previousView = nextView
+    setTabsHidden(false)
+    tick().then(() => {
+      if (!contentEl || activeView !== nextView) return
+      contentEl.scrollTop = nextScrollTop
+      lastScrollTop = nextScrollTop
+    })
+  })
 
   function setTabsHidden(hidden) {
     if (tabsHidden === hidden) return
@@ -85,7 +115,19 @@
   function toggleDrawer() { drawerOpen = !drawerOpen }
   function closeDrawer() { drawerOpen = false }
 
+  function rememberCurrentTabScroll() {
+    if (contentEl && tabViews.includes(activeView)) {
+      tabScrollPositions.set(activeView, contentEl.scrollTop)
+    }
+  }
+
+  function openFromCurrentTab(callback, ...args) {
+    rememberCurrentTabScroll()
+    callback?.(...args)
+  }
+
   function handleNav(view, extra) {
+    rememberCurrentTabScroll()
     closeDrawer()
     onNavigate?.(view, extra)
   }
@@ -130,68 +172,64 @@
     ontouchmove={handleTouchMove}
   >
     <div class="m-view-fade">
-      <!-- 常驻 DOM 页面：非活跃页 display:none + inert（阻止 focus/事件） -->
-      <div style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'}>
-        <MobileHome
-          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-          onOpenAlbum={(id) => onOpenAlbum?.(id)}
-          onOpenArtist={(id) => onOpenArtist?.(id)}
-          onOpenLogin={() => onOpenLogin?.()}
-          onNavigate={onNavigate}
-          onSearch={() => onSearch?.()}
-        />
-      </div>
+      <!-- 三个主标签首次访问后常驻；其他页面只在活跃时挂载。 -->
+      {#if activeView === 'home' || mountedTabs.includes('home')}
+        <div style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'} aria-hidden={activeView !== 'home'}>
+          <MobileHome
+            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
+            onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
+            onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
+            onOpenLogin={() => onOpenLogin?.()}
+            onNavigate={handleNav}
+            onSearch={() => onSearch?.()}
+          />
+        </div>
+      {/if}
 
-      <div style:display={activeView === 'explore' ? 'block' : 'none'}>
-        <MobileBrowse
-          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-          onOpenAlbum={(id) => onOpenAlbum?.(id)}
-          onOpenArtist={(id) => onOpenArtist?.(id)}
-          onPlaySong={router.playExploreSong}
-          onBannerClick={router.handleBannerClick}
-          onSearch={() => onSearch?.()}
-        />
-      </div>
+      {#if activeView === 'explore' || mountedTabs.includes('explore')}
+        <div style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
+          <MobileBrowse
+            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
+            onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
+            onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
+            onPlaySong={router.playExploreSong}
+            onBannerClick={(banner) => openFromCurrentTab(router.handleBannerClick, banner)}
+            onSearch={() => onSearch?.()}
+          />
+        </div>
+      {/if}
 
-      <div style:display={activeView === 'library' ? 'block' : 'none'}>
-        <MobileLibrary
-          onOpenPlaylist={(id) => onOpenPlaylist?.(id)}
-          onOpenLogin={() => onOpenLogin?.()}
-          onNavigate={onNavigate}
-          {onOpenArtist}
-          {onOpenAlbum}
-        />
-      </div>
+      {#if activeView === 'library' || mountedTabs.includes('library')}
+        <div style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
+          <MobileLibrary
+            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
+            onOpenLogin={() => onOpenLogin?.()}
+            onNavigate={handleNav}
+            onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
+            onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
+          />
+        </div>
+      {/if}
 
-      <div style:display={activeView === 'settings' ? 'block' : 'none'}>
+      {#if activeView === 'settings'}
         <MobileSettings {theme} onSetTheme={onSetTheme} />
-      </div>
-
-      <div style:display={activeView === 'liked' ? 'block' : 'none'}>
+      {:else if activeView === 'liked'}
         <div class="m-subpage m-subpage-enter">
           <LikedPage {onOpenArtist} {onOpenAlbum} onPlayAll={router.playAll} onPlayTrack={router.playTrack} />
         </div>
-      </div>
-
-      <div style:display={activeView === 'recent' ? 'block' : 'none'}>
+      {:else if activeView === 'recent'}
         <div class="m-subpage m-subpage-enter">
           <RecentPage {onOpenArtist} {onOpenAlbum} />
         </div>
-      </div>
-
-      <div style:display={activeView === 'dailyHistory' ? 'block' : 'none'}>
+      {:else if activeView === 'dailyHistory'}
         <div class="m-subpage m-subpage-enter">
           <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
         </div>
-      </div>
-
-      <div style:display={activeView === 'messages' ? 'block' : 'none'}>
+      {:else if activeView === 'messages'}
         <div class="m-subpage m-subpage-enter">
-          <MessagesPage onNavigate={onNavigate} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
+          <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
         </div>
-      </div>
-
-      <div style:display={activeView === 'playlist' || activeView === 'album' ? 'block' : 'none'}>
+      {:else if activeView === 'playlist' || activeView === 'album'}
         <PlaylistPage
           playlistDetail={router.playlistDetail}
           loading={router.playlistDetailLoading}
@@ -206,13 +244,9 @@
           onOpenArtist={onOpenArtist}
           onOpenAlbum={onOpenAlbum}
         />
-      </div>
-
-      <div style:display={activeView === 'search' ? 'block' : 'none'}>
+      {:else if activeView === 'search'}
         <SearchPage onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onOpenPlaylist={onOpenPlaylist} />
-      </div>
-
-      <div style:display={activeView === 'artist' ? 'block' : 'none'}>
+      {:else if activeView === 'artist'}
         <ArtistPage
           artist={router.artistDetail}
           songs={router.artistSongs}
@@ -226,22 +260,22 @@
           onOpenArtist={onOpenArtist}
           onToggleFollow={router.toggleArtistFollow}
         />
-      </div>
+      {/if}
     </div>
   </main>
 
   <!-- 底部主导航 -->
   {#if !isDetailView}
     <nav class="m-tabs" aria-label="主导航">
-      <button class="m-tab" class:active={activeView === 'home'} onclick={() => onNavigate?.('home')}>
+      <button class="m-tab" class:active={activeView === 'home'} aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
         <Icon name="home" size={24} />
         <span>首页</span>
       </button>
-      <button class="m-tab" class:active={activeView === 'explore'} onclick={() => onNavigate?.('explore')}>
+      <button class="m-tab" class:active={activeView === 'explore'} aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
         <Icon name="compass" size={24} />
         <span>发现</span>
       </button>
-      <button class="m-tab" class:active={activeView === 'library'} onclick={() => onNavigate?.('library')}>
+      <button class="m-tab" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
         <Icon name="liked" size={24} />
         <span>歌单</span>
       </button>

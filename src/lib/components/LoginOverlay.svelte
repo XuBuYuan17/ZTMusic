@@ -1,5 +1,6 @@
 <script>
   import QRCode from 'qrcode'
+  import { tick } from 'svelte'
   import { auth } from '../stores/auth.svelte.js'
   import { fade } from 'svelte/transition'
   import Spinner from './Spinner.svelte'
@@ -110,7 +111,6 @@
     qrCancel?.()
     qrRequestId += 1
     pollActive = false
-    if (m === 'qr') startQr()
   }
 
   function handleOverlayKeyDown(e) {

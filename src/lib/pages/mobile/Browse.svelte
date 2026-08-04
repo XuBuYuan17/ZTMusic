@@ -4,7 +4,6 @@
   import { loadExploreData as fetchExploreData } from '../../services/explore.js'
   import { loadToplistsData } from '../../services/home.js'
   import { coverUrl, coverRectUrl } from '../../utils/image.js'
-  import Spinner from '../../components/Spinner.svelte'
 
   let { onOpenPlaylist, onOpenAlbum, onOpenArtist, onPlaySong, onBannerClick, onSearch } = $props()
 
@@ -71,7 +70,18 @@
   </button>
 
   {#if loading && !loaded}
-    <div class="m-loading"><Spinner size="md" /></div>
+    <div class="m-browse-skeleton" aria-label="正在加载发现内容" aria-busy="true">
+      <div class="m-browse-skeleton-hero skeleton-block"></div>
+      <div class="m-browse-skeleton-heading skeleton-block"></div>
+      <div class="m-browse-skeleton-row">
+        {#each Array(3) as _}
+          <div>
+            <span class="m-browse-skeleton-cover skeleton-block"></span>
+            <span class="m-browse-skeleton-line skeleton-block"></span>
+          </div>
+        {/each}
+      </div>
+    </div>
   {:else if error && !hero}
     <div class="m-empty-state small">
       <h2>发现内容加载失败</h2>

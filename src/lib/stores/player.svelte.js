@@ -439,6 +439,9 @@ class PlayerState {
               { silent: true },
             )
           }
+          this._prefetchNextTrack(requestId)
+          this._fillFallbackInBackground(playableTrack.id, requestId, signal)
+
           const first = this._fallback.next()
           if (first.status === 'playing') {
             engine.load(first.url)
@@ -467,9 +470,20 @@ class PlayerState {
         this._shouldAutoPlay = false
         this._setPlayerError('ResolvePlayableUrlsFailed', err, ERROR_MESSAGES.NO_URL)
       })
+  }
 
-    // 后台填充更多 URL
-    this._fillFallbackInBackground(playableTrack.id, requestId, signal)
+  _prefetchNextTrack(reqId) {
+    if (this.queue.length < 2 || this.queueIndex < 0) return
+    this._prefetchManager.prefetchNextTrackUrl({
+      queue: this.queue,
+      queueIndex: this.queueIndex,
+      mode: this.mode,
+      preferredLevel: this.preferredLevel,
+      reqId,
+      isStale: () => reqId !== this._playRequestId,
+      preload: (url) => engine.preload(url),
+      shuffleState: this.shuffleState,
+    }).catch((err) => swallowError('Player.prefetchNextTrack', err))
   }
 
   async _fillFallbackInBackground(id, reqId, signal) {
@@ -500,19 +514,6 @@ class PlayerState {
         }
       }
 
-      // 后台预取下一首
-      if (this.queue.length > 1 && this.queueIndex >= 0) {
-        this._prefetchManager.prefetchNextTrackUrl({
-          queue: this.queue,
-          queueIndex: this.queueIndex,
-          mode: this.mode,
-          preferredLevel: this.preferredLevel,
-          reqId,
-          isStale: () => reqId !== this._playRequestId,
-          preload: (url) => engine.preload(url),
-          shuffleState: this.shuffleState,
-        })
-      }
 
       // 持久化最新 URL 到 IndexedDB
       if (result.length > 0 && result[0] !== FALLBACK_URL_TEMPLATE(id)) {

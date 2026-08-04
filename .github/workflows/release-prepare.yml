@@ -15,6 +15,7 @@ name: Prepare Release
         default: auto
 
 permissions:
+  actions: write
   contents: write
 
 concurrency:
@@ -75,10 +76,21 @@ jobs:
           if (!versionMatch) throw new Error(`Latest tag is not valid semver: ${latestTag}`)
           const [, majorText, minorText, patchText] = versionMatch
           const [major, minor, patch] = [majorText, minorText, patchText].map(Number)
+          const sourceVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
+          const sourceMatch = sourceVersion.match(/^\d+\.\d+\.\d+$/)
+          if (!sourceMatch) throw new Error(`Source version is not valid semver: ${sourceVersion}`)
+          const compareVersions = (left, right) => {
+            const leftParts = left.split('.').map(Number)
+            const rightParts = right.split('.').map(Number)
+            for (let index = 0; index < 3; index++) {
+              if (leftParts[index] !== rightParts[index]) return leftParts[index] - rightParts[index]
+            }
+            return 0
+          }
 
           const range = latestTag === 'v0.0.0' ? 'HEAD' : `${latestTag}..HEAD`
-          const log = run(`git log ${range} --pretty=format:%s`)
-          const commits = log ? log.split('\n').filter(Boolean) : []
+          const log = run(`git log ${range} --pretty=format:%B%x00`)
+          const commits = log ? log.split('\0').map(commit => commit.trim()).filter(Boolean) : []
 
           const groups = {
             feat: [],
@@ -95,13 +107,12 @@ jobs:
           let hasBreaking = false
 
           for (const msg of commits) {
-            const line = msg.replace(/\r?\n/g, ' ')
+            const [line] = msg.split(/\r?\n/)
             const match = line.match(/^(feat|fix|docs|style|refactor|perf|test|chore)(\(.+\))?!?:\s*(.+)/)
-            if (line.includes('BREAKING CHANGE') || line.includes('BREAKING-CHANGE')) hasBreaking = true
+            if (/(^|\n)BREAKING(?: CHANGE|-CHANGE):/m.test(msg)) hasBreaking = true
             if (match) {
               const [, type, , body] = match
-              if (type === 'feat' && (match[0].includes('!:') || line.includes('BREAKING'))) hasBreaking = true
-              if (type === 'fix' && (match[0].includes('!:') || line.includes('BREAKING'))) hasBreaking = true
+              if (match[0].includes('!:')) hasBreaking = true
               ;(groups[type] || groups.other).push(body)
             } else {
               groups.other.push(line)
@@ -109,7 +120,7 @@ jobs:
           }
 
           const bump = process.env.BUMP === 'auto'
-            ? (hasBreaking ? 'major' : commits.some(c => c.startsWith('feat')) ? 'minor' : 'patch')
+            ? (hasBreaking ? 'major' : groups.feat.length ? 'minor' : 'patch')
             : process.env.BUMP
 
           let nextMajor = major, nextMinor = minor, nextPatch = patch
@@ -118,6 +129,9 @@ jobs:
           else { nextPatch++ }
 
           const version = `${nextMajor}.${nextMinor}.${nextPatch}`
+          if (compareVersions(version, sourceVersion) < 0) {
+            throw new Error(`Refusing to downgrade source version ${sourceVersion} to ${version}`)
+          }
           const tag = `v${version}`
           if (run(`git tag --list ${tag}`)) throw new Error(`Tag ${tag} already exists`)
           const date = new Date().toISOString().split('T')[0]
@@ -143,10 +157,15 @@ jobs:
           }
 
           const newEntry = `## [${version}] - ${date}\n\n${releaseNotes}`
-          if (!changelog.includes('## [Unreleased]')) {
-            throw new Error('CHANGELOG.md is missing the ## [Unreleased] section')
+          if (!changelog.includes(`## [${version}] - `)) {
+            if (!changelog.includes('## [Unreleased]')) {
+              if (!/^## \[/m.test(changelog)) {
+                throw new Error('CHANGELOG.md has no release section')
+              }
+              changelog = changelog.replace(/^## \[/m, '## [Unreleased]\n\n## [')
+            }
+            changelog = changelog.replace('## [Unreleased]', `## [Unreleased]\n\n${newEntry}`)
           }
-          changelog = changelog.replace('## [Unreleased]', `## [Unreleased]\n\n${newEntry}`)
 
           fs.writeFileSync('CHANGELOG.md', changelog)
 
@@ -173,9 +192,10 @@ jobs:
 
           const updateJsonVersion = (filePath) => {
             const text = fs.readFileSync(filePath, 'utf8')
-            const next = text.replace(/"version"\s*:\s*"[^"]+"/, `"version": "${version}"`)
-            if (next === text) throw new Error(`Could not update version in ${filePath}`)
-            fs.writeFileSync(filePath, next)
+            const pattern = /"version"\s*:\s*"[^"]+"/
+            if (!pattern.test(text)) throw new Error(`Could not find version in ${filePath}`)
+            const next = text.replace(pattern, `"version": "${version}"`)
+            if (next !== text) fs.writeFileSync(filePath, next)
           }
 
           updateJsonVersion('package.json')
@@ -215,9 +235,11 @@ jobs:
           if (tauri.version !== version) throw new Error('tauri.conf.json mismatch')
           JS
           grep -q "^version = \"$VERSION\"$" src-tauri/Cargo.toml
+          pnpm check:versions
 
       - name: Commit, tag and push
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.release.outputs.version }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
@@ -226,10 +248,14 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md
-          git diff --cached --quiet && { echo "No changes"; exit 1; }
-
-          git commit -m "chore(release): $TAG"
+          if git diff --cached --quiet; then
+            echo "Release files already prepared; tagging the current commit."
+          else
+            git commit -m "chore(release): $TAG"
+          fi
           git tag "$TAG"
-          git push origin HEAD:main
-          git push origin "$TAG"
-          # ponytail: gh workflow run 是多余的——tag push 本身已触发 build.yml
+          git push --atomic origin HEAD:main "$TAG"
+          gh workflow run build.yml --ref "$TAG" \
+            -f build_windows=true \
+            -f build_android=true \
+            -f build_linux=true

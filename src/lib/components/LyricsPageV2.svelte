@@ -12,6 +12,8 @@
   let mounted = $state(false);
   let entered = $state(false);
   let closing = $state(false);
+  let enterTimer = null;
+  let transitionTimer = null;
   // ---- 定时器管理器 ----
   const timers = new Set();
   function safeTimeout(fn, ms) {
@@ -60,14 +62,20 @@
 
   // 开/关动画
   $effect(() => {
+    if (enterTimer) clearSafeTimer(enterTimer);
+    if (transitionTimer) clearSafeTimer(transitionTimer);
     if (show) {
       mounted = true;
       closing = false;
-      safeTimeout(() => { entered = true; }, 10);
-    } else {
+      enterTimer = safeTimeout(() => { entered = true; enterTimer = null; }, 10);
+    } else if (mounted) {
       entered = false;
       closing = true;
-      safeTimeout(() => { mounted = false; closing = false; }, 250);
+      transitionTimer = safeTimeout(() => {
+        mounted = false;
+        closing = false;
+        transitionTimer = null;
+      }, 320);
     }
   })
 
@@ -83,8 +91,7 @@
 
   function handleClose(e) {
     if (e.target.closest('.ly-keep-open')) return;
-    closing = true;
-    safeTimeout(() => { onClose?.(); }, 250);
+    onClose?.();
   }
 </script>
 

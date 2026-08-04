@@ -14,8 +14,9 @@ export { DEFAULT_API_BASE }
 let tauriInvokePromise
 
 function isBrowserDevRuntime() {
-  const h = window?.location?.hostname
-  return typeof window !== 'undefined' && (h === '127.0.0.1' || h === 'localhost') && !isTauriRuntime()
+  if (typeof window === 'undefined') return false
+  const h = window.location?.hostname
+  return (h === '127.0.0.1' || h === 'localhost') && !isTauriRuntime()
 }
 
 function getRequestBase(base) {
@@ -47,8 +48,12 @@ async function getTauriInvoke() {
 
 async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT, signal) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
-  const onAbort = () => controller.abort()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeout)
+  const onAbort = () => controller.abort(signal?.reason)
   if (signal) {
     if (signal.aborted) controller.abort()
     else signal.addEventListener('abort', onAbort, { once: true })
@@ -56,7 +61,7 @@ async function fetchWithTimeout(url, opts = {}, timeout = DEFAULT_TIMEOUT, signa
   try {
     return await fetch(url, { ...opts, signal: controller.signal })
   } catch (err) {
-    if (err?.name === 'AbortError') throw new Error('API request timeout')
+    if (err?.name === 'AbortError' && timedOut) throw new Error('API request timeout')
     throw err
   } finally {
     clearTimeout(timer)

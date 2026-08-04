@@ -337,25 +337,21 @@ html:not(.mobile-runtime) .ly-line {
   border-radius: 0;
   cursor: pointer;
   text-align: left;
-  transition: opacity 260ms ease, filter 260ms ease, transform 260ms ease, background 260ms ease;
-  will-change: transform, opacity, filter, background;
+  transition: opacity 260ms ease, transform 260ms ease, background 260ms ease;
   backface-visibility: hidden;
   position: relative;
 }
 
 html:not(.mobile-runtime) .ly-line:not(.active) {
   opacity: 0.38;
-  filter: blur(0.8px);
   transform: translateY(2px);
 }
 
 html:not(.mobile-runtime) .ly-line.sung:not(.active) {
   opacity: 0.48;
-  filter: blur(1.5px);
 }
 
 html:not(.mobile-runtime) .ly-line:not(.active):not(.sung) {
-  filter: blur(2px);
   opacity: 0.32;
 }
 
@@ -363,11 +359,11 @@ html:not(.mobile-runtime) .ly-line:hover { background: rgba(255,255,255,0.04); }
 
 html:not(.mobile-runtime) .ly-line-text {
   display: block;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 500;
   color: rgba(255,255,255,0.72);
-  transition: color 260ms ease, font-size 260ms ease, text-shadow 260ms ease, letter-spacing 260ms ease;
-  line-height: 1.46;
+  transition: color 260ms ease, text-shadow 260ms ease;
+  line-height: 1.35;
   letter-spacing: 0.02em;
   position: relative;
   z-index: 2;
@@ -396,8 +392,8 @@ html:not(.mobile-runtime) .ly-line.active {
 html:not(.mobile-runtime) .ly-line.active .ly-line-text {
   color: #fff;
   font-weight: 700;
-  font-size: 40px;
-  line-height: 1.22;
+  font-size: 32px;
+  line-height: 1.35;
   letter-spacing: 0.01em;
   text-shadow: 0 2px 12px rgba(0,0,0,0.28);
 }

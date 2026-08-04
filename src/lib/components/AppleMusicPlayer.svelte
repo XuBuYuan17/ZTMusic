@@ -252,7 +252,7 @@
   </button>
 {/snippet}
 
-<div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">
@@ -355,7 +355,9 @@
   <!-- Lyrics area -->
   <div class="am-lyrics-area" bind:this={lyricsEl} aria-live="polite" aria-atomic="false">
     <div class="am-lyrics-inner">
-      {#if lyricState.lyrics.length > 0}
+      {#if lyricState.loading}
+        <div class="am-no-lyric" aria-busy="true">歌词加载中…</div>
+      {:else if lyricState.lyrics.length > 0}
         {#each lyricState.lyrics as line, i}
           {@render lyricLine(line, i)}
         {/each}
@@ -861,6 +863,16 @@
     pointer-events: none;
   }
 
+  .vinyl-theme .am-flying-cover::before,
+  .vinyl-theme .am-vinyl-label {
+    animation-play-state: paused;
+  }
+
+  .vinyl-theme.playing .am-flying-cover::before,
+  .vinyl-theme.playing .am-vinyl-label {
+    animation-play-state: running;
+  }
+
   @keyframes vinyl-spin {
     to { transform: rotate(360deg); }
   }
@@ -1114,7 +1126,7 @@
     font-weight: 500;
     color: rgba(255,255,255,0.3);
     line-height: 1.6;
-    transition: font-size 0.3s ease, color 0.3s ease;
+    transition: color 0.3s ease;
   }
   .am-lyric-line.before .am-lyric-text {
     color: rgba(255,255,255,0.6);
@@ -1122,7 +1134,7 @@
   .am-lyric-line.active .am-lyric-text {
     font-weight: 700;
     color: #fff;
-    font-size: 26px; /* 用 font-size 变化，浏览器会正确 wrap；scale 不参与 layout 会溢出屏幕 */
+    font-size: 20px;
   }
   .am-lyric-trans {
     display: block;
@@ -1140,6 +1152,20 @@
     color: rgba(255,255,255,0.3);
     text-align: center;
     padding: 40px 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .am-flying-cover,
+    .am-lyrics-area,
+    .am-lyric-line,
+    .am-lyric-text {
+      transition-duration: 0.01ms;
+    }
+
+    .vinyl-theme .am-flying-cover::before,
+    .vinyl-theme .am-vinyl-label {
+      animation: none;
+    }
   }
 
 </style>

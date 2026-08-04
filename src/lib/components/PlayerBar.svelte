@@ -1,8 +1,7 @@
 <script>
-  import { ncm } from '../api/client.js'
   import { player } from '../stores/player.svelte.js'
+  import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.js'
   import { coverUrl } from '../utils/image.js'
-  import { parseLyricResponse } from '../utils/lyrics.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
@@ -27,31 +26,21 @@
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  let lyricOpenTimer = null
-
   function openLyricsFromBar(e) {
-    if (player.id) {
-      const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
-      const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
-      if (!originEl) return
-      isPressing = true
-
-      lyricOpenTimer = setTimeout(() => {
-        isPressing = false
-        onOpenSheet?.(originEl)
-        lyricOpenTimer = null
-      }, 150)
-    }
+    if (!player.id) return
+    const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
+    const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
+    if (originEl) onOpenSheet?.(originEl)
   }
 
   // 组件销毁时清理定时器
   $effect(() => () => {
     if (swipeTimer) clearTimeout(swipeTimer)
-    if (lyricOpenTimer) clearTimeout(lyricOpenTimer)
   })
 
   function handleBarPointerDown(e) {
     if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
+    isPressing = true
     gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
     try { e.currentTarget?.setPointerCapture?.(e.pointerId) } catch {}
   }
@@ -61,6 +50,7 @@
     const dx = e.clientX - gestureStart.x
     const dy = e.clientY - gestureStart.y
     gestureStart = null
+    isPressing = false
 
     if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
       e.preventDefault()
@@ -78,6 +68,7 @@
 
   function handleBarPointerCancel() {
     gestureStart = null
+    isPressing = false
   }
 
   // ---- 定时器管理器 ----
@@ -128,11 +119,6 @@
     player.setVolume(1 - pct)
   }
 
-  function normalizeLyricLine(line) {
-    const text = line?.content?.trim() || line?.translation?.trim() || line?.roman?.trim() || ''
-    const translation = line?.translation?.trim() || ''
-    return { time: line.time, text, translation }
-  }
 
   $effect(() => {
     const id = player.id
@@ -151,18 +137,16 @@
     _lyricRequestedId = id
 
     lyricTrackId = id
-    barLyrics = []
+    barLyrics = getCachedLyrics(id) || []
     currentLyric = null
-    lyricLoading = true
+    lyricLoading = barLyrics.length === 0
     const requestId = ++lyricRequestId
 
     ;(async () => {
       try {
-        const res = await ncm.lyric(id)
+        const lines = await loadLyrics(id)
         if (requestId !== lyricRequestId) return
-        barLyrics = parseLyricResponse(res).lines
-          .map(normalizeLyricLine)
-          .filter((line) => line.text)
+        barLyrics = lines
       } catch (err) {
         if (requestId === lyricRequestId) barLyrics = []
       } finally {

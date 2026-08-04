@@ -230,47 +230,71 @@ export const auth = {
     _currentQrPoll?.cancel()
 
     let canceled = false
+    let settled = false
     let timer
     let retry = 0
     const MAX_RETRIES = 3
     const MAX_DURATION_MS = 90_000  // 硬超时：NCM QR 一般 2 分钟过期，90s 后主动放弃
     const startedAt = Date.now()
 
+    let resolvePromise
+    let rejectPromise
     const promise = new Promise((resolve, reject) => {
-      const poll = async () => {
-        if (canceled) return
-        if (Date.now() - startedAt > MAX_DURATION_MS) {
-          return reject(new Error('二维码轮询超时'))
-        }
-        try {
-          const check = await ncm.loginQrCheck(key)
-          if (canceled) return
-          retry = 0  // 成功一次就重置重试计数
-          const code = check.code ?? check.data?.code
-          onStatus?.(code)
-          if (code === 803) {
-            const raw = check.cookie || check.data?.cookie || ''
-            const ck = raw ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ') : ''
-            if (ck) setCookie(ck)
-            resolve(ck)
-            return
-          }
-          if (code === 800) {
-            reject(new Error('二维码已过期'))
-            return
-          }
-          timer = setTimeout(poll, 1500)
-        } catch (e) {
-          // 网络错误：指数退避重试，超过上限才 reject
-          if (++retry > MAX_RETRIES) return reject(e)
-          timer = setTimeout(poll, 1500 * 2 ** retry)
-        }
-      }
-      poll()
+      resolvePromise = resolve
+      rejectPromise = reject
     })
+    let handle
+    const finish = (settle, value) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (_currentQrPoll === handle) _currentQrPoll = null
+      settle(value)
+    }
+    const poll = async () => {
+      if (canceled || settled) return
+      if (Date.now() - startedAt > MAX_DURATION_MS) {
+        finish(rejectPromise, new Error('二维码轮询超时'))
+        return
+      }
+      try {
+        const check = await ncm.loginQrCheck(key)
+        if (canceled || settled) return
+        retry = 0
+        const code = check.code ?? check.data?.code
+        onStatus?.(code)
+        if (code === 803) {
+          const raw = check.cookie || check.data?.cookie || ''
+          const ck = raw ? raw.split(';').map(s => s.trim()).filter(s => s.includes('=') && !/^(Path|Domain|Expires|Max-Age|HttpOnly|Secure|SameSite)/i.test(s)).join('; ') : ''
+          if (ck) setCookie(ck)
+          finish(resolvePromise, ck)
+          return
+        }
+        if (code === 800) {
+          finish(rejectPromise, new Error('二维码已过期'))
+          return
+        }
+        timer = setTimeout(poll, 1500)
+      } catch (e) {
+        if (canceled || settled) return
+        if (++retry > MAX_RETRIES) {
+          finish(rejectPromise, e)
+          return
+        }
+        timer = setTimeout(poll, 1500 * 2 ** retry)
+      }
+    }
 
-    const handle = { promise, cancel: () => { canceled = true; clearTimeout(timer) } }
+    handle = {
+      promise,
+      cancel: () => {
+        if (canceled || settled) return
+        canceled = true
+        finish(rejectPromise, new DOMException('Aborted', 'AbortError'))
+      },
+    }
     _currentQrPoll = handle
+    poll()
     return handle
   }
 }

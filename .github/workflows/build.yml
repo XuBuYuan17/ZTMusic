@@ -44,7 +44,7 @@ env:
   PNPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: 60000
   ANDROID_API_LEVEL: 36
   ANDROID_BUILD_TOOLS: 36.0.0
-  ANDROID_NDK_VERSION: 27.2.12479018
+  ANDROID_NDK_VERSION: 29.0.14206865
 
 jobs:
   web-check:
@@ -173,6 +173,12 @@ jobs:
           fi
 
           echo "has_signing=$has_signing" >> "$GITHUB_OUTPUT"
+
+      - name: Require Android signing for tagged releases
+        if: startsWith(github.ref, 'refs/tags/v') && steps.android_signing.outputs.has_signing != 'true'
+        run: |
+          echo "::error::正式发布标签必须配置 Android 签名密钥，拒绝发布 unsigned APK。"
+          exit 1
 
       - name: Setup Java
         uses: actions/setup-java@v4

@@ -4,12 +4,20 @@ use std::thread;
 use async_channel::{unbounded, Receiver, Sender};
 use windows::core::HSTRING;
 use windows::Foundation::TypedEventHandler;
+use windows::Media::Playback::MediaPlayer;
 use windows::Media::{
     MediaPlaybackStatus, SystemMediaTransportControlsButton,
     SystemMediaTransportControlsButtonPressedEventArgs,
 };
-use windows::Media::Playback::MediaPlayer;
-use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
+
+struct ComApartment;
+
+impl Drop for ComApartment {
+    fn drop(&mut self) {
+        unsafe { CoUninitialize() };
+    }
+}
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -39,13 +47,15 @@ impl WindowsSmtcState {
 
         thread::spawn(move || {
             // COM 是线程绑定的，本线程只初始化一次；重连时复用同一 apartment。
-            // 线程退出时 Windows 会自动清理，无需 CoUninitialize。
             unsafe {
                 if let Err(error) = CoInitializeEx(None, COINIT_MULTITHREADED).ok() {
-                    log::error!("Windows SMTC CoInitializeEx failed: {error}, aborting SMTC thread");
+                    log::error!(
+                        "Windows SMTC CoInitializeEx failed: {error}, aborting SMTC thread"
+                    );
                     return;
                 }
             }
+            let _com_apartment = ComApartment;
             loop {
                 if let Err(error) = run_smtc(&receiver, &thread_pending_action) {
                     log::warn!("Windows SMTC disconnected: {error}, reconnecting in 5s...");

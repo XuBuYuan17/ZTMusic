@@ -88,15 +88,22 @@ function hideSplash() {
 
 ;(async () => {
   try {
-    // 按需加载布局 CSS
-    await loadLayoutCss()
-    
-    // 开屏最小展示时间：ZT Music 光弧扫过 + Music/Loading 入场
-    const MIN_SPLASH_DURATION = 3800
-    await new Promise((resolve) => setTimeout(resolve, MIN_SPLASH_DURATION))
+    const bootstrapStartedAt = performance.now()
+    const appModules = Promise.all([
+      import('svelte'),
+      import('./App.svelte'),
+    ])
 
-    const { mount } = await import('svelte')
-    const { default: App } = await import('./App.svelte')
+    // 布局 CSS、应用代码和开屏动画并行准备，避免串行等待。
+    await loadLayoutCss()
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const minimumDuration = reduceMotion ? 0 : 1100
+    const remainingDelay = Math.max(0, minimumDuration - (performance.now() - bootstrapStartedAt))
+    const [modules] = await Promise.all([
+      appModules,
+      new Promise((resolve) => setTimeout(resolve, remainingDelay)),
+    ])
+    const [{ mount }, { default: App }] = modules
     mount(App, { target: document.getElementById('app') })
     hideSplash()
   } catch (e) {

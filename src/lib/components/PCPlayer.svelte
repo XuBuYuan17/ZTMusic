@@ -79,7 +79,9 @@
     <div class="ly-right-panel">
       <div class="ly-lyrics-scroll" bind:this={lyricsEl}>
         <div class="ly-lyrics-inner">
-          {#if lyricState.lyrics.length > 0}
+          {#if lyricState.loading}
+            <div class="ly-no-lyric" aria-busy="true">歌词加载中…</div>
+          {:else if lyricState.lyrics.length > 0}
             {#each lyricState.lyrics as line, i}
               <button class="ly-line" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
                 aria-current={i === lyricState.highlightIndex ? 'true' : undefined}

@@ -9,6 +9,7 @@ import { player } from './player.svelte.js'
 import { auth } from './auth.svelte.js'
 import { extractColor } from '../player/colors.js'
 import { loadAlbumDetail, loadArtistDetail, loadPlaylistDetail } from '../services/details.js'
+import { createLruCache } from '../utils/lru-cache.js'
 
 // ── 导航状态 ──
 let _activeView = $state('home')
@@ -33,6 +34,7 @@ let _artistError = $state('')
 
 let _detailRequestId = 0
 let _artistRequestId = 0
+const detailCache = createLruCache({ maxEntries: 24, ttlMs: 3 * 60 * 1000 })
 
 // ── 工具 ──
 function currentRoute() { return { view: _activeView, id: _selectedId } }
@@ -52,7 +54,16 @@ async function goPlaylist(id, shouldPushRoute = true, preview = null) {
   if (!id || id <= 0) return
   if (shouldPushRoute) pushRoute(); const rid = ++_detailRequestId; _routeTransition = 'book-turn'; _previousView = _activeView
   _activeView = 'playlist'; _selectedId = id; _heroColor = '#141414'; _playlistDetail = createPlaylistPreview(preview, id)
-  _playlistDetailError = ''; _playlistDetailLoading = true; let loadedFirstBatch = false, data
+  _playlistDetailError = ''; _playlistDetailLoading = true; _playlistLoadingMore = false
+
+  const cacheKey = 'playlist:' + id
+  const cached = detailCache.get(cacheKey)
+  if (cached) {
+    _playlistDetail = cached.detail; _heroColor = cached.heroColor; _playlistDetailLoading = false
+    return
+  }
+
+  let loadedFirstBatch = false, data
   try {
     data = await loadPlaylistDetail(ncm, extractColor, id, (partial) => {
       if (rid !== _detailRequestId) return
@@ -60,23 +71,45 @@ async function goPlaylist(id, shouldPushRoute = true, preview = null) {
       if (!loadedFirstBatch) { loadedFirstBatch = true; _playlistDetailLoading = false; if ((partial.detail?.trackIds?.length || 0) > (partial.detail?.tracks?.length || 0)) _playlistLoadingMore = true }
     })
   } catch (e) { data = { detail: null, heroColor: '#141414' }; _playlistDetailError = e?.message || '加载失败' }
-  if (rid !== _detailRequestId) return; _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false; _playlistLoadingMore = false
+  if (rid !== _detailRequestId) return
+  _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false; _playlistLoadingMore = false
+  if (data.detail) detailCache.set(cacheKey, data)
 }
 
 async function goAlbum(id, shouldPushRoute = true) {
   if (!id || id <= 0) return; if (shouldPushRoute) pushRoute(); const rid = ++_detailRequestId
   _routeTransition = 'book-turn'; _previousView = _activeView; _activeView = 'album'; _selectedId = id
   _heroColor = '#141414'; _playlistDetail = null; _playlistDetailError = ''; _playlistDetailLoading = true
+
+  const cacheKey = 'album:' + id
+  const cached = detailCache.get(cacheKey)
+  if (cached) {
+    _playlistDetail = cached.detail; _heroColor = cached.heroColor; _playlistDetailLoading = false
+    return
+  }
+
   let data; try { data = await loadAlbumDetail(ncm, extractColor, id) } catch (e) { data = { detail: null, heroColor: '#141414' }; _playlistDetailError = e?.message || '加载失败' }
-  if (rid !== _detailRequestId) return; _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false
+  if (rid !== _detailRequestId) return
+  _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false
+  if (data.detail) detailCache.set(cacheKey, data)
 }
 
 async function goArtist(id, shouldPushRoute = true) {
   if (!id || id <= 0) return; if (shouldPushRoute) pushRoute(); const rid = ++_artistRequestId
   _routeTransition = 'book-turn'; _previousView = _activeView; _activeView = 'artist'; _selectedId = id
   _heroColor = '#141414'; _artistLoading = true; _artistError = ''; _artistDetail = null; _artistSongs = []; _artistAlbums = []
+
+  const cacheKey = 'artist:' + id
+  const cached = detailCache.get(cacheKey)
+  if (cached) {
+    _artistDetail = cached.artist; _artistSongs = cached.songs; _artistAlbums = cached.albums; _artistLoading = false
+    return
+  }
+
   let data; try { data = await loadArtistDetail(ncm, id) } catch (e) { data = { artist: null, songs: [], albums: [] }; _artistError = e?.message || '加载失败' }
-  if (rid !== _artistRequestId) return; _artistDetail = data.artist; _artistSongs = data.songs; _artistAlbums = data.albums; _artistLoading = false
+  if (rid !== _artistRequestId) return
+  _artistDetail = data.artist; _artistSongs = data.songs; _artistAlbums = data.albums; _artistLoading = false
+  if (data.artist) detailCache.set(cacheKey, data)
 }
 
 function handleBannerClick(banner) {
@@ -86,6 +119,7 @@ function handleBannerClick(banner) {
 async function toggleArtistFollow() {
   if (!_artistDetail?.id) return; const next = !_artistDetail.followed; _artistDetail = { ..._artistDetail, followed: next }
   try { await ncm.artistSub(_artistDetail.id, next) } catch { _artistDetail = { ..._artistDetail, followed: !next } }
+  detailCache.set('artist:' + _artistDetail.id, { artist: _artistDetail, songs: _artistSongs, albums: _artistAlbums })
 }
 
 // ── 详情视图播放 wrapper（共享数据） ──

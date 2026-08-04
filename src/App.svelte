@@ -26,18 +26,23 @@
   import Toast from './lib/components/ui/Toast.svelte'
 
   const isMobileRuntime = () => isMobileDevice()
-  const loadMobileApp = () => import('./lib/components/MobileApp.svelte')
-  const loadExplorePage = () => import('./lib/pages/pc/Explore.svelte')
-  const loadDailyHistoryPage = () => import('./lib/pages/pc/DailyHistory.svelte')
-  const loadSearchPage = () => import('./lib/pages/SearchPage.svelte')
-  const loadArtistPage = () => import('./lib/pages/ArtistPage.svelte')
-  const loadMessagesPage = () => import('./lib/pages/pc/Messages.svelte')
-  const loadLibraryPage = () => import('./lib/pages/pc/Library.svelte')
-  const loadRecentPage = () => import('./lib/pages/pc/Recent.svelte')
-  const loadSettingsPage = () => import('./lib/pages/pc/Settings.svelte')
-  const loadLikedPage = () => import('./lib/pages/pc/Liked.svelte')
-  const loadPlaylistPage = () => import('./lib/pages/PlaylistPage.svelte')
-  const loadAboutPage = () => import('./lib/pages/AboutPage.svelte')
+  const lazyModule = (loader) => {
+    let module
+    let promise
+    return () => module ?? (promise ??= loader().then((loaded) => module = loaded))
+  }
+  const loadMobileApp = lazyModule(() => import('./lib/components/MobileApp.svelte'))
+  const loadExplorePage = lazyModule(() => import('./lib/pages/pc/Explore.svelte'))
+  const loadDailyHistoryPage = lazyModule(() => import('./lib/pages/pc/DailyHistory.svelte'))
+  const loadSearchPage = lazyModule(() => import('./lib/pages/SearchPage.svelte'))
+  const loadArtistPage = lazyModule(() => import('./lib/pages/ArtistPage.svelte'))
+  const loadMessagesPage = lazyModule(() => import('./lib/pages/pc/Messages.svelte'))
+  const loadLibraryPage = lazyModule(() => import('./lib/pages/pc/Library.svelte'))
+  const loadRecentPage = lazyModule(() => import('./lib/pages/pc/Recent.svelte'))
+  const loadSettingsPage = lazyModule(() => import('./lib/pages/pc/Settings.svelte'))
+  const loadLikedPage = lazyModule(() => import('./lib/pages/pc/Liked.svelte'))
+  const loadPlaylistPage = lazyModule(() => import('./lib/pages/PlaylistPage.svelte'))
+  const loadAboutPage = lazyModule(() => import('./lib/pages/AboutPage.svelte'))
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
@@ -82,6 +87,7 @@
 
   // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
   $effect(() => { untrack(() => player.restore()) })
+
 
   $effect(() => {
     const u = responsive.subscribe(r => {
@@ -252,90 +258,88 @@
 
     <div class="content-scroll" bind:this={contentScrollEl} id="main-content">
       <div class="content-inner">
-        {#key router.activeView}
-          <div class="page-enter" transition:fade={{ duration: 150 }}>
-            {#if router.activeView === 'home'}
-              <HomePage
-                onNavigate={router.handleNav}
-                onOpenLogin={() => showLogin = true}
-                onOpenPlaylist={router.goPlaylist}
+        <div class="page-enter" transition:fade={{ duration: 150 }}>
+          {#if router.activeView === 'home'}
+            <HomePage
+              onNavigate={router.handleNav}
+              onOpenLogin={() => showLogin = true}
+              onOpenPlaylist={router.goPlaylist}
+              onOpenArtist={router.goArtist}
+              onOpenAlbum={router.goAlbum}
+              onOpenFollows={openFollows}
+            />
+          {:else if router.activeView === 'playlist' || router.activeView === 'album'}
+            {#await loadPlaylistPage() then module}
+              <module.default
+                playlistDetail={router.playlistDetail}
+                loading={router.playlistDetailLoading}
+                loadingMore={router.playlistLoadingMore}
+                error={router.playlistDetailError}
+                selectedId={router.selectedId}
+                heroColor={router.heroColor}
+                detailType={router.activeView === 'album' ? '专辑' : '歌单'}
+                onBack={router.goBack}
+                onPlayAll={router.playAll}
+                onPlayTrack={router.playTrack}
                 onOpenArtist={router.goArtist}
                 onOpenAlbum={router.goAlbum}
-                onOpenFollows={openFollows}
               />
-            {:else if router.activeView === 'playlist' || router.activeView === 'album'}
-              {#await loadPlaylistPage() then module}
-                <module.default
-                  playlistDetail={router.playlistDetail}
-                  loading={router.playlistDetailLoading}
-                  loadingMore={router.playlistLoadingMore}
-                  error={router.playlistDetailError}
-                  selectedId={router.selectedId}
-                  heroColor={router.heroColor}
-                  detailType={router.activeView === 'album' ? '专辑' : '歌单'}
-                  onBack={router.goBack}
-                  onPlayAll={router.playAll}
-                  onPlayTrack={router.playTrack}
-                  onOpenArtist={router.goArtist}
-                  onOpenAlbum={router.goAlbum}
-                />
-              {/await}
-            {:else if router.activeView === 'search'}
-              {#await loadSearchPage() then module}
-                <module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
-              {/await}
-            {:else if router.activeView === 'artist'}
-              {#await loadArtistPage() then module}
-                <module.default
-                  artist={router.artistDetail}
-                  songs={router.artistSongs}
-                  albums={router.artistAlbums}
-                  loading={router.artistLoading}
-                  error={router.artistError}
-                  onBack={router.goBack}
-                  onPlayAll={router.playArtistAll}
-                  onPlayTrack={router.playArtistTrack}
-                  onOpenAlbum={router.goAlbum}
-                  onOpenArtist={router.goArtist}
-                  onToggleFollow={router.toggleArtistFollow}
-                />
-              {/await}
-            {:else if router.activeView === 'explore'}
-              {#await loadExplorePage() then module}
-                <module.default
-                  onSearch={() => showSearch = true}
-                  onBannerClick={router.handleBannerClick}
-                  onOpenPlaylist={router.goPlaylist}
-                  onOpenAlbum={router.goAlbum}
-                  onPlaySong={router.playExploreSong}
-                  onOpenArtist={router.goArtist}
-                />
-              {/await}
-            {:else if router.activeView === 'dailyHistory'}
-              {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
-            {:else if router.activeView === 'library'}
-              {#await loadLibraryPage() then module}
-                <module.default onOpenLogin={() => showLogin = true} onOpenPlaylist={router.goPlaylist} onNavigate={router.handleNav} />
-              {/await}
-            {:else if router.activeView === 'recent'}
-              {#await loadRecentPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
-            {:else if router.activeView === 'messages'}
-              {#await loadMessagesPage() then module}
-                <module.default onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
-              {/await}
-            {:else if router.activeView === 'liked'}
-              {#await loadLikedPage() then module}
-                <module.default onPlayAll={router.playAll} onPlayTrack={router.playTrack} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />
-              {/await}
-            {:else if router.activeView === 'settings'}
-              {#await loadSettingsPage() then module}<module.default {theme} onSetTheme={(value) => theme = value} />{/await}
-            {:else if router.activeView === 'about'}
-              {#await loadAboutPage() then module}
-                <module.default />
-              {/await}
-            {/if}
-          </div>
-        {/key}
+            {/await}
+          {:else if router.activeView === 'search'}
+            {#await loadSearchPage() then module}
+              <module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
+            {/await}
+          {:else if router.activeView === 'artist'}
+            {#await loadArtistPage() then module}
+              <module.default
+                artist={router.artistDetail}
+                songs={router.artistSongs}
+                albums={router.artistAlbums}
+                loading={router.artistLoading}
+                error={router.artistError}
+                onBack={router.goBack}
+                onPlayAll={router.playArtistAll}
+                onPlayTrack={router.playArtistTrack}
+                onOpenAlbum={router.goAlbum}
+                onOpenArtist={router.goArtist}
+                onToggleFollow={router.toggleArtistFollow}
+              />
+            {/await}
+          {:else if router.activeView === 'explore'}
+            {#await loadExplorePage() then module}
+              <module.default
+                onSearch={() => showSearch = true}
+                onBannerClick={router.handleBannerClick}
+                onOpenPlaylist={router.goPlaylist}
+                onOpenAlbum={router.goAlbum}
+                onPlaySong={router.playExploreSong}
+                onOpenArtist={router.goArtist}
+              />
+            {/await}
+          {:else if router.activeView === 'dailyHistory'}
+            {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
+          {:else if router.activeView === 'library'}
+            {#await loadLibraryPage() then module}
+              <module.default onOpenLogin={() => showLogin = true} onOpenPlaylist={router.goPlaylist} onNavigate={router.handleNav} />
+            {/await}
+          {:else if router.activeView === 'recent'}
+            {#await loadRecentPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
+          {:else if router.activeView === 'messages'}
+            {#await loadMessagesPage() then module}
+              <module.default onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
+            {/await}
+          {:else if router.activeView === 'liked'}
+            {#await loadLikedPage() then module}
+              <module.default onPlayAll={router.playAll} onPlayTrack={router.playTrack} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />
+            {/await}
+          {:else if router.activeView === 'settings'}
+            {#await loadSettingsPage() then module}<module.default {theme} onSetTheme={(value) => theme = value} />{/await}
+          {:else if router.activeView === 'about'}
+            {#await loadAboutPage() then module}
+              <module.default />
+            {/await}
+          {/if}
+        </div>
       </div>
     </div>
 

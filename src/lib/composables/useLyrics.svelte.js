@@ -5,17 +5,11 @@
  * so both mobile (AppleMusicPlayer) and PC (PCPlayer) stay in sync.
  */
 import { player } from '../stores/player.svelte.js'
-import { ncm } from '../api/client.js'
-import { parseLyricResponse, parseYrc } from '../utils/lyrics.js'
+import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.js'
 import { debugLog } from '../utils/error.js'
-
-function splitWords(text = '') {
-  return (text || '').trim().split(/\s+/).map(w => w.trim()).filter(Boolean)
-}
 
 export function useLyrics() {
   let lyrics = $state([])
-  let yrcLines = $state([])
   let loading = $state(false)
   let requestId = 0
 
@@ -28,30 +22,21 @@ export function useLyrics() {
 
   async function refresh() {
     const id = player.id
-    if (!id) { lyrics = []; yrcLines = []; loading = false; return }
+    if (!id) { lyrics = []; loading = false; return }
     const reqId = ++requestId
+    const cached = getCachedLyrics(id)
+    if (cached) {
+      lyrics = cached
+      loading = false
+      return
+    }
     loading = true
 
     try {
-      const res = await ncm.lyric(id).catch(() => null)
+      const lines = await loadLyrics(id)
       if (reqId !== requestId || player.id !== id) return
-      const base = parseLyricResponse(res || {})
-      lyrics = base.lines.map(l => ({
-        time: l.time,
-        text: l.content,
-        translation: l.translation,
-        words: l.content ? splitWords(l.content) : [],
-      }))
+      lyrics = lines
     } catch (err) { debugLog('useLyrics', 'fetch-error', { id, error: err?.message || String(err) }) }
-
-    try {
-      const newRes = await ncm.lyricNew(id).catch(() => null)
-      if (reqId !== requestId || player.id !== id) return
-      if (newRes?.yrc?.lyric) {
-        const yrc = parseYrc(newRes.yrc.lyric)
-        if (yrc.length > 0) yrcLines = yrc
-      }
-    } catch (err) { debugLog('useLyrics', 'yrc-fetch-error', { id, error: err?.message || String(err) }) }
 
     if (reqId === requestId) loading = false
   }
@@ -59,7 +44,6 @@ export function useLyrics() {
   function clear() {
     requestId++
     lyrics = []
-    yrcLines = []
     loading = false
   }
 
@@ -68,13 +52,11 @@ export function useLyrics() {
     const id = player.id
     if (!id) { clear(); return }
     lyrics = []
-    yrcLines = []
     refresh()
   })
 
   return {
     get lyrics() { return lyrics },
-    get yrcLines() { return yrcLines },
     get loading() { return loading },
     get highlightIndex() { return highlightIndex },
     refresh,
