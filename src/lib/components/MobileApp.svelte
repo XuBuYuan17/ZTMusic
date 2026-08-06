@@ -279,6 +279,10 @@
         <Icon name="liked" size={24} />
         <span>歌单</span>
       </button>
+      <button class="m-tab" class:active={activeView === 'search'} aria-current={activeView === 'search' ? 'page' : undefined} onclick={() => onSearch?.()}>
+        <Icon name="search" size={24} />
+        <span>搜索</span>
+      </button>
     </nav>
   {/if}
 

@@ -66,7 +66,7 @@
 
     <button class="nav-item" class:active={activeView === 'home'} onclick={() => nav('home')}>
       <span class="nav-icon">
-        <Icon name="home" size={28} strokeWidth={1.5} />
+        <Icon name="home" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">
         <span class="nav-title">主页</span>
@@ -75,28 +75,28 @@
 
     <button class="nav-item" class:active={activeView === 'explore'} onclick={() => nav('explore')}>
       <span class="nav-icon">
-        <Icon name="compass" size={28} strokeWidth={1.5} />
+        <Icon name="compass" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">发现</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'library'} onclick={() => nav('library')}>
       <span class="nav-icon">
-        <Icon name="liked" size={28} strokeWidth={1.5} />
+        <Icon name="liked" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">我的收藏</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'recent'} onclick={() => nav('recent')}>
       <span class="nav-icon">
-        <Icon name="clock" size={28} strokeWidth={1.5} />
+        <Icon name="clock" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">最近播放</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'messages'} onclick={() => nav('messages')}>
       <span class="nav-icon">
-        <Icon name="messages" size={28} strokeWidth={1.5} />
+        <Icon name="messages" size={22} strokeWidth={1.5}/>
         {#if notificationUnread > 0}<span class="nav-badge" aria-label={`${notificationUnread} 条未读提醒`}>{notificationUnread > 99 ? '99+' : notificationUnread}</span>{/if}
       </span>
       <span class="nav-label">
@@ -109,21 +109,21 @@
 
     <button class="nav-item" onclick={(event) => onToggleTheme?.(event)} title="切换主题">
       <span class="nav-icon">
-        <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={28} strokeWidth={1.5} />
+        <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">切换主题</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'settings'} onclick={() => nav('settings')} title="设置">
       <span class="nav-icon">
-        <Icon name="settings" size={28} strokeWidth={1.5} />
+        <Icon name="settings" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">设置</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'about'} onclick={() => nav('about')} title="关于">
       <span class="nav-icon">
-        <Icon name="about" size={28} strokeWidth={1.5} />
+        <Icon name="about" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">关于</span>
     </button>
@@ -131,7 +131,7 @@
     {#if auth.isLoggedIn}
     <button class="nav-item" onclick={() => showLogoutConfirm = true} title="退出登录">
       <span class="nav-icon" style="color:var(--accent);">
-        <Icon name="logout" size={28} strokeWidth={1.5} />
+        <Icon name="logout" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">退出登录</span>
     </button>

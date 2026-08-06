@@ -678,9 +678,9 @@ html.mobile-runtime .m-page-kicker {
 }
 
 html.mobile-runtime .m-page-header h1 {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 850;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.7px;
   color: var(--text);
 }
 
@@ -2468,6 +2468,8 @@ html.mobile-runtime .m-tabs {
   left: 0;
   right: 0;
   bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   height: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom));
   padding: 6px 24px calc(6px + env(safe-area-inset-bottom));
   gap: 18px;

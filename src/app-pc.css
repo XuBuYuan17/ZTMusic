@@ -173,9 +173,9 @@ html:not(.mobile-runtime) .ly-progress-row {
 }
 
 html:not(.mobile-runtime) .ly-progress-track {
-  height: 8px;
+  height: 5px;
   background: rgba(255,255,255,0.15);
-  border-radius: 1px;
+  border-radius: 999px;
   cursor: pointer;
   touch-action: none;
 }
@@ -199,8 +199,8 @@ html:not(.mobile-runtime) .ly-time {
 
 html:not(.mobile-runtime) .ly-progress-fill {
   height: 100%;
-  background: rgba(255,255,255,0.9);
-  border-radius: 2px;
+  background: var(--accent-gradient);
+  border-radius: 999px;
   transition: width 0.15s linear;
 }
 
@@ -257,11 +257,17 @@ html:not(.mobile-runtime) .ly-play-btn {
   width: clamp(68px, 6.2vw, 104px);
   height: clamp(68px, 6.2vw, 104px);
   border-radius: 50%;
-  background: none;
+  background: var(--accent-gradient);
   border: none;
   color: #fff;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(.2,.9,.2,1);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: transform 0.2s cubic-bezier(.2,.9,.2,1), box-shadow 0.2s;
+}
+
+.ly-play-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 52%, transparent);
 }
 
 html:not(.mobile-runtime) .ly-play-btn:active {
