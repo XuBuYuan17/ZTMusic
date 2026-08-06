@@ -13,8 +13,8 @@ export const PLAYBACK = {
   ADVANCE_DELAY: 80,
   /** 等待 fallback 填充的超时 (ms) */
   FALLBACK_WAIT_TIMEOUT: 3000,
-  /** 原生媒体位置同步阈值 (s):SMTC/MPRIS 时间轴,0.5s 供逐字歌词同步 */
-  NATIVE_POSITION_THRESHOLD: 0.5,
+  /** 原生媒体位置同步阈值 (s) */
+  NATIVE_POSITION_THRESHOLD: 5,
   /** Android 通知栏位置同步阈值 (s) */
   NATIVE_ANDROID_POSITION_THRESHOLD: 15,
   /** Android 按钮轮询间隔 (ms) */
