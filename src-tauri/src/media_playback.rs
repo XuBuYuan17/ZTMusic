@@ -38,8 +38,7 @@ pub fn updatePlaybackState(
 
     #[cfg(target_os = "windows")]
     {
-        let _ = duration;
-        state.smtc.update_playback_state(playing, position);
+        state.smtc.update_playback_state(playing, position, duration);
     }
 
     #[cfg(not(any(target_os = "android", target_os = "linux", target_os = "windows")))]

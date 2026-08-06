@@ -3,11 +3,12 @@ use std::thread;
 
 use async_channel::{unbounded, Receiver, Sender};
 use windows::core::HSTRING;
-use windows::Foundation::TypedEventHandler;
+use windows::Foundation::{TimeSpan, TypedEventHandler};
 use windows::Media::Playback::MediaPlayer;
 use windows::Media::{
     MediaPlaybackStatus, SystemMediaTransportControlsButton,
     SystemMediaTransportControlsButtonPressedEventArgs,
+    SystemMediaTransportControlsTimelineProperties,
 };
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 
@@ -31,6 +32,7 @@ enum WindowsSmtcMessage {
     Playback {
         playing: bool,
         position: f64,
+        duration: f64,
     },
 }
 
@@ -83,10 +85,14 @@ impl WindowsSmtcState {
         });
     }
 
-    pub fn update_playback_state(&self, playing: bool, position: f64) {
+    pub fn update_playback_state(&self, playing: bool, position: f64, duration: f64) {
         let _ = self
             .sender
-            .try_send(WindowsSmtcMessage::Playback { playing, position });
+            .try_send(WindowsSmtcMessage::Playback {
+                playing,
+                position,
+                duration,
+            });
     }
 
     pub fn poll_pending_action(&self) -> String {
@@ -171,7 +177,11 @@ fn run_smtc(
                 // Update SMTC
                 display_updater.Update()?;
             }
-            WindowsSmtcMessage::Playback { playing, position } => {
+            WindowsSmtcMessage::Playback {
+                playing,
+                position,
+                duration,
+            } => {
                 // Update playback status
                 let status = if playing {
                     MediaPlaybackStatus::Playing
@@ -184,10 +194,22 @@ fn run_smtc(
                 // We just update the SMTC status display
                 smtc.SetPlaybackStatus(status)?;
 
+                // 时间轴:SMTC 客户端(Lyricify 等)与系统媒体浮窗靠它同步歌词/进度条。
+                // TimeSpan 单位为 100ns,秒 = 1e7 tick。
+                let timeline = SystemMediaTransportControlsTimelineProperties::new()?;
+                timeline.SetEndTime(TimeSpan {
+                    Duration: (duration * 10_000_000.0) as i64,
+                })?;
+                timeline.SetPosition(TimeSpan {
+                    Duration: (position * 10_000_000.0) as i64,
+                })?;
+                smtc.UpdateTimelineProperties(&timeline)?;
+
                 log::debug!(
-                    "SMTC playback update: playing={}, position={}",
+                    "SMTC playback update: playing={}, position={}, duration={}",
                     playing,
-                    position
+                    position,
+                    duration
                 );
             }
         }
