@@ -4,14 +4,16 @@ import { installNativeShell } from './lib/app/native-shell.js'
 
 installNativeShell()
 
+let loadedLayout = null
+
 async function loadLayoutCss() {
   // 初始化时直接判断，不需要订阅 store —— 此时 DOM 已经有尺寸了
-  const { isMobile } = shouldUseMobileLayout(window.innerWidth, window.innerHeight)
-  if (isMobile) {
-    await import('./app-mobile.css')
-  } else {
-    await import('./app-pc.css')
-  }
+  // 布局切换时再次调用:补加载另一个 CSS(幂等)
+  const isMobile = shouldUseMobileLayout(window.innerWidth, window.innerHeight)
+  const target = isMobile ? './app-mobile.css' : './app-pc.css'
+  if (loadedLayout === target) return
+  loadedLayout = target
+  await import(target)
 }
 
 const viewport = document.querySelector('meta[name="viewport"]')
@@ -69,6 +71,8 @@ installDevErrorReporter()
 
 function syncMobileRuntime(state) {
   document.documentElement.classList.toggle('mobile-runtime', state.isMobile)
+  // 响应式布局切换(窗口缩放/设备旋转)时,补加载对应的布局 CSS
+  loadLayoutCss()
 }
 
 // 唯一响应式来源：layoutMode store → mobile-runtime class → CSS 选择器
