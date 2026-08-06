@@ -2,7 +2,8 @@
  * 原生媒体会话管理
  * - Android 通知栏（通过 Tauri Kotlin Plugin）
  * - Linux 桌面 MPRIS（通过 Tauri Rust 后端）
- * - Windows/macOS 桌面系统媒体控件（Web Media Session API，由 PlayerState 直接维护）
+ * - Windows 桌面系统媒体控件（SMTC，通过 Tauri Rust 后端，含时间轴）
+ * - macOS 桌面系统媒体控件（Web Media Session API，由 PlayerState 直接维护）
  *
  * 职责：仅处理原生平台媒体控件的双向同步，不涉及播放逻辑。
  */
@@ -34,14 +35,15 @@ function isTauriLinux() {
   return /Linux/i.test(platform) && !/Android/i.test(navigator.userAgent)
 }
 
-function isTauriWindows() {
+export function isTauriWindows() {
   if (!isTauriRuntime()) return false
   const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
   return /Win/i.test(platform)
 }
 
 function shouldUseNativeBridge() {
-  return isTauriAndroid() || isTauriLinux()
+  // Android/Linux/Windows 都走 Tauri 原生桥;macOS 用 Web Media Session API
+  return isTauriAndroid() || isTauriLinux() || isTauriWindows()
 }
 
 function invokeNative(command, payload, context) {
@@ -90,8 +92,8 @@ export async function initNativeMedia(options = {}) {
     }
   }
 
-  // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调。
-  // Windows/macOS 使用 Web Media Session API，不走 Tauri 原生桥，避免双注册媒体会话。
+  // Android 轮询作为通知栏按钮兜底；Linux 轮询 MPRIS 媒体键回调；Windows 轮询 SMTC 按钮。
+  // macOS 使用 Web Media Session API，不走 Tauri 原生桥。
   if (shouldUseNativeBridge() && _tauriInvoke && !_nativeMediaPollTimer) {
     const interval = isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POLL_INTERVAL : PLAYBACK.NATIVE_POLL_INTERVAL
     _nativeMediaPollTimer = setInterval(() => {
@@ -118,9 +120,6 @@ async function pollNativeAction() {
  * 同步播放状态到原生平台
  * 由 PlayerState 在 timeupdate / 切歌时调用
  */
-let _pendingSyncTimer = null
-let _pendingSyncPayload = null
-
 export function syncNativeMedia() {
   if (!isTauriRuntime()) return
 
@@ -134,47 +133,26 @@ export function syncNativeMedia() {
   if (!shouldUseNativeBridge() || !_tauriInvoke) return
 
   const metaChanged = metaKey !== _lastNativeMeta
-  const stateChanged = playing !== _lastNativePlaying ||
-    Math.abs(pos - _lastNativePosition) >= (
-      isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POSITION_THRESHOLD : PLAYBACK.NATIVE_POSITION_THRESHOLD
-    )
-
-  if (metaChanged || stateChanged) {
-    _pendingSyncPayload = { metaChanged, playing, position: pos, duration: dur, meta }
-    if (metaChanged) {
-      // 元数据变化立即同步
-      _doSyncNative()
-    } else if (!_pendingSyncTimer) {
-      // 播放状态变化防抖 500ms
-      _pendingSyncTimer = setTimeout(() => _doSyncNative(), 500)
-    }
-  }
-  // Windows/macOS: navigator.mediaSession（Web Media Session API）由 PlayerState 直接处理。
-}
-
-function _doSyncNative() {
-  if (_pendingSyncTimer) {
-    clearTimeout(_pendingSyncTimer)
-    _pendingSyncTimer = null
-  }
-  const payload = _pendingSyncPayload
-  if (!payload) return
-  const { metaChanged, playing, position, duration, meta } = payload
+  const playingChanged = playing !== _lastNativePlaying
+  const positionChanged = Math.abs(pos - _lastNativePosition) >= (
+    isTauriAndroid() ? PLAYBACK.NATIVE_ANDROID_POSITION_THRESHOLD : PLAYBACK.NATIVE_POSITION_THRESHOLD
+  )
+  if (!metaChanged && !playingChanged && !positionChanged) return
 
   if (metaChanged) {
-    _lastNativeMeta = `${meta.title}|${meta.artist}|${meta.cover}|${duration}`
-    debugLog('native-media', 'metadata', { title: meta.title, artist: meta.artist, duration: duration })
+    _lastNativeMeta = metaKey
+    debugLog('native-media', 'metadata', { title: meta.title, artist: meta.artist, duration: dur })
     invokeNative('updateMetadata', {
       title: meta.title || '',
       artist: meta.artist || '',
       coverUrl: meta.cover || '',
-      duration,
+      duration: dur,
     }, 'updateMetadata')
   }
-  _lastNativePosition = position
+  // 位置/播放状态变化不防抖:SMTC/MPRIS 时间轴靠频率保证逐字歌词同步
+  _lastNativePosition = pos
   _lastNativePlaying = playing
-  invokeNative('updatePlaybackState', { playing, position, duration }, 'updatePlaybackState')
-  _pendingSyncPayload = null
+  invokeNative('updatePlaybackState', { playing, position: pos, duration: dur }, 'updatePlaybackState')
 }
 
 /** 清理资源 */
@@ -183,11 +161,6 @@ export function destroyNativeMedia() {
     clearInterval(_nativeMediaPollTimer)
     _nativeMediaPollTimer = null
   }
-  if (_pendingSyncTimer) {
-    clearTimeout(_pendingSyncTimer)
-    _pendingSyncTimer = null
-  }
-  _pendingSyncPayload = null
   _tauriInvoke = null
   _lastNativeMeta = ''
   _lastNativePosition = 0

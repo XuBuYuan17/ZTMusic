@@ -19,7 +19,7 @@ import { getPlayableUrls, fillFallbackUrls } from '../player/url-resolver.js'
 import { getTrialPlaybackMessage } from '../player/trial-message.js'
 import { compactTrack, compactQueue, getNextIndex, getPrevIndex } from '../player/queue.js'
 import { dbHistory } from '../db/history.js'
-import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from '../player/native-media.js'
+import { initNativeMedia, syncNativeMedia, destroyNativeMedia, isTauriWindows } from '../player/native-media.js'
 import { createPrefetchManager } from '../player/prefetch.js'
 import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { ERROR_KIND, createErrorSnapshot, debugLog, swallowError } from '../utils/error.js'
@@ -196,6 +196,8 @@ class PlayerState {
   }
 
   _initMediaSession() {
+    // Windows 走 Tauri Rust SMTC（含时间轴），避免与 WebView2 mediaSession 双注册
+    if (isTauriWindows()) return
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
     if (this._mediaSessionInited) return
     this._mediaSessionInited = true
@@ -235,6 +237,8 @@ class PlayerState {
   }
 
   _syncWebMediaPosition() {
+    // Windows 由 Tauri Rust SMTC 推送时间轴，避免双会话冲突
+    if (isTauriWindows()) return
     if (typeof navigator === 'undefined' || !navigator.mediaSession?.setPositionState) return
     const duration = this.duration > 0 ? this.duration / 1000 : 0
     if (!duration) return
@@ -405,8 +409,8 @@ class PlayerState {
     this._startLoadingTimeout()
     debugLog('player', 'play-track', { id: playableTrack.id, index, preferredLevel: this.preferredLevel })
 
-    // 更新媒体会话元数据
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+    // 更新媒体会话元数据（Windows 由 Tauri Rust SMTC 处理）
+    if (!isTauriWindows() && typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: this.title,
         artist: this.artist,
