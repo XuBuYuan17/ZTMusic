@@ -124,7 +124,7 @@ export function installKeyboardShortcuts({ player, isMobile }) {
 
   function seekBy(delta) {
     if (!player.id) return
-    const dur = player.duration > 0 ? player.duration / 1000 : Infinity
+    const dur = player.duration > 0 ? player.duration : Infinity
     player.seek(clamp((player.currentTime || 0) + delta, 0, dur))
   }
 
