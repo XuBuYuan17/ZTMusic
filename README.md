@@ -35,7 +35,7 @@
 |---|---|---|
 | Windows | `.exe`（NSIS） | ✅ |
 | Linux | `.deb` / `.rpm` | ✅ |
-| Android | `.apk`（debug） | ✅ CI 构建 |
+| Android | `.apk`（debug，arm64-v8a） | ✅ CI 构建 |
 | Web | 浏览器直开 | ✅ |
 
 > macOS 没有预构建包，可以自己跑 `pnpm tauri:build` 编。
@@ -50,7 +50,7 @@ pnpm dev                  # 浏览器开发（Vite，默认走 /ncm-api 代理�
 pnpm tauri:dev            # 桌面端开发（Tauri）
 pnpm build                # 前端构建
 pnpm tauri:build          # 构建当前平台安装包
-pnpm tauri:build:android  # 构建 Android debug APK（需本机 Android SDK/NDK）
+pnpm tauri:build:android  # 构建 Android arm64-v8a debug APK（需本机 Android SDK/NDK）
 pnpm test                 # 在隔离的 Node.js 进程中运行全部自检脚本
 ```
 

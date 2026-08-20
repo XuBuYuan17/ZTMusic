@@ -25,8 +25,8 @@
 
 | 项 | 状态 |
 |---|---|
-| debug APK 打包 | ✅ `pnpm tauri:build:android` |
-| CI 依赖 | ✅ Java 17 + Android SDK / Build Tools / NDK + Rust Android targets |
+| debug APK 打包 | ✅ `pnpm tauri:build:android`，仅 arm64-v8a |
+| CI 依赖 | ✅ Java 17 + Android SDK / Build Tools / NDK + `aarch64-linux-android` |
 | Android 工程 | ⚠️ CI 会在 `src-tauri/gen/android` 不存在时执行 `tauri android init` |
 | release 签名 / AAB | ⏳ 未配置，需要 keystore secrets |
 
