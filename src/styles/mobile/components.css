@@ -14,7 +14,9 @@ html.mobile-runtime .m-page-header {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 2px 16px;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  margin-bottom: 16px;
 }
 
 html.mobile-runtime .m-page-kicker {
@@ -26,9 +28,10 @@ html.mobile-runtime .m-page-kicker {
 }
 
 html.mobile-runtime .m-page-header h1 {
-  font-size: 32px;
+  font-size: 34px;
+  line-height: 1.08;
   font-weight: 700;
-  letter-spacing: -0.7px;
+  letter-spacing: 0;
   color: var(--text);
 }
 
@@ -103,17 +106,48 @@ html.mobile-runtime .m-browse-skeleton-line {
   border-radius: 4px;
 }
 
+html.mobile-runtime .m-home-skeleton {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+html.mobile-runtime .m-home-skeleton-copy {
+  width: 58%;
+  height: 18px;
+  border-radius: var(--radius-xs);
+}
+
+html.mobile-runtime .m-home-skeleton-hero {
+  width: 100%;
+  min-height: 176px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile-runtime .m-home-skeleton-card {
+  width: 100%;
+  height: 62px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile-runtime .m-home-skeleton-line {
+  width: 72%;
+  height: 13px;
+  border-radius: var(--radius-xs);
+}
+
 /* 搜索 Pill */
 html.mobile-runtime .m-search-pill {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
-  margin-bottom: 18px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  min-height: 42px;
+  padding: 10px 13px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: color-mix(in srgb, var(--bg-elevated) 88%, var(--text) 12%);
   color: var(--text-tertiary);
   font-size: 14px;
   cursor: pointer;
@@ -175,18 +209,19 @@ html.mobile-runtime .m-primary-btn:active {
 html.mobile-runtime .m-section {
   width: 100%;
   min-width: 0;
-  margin-bottom: 18px;
+  margin-bottom: 28px;
 }
 
 html.mobile-runtime .m-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 html.mobile-runtime .m-section-head h2 {
-  font-size: 18px;
+  font-size: 22px;
+  line-height: 1.12;
   font-weight: 700;
   color: var(--text);
 }
@@ -199,17 +234,199 @@ html.mobile-runtime .m-section-action {
   font-weight: 700;
 }
 
+html.mobile-runtime .m-home-listen {
+  display: grid;
+  gap: 14px;
+}
+
+html.mobile-runtime .m-home-listen-copy {
+  display: grid;
+  gap: 5px;
+}
+
+html.mobile-runtime .m-home-listen-copy span,
+html.mobile-runtime .m-station-card span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+html.mobile-runtime .m-home-listen-copy h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+
+html.mobile-runtime .m-home-listen-copy p {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+html.mobile-runtime .m-home-editorial {
+  position: relative;
+  isolation: isolate;
+  min-height: 176px;
+  overflow: hidden;
+  display: grid;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-layer);
+  color: #fff;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.mobile-runtime .m-home-editorial:disabled {
+  opacity: 0.65;
+}
+
+html.mobile-runtime .m-home-editorial-bg,
+html.mobile-runtime .m-home-editorial-shade {
+  position: absolute;
+  inset: 0;
+}
+
+html.mobile-runtime .m-home-editorial-bg {
+  background-position: center;
+  background-size: cover;
+}
+
+html.mobile-runtime .m-home-editorial-shade {
+  background:
+    linear-gradient(to top, rgba(0,0,0,0.76), rgba(0,0,0,0.08) 68%),
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 42%, transparent), transparent 58%);
+}
+
+html.mobile-runtime .m-home-editorial-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+html.mobile-runtime .m-home-editorial-copy small {
+  color: rgba(255,255,255,0.78);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+html.mobile-runtime .m-home-editorial-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.16;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+html.mobile-runtime .m-home-editorial-copy em {
+  overflow: hidden;
+  color: rgba(255,255,255,0.74);
+  font-size: 12px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .m-station-section {
+  margin-bottom: 24px;
+}
+
+html.mobile-runtime .m-station-rail {
+  gap: 10px;
+  padding-bottom: 10px;
+}
+
+html.mobile-runtime .m-station-card {
+  position: relative;
+  isolation: isolate;
+  width: 174px;
+  min-height: 132px;
+  overflow: hidden;
+  display: grid;
+  align-content: end;
+  gap: 7px;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.mobile-runtime .m-station-card::after {
+  content: '';
+  position: absolute;
+  top: -42px;
+  right: -30px;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  opacity: 0.58;
+  background: var(--accent);
+}
+
+html.mobile-runtime .m-station-card.stats::after { background: #ff3b30; }
+html.mobile-runtime .m-station-card.liked::after { background: #ff2d55; }
+html.mobile-runtime .m-station-card.recent::after { background: #30d158; }
+html.mobile-runtime .m-station-card.library::after { background: #5e5ce6; }
+
+html.mobile-runtime .m-station-card:disabled {
+  opacity: 0.56;
+}
+
+html.mobile-runtime .m-station-card svg {
+  color: var(--accent);
+}
+
+html.mobile-runtime .m-station-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.16;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .m-station-card em {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Hero 大卡 */
 html.mobile-runtime .m-hero-card {
   position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: var(--radius-lg);
+  isolation: isolate;
+  width: min(100%, 390px);
+  aspect-ratio: 16 / 11;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   background: var(--bg-layer);
   cursor: pointer;
-  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.1);
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.mobile-runtime .m-hero-card img {
@@ -228,26 +445,33 @@ html.mobile-runtime .m-hero-copy {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 18px 16px;
-  background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
+  min-width: 0;
+  padding: 44px 16px 15px;
+  background: linear-gradient(to top, rgba(0,0,0,0.62), rgba(0,0,0,0));
   color: #fff;
   text-align: left;
+  pointer-events: none;
 }
 
 html.mobile-runtime .m-hero-copy small {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0;
   margin-bottom: 4px;
   opacity: 0.82;
 }
 
 html.mobile-runtime .m-hero-copy strong {
-  font-size: 20px;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
+  overflow-wrap: anywhere;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* 横向滚动 rail */
@@ -261,7 +485,7 @@ html.mobile-runtime .m-rail {
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding: 2px 4px 12px;
+  padding: 2px 18px 12px 0;
   scroll-snap-type: x proximity;
 }
 
@@ -275,8 +499,11 @@ html.mobile-runtime .m-rail > * {
 }
 
 html.mobile-runtime .m-cover-rail {
-  margin-right: -18px;
-  padding-right: 18px;
+  margin-right: -16px;
+}
+
+html.mobile-runtime .m-feature-rail {
+  align-items: stretch;
 }
 
 /* 通用封面卡片 */
@@ -291,11 +518,18 @@ html.mobile-runtime .m-song-card {
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  width: 130px;
+  width: 138px;
 }
 
 html.mobile-runtime .m-editor-card {
-  width: 180px;
+  position: relative;
+  isolation: isolate;
+  width: min(74vw, 320px);
+  aspect-ratio: 16 / 11;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-layer);
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.mobile-runtime .m-song-card {
@@ -305,18 +539,21 @@ html.mobile-runtime .m-song-card {
 html.mobile-runtime .m-cover-wrap,
 html.mobile-runtime .m-editor-card img,
 html.mobile-runtime .m-song-cover {
+  position: relative;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-layer);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.08);
 }
 
 html.mobile-runtime .m-editor-card img {
-  aspect-ratio: 16 / 10;
+  height: 100%;
+  aspect-ratio: auto;
   object-fit: cover;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.1);
 }
 
 html.mobile-runtime .m-cover-wrap img,
@@ -330,8 +567,8 @@ html.mobile-runtime .m-cover-title,
 html.mobile-runtime .m-editor-title,
 html.mobile-runtime .m-song-title,
 html.mobile-runtime .m-grid-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 13.5px;
+  font-weight: 500;
   line-height: 1.3;
   color: var(--text);
   display: -webkit-box;
@@ -352,8 +589,18 @@ html.mobile-runtime .m-grid-sub {
 }
 
 html.mobile-runtime .m-editor-title {
-  font-size: 13px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: 0;
+  padding: 34px 13px 12px;
+  background: linear-gradient(to top, rgba(0,0,0,0.68), rgba(0,0,0,0));
+  color: #fff;
+  font-size: 15px;
   font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 /* 网格 */
@@ -412,22 +659,30 @@ html.mobile-runtime .m-grid-sub {
 html.mobile-runtime .m-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
 }
 
 html.mobile-runtime .m-list-item {
+  position: relative;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: 56px 1fr auto;
+  grid-template-columns: 48px 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
+  min-height: 62px;
+  padding: 7px 12px;
+  border-radius: 0;
   border: none;
-  background: var(--bg-elevated);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  background: transparent;
   color: var(--text);
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.mobile-runtime .m-list-item:active {
@@ -435,9 +690,9 @@ html.mobile-runtime .m-list-item:active {
 }
 
 html.mobile-runtime .m-list-cover {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   background: var(--bg-layer);
 }
@@ -457,7 +712,7 @@ html.mobile-runtime .m-list-info {
 
 html.mobile-runtime .m-list-info strong {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -475,24 +730,33 @@ html.mobile-runtime .m-list-item svg {
 /* 快速入口 2x2 */
 html.mobile-runtime .m-quick-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
 }
 
 html.mobile-runtime .m-quick-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 16px 14px;
-  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 12px;
+  min-height: 58px;
+  padding: 8px 12px;
+  border-radius: 0;
   border: none;
-  background: var(--bg-elevated);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+  background: transparent;
   color: var(--text);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html.mobile-runtime .m-quick-tile:active {
@@ -500,6 +764,7 @@ html.mobile-runtime .m-quick-tile:active {
 }
 
 html.mobile-runtime .m-quick-tile svg {
+  grid-row: 1 / 3;
   color: var(--accent);
 }
 
@@ -508,8 +773,29 @@ html.mobile-runtime .m-quick-tile--liked svg {
 }
 
 html.mobile-runtime .m-quick-tile--liked {
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
+  background: transparent;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-quick-tile:last-child {
+  border-bottom: none;
+}
+
+html.mobile-runtime .m-quick-tile span {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .m-quick-tile small {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 日期芯片 */

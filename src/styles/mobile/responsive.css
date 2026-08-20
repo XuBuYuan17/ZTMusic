@@ -24,7 +24,7 @@ html.mobile-runtime .m-tabs {
 
 /* 顶栏头像按钮横屏避让左侧挖孔 */
 html.mobile-runtime .m-avatar-btn {
-  left: max(12px, env(safe-area-inset-left));
+  left: max(12px, env(safe-area-inset-left), calc((100vw - 430px) / 2 + 12px));
 }
 }
 
@@ -56,20 +56,23 @@ html.mobile-runtime :where(input, textarea, [contenteditable="true"]) {
 
 /* Full-width material tab bar, matching the native Apple Music hierarchy. */
 html.mobile-runtime .m-tabs {
-  left: 0;
-  right: 0;
+  left: 50%;
+  right: auto;
+  width: 100%;
+  max-width: 430px;
+  transform: translateX(-50%);
   bottom: 0;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   height: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom));
-  padding: 6px 24px calc(6px + env(safe-area-inset-bottom));
-  gap: 18px;
+  padding: 6px 20px calc(6px + env(safe-area-inset-bottom));
+  gap: 14px;
   border-radius: 0;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-  box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: var(--bg-elevated);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 html.mobile-runtime .m-tabs::after {
@@ -97,9 +100,12 @@ html.mobile-runtime .m-tab:active {
 }
 
 html.mobile-runtime .player-bar-wrap {
-  left: 10px;
-  right: 10px;
-  bottom: calc(var(--mobile-tabs-h) + 8px + env(safe-area-inset-bottom));
+  left: 50%;
+  right: auto;
+  width: 100%;
+  max-width: 430px;
+  transform: translateX(-50%);
+  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom));
 }
 
 html.mobile-runtime .player-bar-wrap.tabs-hidden {
@@ -109,13 +115,13 @@ html.mobile-runtime .player-bar-wrap.tabs-hidden {
 html.mobile-runtime .player-bar-wrap .player-bar,
 html.mobile-runtime .player-bar-wrap .player-bar.compact,
 html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--bg-elevated) 90%, transparent);
+  border-radius: 0;
+  background: var(--bg-elevated);
   box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.14),
-    inset 0 0 0 1px color-mix(in srgb, var(--border) 68%, transparent);
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
+    0 -6px 18px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 color-mix(in srgb, var(--border) 82%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
@@ -138,34 +144,14 @@ html.mobile-runtime[data-theme="dark"] .player-bar .action-btn {
 
 html.mobile-runtime .player-bar .ctrl-btn--play:active,
 html.mobile-runtime .player-bar .action-btn:active {
-  opacity: 0.55;
-  transform: scale(0.88);
+  opacity: 0.72;
+  transform: translateY(1px) scale(0.9);
 }
 
 /* Native grouped rows instead of a stack of web cards. */
-html.mobile-runtime .m-list {
-  gap: 0;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-}
-
-html.mobile-runtime .m-list-item {
-  min-height: 68px;
-  padding: 7px 12px;
-  border-radius: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
-  background: transparent;
-  transition: background 100ms ease, opacity 100ms ease;
-}
-
-html.mobile-runtime .m-list-item:last-child {
-  border-bottom: none;
-}
-
 html.mobile-runtime .m-list-item:active,
 html.mobile-runtime .m-library-row:active {
-  opacity: 0.66;
+  opacity: 0.86;
   background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 
@@ -178,7 +164,7 @@ html.mobile-runtime .m-search-pill {
 }
 
 html.mobile-runtime .m-search-pill:active {
-  opacity: 0.62;
+  opacity: 0.82;
   background: color-mix(in srgb, var(--bg-elevated) 90%, var(--text) 10%);
 }
 
@@ -188,13 +174,45 @@ html.mobile-runtime :where(
   .m-editor-card,
   .m-song-card,
   .m-grid-card,
+  .m-home-editorial,
+  .m-station-card,
   .m-quick-tile,
   .m-library-card,
   .m-library-card-main,
   .m-library-tile,
   .m-home-action
 ) {
+  -webkit-tap-highlight-color: transparent;
   transition: transform 140ms ease, opacity 100ms ease, background 140ms ease;
+}
+
+html.mobile-runtime :where(
+  .m-hero-card,
+  .m-editor-card,
+  .m-home-editorial,
+  .m-station-card,
+  .m-list-item,
+  .m-quick-tile
+)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  transition: opacity 90ms ease;
+}
+
+html.mobile-runtime :where(
+  .m-hero-card,
+  .m-editor-card,
+  .m-home-editorial,
+  .m-station-card,
+  .m-list-item,
+  .m-quick-tile
+):active::before {
+  opacity: 1;
 }
 
 html.mobile-runtime :where(
@@ -203,13 +221,15 @@ html.mobile-runtime :where(
   .m-editor-card,
   .m-song-card,
   .m-grid-card,
+  .m-home-editorial,
+  .m-station-card,
   .m-quick-tile,
   .m-library-card-main,
   .m-library-tile,
   .m-home-action
 ):active {
-  opacity: 0.7;
-  transform: scale(0.985);
+  opacity: 0.88;
+  transform: translateY(1px) scale(0.985);
 }
 
 html.mobile-runtime .m-hero-card:active img {
@@ -236,8 +256,8 @@ html.mobile-runtime :where(
   .m-icon-btn,
   .m-avatar-btn
 ):active {
-  opacity: 0.58;
-  transform: scale(0.96);
+  opacity: 0.76;
+  transform: translateY(1px) scale(0.96);
 }
 
 /* Touchscreens must not retain desktop hover treatments after a tap. */
@@ -247,6 +267,8 @@ html.mobile-runtime :where(
     .m-editor-card,
     .m-song-card,
     .m-grid-card,
+    .m-home-editorial,
+    .m-station-card,
     .m-list-item,
     .m-quick-tile,
     .m-library-row,
@@ -273,6 +295,8 @@ html.mobile-runtime :where(
     .m-editor-card,
     .m-song-card,
     .m-grid-card,
+    .m-home-editorial,
+    .m-station-card,
     .m-quick-tile,
     .m-library-row
   ) {

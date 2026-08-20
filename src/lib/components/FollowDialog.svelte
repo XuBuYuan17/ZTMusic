@@ -179,7 +179,7 @@
   .follow-dialog-head h2 {
     margin: 4px 0 0;
     font-size: 22px;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   .follow-dialog-close {

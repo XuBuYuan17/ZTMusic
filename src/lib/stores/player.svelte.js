@@ -479,9 +479,7 @@ class PlayerState {
     }
 
     this._persistState()
-    if (playableTrack.source !== 'local' && playableTrack.source !== 'webdav') {
-      dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
-    }
+    dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
     this._syncTimedMedia(this.currentTime, { force: true })
 
     if (playableTrack.source === 'local') {

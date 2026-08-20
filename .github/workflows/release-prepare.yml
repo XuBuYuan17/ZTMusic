@@ -237,6 +237,4 @@ jobs:
           fi
           git tag "$TAG"
           git push --atomic origin HEAD:main "$TAG"
-          gh workflow run build.yml --ref "$TAG" \
-            -f build_windows=true \
-            -f build_linux=true
+          echo "Pushed $TAG; build.yml will run from the tag push trigger."

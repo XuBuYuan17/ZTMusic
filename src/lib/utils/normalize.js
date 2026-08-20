@@ -67,6 +67,15 @@ export function normalizeLocalHistorySong(item) {
     al: item.album || {},
     picUrl: item.picUrl || extractCover(item),
     dt: item.duration || 0,
+    source: item.source,
+    localId: item.localId,
+    webdavId: item.webdavId,
+    remoteUrl: item.remoteUrl,
+    webdavUsername: item.webdavUsername,
+    fileName: item.fileName,
+    relativePath: item.relativePath,
+    mime: item.mime,
+    fileSize: item.fileSize || 0,
   }
 }
 

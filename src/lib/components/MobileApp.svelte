@@ -5,6 +5,7 @@
   import { coverUrl } from '../utils/image.js'
   import Icon from './ui/Icon.svelte'
   import Sidebar from './Sidebar.svelte'
+  import { hapticTap, shouldHapticTarget } from '../utils/haptics.js'
 
   import MobileHome from '../pages/mobile/Home.svelte'
   import MobileBrowse from '../pages/mobile/Browse.svelte'
@@ -18,6 +19,7 @@
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
   import MessagesPage from '../pages/pc/Messages.svelte'
   import LocalMusicPage from '../pages/LocalMusicPage.svelte'
+  import ListeningStatsPage from '../pages/ListeningStatsPage.svelte'
   import { router } from '../stores/router.svelte.js'
 
   let {
@@ -41,15 +43,15 @@
     notificationUnread = 0,
   } = $props()
 
-  const tabViews = ['home', 'explore', 'library']
+  const tabViews = ['home', 'explore', 'library', 'search']
   const isTabView = $derived(tabViews.includes(activeView))
-  const isDetailView = $derived(['playlist', 'album', 'artist', 'search', 'messages', 'localMusic'].includes(activeView))
+  const isDetailView = $derived(['playlist', 'album', 'artist', 'messages', 'localMusic', 'listeningStats'].includes(activeView))
 
   let tabsHidden = $state(false)
   let mountedTabs = $state([])
   let lastScrollTop = $state(0)
-  let touchStartY = $state(0)
   let contentEl = $state(null)
+  let rootEl = $state(null)
   let previousView = $state(null)
   const tabScrollPositions = new Map()
 
@@ -85,30 +87,11 @@
     onTabsHiddenChange?.(tabsHidden)
   }
 
-  function handleTouchStart(e) {
-    touchStartY = e.touches?.[0]?.clientY ?? 0
-  }
-
-  function handleTouchMove(e) {
-    if (!contentEl || isDetailView) return
-    const y = e.touches?.[0]?.clientY ?? 0
-    const delta = touchStartY - y
-    if (Math.abs(delta) < 6) return
-    if (delta > 0 && contentEl.scrollTop > 20) setTabsHidden(true)
-    else if (delta < 0) setTabsHidden(false)
-    touchStartY = y
-  }
-
   $effect(() => {
-    if (isDetailView) return
     const el = contentEl ?? document.querySelector('.m-content')
     if (!el) return
     const onScroll = () => {
       const st = el.scrollTop
-      const delta = st - lastScrollTop
-      if (Math.abs(delta) < 6) return
-      if (delta > 0 && st > 20) setTabsHidden(true)
-      else if (delta < 0) setTabsHidden(false)
       lastScrollTop = st
     }
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -139,6 +122,17 @@
     onSetTheme?.(theme === 'dark' ? 'light' : 'dark')
   }
 
+  function handleHapticPointerDown(e) {
+    if (e.pointerType === 'mouse') return
+    if (shouldHapticTarget(e.target)) hapticTap()
+  }
+
+  $effect(() => {
+    if (!rootEl) return
+    rootEl.addEventListener('pointerdown', handleHapticPointerDown, { passive: true })
+    return () => rootEl?.removeEventListener('pointerdown', handleHapticPointerDown)
+  })
+
   // 点击遮罩关闭
   function onBackdropClick(e) {
     if (e.target === e.currentTarget) closeDrawer()
@@ -154,7 +148,7 @@
   })
 </script>
 
-<div class="mobile-app" class:drawer-open={drawerOpen} class:tabs-hidden={tabsHidden}>
+<div class="mobile-app" class:drawer-open={drawerOpen} class:tabs-hidden={tabsHidden} bind:this={rootEl}>
   <!-- 左上角头像按钮 -->
   <button class="m-avatar-btn" type="button" onclick={toggleDrawer} aria-label="打开侧栏">
     {#if auth.isLoggedIn && auth.user?.avatarUrl}
@@ -171,8 +165,6 @@
     class="m-content"
     class:m-content-detail={isDetailView}
     bind:this={contentEl}
-    ontouchstart={handleTouchStart}
-    ontouchmove={handleTouchMove}
   >
     <div class="m-view-fade">
       <!-- 三个主标签首次访问后常驻；其他页面只在活跃时挂载。 -->
@@ -214,6 +206,12 @@
         </div>
       {/if}
 
+      {#if activeView === 'search' || mountedTabs.includes('search')}
+        <div style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
+          <SearchPage onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onOpenPlaylist={onOpenPlaylist} />
+        </div>
+      {/if}
+
       {#if activeView === 'settings'}
         <MobileSettings {theme} {accentTheme} onSetTheme={onSetTheme} {onSetAccentTheme} />
       {:else if activeView === 'liked'}
@@ -227,6 +225,10 @@
       {:else if activeView === 'localMusic'}
         <div class="m-subpage m-subpage-enter">
           <LocalMusicPage />
+        </div>
+      {:else if activeView === 'listeningStats'}
+        <div class="m-subpage m-subpage-enter">
+          <ListeningStatsPage />
         </div>
       {:else if activeView === 'dailyHistory'}
         <div class="m-subpage m-subpage-enter">
@@ -251,8 +253,6 @@
           onOpenArtist={onOpenArtist}
           onOpenAlbum={onOpenAlbum}
         />
-      {:else if activeView === 'search'}
-        <SearchPage onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onOpenPlaylist={onOpenPlaylist} />
       {:else if activeView === 'artist'}
         <ArtistPage
           artist={router.artistDetail}
@@ -272,26 +272,24 @@
   </main>
 
   <!-- 底部主导航 -->
-  {#if !isDetailView}
-    <nav class="m-tabs" aria-label="主导航">
-      <button class="m-tab" class:active={activeView === 'home'} aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
-        <Icon name="home" size={24} />
-        <span>首页</span>
-      </button>
-      <button class="m-tab" class:active={activeView === 'explore'} aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
-        <Icon name="compass" size={24} />
-        <span>发现</span>
-      </button>
-      <button class="m-tab" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
-        <Icon name="liked" size={24} />
-        <span>歌单</span>
-      </button>
-      <button class="m-tab" class:active={activeView === 'search'} aria-current={activeView === 'search' ? 'page' : undefined} onclick={() => onSearch?.()}>
-        <Icon name="search" size={24} />
-        <span>搜索</span>
-      </button>
-    </nav>
-  {/if}
+  <nav class="m-tabs" aria-label="主导航">
+    <button class="m-tab" class:active={activeView === 'home'} aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
+      <Icon name="home" size={24} />
+      <span>首页</span>
+    </button>
+    <button class="m-tab" class:active={activeView === 'explore'} aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
+      <Icon name="compass" size={24} />
+      <span>发现</span>
+    </button>
+    <button class="m-tab" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
+      <Icon name="liked" size={24} />
+      <span>资料库</span>
+    </button>
+    <button class="m-tab" class:active={activeView === 'search'} aria-current={activeView === 'search' ? 'page' : undefined} onclick={() => handleNav('search')}>
+      <Icon name="search" size={24} />
+      <span>搜索</span>
+    </button>
+  </nav>
 
   <!-- 抽屉遮罩 -->
   {#if drawerOpen}

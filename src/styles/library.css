@@ -1,7 +1,7 @@
 /* ===== Square Playlist Card ===== */
 /* ===== Library Page ===== */
 .library-page {
-  max-width: 1120px;
+  max-width: 1420px;
   margin: 0 auto;
   padding-bottom: 40px;
 }
@@ -55,11 +55,14 @@
 }
 
 .library-header {
-  margin-bottom: 30px;
+  min-height: 56px;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .library-header-info {
@@ -67,19 +70,20 @@
   gap: 3px;
 }
 
-.library-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; }
+.library-eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0; }
 .library-header-info p { color: var(--text-secondary); font-size: 13px; }
 
 .library-header-info h1 {
-  font-size: 32px;
+  font-size: 34px;
+  line-height: 1.05;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 
 .library-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
+  gap: 20px 18px;
 }
 
 .library-card {
@@ -143,10 +147,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
   overflow: hidden;
   background: var(--bg-layer);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.12);
 }
 
 .library-card-cover img {
@@ -174,7 +179,7 @@
   height: 32px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -191,15 +196,19 @@
 }
 
 .library-card-info {
-  padding: 10px 2px;
+  padding: 9px 2px 0;
 }
 
 .library-card-name {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
+  display: -webkit-box;
+  min-height: 2.6em;
   overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: normal;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   line-height: 1.3;
 }
 
@@ -247,7 +256,7 @@
 
 .library-stats {
   display: flex;
-  gap: 24px;
+  gap: 28px;
   margin-left: auto;
 }
 
@@ -256,11 +265,12 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 4px 8px;
+  min-width: 54px;
+  padding: 2px 4px;
 }
 
 .library-stat-value {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
@@ -272,7 +282,7 @@
 }
 
 .library-section {
-  margin-top: 36px;
+  margin-top: 28px;
 }
 
 .library-section-head {
@@ -280,12 +290,15 @@
   align-items: baseline;
   gap: 10px;
   margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
 .library-section-title {
-  font-size: 18px;
+  font-size: 22px;
+  line-height: 1.15;
   font-weight: 700;
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
 }
 
 .library-section-count {
@@ -294,7 +307,10 @@
 }
 
 .library-section-empty {
-  padding: 24px 0;
+  padding: 28px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
   text-align: center;
   color: var(--text-tertiary);
   font-size: 13px;
@@ -303,23 +319,32 @@
 /* 快速入口 */
 .library-quick-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  overflow: hidden;
 }
 
 .library-quick-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 16px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 2px 12px;
+  min-height: 68px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  background: transparent;
   cursor: pointer;
-  transition: background var(--dur-fast), transform var(--dur-fast);
+  transition: background var(--dur-fast), color var(--dur-fast);
   font-family: inherit;
   text-align: left;
+}
+
+.library-quick-card:last-child {
+  border-right: none;
 }
 
 .library-quick-card:hover {
@@ -333,12 +358,13 @@
 
 .library-quick-card:disabled:hover {
   transform: none;
-  background: var(--bg-surface, var(--bg-layer));
+  background: transparent;
 }
 
 .library-quick-icon {
   width: 40px;
   height: 40px;
+  grid-row: 1 / 3;
   border-radius: var(--radius-xs);
   background: var(--bg-layer);
   display: flex;
@@ -359,14 +385,20 @@
 }
 
 .library-quick-name {
-  font-size: 13px;
-  font-weight: 500;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-quick-meta {
-  font-size: 11px;
+  overflow: hidden;
+  font-size: 12px;
   color: var(--text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-card-managed {
@@ -381,8 +413,6 @@
   height: 26px;
   border-radius: var(--radius-xs);
   background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   border: none;
   display: flex;
   align-items: center;
@@ -504,6 +534,10 @@
 @media (max-width: 760px) {
   .library-quick-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .library-quick-card:nth-child(2n) {
+    border-right: none;
   }
 
   .library-stats {

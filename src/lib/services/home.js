@@ -1,6 +1,7 @@
 import { normalizeLocalHistorySong, normalizePlaylist } from '../utils/normalize.js'
 import { formatPlayCount } from '../format.js'
 import { handleErrorWithToast } from '../utils/error.js'
+import { dbHistory } from '../db/history.js'
 
 function settledValue(result, fallback = null) {
   return result.status === 'fulfilled' ? result.value : fallback
@@ -141,7 +142,12 @@ export async function loadHomeData(ncm, user) {
   }
 }
 
-export async function loadRecentData(ncm, user, getLocalHistory) {
+export async function loadLocalRecentTracks(limit = 200) {
+  const history = await dbHistory.list(limit)
+  return history.map(normalizeLocalHistorySong).filter(Boolean)
+}
+
+export async function loadRecentData(ncm, user) {
   const uid = user?.userId || user?.id
   let recentTracks = []
   if (uid) {
@@ -156,7 +162,7 @@ export async function loadRecentData(ncm, user, getLocalHistory) {
     }
   }
   if (recentTracks.length === 0) {
-    recentTracks = getLocalHistory().map(normalizeLocalHistorySong)
+    recentTracks = await loadLocalRecentTracks()
   }
   return recentTracks
 }

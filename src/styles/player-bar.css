@@ -361,7 +361,7 @@ button.lcd-meta__artist:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 16px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 [data-theme="dark"] .lcd-meta__lyric {

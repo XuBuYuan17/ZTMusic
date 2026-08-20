@@ -262,7 +262,7 @@
   .queue-title {
     font-size: 18px;
     font-weight: 700;
-    letter-spacing: -0.3px;
+    letter-spacing: 0;
   }
 
   .queue-clear-btn {

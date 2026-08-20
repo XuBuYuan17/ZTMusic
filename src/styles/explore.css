@@ -56,7 +56,7 @@
   transform: translateY(-5px);
 }
 
-/* Apple Music-like ranking list */
+/* Ranking list */
 
 .daily-page {
   padding-top: 10px;
@@ -102,18 +102,19 @@
 /* Music discovery page */
 .music-discovery {
   display: grid;
-  gap: 26px;
-  max-width: 1320px;
+  gap: 18px;
+  max-width: 1420px;
   margin: 0 auto;
-  padding-bottom: 32px;
+  padding-bottom: 34px;
 }
 
 .music-discovery-header {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding-bottom: 16px;
+  min-height: 56px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -125,28 +126,58 @@
 
 .music-discovery-header h1 {
   margin-top: 3px;
-  font-size: 38px;
+  font-size: 34px;
   line-height: 1.05;
   font-weight: 700;
-  letter-spacing: -0.9px;
+  letter-spacing: 0;
+}
+
+.music-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(360px, 38vw);
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.music-search-field:hover,
+.music-search-field:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: var(--text-primary);
+}
+
+.music-search-field span {
+  overflow: hidden;
+  color: currentColor;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .music-discovery-feature {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.45fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  gap: 16px;
 }
 
 .music-feature-stack {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .music-feature-card {
   position: relative;
   min-width: 0;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: var(--bg-layer);
   color: white;
   text-align: left;
@@ -154,11 +185,11 @@
 }
 
 .music-feature-card.primary {
-  min-height: 360px;
+  min-height: 326px;
 }
 
 .music-feature-card.compact {
-  min-height: 112px;
+  min-height: 102px;
 }
 
 .music-feature-card img {
@@ -217,9 +248,9 @@
 }
 
 .music-feature-card.primary .music-feature-copy strong {
-  font-size: clamp(34px, 4.2vw, 58px);
+  font-size: clamp(30px, 3.2vw, 48px);
   line-height: 1.02;
-  letter-spacing: -0.026em;
+  letter-spacing: 0;
 }
 
 .music-feature-copy em {
@@ -230,7 +261,7 @@
 
 .music-discovery-section {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -242,15 +273,15 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding-bottom: 9px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .music-section-head h2 {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.15;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
 }
 
 .music-cover-card:hover {
@@ -267,10 +298,10 @@
 .music-card-rail {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 168px;
-  gap: 16px;
+  grid-auto-columns: 164px;
+  gap: 18px;
   overflow-x: auto;
-  padding-bottom: 6px;
+  padding: 2px 2px 8px;
   scrollbar-width: none;
 }
 
@@ -279,7 +310,7 @@
 }
 
 .music-album-rail {
-  grid-auto-columns: 150px;
+  grid-auto-columns: 158px;
 }
 
 .music-cover-card {
@@ -296,9 +327,18 @@
   width: 100%;
   aspect-ratio: 1;
   height: auto;
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
   object-fit: cover;
   margin-bottom: 9px;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.music-cover-card:hover img,
+.music-cover-card:hover .music-cover-placeholder {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.16);
 }
 
 .music-cover-card strong,
@@ -389,7 +429,7 @@
 
   .music-feature-card.primary .music-feature-copy strong {
     font-size: 26px;
-    letter-spacing: -0.5px;
+    letter-spacing: 0;
   }
 
   .music-feature-card.compact {

@@ -78,7 +78,7 @@
   overflow: visible;
   text-overflow: unset;
   line-height: 1.12;
-  letter-spacing: -0.018em;
+  letter-spacing: 0;
 }
 .ly-star-btn {
   display: flex;

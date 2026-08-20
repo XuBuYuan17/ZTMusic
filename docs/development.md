@@ -303,8 +303,8 @@ cargo check                        # 在 src-tauri/ 下跑
 注意 Windows 主机只编译 `cfg(target_os = "windows")` 分支，`linux_mpris` 那条路径要靠 CI 的 linux job 验证。
 
 **CI**（`.github/workflows/`）：
-- `build.yml`：PR / tag `v*` 触发原生构建（Windows `.msi` + Linux `.deb/.rpm`），tag 时发布 GitHub Release。前置的 `version-check` job 只校验三处版本号一致 —— **单元测试不在 CI 跑，推送前本地 `pnpm test` 自己过一遍**。
-- `release-prepare.yml`：手动触发，跑 `pnpm verify`（含测试）→ 自动算版本号 → 更新 package.json / Cargo.toml / CHANGELOG → 打 tag → push（commit 带 `[skip ci]` 避免双触发）
+- `build.yml`：push 到 `main`、PR、tag `v*` 或手动触发都会先跑 `pnpm verify`，再按触发条件构建 Windows NSIS `.exe` 与 Linux `.deb/.rpm`。tag 构建完成后自动发布 GitHub Release，release notes 从 CHANGELOG 抽。
+- `release-prepare.yml`：手动触发，跑 `pnpm verify` → 自动算版本号 → 更新 package.json / Cargo.toml / Cargo.lock / tauri.conf.json / CHANGELOG → 原子 push `HEAD:main` 与 tag。tag push 会自然触发 `build.yml`，不再额外手动 dispatch，避免重复构建。
 
 ---
 

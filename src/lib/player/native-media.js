@@ -26,7 +26,11 @@ function isTauriRuntime() {
 }
 
 function runtimePlatform() {
-  return navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+  return [
+    navigator.userAgentData?.platform,
+    navigator.platform,
+    navigator.userAgent,
+  ].filter(Boolean).join(' ')
 }
 
 function isTauriLinux() {

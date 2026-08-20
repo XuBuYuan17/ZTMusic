@@ -58,16 +58,20 @@
 <div class="music-discovery fade-in">
   <header class="music-discovery-header">
     <div>
-      <span>Browse</span>
+      <span>ZTmusic</span>
       <h1>发现</h1>
     </div>
+    <button class="music-search-field" onclick={() => onSearch?.()} aria-label="搜索音乐">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="7.5"/><line x1="21" y1="21" x2="15.8" y2="15.8"/></svg>
+      <span>搜索歌曲、歌手、歌单</span>
+    </button>
   </header>
 
   {#if error}
     <ErrorBlock {error} onRetry={loadExplore} />
   {/if}
 
-    <section class="music-discovery-feature">
+  <section class="music-discovery-feature">
       {#if exploreLoading && !hero}
         <div class="music-feature-card primary skeleton-block" aria-label="加载精选内容"></div>
       {:else if hero}
@@ -76,7 +80,7 @@
           <span class="music-feature-copy">
             <small>编辑精选 · 今日置顶</small>
             <strong>{hero.title || '今日推荐'}</strong>
-            <em>为今天挑一张最先播放的封面</em>
+            <em>从这里开始今天的播放</em>
           </span>
         </button>
       {/if}
@@ -100,50 +104,9 @@
           {/each}
         </div>
       {/if}
-    </section>
+  </section>
 
-    <section class="music-discovery-section">
-      <div class="music-section-head">
-        <h2>{playlistBlocks[0]?.title || '推荐歌单'}</h2>
-      </div>
-      <div class="music-card-rail">
-        {#if exploreLoading && primaryPlaylists.length === 0}
-          {#each Array(8) as _}
-            <div class="music-cover-card skeleton-row">
-              <span class="music-cover-placeholder skeleton-block"></span>
-              <strong class="skeleton-line"></strong>
-              <em class="skeleton-line narrow"></em>
-            </div>
-          {/each}
-        {:else}
-        {#each primaryPlaylists.slice(0, 14) as playlist (playlist.id)}
-          <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-            {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
-            <strong>{playlist.name}</strong>
-            {#if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
-          </button>
-        {/each}
-        {/if}
-      </div>
-    </section>
-
-    {#if secondaryPlaylistBlock?.items?.length}
-      <section class="music-discovery-section">
-        <div class="music-section-head">
-          <h2>{secondaryPlaylistBlock.title}</h2>
-        </div>
-        <div class="music-card-rail">
-          {#each secondaryPlaylistBlock.items.slice(0, 12) as playlist (playlist.id)}
-            <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-              {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
-              <strong>{playlist.name}</strong>
-              {#if playlist.copywriter}<em>{playlist.copywriter}</em>{:else if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
-            </button>
-          {/each}
-        </div>
-      </section>
-    {/if}
-
+  {#if exploreNewAlbums.length || exploreLoading}
     <section class="music-discovery-section music-new-albums-panel">
       <div class="music-section-head">
         <h2>本周新发行</h2>
@@ -168,6 +131,49 @@
         {/if}
       </div>
     </section>
+  {/if}
+
+    <section class="music-discovery-section">
+        <div class="music-section-head">
+        <h2>{playlistBlocks[0]?.title || '推荐歌单'}</h2>
+        </div>
+        <div class="music-card-rail">
+        {#if exploreLoading && primaryPlaylists.length === 0}
+          {#each Array(8) as _}
+            <div class="music-cover-card skeleton-row">
+              <span class="music-cover-placeholder skeleton-block"></span>
+              <strong class="skeleton-line"></strong>
+              <em class="skeleton-line narrow"></em>
+            </div>
+          {/each}
+        {:else}
+        {#each primaryPlaylists.slice(0, 14) as playlist (playlist.id)}
+            <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
+              {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              <strong>{playlist.name}</strong>
+            {#if playlist.copywriter}<em>{playlist.copywriter}</em>{:else if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
+            </button>
+          {/each}
+        {/if}
+        </div>
+      </section>
+
+    {#if secondaryPlaylistBlock?.items?.length}
+      <section class="music-discovery-section">
+        <div class="music-section-head">
+          <h2>{secondaryPlaylistBlock.title}</h2>
+        </div>
+        <div class="music-card-rail">
+          {#each secondaryPlaylistBlock.items.slice(0, 12) as playlist (playlist.id)}
+            <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
+              {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              <strong>{playlist.name}</strong>
+              {#if playlist.copywriter}<em>{playlist.copywriter}</em>{:else if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
+            </button>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     <section class="music-discovery-section music-new-songs-section">
       <div class="music-section-head">
@@ -218,5 +224,4 @@
           {/if}
         </div>
     </section>
-
 </div>

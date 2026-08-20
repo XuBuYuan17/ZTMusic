@@ -48,6 +48,7 @@
   const loadLibraryPage = lazyModule(() => import('./lib/pages/pc/Library.svelte'))
   const loadRecentPage = lazyModule(() => import('./lib/pages/pc/Recent.svelte'))
   const loadLocalMusicPage = lazyModule(() => import('./lib/pages/LocalMusicPage.svelte'))
+  const loadListeningStatsPage = lazyModule(() => import('./lib/pages/ListeningStatsPage.svelte'))
   const loadSettingsPage = lazyModule(() => import('./lib/pages/pc/Settings.svelte'))
   const loadLikedPage = lazyModule(() => import('./lib/pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('./lib/pages/PlaylistPage.svelte'))
@@ -381,6 +382,8 @@
             {#await loadRecentPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
           {:else if router.activeView === 'localMusic'}
             {#await loadLocalMusicPage() then module}<module.default />{/await}
+          {:else if router.activeView === 'listeningStats'}
+            {#await loadListeningStatsPage() then module}<module.default />{/await}
           {:else if router.activeView === 'messages'}
             {#await loadMessagesPage() then module}
               <module.default onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />

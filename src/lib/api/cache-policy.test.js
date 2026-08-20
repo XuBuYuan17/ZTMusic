@@ -4,6 +4,7 @@
  */
 
 import { getApiCacheTtl } from './cache-ttl.js'
+import { readFile } from 'node:fs/promises'
 
 let passed = 0
 let failed = 0
@@ -26,6 +27,10 @@ assertEqual(getApiCacheTtl('/playlist/track/all', 'GET'), 30 * 60 * 1000, 'keeps
 assertEqual(getApiCacheTtl('/playlist/track/all', 'POST'), 0, 'does not cache non-GET requests')
 assertEqual(getApiCacheTtl('/playlist/track/all', 'GET', { cache: false }), 0, 'respects explicit cache=false')
 assertEqual(getApiCacheTtl('/unknown', 'GET'), 0, 'unknown endpoints are uncached')
+
+const cachePolicy = await readFile(new URL('./cache-policy.js', import.meta.url), 'utf8')
+assertEqual(cachePolicy.includes('PERSISTENT_MEMORY_PROMOTION_TTL'), true, 'persistent cache hits are promoted to memory')
+assertEqual(cachePolicy.includes('if (persistent && !options.allowExpired) rememberMemoryApiCache(cacheKey, persistent)'), true, 'expired stale reads are not promoted')
 
 console.log(`\n${passed} passed, ${failed} failed${failed ? ' - FAIL' : ' - all good'}`)
 process.exit(failed ? 1 : 0)

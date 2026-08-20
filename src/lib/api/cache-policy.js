@@ -2,7 +2,17 @@ import { dbCache } from '../db/cache.js'
 export { getApiCacheTtl, isCacheableResponse } from './cache-ttl.js'
 
 const MAX_MEMORY_API_ENTRIES = 200
+const PERSISTENT_MEMORY_PROMOTION_TTL = 30 * 1000
 const memoryApiCache = new Map()
+
+function rememberMemoryApiCache(cacheKey, value, ttl = PERSISTENT_MEMORY_PROMOTION_TTL) {
+  if (!cacheKey || value === null || value === undefined) return
+  memoryApiCache.delete(cacheKey)
+  memoryApiCache.set(cacheKey, { value, expiresAt: Date.now() + ttl })
+  while (memoryApiCache.size > MAX_MEMORY_API_ENTRIES) {
+    memoryApiCache.delete(memoryApiCache.keys().next().value)
+  }
+}
 
 export function createApiCacheKey({ base, endpoint, params, body, cookie, ttl }) {
   if (!ttl) return ''
@@ -27,16 +37,14 @@ export async function readApiCache(cacheKey, options = {}) {
     }
     memoryApiCache.delete(cacheKey)
   }
-  return dbCache.apiGet(cacheKey, options)
+  const persistent = await dbCache.apiGet(cacheKey, options)
+  if (persistent && !options.allowExpired) rememberMemoryApiCache(cacheKey, persistent)
+  return persistent
 }
 
 export function writeApiCache(cacheKey, value, ttl) {
   if (!cacheKey || !ttl) return Promise.resolve()
-  memoryApiCache.delete(cacheKey)
-  memoryApiCache.set(cacheKey, { value, expiresAt: Date.now() + ttl })
-  while (memoryApiCache.size > MAX_MEMORY_API_ENTRIES) {
-    memoryApiCache.delete(memoryApiCache.keys().next().value)
-  }
+  rememberMemoryApiCache(cacheKey, value, ttl)
   return dbCache.apiSet(cacheKey, value, ttl)
 }
 

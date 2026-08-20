@@ -159,7 +159,7 @@
   padding: 0 8px;
   font-size: 19px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
   color: var(--text);
 }
 
@@ -293,7 +293,7 @@
 .so-top__copy strong {
   font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
   line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;

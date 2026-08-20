@@ -4,6 +4,7 @@
   import { coverUrl } from '../utils/image.js'
   import { parseLikeCheck } from '../utils/like-check.js'
   import { debugLog } from '../utils/error.js'
+  import Icon from './ui/Icon.svelte'
 
   let {
     show = false,
@@ -40,9 +41,10 @@
 
   const MENU_WIDTH = 278
   const MENU_MARGIN = 12
+  const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 292 : 448)
 
   let menuLeft = $derived(Math.max(MENU_MARGIN, Math.min(x || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerWidth : 1200) - MENU_WIDTH - MENU_MARGIN)))
-  let menuTop = $derived(Math.max(MENU_MARGIN, Math.min(y || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerHeight : 800) - MENU_MARGIN - 80)))
+  let menuTop = $derived(Math.max(MENU_MARGIN, Math.min(y || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerHeight : 800) - MENU_HEIGHT - MENU_MARGIN)))
 
   function portal(node) {
     document.body.appendChild(node)
@@ -274,7 +276,6 @@
       aria-label="歌曲操作菜单"
       oncontextmenu={handleContextmenu}
     >
-    <div class="song-menu__halo"></div>
     <header class="song-menu__header">
       <div class="song-menu__cover">
         {#if albumOf(track)?.picUrl || track.picUrl}
@@ -292,27 +293,27 @@
     {#if playlistMode === 'menu'}
       <div class="song-menu__group">
         <button class="song-menu__item primary" onclick={toggleLike} disabled={likeLoading}>
-          <span class="song-menu__icon">{liked ? '♥' : '♡'}</span>
+          <span class="song-menu__icon"><Icon name={liked ? 'heart-filled' : 'heart'} size={16} /></span>
           <span>{liked ? '取消喜欢' : '喜欢'}</span>
           {#if likeLoading}<em>处理中</em>{/if}
         </button>
         <button class="song-menu__item" onclick={() => openPlaylistPanel('add')}>
-          <span class="song-menu__icon">＋</span>
+          <span class="song-menu__icon"><Icon name="add" size={16} /></span>
           <span>添加到歌单</span>
         </button>
         <button class="song-menu__item" onclick={() => openPlaylistPanel('remove')}>
-          <span class="song-menu__icon">－</span>
+          <span class="song-menu__icon"><Icon name="trash" size={16} /></span>
           <span>从歌单移除</span>
         </button>
       </div>
 
       <div class="song-menu__group">
         <button class="song-menu__item" onclick={openArtist} disabled={!firstArtist(track)?.id}>
-          <span class="song-menu__icon">◎</span>
+          <span class="song-menu__icon"><Icon name="user" size={16} /></span>
           <span>查看歌手</span>
         </button>
         <button class="song-menu__item" onclick={openAlbum} disabled={!albumOf(track)?.id}>
-          <span class="song-menu__icon">▣</span>
+          <span class="song-menu__icon"><Icon name="music" size={16} /></span>
           <span>查看专辑</span>
           {#if albumName(track)}<em>{albumName(track)}</em>{/if}
         </button>
@@ -320,13 +321,13 @@
 
       <div class="song-menu__group compact">
         <button class="song-menu__item" onclick={copyLink}>
-          <span class="song-menu__icon">↗</span>
+          <span class="song-menu__icon"><Icon name="link" size={16} /></span>
           <span>复制链接</span>
         </button>
       </div>
     {:else}
       <div class="song-menu__panel-head">
-        <button onclick={() => playlistMode = 'menu'} aria-label="返回">‹</button>
+        <button onclick={() => playlistMode = 'menu'} aria-label="返回"><Icon name="chevron-left" size={18} fill="none" /></button>
         <div>
           <strong>{playlistMode === 'remove' ? '从歌单移除' : '添加到歌单'}</strong>
           <span>{track.name}</span>
@@ -384,30 +385,17 @@
     max-width: calc(100vw - 24px);
     max-height: min(620px, calc(100vh - 24px));
     overflow: hidden;
-    padding: 8px;
+    padding: 6px;
     color: var(--text);
-    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    border-radius: var(--radius-xl);
-    background: linear-gradient(145deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 84%, transparent));
-    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(26px) saturate(1.35);
-    -webkit-backdrop-filter: blur(26px) saturate(1.35);
-    animation: songMenuIn 150ms cubic-bezier(.2,.8,.2,1) both;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+    animation: songMenuIn 120ms var(--ease-out) both;
   }
 
   .song-menu.panel {
     width: 310px;
-  }
-
-  .song-menu__halo {
-    position: absolute;
-    inset: -40% -30% auto auto;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--accent) 24%, transparent);
-    filter: blur(34px);
-    pointer-events: none;
   }
 
   .song-menu__header,
@@ -420,23 +408,23 @@
 
   .song-menu__header {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr);
-    gap: 11px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 10px;
     align-items: center;
-    padding: 8px 8px 11px;
+    padding: 6px 6px 10px;
   }
 
   .song-menu__cover,
   .song-menu__cover img,
   .song-menu__cover span {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-md);
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-xs);
   }
 
   .song-menu__cover img {
     object-fit: cover;
-    box-shadow: 0 10px 22px rgba(0,0,0,0.22);
+    border: 1px solid var(--border);
   }
 
   .song-menu__cover span,
@@ -450,7 +438,7 @@
   .song-menu__title {
     min-width: 0;
     display: grid;
-    gap: 3px;
+    gap: 2px;
   }
 
   .song-menu__title strong,
@@ -465,7 +453,7 @@
 
   .song-menu__title strong {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .song-menu__title span,
@@ -476,9 +464,9 @@
 
   .song-menu__group {
     display: grid;
-    gap: 3px;
-    padding: 6px 0;
-    border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    gap: 1px;
+    padding: 5px 0;
+    border-top: 1px solid var(--border);
   }
 
   .song-menu__group.compact {
@@ -487,26 +475,25 @@
 
   .song-menu__item {
     display: grid;
-    grid-template-columns: 30px minmax(0, 1fr) auto;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     width: 100%;
-    min-height: 40px;
-    padding: 0 10px;
+    min-height: 34px;
+    padding: 0 8px;
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-xs);
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text);
     font: inherit;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
     text-align: left;
     cursor: pointer;
-    transition: background 0.16s, color 0.16s, transform 0.16s;
+    transition: background 0.12s, color 0.12s;
   }
 
   .song-menu__item:hover:not(:disabled) {
-    transform: translateX(2px);
     background: var(--bg-hover);
     color: var(--text);
   }
@@ -523,13 +510,9 @@
   .song-menu__icon {
     display: grid;
     place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+    width: 24px;
+    height: 24px;
     color: inherit;
-    font-size: 15px;
-    font-weight: 700;
   }
 
   .song-menu__item em {
@@ -538,7 +521,7 @@
     color: var(--text-tertiary);
     font-size: 11px;
     font-style: normal;
-    font-weight: 700;
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -546,23 +529,27 @@
 
   .song-menu__panel-head {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr);
+    grid-template-columns: 32px minmax(0, 1fr);
     gap: 8px;
     align-items: center;
-    padding: 7px 8px 10px;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    padding: 5px 6px 9px;
+    border-bottom: 1px solid var(--border);
   }
 
   .song-menu__panel-head button {
-    width: 34px;
-    height: 34px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
     border: none;
-    border-radius: var(--radius-md);
-    background: var(--bg-hover);
+    border-radius: var(--radius-xs);
+    background: transparent;
     color: var(--text);
-    font-size: 24px;
-    line-height: 1;
     cursor: pointer;
+  }
+
+  .song-menu__panel-head button:hover {
+    background: var(--bg-hover);
   }
 
   .song-menu__panel-head div {
@@ -573,27 +560,27 @@
 
   .song-menu__panel-head strong {
     font-size: 14px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .song-menu__playlists {
     display: grid;
-    gap: 4px;
+    gap: 1px;
     max-height: min(390px, calc(100vh - 148px));
     overflow-y: auto;
-    padding: 8px 2px 0;
+    padding: 6px 0 0;
   }
 
   .song-menu__playlist {
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr);
+    grid-template-columns: 36px minmax(0, 1fr);
     gap: 10px;
     align-items: center;
     width: 100%;
-    min-height: 50px;
-    padding: 6px;
+    min-height: 46px;
+    padding: 5px 6px;
     border: none;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xs);
     background: transparent;
     color: var(--text);
     text-align: left;
@@ -606,9 +593,10 @@
 
   .song-menu__playlist img,
   .song-menu__playlist-cover {
-    width: 38px;
-    height: 38px;
-    border-radius: var(--radius-md);
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xs);
     object-fit: cover;
   }
 
@@ -620,7 +608,7 @@
 
   .song-menu__playlist strong {
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .song-menu__playlist em,
@@ -642,14 +630,13 @@
     z-index: 360;
     transform: translateX(-50%);
     padding: 10px 16px;
-    border: 1px solid color-mix(in srgb, var(--border) 66%, transparent);
+    border: 1px solid var(--border);
     border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-layer) 92%, transparent);
+    background: var(--bg-elevated);
     color: var(--text);
     box-shadow: 0 14px 34px rgba(0,0,0,0.24);
-    backdrop-filter: blur(18px);
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 500;
     animation: songToastIn 180ms ease both;
   }
 
@@ -667,7 +654,7 @@
     .song-menu,
     .song-menu.panel {
       width: min(310px, calc(100vw - 24px));
-      border-radius: var(--radius-xl);
+      border-radius: var(--radius-sm);
     }
   }
 </style>

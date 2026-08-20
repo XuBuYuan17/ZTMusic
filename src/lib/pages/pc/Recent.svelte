@@ -6,7 +6,6 @@
   import { formatDuration } from '../../format.js'
   import { coverUrl } from '../../utils/image.js'
   import SongListActions from '../../components/SongListActions.svelte'
-  import { getLocalHistory } from '../../stores/player.svelte.js'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
   let { onOpenArtist, onOpenAlbum } = $props()
@@ -20,7 +19,7 @@
   async function load() {
     const rid = ++_requestId; recentLoading = true; recentTracks = []; error = ''
     try {
-      const tracks = await loadRecentData(ncm, auth.user, getLocalHistory)
+      const tracks = await loadRecentData(ncm, auth.user)
       if (rid === _requestId) recentTracks = tracks
     } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
     finally { if (rid === _requestId) recentLoading = false }
@@ -32,7 +31,12 @@
   }
   function playAll() { if (recentTracks.length) player.playQueue(recentTracks, 0) }
 
-  $effect(() => { if (auth.isLoggedIn) load() })
+  $effect(() => {
+    load()
+    const refresh = () => load()
+    window.addEventListener('local-listening-history-change', refresh)
+    return () => window.removeEventListener('local-listening-history-change', refresh)
+  })
 
   function artistsOf(track) {
     return track.artists || track.ar || []

@@ -528,7 +528,7 @@
     margin: 0;
     font-size: 28px;
     font-weight: 700;
-    letter-spacing: -0.04em;
+    letter-spacing: 0;
   }
 
   .page-header p {
@@ -811,7 +811,7 @@
     white-space: nowrap;
     font-weight: 700;
     font-size: 14px;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
   }
 
   .msg-kind {
@@ -974,7 +974,7 @@
     margin: 0;
     font-size: 15.5px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
   }
 
   .title-meta p {
@@ -1095,7 +1095,7 @@
   .shared-card-title {
     font-size: 13.5px;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: 0;
     line-height: 1.35;
     overflow: hidden;
     text-overflow: ellipsis;

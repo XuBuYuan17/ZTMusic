@@ -290,7 +290,7 @@
   .artist-info { position: relative; z-index: 1; min-width: 0; color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,0.36); }
   .artist-label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.76); margin-bottom: 8px; }
   .artist-label span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px var(--accent); }
-  .artist-info h1 { font-size: clamp(46px, 8vw, 88px); line-height: 0.92; margin: 0 0 14px; letter-spacing: -3px; color: #fff; max-width: 980px; }
+  .artist-info h1 { font-size: clamp(46px, 8vw, 88px); line-height: 0.92; margin: 0 0 14px; letter-spacing: 0; color: #fff; max-width: 980px; }
   .artist-alias { color: rgba(255,255,255,0.74); font-size: 15px; margin-bottom: 12px; }
   .artist-meta { display: flex; flex-wrap: wrap; gap: 8px; color: rgba(255,255,255,0.82); font-size: 13px; margin-bottom: 22px; }
   .artist-meta span { padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(16px); }
@@ -308,7 +308,7 @@
   .artist-section { margin-bottom: 34px; }
   .artist-bio-section { padding: 22px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--bg-surface), var(--bg-layer)); border: 1px solid var(--border); }
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: -0.4px; }
+  .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: 0; }
   .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
   .artist-links { display: flex; align-items: center; gap: 5px; min-width: 0; }
   .artist-link { border: none; background: transparent; color: inherit; padding: 0; font: inherit; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -330,7 +330,7 @@
   @media (max-width: 720px) {
     .artist-hero { grid-template-columns: 1fr; align-items: end; min-height: 520px; padding: 78px 24px 32px; margin-left: -24px; margin-right: -24px; }
     .artist-avatar { width: 142px; height: 142px; border-radius: var(--radius-xl); }
-    .artist-info h1 { font-size: 42px; letter-spacing: -1.6px; }
+    .artist-info h1 { font-size: 42px; letter-spacing: 0; }
     .artist-albums { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }
 </style>

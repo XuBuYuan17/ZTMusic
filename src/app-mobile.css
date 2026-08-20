@@ -70,7 +70,9 @@ html.mobile-runtime[data-theme="dark"] .m-avatar-btn {
     inset 0 1px 0 rgba(255,255,255,0.12);
 }
 
-html.mobile-runtime .m-avatar-btn { left: 12px; }
+html.mobile-runtime .m-avatar-btn {
+  left: max(12px, calc((100vw - 430px) / 2 + 12px));
+}
 
 html.mobile-runtime .m-avatar-btn:active {
   transform: scale(0.94);
@@ -93,18 +95,24 @@ html.mobile-runtime .m-content {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding: calc(14px + var(--mobile-avatar-size)) 16px calc(var(--mobile-tabs-h) + 120px + env(safe-area-inset-bottom));
+  padding: calc(18px + var(--mobile-avatar-size)) 18px calc(var(--mobile-tabs-h) + 104px + env(safe-area-inset-bottom));
+}
+
+html.mobile-runtime .m-view-fade {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
 }
 
 html.mobile-runtime .m-content-detail {
-  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--mobile-tabs-h) + 104px + env(safe-area-inset-bottom));
 }
 
 html.mobile-runtime .m-blank {
   min-height: 100%;
 }
 
-/* 底部 3-Tab —— 样式与 PlayerBar 统一 */
+/* 底部主导航 —— 样式与 PlayerBar 统一 */
 html.mobile-runtime .m-tabs {
   position: fixed;
   left: 14px;
@@ -114,13 +122,25 @@ html.mobile-runtime .m-tabs {
   overflow: hidden;
   height: var(--mobile-tabs-h);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: var(--radius-md);
+  padding: 6px 20px;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
   background: var(--bg-elevated);
-  box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.55);
+  box-shadow: 0 -4px 18px rgba(0,0,0,0.08);
   transition: transform 0.32s var(--ease-out), opacity 0.25s ease;
+}
+
+@media (min-width: 480px) {
+  html.mobile-runtime .m-tabs,
+  html.mobile-runtime .player-bar-wrap .player-bar,
+  html.mobile-runtime .player-bar-wrap .player-bar.compact,
+  html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
+    max-width: 430px !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
 html.mobile-runtime .m-tabs::before {
@@ -155,13 +175,13 @@ html.mobile-runtime[data-theme="dark"] .m-tabs::after {
 }
 
 html.mobile-runtime .mobile-app.tabs-hidden .m-tabs {
-  transform: translateY(calc(100% + 28px));
+  transform: translate(-50%, calc(100% + 28px));
   opacity: 0;
   pointer-events: none;
 }
 
 html.mobile-runtime .mobile-app.drawer-open .m-tabs {
-  transform: translateY(calc(100% + 28px));
+  transform: translate(-50%, calc(100% + 28px));
   opacity: 0;
   pointer-events: none;
 }
@@ -174,7 +194,7 @@ html.mobile-runtime .m-tab {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: color-mix(in srgb, var(--text-secondary) 88%, var(--text) 12%);
   font-size: 10px;
   font-weight: 700;
@@ -192,7 +212,7 @@ html.mobile-runtime .m-tab svg {
 
 html.mobile-runtime .m-tab.active {
   color: var(--accent);
-  background: color-mix(in srgb, var(--accent-bg) 48%, transparent);
+  background: transparent;
 }
 
 html.mobile-runtime[data-theme="dark"] .m-tab:not(.active) {
@@ -288,9 +308,9 @@ html.mobile-runtime .m-drawer .sidebar-nav {
 /* ---------- PlayerBar 移动端适配 ---------- */
 html.mobile-runtime .player-bar-wrap {
   position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: calc(var(--mobile-tabs-h) + 18px + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom));
   z-index: 55;
   pointer-events: auto;
   transition: bottom 0.32s var(--ease-out), transform 0.32s var(--ease-out);
@@ -303,7 +323,7 @@ html.mobile-runtime .player-bar-wrap.tabs-hidden {
 /* 抽屉打开时 PlayerBar 降到 drawer 下方 */
 html.mobile-runtime .player-bar-wrap.drawer-open {
   z-index: 40;
-  transform: translateY(calc(100% + 28px));
+  transform: translate(-50%, calc(100% + 28px));
   opacity: 0;
   pointer-events: none;
 }
@@ -318,14 +338,15 @@ html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
   display: grid !important;
   width: 100% !important;
   max-width: none !important;
-  height: 60px;
+  height: 64px;
   margin: 0;
-  padding: 0 8px 0 6px;
+  padding: 0 18px;
   grid-template-columns: minmax(0, 1fr) 44px 40px;
   gap: 2px;
-  border: 1px solid color-mix(in srgb, var(--border-strong) 82%, transparent);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.38);
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: 0 -6px 18px rgba(0,0,0,0.08);
   transform: none !important;
 }
 

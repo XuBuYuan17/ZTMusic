@@ -48,13 +48,23 @@ export async function initDB() {
       await _db.sql(`CREATE TABLE IF NOT EXISTS play_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, song_id INTEGER NOT NULL,
         name TEXT NOT NULL, artists TEXT, album TEXT, pic_url TEXT,
-        duration INTEGER, played_at INTEGER NOT NULL, play_count INTEGER NOT NULL DEFAULT 1
+        duration INTEGER, played_at INTEGER NOT NULL, play_count INTEGER NOT NULL DEFAULT 1,
+        source TEXT, local_id TEXT, webdav_id TEXT, remote_url TEXT,
+        webdav_username TEXT, file_name TEXT, relative_path TEXT, mime TEXT, file_size INTEGER
       )`)
-      try {
-        await _db.sql(`ALTER TABLE play_history ADD COLUMN play_count INTEGER NOT NULL DEFAULT 1`)
-      } catch {
-        // 列已存在时 ALTER 抛错，忽略
+      const addHistoryColumn = async (definition) => {
+        try { await _db.sql(`ALTER TABLE play_history ADD COLUMN ${definition}`) } catch { /* already exists */ }
       }
+      await addHistoryColumn('play_count INTEGER NOT NULL DEFAULT 1')
+      await addHistoryColumn('source TEXT')
+      await addHistoryColumn('local_id TEXT')
+      await addHistoryColumn('webdav_id TEXT')
+      await addHistoryColumn('remote_url TEXT')
+      await addHistoryColumn('webdav_username TEXT')
+      await addHistoryColumn('file_name TEXT')
+      await addHistoryColumn('relative_path TEXT')
+      await addHistoryColumn('mime TEXT')
+      await addHistoryColumn('file_size INTEGER')
       await _db.sql(`CREATE TABLE IF NOT EXISTS song_urls (
         song_id INTEGER PRIMARY KEY, urls TEXT NOT NULL,
         expires_at INTEGER NOT NULL DEFAULT 0, saved_at INTEGER NOT NULL

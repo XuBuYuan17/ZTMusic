@@ -3,7 +3,7 @@
   import { auth } from '../../stores/auth.svelte.js'
   import { player } from '../../stores/player.svelte.js'
   import { ncm } from '../../api/client.js'
-  import { loadHomeData } from '../../services/home.js'
+  import { loadHomeData, loadLocalRecentTracks } from '../../services/home.js'
   import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
@@ -34,8 +34,14 @@
 
   async function refreshLocalListeningStats() {
     const rid = ++_statsRequestId
-    const stats = await loadLocalListeningStats()
-    if (rid === _statsRequestId) localListeningStats = stats
+    const [stats, localRecentTracks] = await Promise.all([
+      loadLocalListeningStats(),
+      loadLocalRecentTracks(8),
+    ])
+    if (rid === _statsRequestId) {
+      localListeningStats = stats
+      recentTracks = localRecentTracks
+    }
   }
 
   async function load() {
@@ -46,9 +52,9 @@
       const data = await loadHomeData(ncm, auth.user)
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
-      weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks; recommendPlaylists = data.recommendPlaylists
+      weeklyPlaylist = data.weeklyPlaylist; recommendPlaylists = data.recommendPlaylists
       data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
-      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; if (v.recentTracks.length) recentTracks = v.recentTracks }).catch(() => {})
+      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist }).catch(() => {})
       data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
     } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
     finally { if (rid === _requestId) loading = false }
@@ -103,7 +109,7 @@
         ? `${localListeningStats.playCount} 次 · ${localListeningStats.durationLabel}`
         : '从第一次播放开始记录',
       accent: 'stats',
-      action: () => onNavigate?.('recent'),
+      action: () => onNavigate?.('listeningStats'),
     },
     {
       title: '喜欢的音乐',

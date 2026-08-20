@@ -1,6 +1,6 @@
 /* Product-level finishing pass: calm hierarchy, restrained surfaces and motion. */
 html:not(.mobile-runtime) :where(.page-header h1, .home-section-title, .music-section-head h2, .daily-section-header h2) {
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
 }
 
 html:not(.mobile-runtime) :where(
@@ -27,14 +27,6 @@ html:not(.mobile-runtime) :where(
 html:not(.mobile-runtime) :where(.home-station-card, .music-cover-card, .shared-card):active {
   opacity: 0.68;
   transform: none;
-}
-
-html.mobile-runtime :where(.m-page-header h1, .m-section-head h2) {
-  letter-spacing: -0.035em;
-}
-
-html.mobile-runtime :where(.m-cover-card img, .m-editor-card img, .m-library-card-cover) {
-  border-radius: var(--radius-xs);
 }
 
 html.mobile-runtime :where(.m-settings-card, .m-list, .m-library-shortcuts) {

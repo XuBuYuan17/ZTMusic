@@ -4,10 +4,9 @@
   import { ncm } from '../../api/client.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
-  import { loadHomeData } from '../../services/home.js'
+  import { loadHomeData, loadLocalRecentTracks } from '../../services/home.js'
   import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.js'
   import Icon from '../../components/ui/Icon.svelte'
-  import Spinner from '../../components/Spinner.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
 
   let {
@@ -34,8 +33,14 @@
 
   async function refreshLocalListeningStats() {
     const rid = ++_statsRequestId
-    const stats = await loadLocalListeningStats()
-    if (rid === _statsRequestId) localListeningStats = stats
+    const [stats, localRecentTracks] = await Promise.all([
+      loadLocalListeningStats(),
+      loadLocalRecentTracks(10),
+    ])
+    if (rid === _statsRequestId) {
+      localListeningStats = stats
+      recentTracks = localRecentTracks
+    }
   }
 
   async function load() {
@@ -47,13 +52,12 @@
       const data = await loadHomeData(ncm, auth.user)
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
-      weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks
+      weeklyPlaylist = data.weeklyPlaylist
       recommendPlaylists = data.recommendPlaylists
       data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
       data.weeklyPromise?.then(v => {
         if (rid !== _requestId) return
         weeklyPlaylist = v.weeklyPlaylist
-        if (v.recentTracks.length) recentTracks = v.recentTracks
       }).catch(() => {})
       data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
     } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
@@ -88,6 +92,36 @@
   }
 
   const heroPlaylist = $derived(recommendPlaylists.length ? recommendPlaylists[0] : null)
+  const heroImage = $derived(auth.user?.avatarUrl || heroPlaylist?.picUrl || '')
+  const stationCards = $derived([
+    {
+      title: '本地听歌统计',
+      label: 'ON THIS DEVICE',
+      value: localListeningStats.playCount
+        ? `${localListeningStats.playCount} 次 · ${localListeningStats.durationLabel}`
+        : '从第一次播放开始记录',
+      icon: 'music',
+      accent: 'stats',
+      action: () => onNavigate?.('listeningStats'),
+    },
+    {
+      title: '喜欢的音乐',
+      label: 'FAVORITES',
+      value: `${likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0} 首歌曲`,
+      icon: 'heart-filled',
+      accent: 'liked',
+      action: openLiked,
+      disabled: !likedPlaylist,
+    },
+    {
+      title: '最近播放',
+      label: 'CONTINUE',
+      value: `${recentTracks.length} 首记录`,
+      icon: 'clock',
+      accent: 'recent',
+      action: () => onNavigate?.('recent'),
+    },
+  ])
   const greeting = $derived((() => {
     const h = new Date().getHours()
     if (h < 6) return '夜深了'
@@ -121,7 +155,13 @@
       <button class="m-primary-btn" onclick={() => onOpenLogin?.()}>立即登录</button>
     </div>
   {:else if loading && !recentTracks.length && !recommendPlaylists.length}
-    <div class="m-loading"><Spinner size="md" /></div>
+    <div class="m-home-skeleton" aria-label="正在加载首页内容" aria-busy="true">
+      <span class="m-home-skeleton-copy skeleton-block"></span>
+      <span class="m-home-skeleton-hero skeleton-block"></span>
+      <span class="m-home-skeleton-card skeleton-block"></span>
+      <span class="m-home-skeleton-card skeleton-block"></span>
+      <span class="m-home-skeleton-line skeleton-block"></span>
+    </div>
   {:else if error && !recentTracks.length && !heroPlaylist}
     <div class="m-empty-state small">
       <h2>加载失败</h2>
@@ -129,41 +169,38 @@
       <button class="m-primary-btn" onclick={load}>重试</button>
     </div>
   {:else}
-    <!-- Hero 大卡：今日推荐歌单 -->
-    {#if heroPlaylist}
-      <section class="m-section">
-        <button class="m-hero-card" onclick={() => onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>
-          {#if heroPlaylist.picUrl}<img src={coverUrl(heroPlaylist.picUrl, 600)} alt={heroPlaylist.name} loading="lazy" referrerpolicy="no-referrer" />{/if}
-          <div class="m-hero-copy">
-            <small>今日推荐</small>
-            <strong>{heroPlaylist.name}</strong>
-          </div>
-        </button>
-      </section>
-    {/if}
+    <section class="m-section m-home-listen">
+      <div class="m-home-listen-copy">
+        <span>现在就听</span>
+        <h2>为 {auth.user?.nickname || '你'} 准备的声音</h2>
+        <p>继续你的播放习惯，或者从今天的推荐里挑一张开始。</p>
+      </div>
+      <button class="m-home-editorial" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)} disabled={!heroPlaylist}>
+        {#if heroImage}<span class="m-home-editorial-bg" style={`background-image:url(${coverUrl(heroImage, 720)})`}></span>{/if}
+        <span class="m-home-editorial-shade"></span>
+        <span class="m-home-editorial-copy">
+          <small>今日精选</small>
+          <strong>{heroPlaylist?.name || '你的私人首页'}</strong>
+          <em>{heroPlaylist?.copywriter || (heroPlaylist?.trackCount ? `${heroPlaylist.trackCount} 首歌曲` : '从资料库继续播放')}</em>
+        </span>
+      </button>
+    </section>
 
-    <!-- 快速入口 2x2 -->
-    <section class="m-section">
-      <div class="m-quick-grid">
-        <button class="m-quick-tile m-quick-tile--liked" onclick={openLiked} disabled={!likedPlaylist}>
-          <Icon name="heart-filled" size={22} />
-          <span>喜欢的音乐</span>
-          <small>{likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0} 首</small>
-        </button>
-        <button class="m-quick-tile" onclick={() => onNavigate?.('recent')}>
-          <Icon name="clock" size={22} />
-          <span>最近播放</span>
-          <small>{recentTracks.length} 首</small>
-        </button>
-        <button class="m-quick-tile" onclick={() => onNavigate?.('recent')}>
-          <Icon name="music" size={22} />
-          <span>本地听歌统计</span>
-          <small>{localListeningStats.playCount ? `${localListeningStats.playCount} 次播放` : '等待记录'}</small>
-        </button>
-        <button class="m-quick-tile" onclick={() => onNavigate?.('library')}>
-          <Icon name="list" size={22} />
-          <span>我的歌单</span>
-          <small>{userPlaylists.length} 个</small>
+    <section class="m-section m-station-section">
+      <div class="m-rail m-station-rail" aria-label="快捷入口">
+        {#each stationCards as card}
+          <button class="m-station-card {card.accent}" onclick={() => card.action?.()} disabled={card.disabled}>
+            <Icon name={card.icon} size={20} />
+            <span>{card.label}</span>
+            <strong>{card.title}</strong>
+            <em>{card.value}</em>
+          </button>
+        {/each}
+        <button class="m-station-card library" onclick={() => onNavigate?.('library')}>
+          <Icon name="list" size={20} />
+          <span>LIBRARY</span>
+          <strong>我的歌单</strong>
+          <em>{userPlaylists.length} 个</em>
         </button>
       </div>
     </section>
@@ -211,34 +248,5 @@
       </section>
     {/if}
 
-    <section class="m-section m-listening-section">
-      <div class="m-section-head">
-        <div>
-          <small class="m-section-eyebrow">On This Device</small>
-          <h2>本地听歌统计</h2>
-        </div>
-      </div>
-      <div class="m-listening-stats">
-        <article>
-          <strong>{localListeningStats.playCount}</strong>
-          <span>播放次数</span>
-        </article>
-        <article>
-          <strong>{localListeningStats.durationLabel}</strong>
-          <span>累计歌曲时长</span>
-        </article>
-        <article>
-          <strong>{localListeningStats.activeDays}</strong>
-          <span>活跃天数</span>
-        </article>
-      </div>
-      <p class="m-listening-note">
-        {#if localListeningStats.trackCount}
-          已在本机记录 {localListeningStats.trackCount} 首歌曲，常听艺人是 {localListeningStats.topArtist}。
-        {:else}
-          播放歌曲后，这里会在本机生成你的听歌摘要。
-        {/if}
-      </p>
-    </section>
   {/if}
 </div>

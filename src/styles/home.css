@@ -26,7 +26,7 @@
   font-size: 27px;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.6px;
+  letter-spacing: 0;
 }
 
 .home-section-more {
@@ -114,7 +114,7 @@
   font-size: 22px;
   font-weight: 700;
   color: var(--text);
-  letter-spacing: -0.2px;
+  letter-spacing: 0;
 }
 
 .home-logged-out-sub {
@@ -185,7 +185,7 @@
   line-height: 1.02;
   font-weight: 700;
   /* 流体字号用 em，收紧量随字号缩放（px 会在 42px 和 72px 两端观感不一致） */
-  letter-spacing: -0.028em;
+  letter-spacing: 0;
 }
 
 .home-listen-copy h1 span {
@@ -280,7 +280,7 @@
   font-size: clamp(28px, 3vw, 42px);
   line-height: 1.02;
   font-weight: 700;
-  letter-spacing: -0.024em;
+  letter-spacing: 0;
 }
 
 .home-editorial-content em {

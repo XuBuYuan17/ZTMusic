@@ -108,9 +108,9 @@ ZTmusic/
 发版走 GitHub Actions：
 
 1. 手动触发 **Prepare Release** workflow，选版本号策略（auto / patch / minor / major）
-2. 它会自动：算下一版本号 → 更新 package.json / Cargo.toml / CHANGELOG.md → 打 tag → push
-3. push tag（`v*`）触发 **Build Installers**，并行构建 Windows / Linux / Web
-4. 构建完自动发布到 GitHub Releases，release notes 从 CHANGELOG 抽
+2. 它会自动：跑 `pnpm verify` → 算下一版本号 → 更新 package.json / Cargo.toml / CHANGELOG.md → 打 tag → push
+3. push 到 `main`、PR、tag `v*` 或手动触发 **Build Installers** 都会先跑 source checks，再构建 Windows / Linux 安装包
+4. tag 构建完成后自动发布到 GitHub Releases，release notes 从 CHANGELOG 抽
 
 详细的架构说明、API 链路、调试技巧见 [`docs/development.md`](docs/development.md)。
 

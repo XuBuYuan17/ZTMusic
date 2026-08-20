@@ -132,31 +132,31 @@
 </div>
 
 <style>
-  .liked-page { display: grid; gap: 26px; max-width: 1120px; margin: 0 auto; }
-  .liked-hero { min-height: 184px; display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; align-items: end; gap: 24px; padding: 0 0 24px; border-bottom: 1px solid var(--border); }
-  .liked-hero-art { width: 168px; height: 168px; display: grid; place-items: center; border-radius: var(--radius-sm); color: #fff; background: linear-gradient(145deg, #fa2a55, #c81741 70%, #8d1531); box-shadow: 0 16px 38px rgba(157, 18, 53, 0.24); }
+  .liked-page { display: grid; gap: 22px; max-width: 1180px; margin: 0 auto; }
+  .liked-hero { min-height: 188px; display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; align-items: end; gap: 24px; padding: 18px 0 24px; border-bottom: 1px solid var(--border); }
+  .liked-hero-art { width: 168px; height: 168px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,0.18); border-radius: var(--radius-sm); color: #fff; background: linear-gradient(145deg, #ff2d55, #d70015 62%, #8e1d3d); box-shadow: 0 14px 32px rgba(157, 18, 53, 0.22); }
   .liked-hero-copy { min-width: 0; padding-bottom: 2px; }
-  .liked-kicker { margin-bottom: 7px; color: var(--text-tertiary); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
-  .liked-hero h1 { margin: 0; font-size: clamp(30px, 3.2vw, 46px); line-height: 1.03; letter-spacing: -0.045em; }
+  .liked-kicker { margin-bottom: 7px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+  .liked-hero h1 { margin: 0; font-size: clamp(32px, 3vw, 44px); line-height: 1.04; letter-spacing: 0; }
   .liked-hero p { margin-top: 10px; color: var(--text-secondary); font-size: 14px; }
   .liked-hero-meta { margin-top: 14px; color: var(--text-tertiary); font-size: 12px; font-weight: 500; }
   .liked-hero-play { min-width: 104px; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: white; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.15s; }
   .liked-hero-play:hover { background: var(--accent-hover); }
   .liked-hero-play:active { transform: scale(0.97); }
-  .liked-skeleton { display: grid; }
-  .liked-skeleton-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-bottom: 1px solid var(--border); animation: likedFadeIn 0.3s both; }
-  .liked-song-list { display: grid; }
-  .liked-song-row { display: grid; grid-template-columns: 32px 44px minmax(0, 1fr) 56px; gap: 12px; align-items: center; min-height: 60px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .liked-skeleton { display: grid; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); overflow: hidden; }
+  .liked-skeleton-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-bottom: 1px solid var(--border); animation: likedFadeIn 0.3s both; }
+  .liked-song-list { display: grid; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); }
+  .liked-song-row { display: grid; grid-template-columns: 38px 44px minmax(0, 1fr) 64px; gap: 12px; align-items: center; min-height: 60px; padding: 7px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
   .liked-song-row:last-child { border-bottom: none; }
   .liked-song-row:hover { background: var(--bg-hover); }
   .liked-song-row.active { background: var(--accent-bg); color: var(--accent); }
   .liked-song-index { color: var(--text-tertiary); font-size: 12px; font-weight: 500; text-align: center; }
-  .liked-song-cover { width: 44px; height: 44px; border-radius: var(--radius-xs); object-fit: cover; }
+  .liked-song-cover { width: 44px; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-xs); object-fit: cover; }
   .liked-song-main { min-width: 0; display: grid; gap: 2px; }
   .liked-song-main strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
   .liked-song-main em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 12px; color: var(--text-tertiary); }
   .liked-song-dur { color: var(--text-tertiary); font-size: 12px; text-align: right; }
-  .liked-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; color: var(--text-secondary); text-align: center; }
+  .liked-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-secondary); text-align: center; }
   .artist-sep { margin: 0 3px; color: var(--text-tertiary); }
   .artist-link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font: inherit; }
   .artist-link:hover { text-decoration: underline; }

@@ -89,24 +89,19 @@
       <button class="m-primary-btn" onclick={() => { loaded = false; load(); loadToplists() }}>重试</button>
     </div>
   {:else}
-    <!-- Hero 大卡 -->
-    {#if hero}
-      <section class="m-section">
-        <button class="m-hero-card" onclick={() => onBannerClick?.(hero)}>
-          {#if hero.pic}<img src={coverRectUrl(hero.pic, 960, 540)} alt={hero.title} loading="lazy" referrerpolicy="no-referrer" />{/if}
-          <div class="m-hero-copy">
-            <small>编辑精选 · 今日置顶</small>
-            <strong>{hero.title || '今日推荐'}</strong>
-          </div>
-        </button>
-      </section>
-    {/if}
-
-    <!-- 小编辑精选小卡横滑 -->
-    {#if editors.length}
-      <section class="m-section">
-        <div class="m-section-head"><h2>编辑推荐</h2></div>
-        <div class="m-rail">
+    {#if hero || editors.length}
+      <section class="m-section m-feature-section">
+        <div class="m-section-head"><h2>为你精选</h2></div>
+        <div class="m-rail m-feature-rail">
+          {#if hero}
+            <button class="m-hero-card" onclick={() => onBannerClick?.(hero)}>
+              {#if hero.pic}<img src={coverRectUrl(hero.pic, 960, 540)} alt={hero.title} loading="lazy" referrerpolicy="no-referrer" />{/if}
+              <div class="m-hero-copy">
+                <small>新发行</small>
+                <strong>{hero.title || '今日推荐'}</strong>
+              </div>
+            </button>
+          {/if}
           {#each editors as item (item.id)}
             <button class="m-editor-card" onclick={() => onBannerClick?.(item)}>
               {#if item.pic}<img src={coverRectUrl(item.pic, 400, 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}

@@ -8,7 +8,7 @@
 .page-header h1 {
   font-size: 30px;
   font-weight: 700;
-  letter-spacing: -0.8px;
+  letter-spacing: 0;
 }
 
 .page-header .subtitle {
@@ -992,7 +992,7 @@ html.mobile-runtime .global-search-btn {
 
   html.mobile-runtime .library-header-info h1 {
     font-size: 24px;
-    letter-spacing: -0.3px;
+    letter-spacing: 0;
   }
 
   html.mobile-runtime .hero-section {
@@ -1016,7 +1016,7 @@ html.mobile-runtime .global-search-btn {
 
   html.mobile-runtime .hero-info h1 {
     font-size: 24px;
-    letter-spacing: -0.3px;
+    letter-spacing: 0;
     line-clamp: 3;
     -webkit-line-clamp: 3;
     display: -webkit-box;
@@ -1193,7 +1193,7 @@ html.mobile-runtime .global-search-btn {
 .hero-info h1 {
   font-size: 28px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   line-height: 1.2;
   margin-bottom: 6px;
 }

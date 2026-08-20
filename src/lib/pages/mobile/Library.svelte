@@ -282,7 +282,7 @@
           </div>
         {/each}
         <button class="m-library-card m-library-card-add" type="button" onclick={openCreateSheet} disabled={creating} aria-label="创建歌单">
-          <span class="m-library-card-cover"><Icon name="plus" size={34} /></span>
+          <span class="m-library-card-cover"><Icon name="add" size={34} /></span>
           <strong>创建歌单</strong>
           <span>新歌单</span>
         </button>

@@ -2,6 +2,7 @@
   import { player } from '../stores/player.svelte.js'
   import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.js'
   import { coverUrl } from '../utils/image.js'
+  import { hapticTap } from '../utils/haptics.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
@@ -39,6 +40,7 @@
   })
 
   function handleBarPointerDown(e) {
+    if (e.pointerType !== 'mouse') hapticTap()
     if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
     isPressing = true
     gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
