@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 const workflow = await readFile(new URL('../.github/workflows/build.yml', import.meta.url), 'utf8')
 const releasePrepare = await readFile(new URL('../.github/workflows/release-prepare.yml', import.meta.url), 'utf8')
 const cargoToml = await readFile(new URL('../src-tauri/Cargo.toml', import.meta.url), 'utf8')
+const tauriLib = await readFile(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8')
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'))
 
 assert.ok(workflow.includes('build_android:'), 'workflow_dispatch should expose the Android build switch')
@@ -16,6 +17,7 @@ assert.ok(workflow.includes('src-tauri/gen/android/app/build/outputs/apk/**/*.ap
 assert.ok(workflow.includes('artifacts/**/*.apk'), 'tag releases should include Android APK files')
 assert.equal(packageJson.scripts['tauri:build:android'], 'tauri android build --debug --apk --target aarch64 --target armv7 --target x86_64')
 assert.ok(cargoToml.includes('crate-type = ["staticlib", "cdylib", "rlib"]'), 'Tauri Android should build the app_lib cdylib .so artifact')
+assert.ok(tauriLib.includes('#[cfg_attr(mobile, tauri::mobile_entry_point)]'), 'Tauri Android should export the mobile runtime entry point')
 assert.ok(!releasePrepare.includes('gh workflow run build.yml'), 'release prepare should not manually dispatch duplicate installer builds')
 
-console.log('build workflow self-check: 11 assertions passed')
+console.log('build workflow self-check: 12 assertions passed')
