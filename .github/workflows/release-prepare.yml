@@ -62,6 +62,7 @@ jobs:
           node <<'JS'
           const { execSync } = require('node:child_process')
           const fs = require('node:fs')
+          const { calculateReleaseVersion } = require('./scripts/release-version.cjs')
 
           function run(cmd, fallback = '') {
             try {
@@ -72,21 +73,7 @@ jobs:
           }
 
           const latestTag = run('git describe --tags --abbrev=0', 'v0.0.0')
-          const versionMatch = latestTag.match(/^v(\d+)\.(\d+)\.(\d+)$/)
-          if (!versionMatch) throw new Error(`Latest tag is not valid semver: ${latestTag}`)
-          const [, majorText, minorText, patchText] = versionMatch
-          const [major, minor, patch] = [majorText, minorText, patchText].map(Number)
           const sourceVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version
-          const sourceMatch = sourceVersion.match(/^\d+\.\d+\.\d+$/)
-          if (!sourceMatch) throw new Error(`Source version is not valid semver: ${sourceVersion}`)
-          const compareVersions = (left, right) => {
-            const leftParts = left.split('.').map(Number)
-            const rightParts = right.split('.').map(Number)
-            for (let index = 0; index < 3; index++) {
-              if (leftParts[index] !== rightParts[index]) return leftParts[index] - rightParts[index]
-            }
-            return 0
-          }
 
           const range = latestTag === 'v0.0.0' ? 'HEAD' : `${latestTag}..HEAD`
           const log = run(`git log ${range} --pretty=format:%B%x00`)
@@ -119,20 +106,13 @@ jobs:
             }
           }
 
-          const bump = process.env.BUMP === 'auto'
-            ? (hasBreaking ? 'major' : groups.feat.length ? 'minor' : 'patch')
-            : process.env.BUMP
-
-          let nextMajor = major, nextMinor = minor, nextPatch = patch
-          if (bump === 'major') { nextMajor++; nextMinor = 0; nextPatch = 0 }
-          else if (bump === 'minor') { nextMinor++; nextPatch = 0 }
-          else { nextPatch++ }
-
-          const version = `${nextMajor}.${nextMinor}.${nextPatch}`
-          if (compareVersions(version, sourceVersion) < 0) {
-            throw new Error(`Refusing to downgrade source version ${sourceVersion} to ${version}`)
-          }
-          const tag = `v${version}`
+          const { version, tag, bump } = calculateReleaseVersion({
+            latestTag,
+            sourceVersion,
+            bump: process.env.BUMP,
+            hasBreaking,
+            hasFeature: groups.feat.length > 0
+          })
           if (run(`git tag --list ${tag}`)) throw new Error(`Tag ${tag} already exists`)
           const date = new Date().toISOString().split('T')[0]
 
@@ -175,6 +155,8 @@ jobs:
           fs.appendFileSync(ghOutput, `release_notes<<EOF\n${releaseNotes}\nEOF\n`)
 
           console.log(`Latest: ${latestTag}`)
+          console.log(`Source: v${sourceVersion}`)
+          console.log(`Bump: ${bump}`)
           console.log(`Next: ${tag}`)
           console.log('--- Release Notes ---')
           console.log(releaseNotes)
