@@ -19,6 +19,11 @@ on:
         required: true
         type: boolean
         default: true
+      build_android:
+        description: 'Build Android APK'
+        required: true
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -37,6 +42,9 @@ env:
   PNPM_CONFIG_FETCH_RETRIES: 5
   PNPM_CONFIG_FETCH_RETRY_MINTIMEOUT: 10000
   PNPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: 60000
+  ANDROID_API_LEVEL: 35
+  ANDROID_BUILD_TOOLS_VERSION: 35.0.0
+  ANDROID_NDK_VERSION: 27.2.12479018
 
 jobs:
   source-check:
@@ -183,10 +191,83 @@ jobs:
             src-tauri/target/release/bundle/rpm/**
           if-no-files-found: error
 
+  android:
+    name: Android APK
+    needs: source-check
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_android)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-${ANDROID_API_LEVEL}" \
+            "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
+            "ndk;${ANDROID_NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android-apk
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize Android project
+        run: |
+          if [ ! -d src-tauri/gen/android ]; then
+            pnpm tauri android init --ci --skip-targets-install
+          fi
+
+      - name: Build Android APK
+        run: pnpm tauri:build:android
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: zheting-android-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+
   release:
     name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux]
+    needs: [windows, linux, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -230,3 +311,4 @@ jobs:
             artifacts/**/*.exe
             artifacts/**/*.deb
             artifacts/**/*.rpm
+            artifacts/**/*.apk

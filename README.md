@@ -3,7 +3,7 @@
 <img width="2096" height="1366" alt="image" src="https://github.com/user-attachments/assets/6e9a1a3d-4cb5-43e0-9f5d-cb9d85aa3450" />
 <img width="2108" height="1368" alt="image" src="https://github.com/user-attachments/assets/aa340f81-c9c0-4b12-ace4-f8dc356bfc10" />
 
-一个简洁、安静的网易云音乐第三方客户端，专注于听歌体验。基于 Svelte 5 + Tauri 2，可运行在 Windows、Linux 和 Web 上。
+一个简洁、安静的网易云音乐第三方客户端，专注于听歌体验。基于 Svelte 5 + Tauri 2，可运行在 Windows、Linux、Android 和 Web 上。
 
 > ⚠️ 本项目仅供个人学习与技术交流。音乐数据来自第三方 API，版权归网易云音乐及各版权方。请勿用于商业用途。
 
@@ -35,11 +35,10 @@
 |---|---|---|
 | Windows | `.exe`（NSIS） | ✅ |
 | Linux | `.deb` / `.rpm` | ✅ |
+| Android | `.apk`（debug） | ✅ CI 构建 |
 | Web | 浏览器直开 | ✅ |
 
 > macOS 没有预构建包，可以自己跑 `pnpm tauri:build` 编。
->
-> Android 端已于 2026-08 放弃，不再构建 `.apk`。手机浏览器打开 Web 版仍是移动端布局。
 
 ## 快速开始
 
@@ -51,6 +50,7 @@ pnpm dev                  # 浏览器开发（Vite，默认走 /ncm-api 代理�
 pnpm tauri:dev            # 桌面端开发（Tauri）
 pnpm build                # 前端构建
 pnpm tauri:build          # 构建当前平台安装包
+pnpm tauri:build:android  # 构建 Android debug APK（需本机 Android SDK/NDK）
 pnpm test                 # 在隔离的 Node.js 进程中运行全部自检脚本
 ```
 
@@ -109,7 +109,7 @@ ZTmusic/
 
 1. 手动触发 **Prepare Release** workflow，选版本号策略（auto / patch / minor / major）
 2. 它会自动：跑 `pnpm verify` → 算下一版本号 → 更新 package.json / Cargo.toml / CHANGELOG.md → 打 tag → push
-3. push 到 `main`、PR、tag `v*` 或手动触发 **Build Installers** 都会先跑 source checks，再构建 Windows / Linux 安装包
+3. push 到 `main`、PR、tag `v*` 或手动触发 **Build Installers** 都会先跑 source checks，再构建 Windows / Linux / Android 安装包
 4. tag 构建完成后自动发布到 GitHub Releases，release notes 从 CHANGELOG 抽
 
 详细的架构说明、API 链路、调试技巧见 [`docs/development.md`](docs/development.md)。

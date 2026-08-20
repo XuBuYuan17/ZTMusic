@@ -18,7 +18,8 @@
     "tauri:dev": "tauri dev",
     "tauri:dev:wsl": "WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_FORCE_COMPOSITING_MODE=0 tauri dev",
     "tauri:build": "tauri build --target x86_64-pc-windows-gnu",
-    "tauri:build:linux": "tauri build --bundles deb,rpm"
+    "tauri:build:linux": "tauri build --bundles deb,rpm",
+    "tauri:build:android": "tauri android build --debug --apk --target aarch64 --target armv7 --target x86_64"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
