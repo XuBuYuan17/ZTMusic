@@ -1,5 +1,8 @@
 # ZTmusic（哲听）
 
+<img width="2096" height="1366" alt="image" src="https://github.com/user-attachments/assets/6e9a1a3d-4cb5-43e0-9f5d-cb9d85aa3450" />
+<img width="2108" height="1368" alt="image" src="https://github.com/user-attachments/assets/aa340f81-c9c0-4b12-ace4-f8dc356bfc10" />
+
 一个简洁、安静的网易云音乐第三方客户端，专注于听歌体验。基于 Svelte 5 + Tauri 2，可运行在 Windows、Linux 和 Web 上。
 
 > ⚠️ 本项目仅供个人学习与技术交流。音乐数据来自第三方 API，版权归网易云音乐及各版权方。请勿用于商业用途。
