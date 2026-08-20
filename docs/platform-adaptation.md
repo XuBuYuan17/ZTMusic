@@ -1,6 +1,6 @@
 # ZTmusic 平台适配现状
 
-本文对齐当前 Tauri 2 多平台构建状态。桌面端以 Windows / Linux 安装包为主，Android 先恢复 CI 产出 debug APK。
+本文对齐当前 Tauri 2 多平台构建状态。桌面端以 Windows / Linux 安装包为主，Android CI 产出 arm64-v8a release APK。
 
 ---
 
@@ -25,10 +25,12 @@
 
 | 项 | 状态 |
 |---|---|
-| debug APK 打包 | ✅ `pnpm tauri:build:android`，仅 arm64-v8a |
+| release APK 打包 | ✅ `pnpm tauri:build:android`，仅 arm64-v8a |
 | CI 依赖 | ✅ Java 17 + Android SDK / Build Tools / NDK + `aarch64-linux-android` |
 | Android 工程 | ⚠️ CI 会在 `src-tauri/gen/android` 不存在时执行 `tauri android init` |
-| release 签名 / AAB | ⏳ 未配置，需要 keystore secrets |
+| release 签名 | ✅ 通过 GitHub Secrets 临时生成 `keystore.properties` |
+| 签名初始化 | ✅ `pnpm setup:android-signing` |
+| AAB | ⏳ 未配置，当前只产出 APK |
 
 ### Web
 
@@ -43,7 +45,7 @@
 | 优先级 | 项 | 说明 |
 |---|---|---|
 | P1 | WebView2 `downloadBootstrapper` | 减小安装包体积，缺 WebView2 的旧机器自动下载 |
-| P1 | Android release 签名 | 配置 keystore secrets 后再产出正式 release APK / AAB |
+| P1 | Android AAB | 如果要上架 Google Play，再增加 `.aab` 构建 |
 | P2 | tauri updater | 桌面端自动更新，需要签名密钥与更新服务器 |
 
 版本号三处一致（`package.json` / `Cargo.toml` / `tauri.conf.json`）由 `pnpm check:versions` 校验，已并入 `pnpm verify`。

@@ -39,7 +39,8 @@ pnpm tauri:dev            # 桌面端开发
 pnpm test                 # 全部自包含 node 测试
 pnpm build                # 前端生产构建
 pnpm tauri:build          # Windows NSIS 安装包，内置 --target x86_64-pc-windows-gnu
-pnpm tauri:build:android  # Android arm64-v8a debug APK，需 Android SDK/NDK
+pnpm tauri:build:android  # Android arm64-v8a release APK，需 Android SDK/NDK + 签名
+pnpm setup:android-signing # 一键生成 Android keystore 并写入 GitHub Secrets
 pnpm verify               # 版本检查 + 测试 + 前端构建
 ```
 
@@ -290,7 +291,7 @@ Console 输出 `[play-url:result]` / `[playback:xxx]` 日志。
 ```bash
 pnpm build                # 前端构建
 pnpm tauri:build          # 桌面端安装包（Windows: NSIS）
-pnpm tauri:build:android  # Android arm64-v8a debug APK
+pnpm tauri:build:android  # Android arm64-v8a release APK
 ```
 
 **Windows 打包必须带 `--target`**：用户级 `~/.cargo/config.toml` 设置了 `[build] target = "x86_64-pc-windows-gnu"`，cargo 把 exe 输出到 `target/x86_64-pc-windows-gnu/release/`，而 tauri CLI 默认去 `target/release/` 找 → `os error 2`。`package.json` 的 `tauri:build` 已内置 `--target x86_64-pc-windows-gnu`，不要裸跑 `tauri build`。`bundle.targets` 为 `["nsis"]`（跳过 MSI/WiX）。
@@ -304,10 +305,12 @@ cargo check                        # 在 src-tauri/ 下跑
 
 注意 Windows 主机只编译 `cfg(target_os = "windows")` 分支，`linux_mpris` 那条路径要靠 CI 的 linux job 验证。
 
-**Android 打包依赖**：Tauri 2 的 Android 构建需要 Java 17、Android SDK Platform / Platform-Tools / Build-Tools / Command-line Tools、NDK，以及 Rust Android target。CI 的 `android` job 只安装 `aarch64-linux-android`，对应 APK ABI 为 `arm64-v8a`，并在 `src-tauri/gen/android` 不存在时执行 `pnpm tauri android init --ci --skip-targets-install`，随后跑 `pnpm tauri:build:android` 产出 debug APK。首次引入 Android 先构建 debug APK，不配置签名密钥；要发正式 release APK/AAB 时再补签名 secrets。
+**Android 打包依赖**：Tauri 2 的 Android 构建需要 Java 17、Android SDK Platform / Platform-Tools / Build-Tools / Command-line Tools、NDK，以及 Rust Android target。CI 的 `android` job 只安装 `aarch64-linux-android`，对应 APK ABI 为 `arm64-v8a`，并在 `src-tauri/gen/android` 不存在时执行 `pnpm tauri android init --ci --skip-targets-install`。release APK 需要 GitHub Secrets：`ANDROID_KEY_BASE64`、`ANDROID_KEY_ALIAS`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_PASSWORD`；CI 会临时生成 `keystore.properties` 并注入 Gradle release signing 配置，然后跑 `pnpm tauri:build:android`。
+
+本地首次配置签名可运行 `pnpm setup:android-signing`。脚本会生成 `.android-signing/upload-keystore.jks` 和 `.android-signing/android-keystore-password.txt`，并通过 GitHub CLI 写入仓库 Secrets；`.android-signing/` 已在 `.gitignore` 中，不能提交。更新同一个 Android 应用必须继续使用同一个 keystore，丢失后无法给已安装用户平滑升级。
 
 **CI**（`.github/workflows/`）：
-- `build.yml`：push 到 `main`、PR、tag `v*` 或手动触发都会先跑 `pnpm verify`，再按触发条件构建 Windows NSIS `.exe`、Linux `.deb/.rpm` 与 Android arm64-v8a debug `.apk`。tag 构建完成后自动发布 GitHub Release，release notes 从 CHANGELOG 抽。
+- `build.yml`：push 到 `main`、PR、tag `v*` 或手动触发都会先跑 `pnpm verify`，再按触发条件构建 Windows NSIS `.exe`、Linux `.deb/.rpm` 与 Android arm64-v8a release `.apk`。tag 构建完成后自动发布 GitHub Release，release notes 从 CHANGELOG 抽。
 - `release-prepare.yml`：手动触发，跑 `pnpm verify` → 自动算版本号 → 更新 package.json / Cargo.toml / Cargo.lock / tauri.conf.json / CHANGELOG → 原子 push `HEAD:main` 与 tag。tag push 会自然触发 `build.yml`，不再额外手动 dispatch，避免重复构建。
 
 ---

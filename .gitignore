@@ -19,6 +19,8 @@ local.override.css
 # Signing secrets
 *.jks
 *.keystore
+.android-signing/
+src-tauri/gen/android/keystore.properties
 
 # Tauri build outputs
 src-tauri/target
