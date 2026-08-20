@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { GLOBAL_CSS_FILES } from '../../../scripts/css-files.mjs'
 
-const mobileCss = await readFile(new URL('../../app-mobile.css', import.meta.url), 'utf8')
+const mobileCssFiles = GLOBAL_CSS_FILES.filter((file) => file === 'src/app-mobile.css' || file.startsWith('src/styles/mobile/'))
+const mobileCss = (await Promise.all(
+  mobileCssFiles.map((file) => readFile(new URL(`../../../${file}`, import.meta.url), 'utf8')),
+)).join('\n')
 const mobileApp = await readFile(new URL('../components/MobileApp.svelte', import.meta.url), 'utf8')
 const playerBar = await readFile(new URL('../components/PlayerBar.svelte', import.meta.url), 'utf8')
 

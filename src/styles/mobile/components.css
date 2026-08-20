@@ -1,0 +1,591 @@
+/* ================================================
+   Mobile Page Components
+   ================================================ */
+
+
+html.mobile-runtime .m-page {
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 2px 16px;
+}
+
+html.mobile-runtime .m-page-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.mobile-runtime .m-page-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.7px;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-icon-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+
+html.mobile-runtime .m-icon-btn:disabled {
+  opacity: 0.55;
+}
+
+html.mobile-runtime .m-page-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, var(--bg) 70%, transparent);
+}
+
+html.mobile-runtime .m-loading {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+html.mobile-runtime .m-browse-skeleton {
+  display: grid;
+  gap: 18px;
+  padding: 10px 0 24px;
+}
+
+html.mobile-runtime .m-browse-skeleton-hero {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-lg);
+}
+
+html.mobile-runtime .m-browse-skeleton-heading {
+  width: 34%;
+  height: 18px;
+  border-radius: var(--radius-xs);
+}
+
+html.mobile-runtime .m-browse-skeleton-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+html.mobile-runtime .m-browse-skeleton-row > div {
+  min-width: 0;
+}
+
+html.mobile-runtime .m-browse-skeleton-cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+}
+
+html.mobile-runtime .m-browse-skeleton-line {
+  display: block;
+  width: 76%;
+  height: 12px;
+  margin-top: 9px;
+  border-radius: 4px;
+}
+
+/* 搜索 Pill */
+html.mobile-runtime .m-search-pill {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-search-pill:active {
+  background: var(--bg-hover);
+}
+
+/* 空状态 */
+html.mobile-runtime .m-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 24px;
+}
+
+html.mobile-runtime .m-empty-state h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-empty-state p {
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-empty-state.small {
+  min-height: auto;
+  padding: 32px 0;
+}
+
+html.mobile-runtime .m-primary-btn {
+  margin-top: 8px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+html.mobile-runtime .m-primary-btn:active {
+  background: var(--accent-hover);
+  transform: scale(0.97);
+}
+
+/* Section */
+html.mobile-runtime .m-section {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 18px;
+}
+
+html.mobile-runtime .m-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+html.mobile-runtime .m-section-head h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+html.mobile-runtime .m-section-action {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Hero 大卡 */
+html.mobile-runtime .m-hero-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: none;
+  background: var(--bg-layer);
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-hero-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--ease-out);
+}
+
+html.mobile-runtime .m-hero-card:active img {
+  transform: scale(1.03);
+}
+
+html.mobile-runtime .m-hero-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 18px 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
+  color: #fff;
+  text-align: left;
+}
+
+html.mobile-runtime .m-hero-copy small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 4px;
+  opacity: 0.82;
+}
+
+html.mobile-runtime .m-hero-copy strong {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* 横向滚动 rail */
+html.mobile-runtime .m-rail {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 2px 4px 12px;
+  scroll-snap-type: x proximity;
+}
+
+html.mobile-runtime .m-rail::-webkit-scrollbar {
+  display: none;
+}
+
+html.mobile-runtime .m-rail > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+html.mobile-runtime .m-cover-rail {
+  margin-right: -18px;
+  padding-right: 18px;
+}
+
+/* 通用封面卡片 */
+html.mobile-runtime .m-cover-card,
+html.mobile-runtime .m-editor-card,
+html.mobile-runtime .m-song-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  width: 130px;
+}
+
+html.mobile-runtime .m-editor-card {
+  width: 180px;
+}
+
+html.mobile-runtime .m-song-card {
+  width: 110px;
+}
+
+html.mobile-runtime .m-cover-wrap,
+html.mobile-runtime .m-editor-card img,
+html.mobile-runtime .m-song-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+html.mobile-runtime .m-editor-card img {
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+html.mobile-runtime .m-cover-wrap img,
+html.mobile-runtime .m-song-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-cover-title,
+html.mobile-runtime .m-editor-title,
+html.mobile-runtime .m-song-title,
+html.mobile-runtime .m-grid-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+html.mobile-runtime .m-cover-sub,
+html.mobile-runtime .m-song-sub,
+html.mobile-runtime .m-grid-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-editor-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 网格 */
+html.mobile-runtime .m-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* 大屏（≥ 428px）网格切 3 列，减少留白 */
+@media (min-width: 428px) {
+  html.mobile-runtime .m-grid,
+  html.mobile-runtime .m-library-card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* 小屏（≤ 360px）featured 卡片收紧间距，避免两张卡就占一屏 */
+@media (max-width: 360px) {
+  html.mobile-runtime .m-library-card-grid-featured {
+    gap: 12px 10px;
+  }
+}
+
+html.mobile-runtime .m-grid-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-grid-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+html.mobile-runtime .m-grid-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-grid-sub {
+  font-size: 11px;
+}
+
+/* 列表 */
+html.mobile-runtime .m-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+html.mobile-runtime .m-list-item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-list-item:active {
+  background: var(--bg-hover);
+}
+
+html.mobile-runtime .m-list-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-layer);
+}
+
+html.mobile-runtime .m-list-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime .m-list-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+html.mobile-runtime .m-list-info strong {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-list-info span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-list-item svg {
+  color: var(--text-tertiary);
+}
+
+/* 快速入口 2x2 */
+html.mobile-runtime .m-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+html.mobile-runtime .m-quick-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px 14px;
+  border-radius: var(--radius-lg);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+html.mobile-runtime .m-quick-tile:active {
+  background: var(--bg-hover);
+}
+
+html.mobile-runtime .m-quick-tile svg {
+  color: var(--accent);
+}
+
+html.mobile-runtime .m-quick-tile--liked svg {
+  color: #fff;
+}
+
+html.mobile-runtime .m-quick-tile--liked {
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #fff;
+}
+
+/* 日期芯片 */
+html.mobile-runtime .m-date-chip {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border-radius: var(--radius-xl);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+html.mobile-runtime .m-date-chip:active {
+  background: var(--bg-hover);
+}
+html.mobile-runtime .m-date-chip.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+html.mobile-runtime .m-listening-section {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+}
+
+html.mobile-runtime .m-section-eyebrow {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+html.mobile-runtime .m-listening-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+html.mobile-runtime .m-listening-stats article {
+  min-width: 0;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-layer);
+}
+
+html.mobile-runtime .m-listening-stats strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: clamp(15px, 4vw, 20px);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .m-listening-stats span,
+html.mobile-runtime .m-listening-note {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+html.mobile-runtime .m-listening-note {
+  margin: 12px 2px 0;
+}
+

@@ -46,7 +46,7 @@
   }
   .confirm-card {
     background: var(--bg-surface);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     padding: 28px 32px;
     max-width: 360px;
     width: 90%;
@@ -72,9 +72,9 @@
   }
   .confirm-btn {
     padding: 8px 20px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     border: none;
     cursor: pointer;
     transition: background var(--dur-fast), transform var(--dur-fast);

@@ -13,6 +13,7 @@ const authStore = await readFile(new URL('../stores/auth.svelte.js', import.meta
 const lazyRoutes = [
   'PlaylistPage', 'SearchPage', 'ArtistPage', 'ExplorePage', 'DailyHistoryPage',
   'LibraryPage', 'RecentPage', 'MessagesPage', 'LikedPage', 'SettingsPage', 'AboutPage',
+  'LocalMusicPage',
 ]
 
 assert.ok(app.includes("{#if router.activeView === 'home'}"), 'desktop routes should use conditional rendering')

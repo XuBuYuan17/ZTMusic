@@ -129,7 +129,11 @@ async fn run_mpris(
     let play_pause_state = Arc::clone(&is_playing);
     player.connect_play_pause(move |_player| {
         // 从共享原子读，而非从 player 读，回避 Player: Sync 未确定的问题
-        let action = if play_pause_state.load(Ordering::Relaxed) { "pause" } else { "play" };
+        let action = if play_pause_state.load(Ordering::Relaxed) {
+            "pause"
+        } else {
+            "play"
+        };
         set_pending_action(&play_pause_pending, action);
     });
 

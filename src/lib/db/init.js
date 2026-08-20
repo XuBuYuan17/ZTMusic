@@ -48,8 +48,13 @@ export async function initDB() {
       await _db.sql(`CREATE TABLE IF NOT EXISTS play_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, song_id INTEGER NOT NULL,
         name TEXT NOT NULL, artists TEXT, album TEXT, pic_url TEXT,
-        duration INTEGER, played_at INTEGER NOT NULL
+        duration INTEGER, played_at INTEGER NOT NULL, play_count INTEGER NOT NULL DEFAULT 1
       )`)
+      try {
+        await _db.sql(`ALTER TABLE play_history ADD COLUMN play_count INTEGER NOT NULL DEFAULT 1`)
+      } catch {
+        // 列已存在时 ALTER 抛错，忽略
+      }
       await _db.sql(`CREATE TABLE IF NOT EXISTS song_urls (
         song_id INTEGER PRIMARY KEY, urls TEXT NOT NULL,
         expires_at INTEGER NOT NULL DEFAULT 0, saved_at INTEGER NOT NULL

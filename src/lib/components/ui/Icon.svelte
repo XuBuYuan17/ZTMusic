@@ -51,6 +51,7 @@
     // content
     music: [{type:'path',d:'M9 18V5l12-2v13'},{type:'circle',cx:6,cy:18,r:3},{type:'circle',cx:18,cy:16,r:3}],
     'music-note': 'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z',
+    folder: 'M3 5h7l2 2h9v12H3z',
     user: [{type:'path',d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'},{type:'circle',cx:12,cy:7,r:4}],
     // actions
     add: [{type:'line',x1:12,y1:5,x2:12,y2:19},{type:'line',x1:5,y1:12,x2:19,y2:12}],

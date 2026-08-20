@@ -180,7 +180,9 @@
 
     <div class="library-header">
       <div class="library-header-info">
+        <span class="library-eyebrow">资料库</span>
         <h1>我的收藏</h1>
+        <p>管理喜欢的音乐、创建的歌单和收藏内容。</p>
       </div>
       <div class="library-stats">
         <div class="library-stat">

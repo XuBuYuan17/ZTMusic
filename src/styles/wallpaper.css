@@ -1,0 +1,45 @@
+.app-shell.has-wallpaper {
+  isolation: isolate;
+  background: transparent;
+}
+
+.wallpaper-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+.wallpaper-layer img,
+.wallpaper-layer video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.wallpaper-layer__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(238, 238, 242, 0.34);
+}
+
+[data-theme="dark"] .wallpaper-layer__scrim {
+  background: rgba(4, 4, 6, 0.48);
+}
+
+.app-shell.has-wallpaper > .main-area {
+  z-index: 1;
+}
+
+html.mobile-runtime .app-shell.has-wallpaper {
+  background: transparent;
+}
+
+html.mobile-runtime .app-shell.has-wallpaper .main-area {
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(24px) saturate(130%);
+  -webkit-backdrop-filter: blur(24px) saturate(130%);
+}

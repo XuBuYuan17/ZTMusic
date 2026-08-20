@@ -195,7 +195,7 @@
   }
   .login-card {
     background: var(--bg-surface);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     padding: 32px;
     width: 380px;
     max-width: 90vw;
@@ -213,35 +213,35 @@
   .login-header p { font-size: 13px; color: var(--text-secondary); }
   .tabs {
     display: flex; gap: 0; margin-bottom: 24px;
-    background: var(--bg-elevated); border-radius: 10px; padding: 3px;
+    background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 3px;
   }
   .tab {
-    flex: 1; padding: 8px; border-radius: 8px;
+    flex: 1; padding: 8px; border-radius: var(--radius-sm);
     font-size: 13px; font-weight: 500; color: var(--text-secondary);
     transition: all 0.2s; cursor: pointer; background: none; border: none;
   }
   .tab.active { background: var(--bg-surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .qr-section { text-align: center; padding: 8px 0; }
-  .qr-img { width: 220px; height: 220px; border-radius: 8px; margin: 0 auto; display: block; background: #fff; padding: 10px; }
+  .qr-img { width: 220px; height: 220px; border-radius: var(--radius-sm); margin: 0 auto; display: block; background: #fff; padding: 10px; }
   .qr-placeholder { width: 220px; height: 220px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
 
   .qr-status { margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
   .qr-hint { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
   .qr-url-fallback { display: block; font-size: 10px; word-break: break-all; color: var(--text-disabled); margin-top: 4px; user-select: all; }
-  .retry-btn { margin-top: 12px; padding: 6px 20px; border-radius: 16px; font-size: 12px; color: var(--accent); background: var(--accent-bg); border: none; cursor: pointer; transition: opacity 0.15s; }
+  .retry-btn { margin-top: 12px; padding: 6px 20px; border-radius: var(--radius-lg); font-size: 12px; color: var(--accent); background: var(--accent-bg); border: none; cursor: pointer; transition: opacity 0.15s; }
   .retry-btn:hover { opacity: 0.8; }
   .form { display: flex; flex-direction: column; gap: 12px; }
   .input {
-    padding: 12px 14px; border-radius: 10px;
+    padding: 12px 14px; border-radius: var(--radius-sm);
     background: var(--bg-elevated); border: 1px solid var(--divider);
     color: var(--text); font-size: 14px; outline: none;
     transition: border-color 0.2s;
   }
   .input:focus { border-color: var(--accent); }
   .login-btn {
-    padding: 12px; border-radius: 10px;
+    padding: 12px; border-radius: var(--radius-sm);
     background: var(--accent); color: #fff;
-    font-size: 14px; font-weight: 600;
+    font-size: 14px; font-weight: 500;
     transition: opacity 0.15s; border: none; cursor: pointer;
   }
   .login-btn:hover { opacity: 0.9; }

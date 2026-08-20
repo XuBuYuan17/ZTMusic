@@ -193,8 +193,8 @@
 <div class="m-page m-library">
   <header class="m-page-header">
     <div>
-      <span class="m-page-kicker">Library</span>
-      <h1>歌单</h1>
+      <span class="m-page-kicker">资料库</span>
+      <h1>收藏</h1>
     </div>
   </header>
 
@@ -208,18 +208,22 @@
   {:else}
     {#if notice}<div class="m-library-notice">{notice}</div>{/if}
 
-    <section class="m-section">
-      <div class="m-library-card-grid m-library-card-grid-featured">
-        <button class="m-library-card m-library-card-liked" onclick={() => data.likedPlaylist && onOpenPlaylist?.(data.likedPlaylist.id)} disabled={!data.likedPlaylist}>
-          <span class="m-library-card-cover"><Icon name="heart-filled" size={34} /></span>
-          <strong>红心歌单</strong>
-          <span>{data.likedPlaylist?.trackCount || 0} 首歌曲</span>
-        </button>
-        <button class="m-library-card" onclick={() => onNavigate?.('recent')}>
-          <span class="m-library-card-cover"><Icon name="clock" size={34} /></span>
-          <strong>历史记录歌单</strong>
-          <span>{historyPlaylist ? `${historyPlaylist.trackCount || 0} 首` : '最近播放'}</span>
-        </button>
+    <section class="m-section m-library-overview">
+      <button class="m-library-featured" onclick={() => data.likedPlaylist && onOpenPlaylist?.(data.likedPlaylist.id)} disabled={!data.likedPlaylist}>
+        <span class="m-library-featured-cover">
+          {#if data.likedPlaylist?.picUrl}
+            <img src={coverUrl(data.likedPlaylist.picUrl, 280)} alt="" referrerpolicy="no-referrer" />
+          {:else}
+            <Icon name="heart-filled" size={34} />
+          {/if}
+        </span>
+        <span class="m-library-featured-copy"><strong>我喜欢的音乐</strong><small>{data.likedPlaylist?.trackCount || 0} 首歌曲</small></span>
+        <Icon name="chevron-right" size={18} />
+      </button>
+      <div class="m-library-shortcuts" aria-label="资料库快捷入口">
+        <button type="button" onclick={() => onNavigate?.('recent')}><Icon name="clock" size={20} /><span><strong>最近播放</strong><small>{historyPlaylist ? `${historyPlaylist.trackCount || 0} 首` : '播放历史'}</small></span><Icon name="chevron-right" size={17} /></button>
+        <button type="button" onclick={() => onNavigate?.('dailyHistory')}><Icon name="calendar" size={20} /><span><strong>历史日推</strong><small>每日推荐记录</small></span><Icon name="chevron-right" size={17} /></button>
+        <button type="button" onclick={openCreateSheet}><Icon name="add" size={20} /><span><strong>新建歌单</strong><small>整理你的音乐</small></span><Icon name="chevron-right" size={17} /></button>
       </div>
     </section>
 
@@ -249,7 +253,7 @@
                 <strong>{pl.name}</strong>
                 <span>{pl.trackCount || 0} 首</span>
               </button>
-              <button class="m-library-card-menu" type="button" onclick={() => openConfirmSheet('unsubscribe', pl)} disabled={applyingId === pl.id} aria-label={`取消收藏 ${pl.name}`}>×</button>
+              <button class="m-library-card-menu" type="button" onclick={() => openConfirmSheet('unsubscribe', pl)} disabled={applyingId === pl.id} aria-label={`管理 ${pl.name}`}><Icon name="more" size={16} /></button>
             </div>
           {/each}
         </div>

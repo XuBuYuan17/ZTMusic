@@ -387,7 +387,7 @@
     padding: 8px;
     color: var(--text);
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    border-radius: 22px;
+    border-radius: var(--radius-xl);
     background: linear-gradient(145deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 84%, transparent));
     box-shadow: 0 26px 70px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(26px) saturate(1.35);
@@ -431,7 +431,7 @@
   .song-menu__cover span {
     width: 44px;
     height: 44px;
-    border-radius: 13px;
+    border-radius: var(--radius-md);
   }
 
   .song-menu__cover img {
@@ -465,7 +465,7 @@
 
   .song-menu__title strong {
     font-size: 14px;
-    font-weight: 850;
+    font-weight: 700;
   }
 
   .song-menu__title span,
@@ -494,12 +494,12 @@
     min-height: 40px;
     padding: 0 10px;
     border: none;
-    border-radius: 13px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--text-secondary);
     font: inherit;
     font-size: 13px;
-    font-weight: 760;
+    font-weight: 700;
     text-align: left;
     cursor: pointer;
     transition: background 0.16s, color 0.16s, transform 0.16s;
@@ -525,11 +525,11 @@
     place-items: center;
     width: 28px;
     height: 28px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
     color: inherit;
     font-size: 15px;
-    font-weight: 900;
+    font-weight: 700;
   }
 
   .song-menu__item em {
@@ -538,7 +538,7 @@
     color: var(--text-tertiary);
     font-size: 11px;
     font-style: normal;
-    font-weight: 650;
+    font-weight: 700;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -557,7 +557,7 @@
     width: 34px;
     height: 34px;
     border: none;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: var(--bg-hover);
     color: var(--text);
     font-size: 24px;
@@ -573,7 +573,7 @@
 
   .song-menu__panel-head strong {
     font-size: 14px;
-    font-weight: 850;
+    font-weight: 700;
   }
 
   .song-menu__playlists {
@@ -593,7 +593,7 @@
     min-height: 50px;
     padding: 6px;
     border: none;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: var(--text);
     text-align: left;
@@ -608,7 +608,7 @@
   .song-menu__playlist-cover {
     width: 38px;
     height: 38px;
-    border-radius: 11px;
+    border-radius: var(--radius-md);
     object-fit: cover;
   }
 
@@ -620,7 +620,7 @@
 
   .song-menu__playlist strong {
     font-size: 13px;
-    font-weight: 780;
+    font-weight: 700;
   }
 
   .song-menu__playlist em,
@@ -649,7 +649,7 @@
     box-shadow: 0 14px 34px rgba(0,0,0,0.24);
     backdrop-filter: blur(18px);
     font-size: 13px;
-    font-weight: 760;
+    font-weight: 700;
     animation: songToastIn 180ms ease both;
   }
 
@@ -667,7 +667,7 @@
     .song-menu,
     .song-menu.panel {
       width: min(310px, calc(100vw - 24px));
-      border-radius: 22px;
+      border-radius: var(--radius-xl);
     }
   }
 </style>

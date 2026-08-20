@@ -10,6 +10,15 @@
   let dragging = $state(false)
   let dragPct = $state(0)
   let trackEl = $state(null)
+  let pendingSeek = null
+  let seekFrame = null
+
+  $effect(() => () => {
+    if (seekFrame) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame)
+      else clearTimeout(seekFrame)
+    }
+  })
 
   function fmt(sec) {
     if (!sec || isNaN(sec)) return '0:00'
@@ -34,7 +43,27 @@
 
   function seekFromPct(pct) {
     if (!duration) return
-    onseek?.((pct / 100) * duration)
+    pendingSeek = (pct / 100) * duration
+    if (seekFrame) return
+    const frame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (fn) => setTimeout(fn, 16)
+    seekFrame = frame(() => {
+      seekFrame = null
+      if (pendingSeek !== null) onseek?.(pendingSeek)
+    })
+  }
+
+  function flushSeek() {
+    if (seekFrame) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame)
+      else clearTimeout(seekFrame)
+      seekFrame = null
+    }
+    if (pendingSeek !== null) {
+      onseek?.(pendingSeek)
+      pendingSeek = null
+    }
   }
 
   function onPointerDown(e) {
@@ -55,6 +84,7 @@
   }
 
   function onPointerUp() {
+    flushSeek()
     dragging = false
   }
 

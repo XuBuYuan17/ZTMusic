@@ -17,6 +17,7 @@
   import RecentPage from '../pages/pc/Recent.svelte'
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
   import MessagesPage from '../pages/pc/Messages.svelte'
+  import LocalMusicPage from '../pages/LocalMusicPage.svelte'
   import { router } from '../stores/router.svelte.js'
 
   let {
@@ -31,6 +32,8 @@
     onSearch,
     onOpenLogin,
     onSetTheme,
+    accentTheme = 'red',
+    onSetAccentTheme,
     onBack,
     onTabsHiddenChange,
     targetUser = null,
@@ -40,7 +43,7 @@
 
   const tabViews = ['home', 'explore', 'library']
   const isTabView = $derived(tabViews.includes(activeView))
-  const isDetailView = $derived(['playlist', 'album', 'artist', 'search', 'messages'].includes(activeView))
+  const isDetailView = $derived(['playlist', 'album', 'artist', 'search', 'messages', 'localMusic'].includes(activeView))
 
   let tabsHidden = $state(false)
   let mountedTabs = $state([])
@@ -212,7 +215,7 @@
       {/if}
 
       {#if activeView === 'settings'}
-        <MobileSettings {theme} onSetTheme={onSetTheme} />
+        <MobileSettings {theme} {accentTheme} onSetTheme={onSetTheme} {onSetAccentTheme} />
       {:else if activeView === 'liked'}
         <div class="m-subpage m-subpage-enter">
           <LikedPage {onOpenArtist} {onOpenAlbum} onPlayAll={router.playAll} onPlayTrack={router.playTrack} />
@@ -220,6 +223,10 @@
       {:else if activeView === 'recent'}
         <div class="m-subpage m-subpage-enter">
           <RecentPage {onOpenArtist} {onOpenAlbum} />
+        </div>
+      {:else if activeView === 'localMusic'}
+        <div class="m-subpage m-subpage-enter">
+          <LocalMusicPage />
         </div>
       {:else if activeView === 'dailyHistory'}
         <div class="m-subpage m-subpage-enter">

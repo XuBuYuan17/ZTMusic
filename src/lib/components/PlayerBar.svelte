@@ -122,11 +122,13 @@
 
   $effect(() => {
     const id = player.id
-    if (!id) {
+    const isLocal = player.currentTrack?.source === 'local'
+    if (!id || isLocal) {
       barLyrics = []
       lyricTrackId = null
       currentLyric = null
       lyricLoading = false
+      _lyricRequestedId = isLocal ? id : null
       return
     }
 
@@ -177,6 +179,7 @@
   let compactMode = $derived(Boolean(!player.id || player.loading || !player.playing || !showLyric))
   let currentTrack = $derived(player.currentTrack || player.queue?.find(track => track?.id === player.id) || player.queue?.[player.queueIndex])
   let currentArtists = $derived(currentTrack?.ar || currentTrack?.artists || [])
+  let artistNavigation = $derived(currentTrack?.source === 'local' ? undefined : onOpenArtist)
 
   function handleBarKeyDown(e) {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -248,7 +251,7 @@
         {#if player.error}
           <div class="lcd-meta__artist">{player.error}</div>
         {:else if player.artist && !player.loading && !lyricLoading}
-          <div class="lcd-meta__artist"><ArtistNames artists={currentArtists} {onOpenArtist} fallback={player.artist} /></div>
+          <div class="lcd-meta__artist"><ArtistNames artists={currentArtists} onOpenArtist={artistNavigation} fallback={player.artist} /></div>
         {:else}
           <div class="lcd-meta__artist">{player.loading ? '正在载入…' : lyricLoading ? '正在同步歌词…' : player.artist || ''}</div>
         {/if}
@@ -310,8 +313,11 @@
       </div>
     </div>
 
-    <button class="action-btn" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); onToggleQueue?.() }} aria-label="播放列表">
+    <button class="action-btn action-btn--queue" class:active={showQueuePanel} onclick={(e) => { e.stopPropagation(); onToggleQueue?.() }} aria-label="播放列表">
       <Icon name="list" size={24} strokeWidth={2.2} />
+    </button>
+    <button class="action-btn action-btn--mobile-next" onclick={(e) => { e.stopPropagation(); player.next() }} aria-label="下一首">
+      <Icon name="next" size={22} fill="currentColor" />
     </button>
   </div>
 

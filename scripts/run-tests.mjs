@@ -12,12 +12,16 @@ async function findTests(directory) {
   const tests = await Promise.all(entries.map((entry) => {
     const path = resolve(directory, entry.name)
     if (entry.isDirectory()) return findTests(path)
-    return entry.isFile() && entry.name.endsWith('.test.js') ? [path] : []
+    return entry.isFile() && /\.test\.m?js$/.test(entry.name) ? [path] : []
   }))
   return tests.flat()
 }
 
-const tests = (await findTests(sourceRoot)).sort()
+// scripts/ 下的构建工具自检（*.test.mjs）也要跑，否则改坏了没人发现
+const tests = [
+  ...await findTests(sourceRoot),
+  ...await findTests(resolve(root, 'scripts')),
+].sort()
 
 if (tests.length === 0) {
   console.error('No test files found under src/')

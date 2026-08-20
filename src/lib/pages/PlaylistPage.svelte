@@ -282,7 +282,7 @@
     background: var(--accent-bg);
     color: var(--accent);
     font-size: 13px;
-    font-weight: 750;
+    font-weight: 700;
   }
 
   .detail-state button:hover {

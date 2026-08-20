@@ -5,7 +5,7 @@
  * 独立于播放状态管理，接收必要的上下文参数。
  */
 
-import { ncm } from '../api/client.js'
+import { musicService } from '../music/service.js'
 import { getNextIndex } from './queue.js'
 import { dbCache } from '../db/cache.js'
 import { LIMITS } from '../utils/constants.js'
@@ -97,6 +97,7 @@ export function createPrefetchManager() {
     if (nextIdx < 0 || nextIdx === queueIndex) return null
     const nextTrack = queue[nextIdx]
     if (!nextTrack?.id) return null
+    if (nextTrack.source === 'local' || nextTrack.source === 'webdav') return null
 
     const memoryUrls = prefetchCache.get(nextTrack.id)
     if (memoryUrls?.[0]) {
@@ -114,9 +115,8 @@ export function createPrefetchManager() {
     for (const level of tiers) {
       if (isStale() || prefetchId !== activePrefetchId) return null
       try {
-        const res = await ncm.songUrl(nextTrack.id, level, false)
-        const item = res?.data?.[0]
-        const urlStr = normalizePlayUrl(item?.url)
+        const candidate = await musicService.getStream(nextTrack.id, { level, unblock: false })
+        const urlStr = normalizePlayUrl(candidate?.url)
         if (!urlStr) continue
         // 复检：await 期间用户可能切歌，避免把过期的下一首预加载到 engine
         if (isStale() || prefetchId !== activePrefetchId) return null

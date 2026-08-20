@@ -1,0 +1,74 @@
+/* Theme switching: radial reveal on modern WebView2, restrained surface fade elsewhere. */
+@property --accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ff3b30;
+}
+
+@property --accent-hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #ff5a50;
+}
+
+@property --accent-bg {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255 59 48 / 0.12);
+}
+
+@property --accent-bg-hover {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgb(255 59 48 / 0.2);
+}
+
+html.accent-color-transitioning {
+  transition:
+    --accent 0.42s var(--ease-in-out),
+    --accent-hover 0.42s var(--ease-in-out),
+    --accent-bg 0.42s var(--ease-in-out),
+    --accent-bg-hover 0.42s var(--ease-in-out);
+}
+
+.theme-transitioning,
+.theme-transitioning .sidebar,
+.theme-transitioning .main-area,
+.theme-transitioning .player-bar,
+.theme-transitioning .m-tabs,
+.theme-transitioning .mobile-mini-player,
+.theme-transitioning .settings-card,
+.theme-transitioning .messages-card {
+  transition:
+    background-color 0.3s var(--ease-in-out),
+    color 0.3s var(--ease-in-out),
+    border-color 0.3s var(--ease-in-out),
+    box-shadow 0.3s var(--ease-in-out) !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-transitioning,
+  .theme-transitioning .sidebar,
+  .theme-transitioning .main-area,
+  .theme-transitioning .player-bar,
+  .theme-transitioning .m-tabs,
+  .theme-transitioning .mobile-mini-player,
+  .theme-transitioning .settings-card,
+  .theme-transitioning .messages-card {
+    transition: none !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}

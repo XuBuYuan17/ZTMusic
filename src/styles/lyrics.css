@@ -1,0 +1,133 @@
+/* ===== Fullscreen Lyrics View (ly-*) ===== */
+.ly-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #111;
+  overflow: hidden;
+  pointer-events: none;
+  will-change: transform, opacity, clip-path;
+  opacity: 0;
+  transform: translate3d(0, 18px, 0) scale(0.985);
+  transform-origin: var(--ly-origin-x, 50vw) var(--ly-origin-y, 100vh);
+  clip-path: inset(var(--ly-origin-top, 100vh) var(--ly-origin-right, 0) var(--ly-origin-bottom, 0) var(--ly-origin-left, 0) round var(--ly-origin-radius, 12px));
+  transition:
+    opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ly-fullscreen.mounted {
+  pointer-events: auto;
+}
+
+.ly-fullscreen.entered {
+  opacity: 1;
+  transform: scale(1);
+  clip-path: inset(0 round 0);
+}
+
+.ly-fullscreen.closing {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0) scale(0.99);
+  clip-path: inset(var(--ly-origin-top, 100vh) var(--ly-origin-right, 0) var(--ly-origin-bottom, 0) var(--ly-origin-left, 0) round var(--ly-origin-radius, 12px));
+  transition-duration: 0.36s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ly-fullscreen::before {
+  content: '';
+  position: absolute;
+  inset: -80px;
+  background-image: var(--ly-cover, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(80px) saturate(1.6);
+  transform: scale(1.3);
+  z-index: 0;
+}
+
+.ly-fullscreen.mounted {
+  pointer-events: auto;
+}
+
+.ly-fullscreen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  z-index: 1;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .ly-fullscreen::after {
+  background: rgba(0, 0, 0, 0.44);
+}
+
+.ly-fullscreen .ly-container {
+  transform: scale(0.92) translateY(22px);
+  opacity: 0;
+  transition:
+    opacity 0.34s var(--ease-out) 0.08s,
+    transform 0.42s cubic-bezier(0.18, 1.2, 0.22, 1) 0.08s;
+}
+
+.ly-fullscreen.entered .ly-container {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.ly-fullscreen.closing .ly-container {
+  transform: scale(0.94) translateY(16px);
+  opacity: 0;
+  transition-duration: 0.18s;
+  transition-delay: 0s;
+}
+
+.ly-container {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(clamp(280px, 30vw, 460px), 38%) minmax(360px, 1fr);
+  gap: clamp(24px, 3vw, 56px);
+  height: 100vh;
+  padding: clamp(20px, 2.2vw, 42px) clamp(24px, 3vw, 56px);
+  overflow: hidden;
+}
+/* --- Back button --- */
+.ly-top-bar {
+  position: absolute;
+  top: 20px;
+  left: clamp(70px, 7vw, 140px);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.ly-back-btn {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  z-index: 11;
+  transition: background 0.2s, color 0.15s, transform 0.15s;
+}
+.ly-back-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.ly-back-btn:active {
+  transform: scale(0.9);
+}

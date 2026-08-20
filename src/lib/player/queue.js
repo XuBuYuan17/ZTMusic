@@ -17,7 +17,7 @@ export function compactTrack(track) {
   if (!track) return null
   const album = track.al || track.album || {}
   const picUrl = normalizeImageUrl(album.picUrl || album.blurPicUrl || track.coverImgUrl || track.picUrl || '')
-  return {
+  const compacted = {
     id: track.id,
     name: track.name || '',
     ar: (track.ar || track.artists || []).map(compactArtist).filter(Boolean),
@@ -29,6 +29,18 @@ export function compactTrack(track) {
     dt: track.dt || track.duration || 0,
     picUrl,
   }
+  if (track.source === 'local' || track.source === 'webdav') {
+    compacted.source = track.source
+    compacted.localId = track.localId || track.id
+    compacted.webdavId = track.webdavId || track.id
+    compacted.remoteUrl = track.remoteUrl || ''
+    compacted.webdavUsername = track.webdavUsername || ''
+    compacted.fileName = track.fileName || ''
+    compacted.relativePath = track.relativePath || ''
+    compacted.mime = track.mime || ''
+    compacted.fileSize = track.fileSize || 0
+  }
+  return compacted
 }
 
 function compactArtist(artist) {

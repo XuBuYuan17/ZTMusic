@@ -79,7 +79,7 @@ function injectHelpStyle() {
       animation: shFadeIn 0.15s ease;
     }
     .shortcuts-help-panel {
-      background: var(--bg-surface); border-radius: 16px; padding: 24px 28px;
+      background: var(--bg-surface); border-radius: var(--radius-lg); padding: 24px 28px;
       min-width: 320px; max-width: 90vw; box-shadow: 0 24px 60px rgba(0,0,0,0.3);
     }
     .shortcuts-help-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -89,7 +89,7 @@ function injectHelpStyle() {
     .shortcuts-help-row { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
     .shortcuts-help-row span { margin-left: auto; color: var(--text-secondary); }
     .shortcuts-help-row kbd {
-      display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px;
+      display: inline-block; padding: 2px 8px; border-radius: var(--radius-xs); font-size: 12px;
       background: var(--bg-elevated); border: 1px solid var(--border);
       font-family: ui-monospace, monospace; min-width: 20px; text-align: center;
     }

@@ -1,0 +1,215 @@
+/* --- Left controls (bottom) --- */
+.ly-left-controls {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 0.9vw, 16px);
+  flex-shrink: 0;
+  padding: clamp(4px, 0.4vw, 8px) 0;
+  width: min(100%, clamp(280px, 25vw, 460px));
+}
+.ly-progress-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ly-progress-track {
+  height: 8px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+  cursor: pointer;
+  touch-action: none;
+}
+.ly-progress-track[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.45;
+}
+.ly-time-row {
+  display: flex;
+  justify-content: space-between;
+}
+.ly-time {
+  font-size: 13px;
+  color: rgba(255,255,255,0.35);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.ly-progress-fill {
+  height: 100%;
+  background: rgba(255,255,255,0.9);
+  border-radius: 2px;
+  transition: width 0.15s linear;
+}
+
+.ly-play-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-left: 0;
+  width: min(100%, clamp(330px, 30vw, 520px));
+  margin: 0 auto;
+  gap: clamp(18px, 2vw, 34px);
+  transform: translateY(clamp(-28px, -1.8vw, -14px)) translateX(clamp(-8px, -0.2vw, -2px));
+}
+.ly-ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(58px, 5.2vw, 86px);
+  height: clamp(58px, 5.2vw, 86px);
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s cubic-bezier(.2,.9,.2,1);
+}
+.ly-ctrl-btn:active {
+  transform: scale(0.82);
+}
+.ly-ctrl-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.ly-ctrl-btn.active { color: var(--accent, #1db954); }
+.ly-ctrl-btn:disabled,
+.ly-play-btn:disabled,
+.ly-queue-btn:disabled {
+  cursor: default;
+  opacity: 0.38;
+  transform: none;
+}
+.ly-ctrl-btn:disabled:hover,
+.ly-play-btn:disabled:hover,
+.ly-queue-btn:disabled:hover {
+  color: rgba(255,255,255,0.5);
+  background: none;
+}
+.ly-play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(68px, 6.2vw, 104px);
+  height: clamp(68px, 6.2vw, 104px);
+  border-radius: 50%;
+  background: none;
+  color: rgba(255,255,255,0.9);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(.2,.9,.2,1), color 0.15s;
+  flex-shrink: 0;
+}
+.ly-play-row svg {
+  transform: scale(1.55);
+}
+.ly-play-btn:active {
+  transform: scale(0.85);
+}
+.ly-play-btn:hover { color: #fff; }
+.ly-play-btn:hover { transform: scale(1.06); }
+/* --- Top-right: Volume --- */
+.ly-volume-area.open {
+  max-width: 170px;
+  padding: 0 10px;
+}
+.ly-volume-area.open .ly-vol-track {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* --- Top-right: Queue button --- */
+.ly-queue-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255,255,255,0.72);
+  cursor: pointer;
+  transition: background 0.2s, color 0.15s, transform 0.15s;
+}
+.ly-queue-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.ly-queue-btn:active {
+  transform: scale(0.9);
+}
+.ly-local-queue {
+  position: fixed;
+  inset: 0;
+  z-index: 27;
+  pointer-events: none;
+}
+.ly-local-queue .queue-panel-backdrop {
+  z-index: 28 !important;
+  pointer-events: auto;
+}
+.ly-local-queue .queue-panel {
+  z-index: 29 !important;
+  pointer-events: auto;
+}
+.ly-top-bar {
+  z-index: 30;
+}
+
+/* --- Toast --- */
+@keyframes lyToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes lyQueueDrop {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- Playlist Picker --- */
+
+
+/* ===== Profile Header Enhanced ===== */
+/* ===== Logged Out Profile ===== */
+/* ===== Login Overlay (keep existing) ===== */
+
+/* ===== Transitions ===== */
+.fade-in {
+  animation: fadeIn 0.2s var(--ease-out);
+}
+
+.page-enter {
+  animation: pageEnter 0.3s var(--ease-out);
+  transform-origin: center top;
+}
+
+.page-enter.book-turn {
+  animation: bookPageTurn 360ms var(--ease-out) both;
+  will-change: transform, opacity;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes bookPageTurn {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .page-enter.book-turn {
+    animation: none;
+  }
+}
+
+/* ===== Queue Panel Layout Adjustment ===== */
+.player-bar-wrap.queue-open {
+  right: 352px;
+}

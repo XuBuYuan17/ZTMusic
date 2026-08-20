@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from 'svelte'
   import { auth } from '../../stores/auth.svelte.js'
   import { player } from '../../stores/player.svelte.js'
   import { ncm } from '../../api/client.js'
@@ -12,12 +13,25 @@
     loadMessageReadState,
     saveMessageReadState,
   } from '../../services/message-read-state.js'
+  import {
+    extractMessageList,
+    getMessageKind,
+    getMessageKindLabel,
+    getNoticeSummary,
+    isConversationMessage,
+    loadAuxiliaryMessageGroups,
+    loadPrivateMessageResponse,
+    mergeMessageGroups,
+    parseNoticePayload,
+  } from '../../services/message-data.js'
 
   let { onNavigate = () => {}, targetUser = null, onUnreadChange = () => {} } = $props()
 
   let messages = $state([])
   let loading = $state(false)
+  let refreshing = $state(false)
   let error = $state('')
+  let activeFilter = $state('all')
   let selectedMsg = $state(null)
   let chatMessages = $state([])
   let chatLoading = $state(false)
@@ -28,81 +42,84 @@
   let handledTargetUserId = $state(null)
   let messagesLoaded = $state(false)
   let readState = $state(getInitialMessageReadState())
+  let loadRequestId = 0
 
   let unreadTotal = $derived(messages.reduce((total, msg) => total + getMessageUnreadCount(msg), 0))
+  let filteredMessages = $derived(activeFilter === 'all'
+    ? messages
+    : messages.filter(msg => activeFilter === 'private'
+      ? ['private', 'contact'].includes(getMessageKind(msg))
+      : getMessageKind(msg) === activeFilter))
+  let filterCounts = $derived({
+    private: messages.filter(msg => ['private', 'contact'].includes(getMessageKind(msg))).length,
+    notice: messages.filter(msg => getMessageKind(msg) === 'notice').length,
+    mention: messages.filter(msg => getMessageKind(msg) === 'mention').length,
+  })
 
-  function extractMessages(res) {
-    if (Array.isArray(res)) return res
-    if (Array.isArray(res?.msgs)) return res.msgs
-    if (Array.isArray(res?.messages)) return res.messages
-    if (Array.isArray(res?.data)) return res.data
-    if (Array.isArray(res?.data?.msgs)) return res.data.msgs
-    if (Array.isArray(res?.data?.messages)) return res.data.messages
-    if (Array.isArray(res?.notices)) return res.notices
-    if (Array.isArray(res?.forwards)) return res.forwards
-    if (Array.isArray(res?.data?.notices)) return res.data.notices
-    if (Array.isArray(res?.data?.forwards)) return res.data.forwards
-    return []
-  }
-
-  async function loadMessageList() {
-    const loaders = [
-      () => ncm.msgPrivate(30, 0),
-      () => ncm.msgRecentContact(),
-      () => ncm.msgNotices(30),
-      () => ncm.msgForwards(30, 0),
-    ]
-    const results = await Promise.allSettled(loaders.map(load => load()))
-    const values = results.filter(result => result.status === 'fulfilled').map(result => result.value)
-    const list = values.flatMap(extractMessages)
-    if (list.length > 0) return list
-    // 登录失效：网易云对未登录返回 code 301 且 HTTP 301
-    if (values.some(value => value?.code === 301 || value?.code === 302)) {
-      const err = new Error('登录已失效，请重新登录')
-      err.code = 301
-      throw err
-    }
-    const error = results.find(result => result.status === 'rejected')?.reason
-    if (error) throw error instanceof Error ? error : new Error(String(error))
-    return []
-  }
-
-  async function loadMessages() {
+  async function loadMessages(force = false) {
     if (!auth.isLoggedIn) return
-    loading = true
+    const requestId = ++loadRequestId
+    const hasContent = messagesLoaded && messages.length > 0
+    loading = !hasContent
+    refreshing = hasContent
     error = ''
     try {
-      readState = await loadMessageReadState().catch(() => getInitialMessageReadState())
-      messages = (await loadMessageList()).map(msg => applyMessageReadState(msg, readState))
+      const auxiliaryPromise = loadAuxiliaryMessageGroups()
+      const [nextReadState, privateResponse] = await Promise.all([
+        loadMessageReadState().catch(() => getInitialMessageReadState()),
+        loadPrivateMessageResponse({ force }),
+      ])
+      if (requestId !== loadRequestId) return
+      if (privateResponse?.code === 301 || privateResponse?.code === 302) {
+        const loginError = new Error('登录已失效，请重新登录')
+        loginError.code = privateResponse.code
+        throw loginError
+      }
+      readState = nextReadState
+      const privateGroup = { kind: 'private', response: privateResponse }
+      messages = mergeMessageGroups([privateGroup]).map(msg => applyMessageReadState(msg, readState))
       messagesLoaded = true
+      loading = false
+      refreshing = false
+
+      const auxiliaryGroups = await auxiliaryPromise
+      if (requestId !== loadRequestId) return
+      messages = mergeMessageGroups([privateGroup, ...auxiliaryGroups]).map(msg => applyMessageReadState(msg, readState))
     } catch (e) {
+      if (requestId !== loadRequestId) return
       // 登录已失效（网易云返回 301/302）：校验并清理过期登录态，避免反复报错
       if (e?.code === 301 || e?.code === 302) {
         auth.checkLoginStatus()
-        error = '登录已失效，请重新登录'
+        if (messages.length === 0) error = '登录已失效，请重新登录'
       } else {
         const detail = e?.message || (typeof e === 'string' ? e : '')
-        error = detail ? `加载提醒失败：${detail}` : '加载提醒失败'
+        if (messages.length === 0) error = detail ? `加载提醒失败：${detail}` : '加载提醒失败'
       }
       console.error(e)
     }
-    loading = false
+    if (requestId === loadRequestId) {
+      loading = false
+      refreshing = false
+    }
   }
 
   function formatTime(ts) {
     if (!ts) return ''
     const d = new Date(ts)
-    return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' +
+    const dateOptions = d.getFullYear() === new Date().getFullYear()
+      ? { month: '2-digit', day: '2-digit' }
+      : { year: 'numeric', month: '2-digit', day: '2-digit' }
+    return d.toLocaleDateString('zh-CN', dateOptions) + ' ' +
            d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   }
 
   function getAvatar(msg) {
-    const user = msg.fromUser || msg.toUser || msg.user || {}
+    const user = msg.fromUser || msg.toUser || msg.user || parseNoticePayload(msg)?.user || {}
     return user.avatarUrl || user.avatar || ''
   }
 
   function getNickname(msg) {
-    const user = msg.fromUser || msg.toUser || msg.user || {}
+    const user = msg.fromUser || msg.toUser || msg.user || parseNoticePayload(msg)?.user || {}
     return user.nickname || user.name || '未知用户'
   }
 
@@ -154,7 +171,7 @@
     chatLoading = true
     try {
       const res = await ncm.msgPrivateHistory(uid, 50)
-      chatMessages = extractMessages(res)
+      chatMessages = extractMessageList(res)
     } catch (e) {
       chatError = '加载聊天记录失败'
       console.error(e)
@@ -228,9 +245,31 @@
     return parsed.text
   }
 
+  function getListPreview(msg) {
+    if (getMessageKind(msg) === 'notice') return getNoticeSummary(msg)
+    if (getMessageKind(msg) === 'mention') return '有人在动态中提到了你'
+    const raw = msg.lastMsg ?? msg.msg ?? msg.content ?? msg.notice ?? msg.json
+    const preview = getMsgPreview(raw)
+    if (preview) return preview
+    return '暂无消息内容'
+  }
+
+  function getListName(msg) {
+    const nickname = getNickname(msg)
+    if (nickname !== '未知用户') return nickname
+    if (getMessageKind(msg) === 'notice') return '系统通知'
+    if (getMessageKind(msg) === 'mention') return '动态提醒'
+    return nickname
+  }
+
+  function handleMessageClick(msg) {
+    if (isConversationMessage(msg)) openChat(msg)
+    else clearUnread(msg)
+  }
+
   $effect(() => {
     if (auth.isLoggedIn) {
-      loadMessages()
+      untrack(() => loadMessages())
     }
   })
 
@@ -265,7 +304,7 @@
         {#if unreadTotal > 0}
           <button class="plain-btn" onclick={markAllRead}>全部已读 · {unreadTotal > 99 ? '99+' : unreadTotal}</button>
         {/if}
-        <button class="icon-btn" onclick={() => loadMessages()} disabled={loading} aria-label="刷新提醒">
+        <button class="icon-btn" class:spinning={refreshing} onclick={() => loadMessages(true)} disabled={loading || refreshing} aria-label="刷新提醒">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>
@@ -275,22 +314,56 @@
   </div>
 
   <section class="messages-card">
+    {#if auth.isLoggedIn && (messagesLoaded || loading)}
+      <div class="messages-toolbar">
+        <div class="filter-tabs" role="tablist" aria-label="提醒分类">
+          {#each [
+            ['all', '全部', messages.length],
+            ['private', '私信', filterCounts.private],
+            ['notice', '通知', filterCounts.notice],
+            ['mention', '提及', filterCounts.mention],
+          ] as filter}
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeFilter === filter[0]}
+              class:active={activeFilter === filter[0]}
+              onclick={() => activeFilter = filter[0]}
+            >
+              {filter[1]}<span>{filter[2]}</span>
+            </button>
+          {/each}
+        </div>
+        {#if messagesLoaded}<span class="message-summary">{filteredMessages.length} 条</span>{/if}
+      </div>
+    {/if}
     {#if !auth.isLoggedIn}
       <div class="empty-state">登录后查看提醒</div>
     {:else if loading}
-      <div class="empty-state"><Spinner size="md" label="加载提醒..." /></div>
+      <div class="messages-skeleton" aria-label="正在加载提醒" aria-busy="true">
+        {#each Array(6) as _, i}
+          <div class="message-item skeleton-row" style={`--skeleton-delay:${i * 45}ms`} aria-hidden="true">
+            <span class="msg-avatar skeleton-block"></span>
+            <span class="msg-content skeleton-copy">
+              <span class="skeleton-line medium"></span>
+              <span class="skeleton-line"></span>
+            </span>
+            <span class="skeleton-line short"></span>
+          </div>
+        {/each}
+      </div>
     {:else if error}
       <div class="empty-state">
         <p>{error}</p>
         <button class="plain-btn" onclick={() => loadMessages()}>重试</button>
       </div>
-    {:else if messages.length === 0}
-      <div class="empty-state">暂无提醒</div>
+    {:else if filteredMessages.length === 0}
+      <div class="empty-state">{messages.length === 0 ? '暂无提醒' : '此分类暂无提醒'}</div>
     {:else}
       <div class="messages-list">
-        {#each messages as msg}
+        {#each filteredMessages as msg}
           {@const unreadCount = getMessageUnreadCount(msg)}
-          <button class="message-item" class:unread={unreadCount > 0} onclick={() => openChat(msg)}>
+          <button class="message-item" class:unread={unreadCount > 0} onclick={() => handleMessageClick(msg)}>
             <div class="msg-avatar">
               {#if unreadCount > 0}<span class="msg-dot" aria-hidden="true"></span>{/if}
               {#if getAvatar(msg)}
@@ -305,15 +378,20 @@
             </div>
             <div class="msg-content">
               <div class="msg-header">
-                <span class="msg-name">{getNickname(msg)}</span>
+                <span class="msg-title-line">
+                  <span class="msg-name">{getListName(msg)}</span>
+                  <span class="msg-kind">{getMessageKindLabel(msg)}</span>
+                </span>
                 <span class="msg-time">{formatTime(msg.time || msg.lastMsgTime)}</span>
               </div>
-              <div class="msg-preview">{getMsgPreview(msg.lastMsg || msg.msg)}</div>
+              <div class="msg-preview">{getListPreview(msg)}</div>
             </div>
             {#if unreadCount > 0}<span class="msg-unread-count">{unreadCount > 99 ? '99+' : unreadCount}</span>{/if}
-            <svg class="item-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
+            {#if isConversationMessage(msg)}
+              <svg class="item-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            {/if}
           </button>
         {/each}
       </div>
@@ -449,7 +527,7 @@
   .page-header h1 {
     margin: 0;
     font-size: 28px;
-    font-weight: 760;
+    font-weight: 700;
     letter-spacing: -0.04em;
   }
 
@@ -470,10 +548,74 @@
     flex: 1;
     min-height: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-    border-radius: 22px;
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
-    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .messages-toolbar {
+    min-height: 54px;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  }
+
+  .filter-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .filter-tabs::-webkit-scrollbar { display: none; }
+
+  .filter-tabs button {
+    min-width: max-content;
+    padding: 7px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--dur-fast), background var(--dur-fast);
+  }
+
+  .filter-tabs button span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filter-tabs button:hover { background: var(--bg-hover); }
+
+  .filter-tabs button.active {
+    background: var(--bg-active);
+    color: var(--text-primary);
+  }
+
+  .filter-tabs button.active span { color: var(--accent); }
+
+  .message-summary {
+    flex-shrink: 0;
+    padding-right: 4px;
+    color: var(--text-tertiary);
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
   }
 
   .icon-btn,
@@ -515,6 +657,8 @@
     cursor: not-allowed;
   }
 
+  .icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
+
   .plain-btn {
     padding: 7px 14px;
     border-radius: 999px;
@@ -532,11 +676,25 @@
     text-align: center;
   }
 
-  .messages-list {
-    height: 100%;
+  .messages-card > .empty-state {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .messages-list,
+  .messages-skeleton {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 8px;
+  }
+
+  .messages-skeleton { overflow: hidden; }
+
+  .skeleton-copy {
+    display: grid;
+    gap: 9px;
   }
 
   .message-item {
@@ -544,14 +702,17 @@
     align-items: center;
     gap: 13px;
     width: 100%;
-    padding: 13px 14px;
+    min-height: 70px;
+    padding: 11px 13px;
     border: 1px solid transparent;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: transparent;
     color: inherit;
     text-align: left;
     font: inherit;
     cursor: pointer;
+    content-visibility: auto;
+    contain-intrinsic-size: 70px;
     transition: background 0.16s, transform 0.12s, border-color 0.16s;
   }
 
@@ -636,14 +797,32 @@
     gap: 12px;
   }
 
+  .msg-title-line {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
   .msg-name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 680;
+    font-weight: 700;
     font-size: 14px;
     letter-spacing: -0.01em;
+  }
+
+  .msg-kind {
+    flex-shrink: 0;
+    padding: 2px 5px;
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.25;
   }
 
   .msg-time {
@@ -672,7 +851,7 @@
     background: var(--accent);
     color: #fff;
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
   }
@@ -705,7 +884,7 @@
     display: flex;
     flex-direction: column;
     border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
-    border-radius: 24px;
+    border-radius: var(--radius-xl);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 94%, white 4%), color-mix(in srgb, var(--bg) 92%, transparent));
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
@@ -794,7 +973,7 @@
   .title-meta h2 {
     margin: 0;
     font-size: 15.5px;
-    font-weight: 720;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
 
@@ -842,7 +1021,7 @@
     width: fit-content;
     max-width: 100%;
     padding: 9px 12px;
-    border-radius: 18px;
+    border-radius: var(--radius-lg);
     border-bottom-left-radius: 6px;
     background: color-mix(in srgb, var(--bg-surface) 88%, white 4%);
     color: var(--text-primary);
@@ -868,7 +1047,7 @@
     width: 236px;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
-    border-radius: 17px;
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-surface) 96%, white 4%);
     color: var(--text-primary);
     text-align: left;
@@ -915,7 +1094,7 @@
 
   .shared-card-title {
     font-size: 13.5px;
-    font-weight: 720;
+    font-weight: 700;
     letter-spacing: -0.02em;
     line-height: 1.35;
     overflow: hidden;
@@ -954,12 +1133,20 @@
 
   @media (max-width: 760px) {
     .messages-page {
-      padding: 16px;
+      padding: 12px;
     }
 
     .page-header h1 {
-      font-size: 25px;
+      font-size: 24px;
     }
+
+    .page-header { margin-bottom: 12px; }
+    .page-header p { display: none; }
+    .plain-btn { padding-inline: 10px; }
+    .messages-toolbar { padding-inline: 8px; }
+    .message-summary { display: none; }
+    .message-item { padding-inline: 9px; }
+    .msg-kind { display: none; }
 
     .chat-modal-backdrop {
       padding: 12px;
@@ -970,7 +1157,7 @@
       width: min(100%, 680px);
       height: min(82vh, 680px);
       min-height: 360px;
-      border-radius: 22px;
+      border-radius: var(--radius-xl);
     }
 
     .chat-scroll {

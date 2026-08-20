@@ -81,13 +81,14 @@ function isProxyBadGateway(err, status) {
 async function request(endpoint, params = {}, method = 'GET', body = null, options = {}) {
   const invoke = await getTauriInvoke()
   const apiBase = apiSession.getBase()
+  const provider = options.provider || 'netease'
   const cookie = options.noCookie ? '' : apiSession.getCookie()
   const withRandomCNIP = options.randomCNIP !== false
   const requestParams = withRandomCNIP ? { randomCNIP: true, ...params } : params
   const requestBody = body ? (withRandomCNIP ? { randomCNIP: true, ...body } : body) : body
   const cacheTtl = getApiCacheTtl(endpoint, method, options)
   const cacheKey = createApiCacheKey({
-    base: apiBase,
+    base: `${provider}:${apiBase}`,
     endpoint,
     params: requestParams,
     body: requestBody,
@@ -103,8 +104,9 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
     const maxTauriRetries = 2
     while (attempt <= maxTauriRetries) {
       try {
-        const result = await invoke('ncm_request', {
+        const result = await invoke('api_request', {
           request: {
+            provider,
             base: apiBase,
             endpoint,
             params: requestParams,
@@ -125,7 +127,7 @@ async function request(endpoint, params = {}, method = 'GET', body = null, optio
         }
         const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
         if (stale) return stale
-        throw normalizeError(error, 'ncm_request')
+        throw normalizeError(error, 'api_request')
       }
     }
   }

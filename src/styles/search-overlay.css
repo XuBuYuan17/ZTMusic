@@ -1,0 +1,367 @@
+/* ===== 搜索浮层（Apple Music 风格）=====
+   结构：顶部搜索条 + 分类 tab + 分组结果（最佳匹配 / 歌曲 / 歌手 / 歌单）。
+   行样式对齐全局：透明底 + hover 才变色，不给每行画卡片（那样会变成一堆浮空色块）。 */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: start center;
+  padding: max(48px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  animation: searchOverlayIn 0.18s var(--ease-out) both;
+}
+
+.search-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(0,0,0,0.42);
+  backdrop-filter: blur(20px) saturate(1.1);
+  animation: searchScrimIn 0.18s var(--ease-out) both;
+}
+
+.search-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+  max-height: min(760px, 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+/* ── 搜索条 ── */
+.so-head {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.so-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-layer);
+  color: var(--text-tertiary);
+}
+
+.so-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.so-field input::placeholder { color: var(--text-tertiary); }
+
+.so-clear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.so-cancel {
+  flex-shrink: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ── 分类 tab ── */
+.so-tabs {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.so-tabs button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.so-tabs button:hover:not(:disabled) { color: var(--text); background: var(--bg-hover); }
+.so-tabs button.active {
+  color: var(--text);
+  background: var(--bg-active);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+.so-tabs button:disabled { opacity: 0.4; cursor: default; }
+
+/* ── 结果区 ── */
+.search-overlay__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 8px 16px;
+}
+
+.so-state {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 0 16px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  text-align: center;
+}
+
+.so-section { padding: 8px 8px 4px; }
+
+.so-section h3 {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+.so-list { display: grid; }
+
+/* ── 结果行 ── */
+.so-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.so-row:hover { background: var(--bg-hover); }
+.so-row.active { color: var(--accent); }
+
+.so-art {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.so-art--round { border-radius: 50%; }
+
+.so-art--ph {
+  display: grid;
+  place-items: center;
+  background: var(--bg-layer);
+  color: var(--text-tertiary);
+  font-size: 16px;
+}
+
+.so-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.so-copy strong {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-copy em {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-copy em button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.so-copy em button:hover { color: var(--accent); text-decoration: underline; }
+
+.so-dur {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 最佳匹配（Apple Music 的 Top Result 卡片）── */
+.so-top {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-layer);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-fast);
+}
+
+.so-top:hover { background: var(--bg-hover); }
+
+.so-top img, .so-top__ph {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  box-shadow: var(--shadow-md);
+}
+
+.so-top__ph {
+  display: grid;
+  place-items: center;
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  font-size: 26px;
+}
+
+.so-top__copy { display: grid; gap: 3px; min-width: 0; }
+
+.so-top__copy small {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.so-top__copy strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-top__copy em {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-style: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.so-top__copy em button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ── 查看全部 ── */
+.so-more {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.so-more:hover { background: var(--bg-hover); }
+
+html.mobile-runtime .search-overlay {
+  padding: 0;
+}
+
+html.mobile-runtime .search-overlay__panel {
+  width: 100%;
+  max-height: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+
+@keyframes searchScrimIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes searchOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes searchPanelIn {
+  from { opacity: 0; transform: translateY(-18px) scale(0.96); filter: blur(10px); }
+  62% { opacity: 1; transform: translateY(2px) scale(1.012); filter: blur(0); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}

@@ -4,15 +4,22 @@
   import { player } from './lib/stores/player.svelte.js'
   import { auth } from './lib/stores/auth.svelte.js'
   import { router } from './lib/stores/router.svelte.js'
-  import { ncm } from './lib/api/client.js'
+  import { wallpaper } from './lib/stores/wallpaper.svelte.js'
   import { getStorage, setStorage } from './lib/utils/storage.js'
-  import { getSetting, migrateSettings } from './lib/utils/settings.js'
+  import { getSetting, migrateSettings, setSetting } from './lib/utils/settings.js'
   import { countUnreadMessages, loadMessageReadState } from './lib/services/message-read-state.js'
+  import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.js'
   import { coverUrl } from './lib/utils/image.js'
   import { getAppBackAction } from './lib/app/back.js'
   import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.js'
   import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.js'
   import { createThemeTransition } from './lib/app/theme-transition.js'
+  import {
+    applyAccentProperties,
+    extractCoverAccent,
+    getAccentProperties,
+    normalizeAccentTheme,
+  } from './lib/theme/accent.js'
   import Icon from './lib/components/ui/Icon.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
@@ -21,6 +28,7 @@
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import SearchOverlay from './lib/components/SearchOverlay.svelte'
+  import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import { isMobileDevice, responsive } from './lib/utils/responsive.js'
   import HomePage from './lib/pages/pc/Home.svelte'
   import Toast from './lib/components/ui/Toast.svelte'
@@ -39,6 +47,7 @@
   const loadMessagesPage = lazyModule(() => import('./lib/pages/pc/Messages.svelte'))
   const loadLibraryPage = lazyModule(() => import('./lib/pages/pc/Library.svelte'))
   const loadRecentPage = lazyModule(() => import('./lib/pages/pc/Recent.svelte'))
+  const loadLocalMusicPage = lazyModule(() => import('./lib/pages/LocalMusicPage.svelte'))
   const loadSettingsPage = lazyModule(() => import('./lib/pages/pc/Settings.svelte'))
   const loadLikedPage = lazyModule(() => import('./lib/pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('./lib/pages/PlaylistPage.svelte'))
@@ -63,6 +72,10 @@
   migrateSettings()
   function normalizeTheme(value) { return value === 'light' || value === 'dark' ? value : 'dark' }
   let theme = $state(normalizeTheme(getStorage('zheting-theme', 'dark')))
+  let accentTheme = $state(normalizeAccentTheme(getSetting('accent_theme', 'red')))
+  let accentRequestId = 0
+  let accentTransitionTimer
+  let lastCoverAccent = null
 
   function syncSystemTheme(value) {
     const nextTheme = normalizeTheme(value)
@@ -71,6 +84,16 @@
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0a0a' : '#e8e8ed')
     document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark light' : 'light dark')
+  }
+
+  function commitAccent(properties) {
+    const root = document.documentElement
+    root.classList.add('accent-color-transitioning')
+    applyAccentProperties(root, properties)
+    const shell = document.querySelector('.app-shell')
+    if (shell) applyAccentProperties(shell, properties)
+    clearTimeout(accentTransitionTimer)
+    accentTransitionTimer = setTimeout(() => root.classList.remove('accent-color-transitioning'), 480)
   }
 
   auth.init()
@@ -136,12 +159,29 @@
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
 
   $effect(() => {
+    const selected = normalizeAccentTheme(accentTheme)
+    const colorMode = normalizeTheme(theme)
+    const currentCover = player.cover
+    const requestId = ++accentRequestId
+    setSetting('accent_theme', selected)
+
+    commitAccent(getAccentProperties(selected, colorMode, lastCoverAccent))
+    if (selected !== 'cover' || !currentCover) return
+
+    extractCoverAccent(coverUrl(currentCover, 96)).then((color) => {
+      if (requestId !== accentRequestId || !color) return
+      lastCoverAccent = color
+      commitAccent(getAccentProperties(selected, colorMode, color))
+    })
+  })
+
+  $effect(() => {
     if (!auth.isLoggedIn) { notificationUnread = 0; return }
     let cancelled = false
-    Promise.all([ncm.msgPrivate(30, 0), loadMessageReadState()])
+    Promise.all([loadPrivateMessageResponse(), loadMessageReadState()])
       .then(([res, readState]) => {
         if (cancelled) return
-        const messages = res?.msgs || res?.messages || res?.data || []
+        const messages = extractMessageList(res)
         notificationUnread = countUnreadMessages(messages, readState)
       })
       .catch(() => { if (!cancelled) notificationUnread = 0 })
@@ -153,13 +193,25 @@
 
   function openSheet(originEl) {
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.m-avatar-btn') || document.querySelector('.player-bar')
-    if (source) { const r = source.getBoundingClientRect(); lyricsOrigin = { x: r.left + r.width / 2, y: r.top + r.height / 2 } } else { lyricsOrigin = null }
+    if (source) {
+      const r = source.getBoundingClientRect()
+      lyricsOrigin = {
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+        top: r.top,
+        right: window.innerWidth - r.right,
+        bottom: window.innerHeight - r.bottom,
+        left: r.left,
+        radius: Math.min(14, r.width / 4, r.height / 4),
+      }
+    } else lyricsOrigin = null
     showSheet = true
   }
   function closeSheet() { showSheet = false }
   function toggleQueue() { showQueuePanel = !showQueuePanel }
   function closeQueue() { showQueuePanel = false }
   function setTheme(value) { theme = normalizeTheme(value) }
+  function setAccentTheme(value) { accentTheme = normalizeAccentTheme(value) }
 
   function openFollows() {
     if (!auth.isLoggedIn) { showLogin = true; return }
@@ -212,7 +264,8 @@
   else { router.handleNav('home') }
 </script>
 
-<main class="app-shell" data-theme={theme}>
+<main class="app-shell" class:has-wallpaper={wallpaper.active} data-theme={theme}>
+  <WallpaperLayer />
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
     activeView={router.activeView}
@@ -242,6 +295,8 @@
           onSearch={() => showSearch = true}
           onOpenLogin={() => showLogin = true}
           onSetTheme={setTheme}
+          {accentTheme}
+          onSetAccentTheme={setAccentTheme}
           onBack={router.goBack}
           onTabsHiddenChange={(hidden) => mobileTabsHidden = hidden}
           targetUser={messageTargetUser}
@@ -324,6 +379,8 @@
             {/await}
           {:else if router.activeView === 'recent'}
             {#await loadRecentPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
+          {:else if router.activeView === 'localMusic'}
+            {#await loadLocalMusicPage() then module}<module.default />{/await}
           {:else if router.activeView === 'messages'}
             {#await loadMessagesPage() then module}
               <module.default onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
@@ -333,7 +390,7 @@
               <module.default onPlayAll={router.playAll} onPlayTrack={router.playTrack} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />
             {/await}
           {:else if router.activeView === 'settings'}
-            {#await loadSettingsPage() then module}<module.default {theme} onSetTheme={(value) => theme = value} />{/await}
+            {#await loadSettingsPage() then module}<module.default {theme} {accentTheme} onSetTheme={(value) => theme = value} onSetAccentTheme={setAccentTheme} />{/await}
           {:else if router.activeView === 'about'}
             {#await loadAboutPage() then module}
               <module.default />

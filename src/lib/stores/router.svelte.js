@@ -65,7 +65,7 @@ async function goPlaylist(id, shouldPushRoute = true, preview = null) {
 
   let loadedFirstBatch = false, data
   try {
-    data = await loadPlaylistDetail(ncm, extractColor, id, (partial) => {
+    data = await loadPlaylistDetail(extractColor, id, (partial) => {
       if (rid !== _detailRequestId) return
       _playlistDetail = partial.detail; _heroColor = partial.heroColor
       if (!loadedFirstBatch) { loadedFirstBatch = true; _playlistDetailLoading = false; if ((partial.detail?.trackIds?.length || 0) > (partial.detail?.tracks?.length || 0)) _playlistLoadingMore = true }
@@ -88,7 +88,7 @@ async function goAlbum(id, shouldPushRoute = true) {
     return
   }
 
-  let data; try { data = await loadAlbumDetail(ncm, extractColor, id) } catch (e) { data = { detail: null, heroColor: '#141414' }; _playlistDetailError = e?.message || '加载失败' }
+  let data; try { data = await loadAlbumDetail(extractColor, id) } catch (e) { data = { detail: null, heroColor: '#141414' }; _playlistDetailError = e?.message || '加载失败' }
   if (rid !== _detailRequestId) return
   _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false
   if (data.detail) detailCache.set(cacheKey, data)
@@ -106,7 +106,7 @@ async function goArtist(id, shouldPushRoute = true) {
     return
   }
 
-  let data; try { data = await loadArtistDetail(ncm, id) } catch (e) { data = { artist: null, songs: [], albums: [] }; _artistError = e?.message || '加载失败' }
+  let data; try { data = await loadArtistDetail(id) } catch (e) { data = { artist: null, songs: [], albums: [] }; _artistError = e?.message || '加载失败' }
   if (rid !== _artistRequestId) return
   _artistDetail = data.artist; _artistSongs = data.songs; _artistAlbums = data.albums; _artistLoading = false
   if (data.artist) detailCache.set(cacheKey, data)

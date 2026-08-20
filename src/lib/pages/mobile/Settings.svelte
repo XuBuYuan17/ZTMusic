@@ -1,178 +1,29 @@
 <script>
-  import { ncm } from '../../api/client.js'
-  import { player, clearHistory } from '../../stores/player.svelte.js'
   import { auth } from '../../stores/auth.svelte.js'
-  import { i18n, setLocale, t } from '../../i18n/index.svelte.js'
-  import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../../utils/settings.js'
-  import { getLayoutMode, setLayoutMode } from '../../utils/layout-mode.js'
-  import { dbCache } from '../../db/cache.js'
+  import { t } from '../../i18n/index.svelte.js'
+  import { QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
+  import { wallpaper } from '../../stores/wallpaper.svelte.js'
+  import { formatWallpaperSize } from '../../services/wallpaper-storage.js'
+  import { ACCENT_THEME_OPTIONS } from '../../theme/accent.js'
+  import pkg from '../../../../package.json'
   import Icon from '../../components/ui/Icon.svelte'
 
-  let { theme = 'dark', onSetTheme } = $props()
+  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme } = $props()
 
-  let defaultPage = $state(getSetting('default_page', 'home'))
-  let layoutMode = $state(getLayoutMode())
-  let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
-  let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
-  let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
-  let currentLocale = $state(i18n.locale)
-  let preferredQuality = $state(player.preferredLevel)
-  let clearMsg = $state('')
-  let clearCacheMsg = $state('')
-  let cacheSizeText = $state('0 B')
-  let idbCacheText = $state('计算中…')
-  let idbCleared = $state('')
-  let cookieCheckMsg = $state('')
-  let apiBaseStatus = $state('')
-  let apiBaseValue = $state(ncm.getBase())
+  const settings = useSettings()
+  const qualityLabels = QUALITY_LABELS
+  let wallpaperInput = $state(null)
+  let wallpaperStatus = $derived(
+    wallpaper.error || (wallpaper.active
+      ? `${wallpaper.kind === 'video' ? '视频' : '图片'} · ${wallpaper.name} · ${formatWallpaperSize(wallpaper.size)}`
+      : '图片 ≤ 30 MB，视频 ≤ 300 MB'),
+  )
 
-  let saveBaseTimer = null
-
-  function handleSetApiBase(url) {
-    apiBaseValue = url
-    clearSafeTimer(saveBaseTimer)
-    const value = url.trim()
-    if (!value) return
-
-    saveBaseTimer = safeTimeout(() => {
-      try {
-        new URL(value) // 验证格式
-        ncm.setBase(value)
-        apiBaseStatus = '已保存'
-        safeTimeout(() => apiBaseStatus = '', 2000)
-      } catch {
-        apiBaseStatus = '地址格式无效'
-        safeTimeout(() => apiBaseStatus = '', 2000)
-      }
-    }, 500)
-  }
-
-  // 定时器管理器：组件销毁时自动清理所有定时器，防止内存泄漏
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
-    const id = setTimeout(() => {
-      timers.delete(id)
-      fn()
-    }, ms)
-    timers.add(id)
-    return id
-  }
-  function clearSafeTimer(id) {
-    clearTimeout(id)
-    timers.delete(id)
-  }
-
-  const qualityLabels = {
-    lossless: '无损',
-    exhigh: '极高',
-    higher: '较高',
-    standard: '标准',
-  }
-
-  function formatBytes(bytes) {
-    if (!bytes) return '0 B'
-    const units = ['B', 'KB', 'MB', 'GB']
-    let value = bytes
-    let unitIndex = 0
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024
-      unitIndex += 1
-    }
-    const precision = value >= 10 || unitIndex === 0 ? 0 : 1
-    return `${value.toFixed(precision)} ${units[unitIndex]}`
-  }
-
-  function refreshCacheSize() {
-    const stats = ncm.getCacheStats()
-    cacheSizeText = stats.entries > 0 ? `${formatBytes(stats.bytes)} · ${stats.entries} 项` : '0 B'
-  }
-
-  async function refreshIdbCache() {
-    try {
-      const stats = await dbCache.getStats()
-      idbCacheText = stats.available
-        ? `API ${stats.apiCache} 项 · 歌曲 ${stats.urlCache} 首`
-        : '不可用'
-    } catch { idbCacheText = '不可用' }
-  }
-
-  $effect(() => {
-    refreshCacheSize()
-    refreshIdbCache()
-    return () => timers.forEach(id => clearTimeout(id)) // 组件销毁清理所有定时器
-  })
-
-  function setQuality(level) {
-    preferredQuality = level
-    player.setPreferredLevel?.(level)
-  }
-
-  function handleDefaultPage(val) {
-    defaultPage = setSetting('default_page', val)
-  }
-
-  function handleLayoutMode(val) {
-    layoutMode = setLayoutMode(val)
-  }
-
-  function handleRestoreSession(val) {
-    restoreSession = setBooleanSetting('restore_session', val) === 'true'
-  }
-
-  function handleLyricsBlur(val) {
-    lyricsBlur = setBooleanSetting('lyrics_blur_effect', val)
-    window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: lyricsBlur }))
-  }
-
-  function handleLyricsTextBlur(val) {
-    lyricsTextBlur = setBooleanSetting('lyrics_text_blur_effect', val)
-    window.dispatchEvent(new CustomEvent('lyrics-text-blur-change', { detail: lyricsTextBlur }))
-  }
-
-  function handleLocale(val) {
-    currentLocale = val
-    setLocale(val)
-  }
-
-  function handleClearHistory() {
-    clearHistory()
-    clearMsg = '已清除'
-    safeTimeout(() => clearMsg = '', 2000)
-  }
-
-  async function handleClearCache() {
-    await ncm.clearCache()
-    refreshCacheSize()
-    await refreshIdbCache()
-    clearCacheMsg = '已清除'
-    safeTimeout(() => clearCacheMsg = '', 2000)
-  }
-
-  async function handleClearIdbCache() {
-    await dbCache.clearAll()
-    await refreshIdbCache()
-    idbCleared = '已清除'
-    safeTimeout(() => idbCleared = '', 2000)
-  }
-
-  async function handleCheckCookie() {
-    if (!auth.isLoggedIn) {
-      cookieCheckMsg = '未登录，无需检测'
-      safeTimeout(() => cookieCheckMsg = '', 3000)
-      return
-    }
-    cookieCheckMsg = '检测中…'
-    try {
-      const ok = await auth.checkLoginStatus()
-      if (ok) {
-        cookieCheckMsg = 'Cookie 正常 · 登录有效'
-      } else {
-        cookieCheckMsg = 'Cookie 已过期，已自动清除登录状态'
-      }
-    } catch {
-      cookieCheckMsg = '检测失败，请重试'
-    }
-    safeTimeout(() => cookieCheckMsg = '', 4000)
+  async function handleWallpaperFile(event) {
+    const input = event.currentTarget
+    const file = input.files?.[0]
+    if (file) await wallpaper.selectFile(file)
+    input.value = ''
   }
 </script>
 
@@ -197,6 +48,58 @@
           <button class:active={theme === 'dark'} onclick={() => onSetTheme?.('dark')}>深色</button>
         </div>
       </div>
+      <div class="m-settings-row m-settings-row--accent">
+        <div class="m-settings-row-info">
+          <span class="m-settings-label">主题配色</span>
+          <span class="m-settings-desc">预设强调色或跟随歌曲封面</span>
+        </div>
+        <div class="m-accent-picker" role="radiogroup" aria-label="主题配色">
+          {#each ACCENT_THEME_OPTIONS as option}
+            <button
+              type="button"
+              role="radio"
+              aria-label={option.label}
+              aria-checked={accentTheme === option.value}
+              class:active={accentTheme === option.value}
+              onclick={() => onSetAccentTheme?.(option.value)}
+            >
+              <span style={`--accent-preview:${option.preview}`}></span>
+            </button>
+          {/each}
+        </div>
+      </div>
+      <div class="m-settings-row m-settings-row--wallpaper">
+        <div class="m-settings-row-info">
+          <span class="m-settings-label">自定义壁纸</span>
+          <span class="m-settings-desc" class:error={wallpaper.error}>{wallpaperStatus}</span>
+        </div>
+        <div class="m-wallpaper-actions">
+          <input
+            bind:this={wallpaperInput}
+            class="m-wallpaper-file-input"
+            type="file"
+            accept="image/*,video/*"
+            onchange={handleWallpaperFile}
+          />
+          <button disabled={wallpaper.loading} onclick={() => wallpaperInput?.click()}>
+            {wallpaper.loading ? '处理中…' : wallpaper.active ? '更换' : '选择'}
+          </button>
+          {#if wallpaper.active}
+            <button class="remove" disabled={wallpaper.loading} onclick={() => wallpaper.clear()}>移除</button>
+          {/if}
+        </div>
+      </div>
+      {#if wallpaper.kind === 'video'}
+        <div class="m-settings-row">
+          <div class="m-settings-row-info">
+            <span class="m-settings-label">播放动态壁纸</span>
+            <span class="m-settings-desc">静音循环，应用进入后台时自动暂停</span>
+          </div>
+          <button class="m-switch" class:on={wallpaper.videoPlaying} aria-pressed={wallpaper.videoPlaying} onclick={() => wallpaper.setVideoPlaying(!wallpaper.videoPlaying)}>
+            <span>{wallpaper.videoPlaying ? '开' : '关'}</span>
+          </button>
+        </div>
+      {/if}
     </div>
   </section>
 
@@ -211,8 +114,8 @@
           <span class="m-settings-desc">{t('settings.languageDesc', '界面语言')}</span>
         </div>
         <div class="m-segmented m-segmented--sm">
-          <button class:active={currentLocale === 'zh'} onclick={() => handleLocale('zh')}>中文</button>
-          <button class:active={currentLocale === 'en'} onclick={() => handleLocale('en')}>EN</button>
+          <button class:active={settings.currentLocale === 'zh'} onclick={() => settings.handleLocale('zh')}>中文</button>
+          <button class:active={settings.currentLocale === 'en'} onclick={() => settings.handleLocale('en')}>EN</button>
         </div>
       </div>
 
@@ -222,7 +125,7 @@
           <span class="m-settings-label">{t('settings.quality', '默认音质')}</span>
           <span class="m-settings-desc">{t('settings.qualityDesc', '优先使用的音质等级')}</span>
         </div>
-        <select class="m-settings-select" value={preferredQuality} onchange={(e) => setQuality(e.target.value)}>
+        <select class="m-settings-select" value={settings.preferredQuality} onchange={(e) => settings.handleQuality(e.target.value)}>
           {#each Object.entries(qualityLabels) as [val, label]}
             <option value={val}>{label}</option>
           {/each}
@@ -235,7 +138,7 @@
           <span class="m-settings-label">{t('settings.defaultPage', '启动默认页面')}</span>
           <span class="m-settings-desc">{t('settings.defaultPageDesc', '启动时自动打开的页面')}</span>
         </div>
-        <select class="m-settings-select" value={defaultPage} onchange={(e) => handleDefaultPage(e.target.value)}>
+        <select class="m-settings-select" value={settings.defaultPage} onchange={(e) => settings.handleDefaultPage(e.target.value)}>
           <option value="home">{t('page.home', '主页')}</option>
           <option value="explore">{t('page.explore', '发现')}</option>
           <option value="library">{t('page.library', '资料库')}</option>
@@ -248,7 +151,7 @@
           <span class="m-settings-label">布局模式</span>
           <span class="m-settings-desc">自动时手机使用移动布局，平板可手动切换到 PC 布局获得更大内容空间</span>
         </div>
-        <select class="m-settings-select" value={layoutMode} onchange={(e) => handleLayoutMode(e.target.value)}>
+        <select class="m-settings-select" value={settings.layoutMode} onchange={(e) => settings.handleLayoutMode(e.target.value)}>
           <option value="auto">自动</option>
           <option value="pc">PC 布局（大屏推荐）</option>
           <option value="mobile">移动布局</option>
@@ -261,8 +164,8 @@
           <span class="m-settings-label">{t('settings.restoreSession', '记住上次播放')}</span>
           <span class="m-settings-desc">{t('settings.restoreSessionDesc', '启动时恢复上次的播放进度')}</span>
         </div>
-        <button class="m-switch" class:on={restoreSession} aria-pressed={restoreSession} onclick={() => handleRestoreSession(!restoreSession)}>
-          <span>{restoreSession ? t('common.on', '开') : t('common.off', '关')}</span>
+        <button class="m-switch" class:on={settings.restoreSession} aria-pressed={settings.restoreSession} onclick={() => settings.handleRestoreSession(!settings.restoreSession)}>
+          <span>{settings.restoreSession ? t('common.on', '开') : t('common.off', '关')}</span>
         </button>
       </div>
 
@@ -272,8 +175,8 @@
           <span class="m-settings-label">歌词背景模糊</span>
           <span class="m-settings-desc">关闭后歌词页不再使用专辑封面模糊背景</span>
         </div>
-        <button class="m-switch" class:on={lyricsBlur} aria-pressed={lyricsBlur} onclick={() => handleLyricsBlur(!lyricsBlur)}>
-          <span>{lyricsBlur ? t('common.on', '开') : t('common.off', '关')}</span>
+        <button class="m-switch" class:on={settings.lyricsBlur} aria-pressed={settings.lyricsBlur} onclick={() => settings.handleLyricsBlur(!settings.lyricsBlur)}>
+          <span>{settings.lyricsBlur ? t('common.on', '开') : t('common.off', '关')}</span>
         </button>
       </div>
 
@@ -283,8 +186,8 @@
           <span class="m-settings-label">歌词文字模糊</span>
           <span class="m-settings-desc">非当前播放行的文字模糊效果</span>
         </div>
-        <button class="m-switch" class:on={lyricsTextBlur} aria-pressed={lyricsTextBlur} onclick={() => handleLyricsTextBlur(!lyricsTextBlur)}>
-          <span>{lyricsTextBlur ? t('common.on', '开') : t('common.off', '关')}</span>
+        <button class="m-switch" class:on={settings.lyricsTextBlur} aria-pressed={settings.lyricsTextBlur} onclick={() => settings.handleLyricsTextBlur(!settings.lyricsTextBlur)}>
+          <span>{settings.lyricsTextBlur ? t('common.on', '开') : t('common.off', '关')}</span>
         </button>
       </div>
     </div>
@@ -294,29 +197,14 @@
   <section class="m-settings-group">
     <div class="m-settings-group-label">本地数据</div>
     <div class="m-settings-card">
-      <button class="m-settings-row m-settings-row--action" onclick={handleClearHistory}>
+      <button class="m-settings-row m-settings-row--action" onclick={settings.handleClearHistory}>
         <div class="m-settings-row-info">
           <span class="m-settings-label">{t('settings.clearHistory', '清除播放历史')}</span>
           <span class="m-settings-desc">{t('settings.clearHistoryDesc', '删除所有本地播放记录')}</span>
         </div>
-        <span class="m-settings-action-text">{clearMsg || t('settings.clear', '清除')}</span>
+        <span class="m-settings-action-text">{settings.clearMsg || t('settings.clear', '清除')}</span>
       </button>
 
-      <button class="m-settings-row m-settings-row--action" onclick={handleClearCache}>
-        <div class="m-settings-row-info">
-          <span class="m-settings-label">清除接口缓存</span>
-          <span class="m-settings-desc">当前缓存 {cacheSizeText}</span>
-        </div>
-        <span class="m-settings-action-text">{clearCacheMsg || t('settings.clear', '清除')}</span>
-      </button>
-
-      <button class="m-settings-row m-settings-row--action" onclick={handleClearIdbCache}>
-        <div class="m-settings-row-info">
-          <span class="m-settings-label">数据库缓存</span>
-          <span class="m-settings-desc">{idbCacheText}</span>
-        </div>
-        <span class="m-settings-action-text">{idbCleared || t('settings.clear', '清除')}</span>
-      </button>
     </div>
   </section>
 
@@ -333,40 +221,63 @@
           <span class="m-settings-action-text">{auth.vipLabel}</span>
         </button>
 
-        <button class="m-settings-row m-settings-row--action" onclick={handleCheckCookie}>
+        <button class="m-settings-row m-settings-row--action" onclick={settings.handleCheckCookie}>
           <div class="m-settings-row-info">
             <span class="m-settings-label">检测 Cookie 状态</span>
             <span class="m-settings-desc">验证当前登录凭证是否有效</span>
           </div>
-          <span class="m-settings-action-text">{cookieCheckMsg || '检测'}</span>
+          <span class="m-settings-action-text">{settings.cookieCheckMsg || '检测'}</span>
         </button>
       </div>
     </section>
   {/if}
 
-  <!-- 高级 -->
+  <!-- 开发者选项 -->
   <section class="m-settings-group">
-    <div class="m-settings-group-label">高级</div>
-    <div class="m-settings-card">
-      <div class="m-settings-row m-settings-row--input">
+    <div class="m-settings-group-label">开发者</div>
+    <details class="m-settings-card m-developer-options">
+      <summary class="m-settings-row">
         <div class="m-settings-row-info">
-          <span class="m-settings-label">API 后端地址</span>
-          <span class="m-settings-desc">
-            内置地址：<code>https://music.xubuyuan.top</code>
-              {#if apiBaseStatus}
-                <span class="m-settings-status"> · {apiBaseStatus}</span>
-              {/if}
-          </span>
+          <span class="m-settings-label">开发者选项</span>
+          <span class="m-settings-desc">后端 API 与缓存管理</span>
         </div>
-        <input
-          type="url"
-          class="m-settings-input"
-          placeholder="https://your-api-server.com"
-          value={apiBaseValue}
-          oninput={(e) => handleSetApiBase(e.target.value)}
-        />
+        <Icon class="m-developer-chevron" name="chevron-down" size={18} />
+      </summary>
+      <div class="m-developer-content">
+        <div class="m-settings-row m-settings-row--input">
+          <div class="m-settings-row-info">
+            <span class="m-settings-label">API 后端地址</span>
+            <span class="m-settings-desc">
+              内置地址：<code>https://music.xubuyuan.top</code>
+                {#if settings.apiBaseStatus}
+                  <span class="m-settings-status"> · {settings.apiBaseStatus}</span>
+                {/if}
+            </span>
+          </div>
+          <input
+            type="url"
+            class="m-settings-input"
+            placeholder="https://your-api-server.com"
+            value={settings.apiBaseValue}
+            oninput={(e) => settings.handleSetApiBase(e.target.value)}
+          />
+        </div>
+        <button class="m-settings-row m-settings-row--action" onclick={settings.handleClearCache}>
+          <div class="m-settings-row-info">
+            <span class="m-settings-label">清除接口缓存</span>
+            <span class="m-settings-desc">当前缓存 {settings.cacheSizeText}</span>
+          </div>
+          <span class="m-settings-action-text">{settings.clearCacheMsg || t('settings.clear', '清除')}</span>
+        </button>
+        <button class="m-settings-row m-settings-row--action" onclick={settings.handleClearIdbCache}>
+          <div class="m-settings-row-info">
+            <span class="m-settings-label">清除持久缓存</span>
+            <span class="m-settings-desc">{settings.idbCacheText}</span>
+          </div>
+          <span class="m-settings-action-text">{settings.idbCleared || t('settings.clear', '清除')}</span>
+        </button>
       </div>
-    </div>
+    </details>
   </section>
 
   <!-- 关于 -->
@@ -377,7 +288,7 @@
         <div class="m-settings-row-info">
           <span class="m-settings-label">版本</span>
         </div>
-        <span class="m-settings-value">0.1.0</span>
+        <span class="m-settings-value">{pkg.version}</span>
       </div>
     </div>
   </section>
@@ -406,7 +317,7 @@
   .m-settings-kicker {
     color: var(--accent);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
   }
@@ -415,7 +326,7 @@
     margin: 6px 0 4px;
     font-size: 32px;
     line-height: 1.08;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0;
   }
 
@@ -434,14 +345,14 @@
     padding: 0 18px;
     color: var(--accent);
     font-size: 11px;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
   }
 
   .m-settings-card {
     overflow: hidden;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-elevated) 94%, var(--bg-layer));
     border: 0.5px solid color-mix(in srgb, var(--border) 68%, transparent);
     box-shadow: 0 1px 0 rgba(255,255,255,0.35) inset;
@@ -511,6 +422,110 @@
     background: transparent;
   }
 
+  .m-developer-options > summary {
+    list-style: none;
+  }
+
+  .m-developer-options > summary::-webkit-details-marker { display: none; }
+
+  :global(.m-developer-chevron) {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    transition: transform var(--dur-fast);
+  }
+
+  .m-developer-options[open] :global(.m-developer-chevron) {
+    transform: rotate(180deg);
+  }
+
+  .m-developer-content {
+    border-top: 0.5px solid color-mix(in srgb, var(--border) 72%, transparent);
+    background: color-mix(in srgb, var(--bg-layer) 24%, transparent);
+  }
+
+  .m-settings-row--wallpaper {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    cursor: default;
+  }
+
+  .m-settings-row--accent {
+    align-items: flex-start;
+  }
+
+  .m-accent-picker {
+    max-width: 164px;
+    display: grid;
+    grid-template-columns: repeat(4, 34px);
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .m-accent-picker button {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: var(--bg-layer);
+    transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast);
+  }
+
+  .m-accent-picker button:active { transform: scale(0.92); }
+
+  .m-accent-picker button.active {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    background: var(--accent-bg);
+  }
+
+  .m-accent-picker button span {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent-preview);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3), 0 0 0 1px rgba(0,0,0,0.08);
+  }
+
+  .m-settings-row--wallpaper:active {
+    background: transparent;
+  }
+
+  .m-wallpaper-actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .m-wallpaper-actions button {
+    min-height: 34px;
+    flex: 1;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .m-wallpaper-actions button.remove {
+    background: var(--bg-layer);
+    color: var(--text-secondary);
+  }
+
+  .m-wallpaper-actions button:disabled {
+    opacity: 0.55;
+  }
+
+  .m-wallpaper-file-input {
+    display: none;
+  }
+
+  .m-settings-desc.error {
+    color: var(--accent);
+  }
+
   .m-settings-input {
     width: 100%;
     padding: 10px 12px;
@@ -519,7 +534,7 @@
     color: var(--text);
     background: var(--bg-layer);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     outline: none;
   }
 
@@ -537,7 +552,7 @@
   .m-settings-label {
     color: var(--text);
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.3;
   }
 
@@ -567,14 +582,14 @@
     justify-content: flex-end;
     color: var(--text-tertiary);
     font-size: 14px;
-    font-weight: 520;
+    font-weight: 500;
   }
 
   .m-settings-action-text {
     flex-shrink: 0;
     color: var(--accent);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .m-settings-row--action:active .m-settings-action-text {
@@ -587,7 +602,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 2px;
     padding: 2px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--bg-layer) 86%, #8e8e93 14%);
   }
 
@@ -595,7 +610,7 @@
     grid-template-columns: auto auto;
     gap: 2px;
     padding: 2px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     width: fit-content;
     min-width: 100px;
   }
@@ -604,11 +619,11 @@
     min-height: 30px;
     padding: 0 14px;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-secondary);
     font-size: 13px;
-    font-weight: 660;
+    font-weight: 700;
     cursor: pointer;
     transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
   }
@@ -616,7 +631,7 @@
   .m-segmented--sm button {
     min-height: 28px;
     padding: 0 12px;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     font-size: 12px;
   }
 
@@ -683,9 +698,9 @@
     min-width: 100px;
     min-height: 32px;
     padding: 0 28px 0 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     color: var(--text);
@@ -712,11 +727,11 @@
     justify-content: center;
     gap: 8px;
     border: 0;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-elevated) 94%, var(--bg-layer));
     color: #ff3b30;
     font-size: 16px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }

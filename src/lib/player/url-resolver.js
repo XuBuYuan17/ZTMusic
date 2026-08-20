@@ -13,7 +13,7 @@
  *   6. 后台填充更多音质（fillFallbackUrls）
  */
 
-import { ncm } from '../api/client.js'
+import { musicService } from '../music/service.js'
 import { dbCache } from '../db/cache.js'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { swallowError } from '../utils/logging.js'
@@ -115,16 +115,15 @@ function isBetterThanLevel(level, baseLevel) {
 
 async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}, signal) {
   try {
-    const res = await withTimeout(ncm.songUrl(id, level, unblock), timeout, signal)
-    const item = res?.data?.[0]
+    const item = await withTimeout(musicService.getStream(id, { level, unblock }), timeout, signal)
     logPlayUrlAttempt('result', {
       id,
       level,
       unblock,
-      code: item?.code ?? res?.code,
+      code: item?.code,
       hasUrl: Boolean(item?.url),
-      freeTrial: Boolean(item?.freeTrialInfo),
-      message: item?.message || res?.message || res?.msg || '',
+      freeTrial: Boolean(item?.isTrial),
+      message: item?.message || '',
     })
     if (!item?.url) {
       // 已登录但无音源 → cookie 可能已过期，等待检查结果
@@ -137,15 +136,15 @@ async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}, signal) 
       }
       return null
     }
-    if (item.freeTrialInfo && authOpts.isLoggedIn) {
+    if (item.isTrial && authOpts.isLoggedIn) {
       logPlayback('vip-trial', { id, level, url: item.url?.slice(0, 50) })
     }
     return {
       url: normalizePlayUrl(item.url),
-      isTrial: Boolean(item?.freeTrialInfo),
-      source: unblock ? 'official-unblock' : 'official',
-      level,
-      cacheable: !item?.freeTrialInfo,
+      isTrial: Boolean(item?.isTrial),
+      source: item?.source || (unblock ? 'official-unblock' : 'official'),
+      level: item?.level || level,
+      cacheable: item?.cacheable !== false,
     }
   } catch (error) {
     logPlayUrlAttempt('error', {
@@ -160,8 +159,8 @@ async function fetchSongUrl(id, level, unblock, timeout, authOpts = {}, signal) 
 
 async function fetchMatchedSongUrl(id, timeout, signal) {
   try {
-    const res = await withTimeout(ncm.songUrlMatch(id), timeout, signal)
-    const url = res?.data?.[0]?.url || res?.data?.url || res?.url || ''
+    const candidate = await withTimeout(musicService.getMatchedStream(id), timeout, signal)
+    const url = candidate?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
     logPlayback('match-url', { id, url: normalized })
@@ -177,8 +176,8 @@ async function fetchMatchedSongUrl(id, timeout, signal) {
 
 async function fetchOldSongUrl(id, timeout, signal) {
   try {
-    const res = await withTimeout(ncm.songUrlOld(id, 320000), timeout, signal)
-    const url = res?.data?.[0]?.url || ''
+    const candidate = await withTimeout(musicService.getLegacyStream(id, 320000), timeout, signal)
+    const url = candidate?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
     logPlayback('old-api-fallback', { id, url: normalized })

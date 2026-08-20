@@ -2,10 +2,10 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, COOKIE, USER_AGENT};
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::{AppState, NcmRequest, NcmResponse, APP_USER_AGENT};
+use crate::{ApiRequest, ApiResponse, AppState, APP_USER_AGENT};
 
 /// 允许代理的目标 API Host 白名单（精确匹配），防止 SSRF
-const ALLOWED_HOSTS: &[&str] = &[
+const NETEASE_ALLOWED_HOSTS: &[&str] = &[
     "music.xubuyuan.top",
     "music.163.com",
     "interface.music.163.com",
@@ -13,21 +13,37 @@ const ALLOWED_HOSTS: &[&str] = &[
 ];
 
 /// 精确匹配 host（不做后缀匹配，避免 `attacker-music.163.com` 这类后缀绕过）
-fn is_allowed_host(host: &str) -> bool {
-    ALLOWED_HOSTS.iter().any(|allowed| host == *allowed)
+struct ProviderPolicy {
+    allowed_hosts: &'static [&'static str],
+    referer: Option<&'static str>,
 }
 
-/// POST/GET 代理：将前端请求转发到 Netease API，并回传 cookie 变更。
+fn provider_policy(provider: Option<&str>) -> Result<ProviderPolicy, String> {
+    match provider.unwrap_or("netease") {
+        "netease" => Ok(ProviderPolicy {
+            allowed_hosts: NETEASE_ALLOWED_HOSTS,
+            referer: Some("https://music.163.com/"),
+        }),
+        provider => Err(format!("Unsupported API provider: {provider}")),
+    }
+}
+
+fn is_allowed_host(policy: &ProviderPolicy, host: &str) -> bool {
+    policy.allowed_hosts.iter().any(|allowed| host == *allowed)
+}
+
+/// Provider 感知的 POST/GET 代理：按服务策略校验目标 host，并回传 cookie 变更。
 #[tauri::command]
-pub async fn ncm_request(
+pub async fn api_request(
     state: State<'_, AppState>,
-    request: NcmRequest,
-) -> Result<NcmResponse, String> {
+    request: ApiRequest,
+) -> Result<ApiResponse, String> {
+    let policy = provider_policy(request.provider.as_deref())?;
     let mut url = build_api_url(&request.base, &request.endpoint)?;
 
     // SSRF 防护：仅允许白名单内的 Host
     if let Some(host) = url.host_str() {
-        if !is_allowed_host(host) {
+        if !is_allowed_host(&policy, host) {
             return Err(format!("API host not allowed: {host}"));
         }
     }
@@ -44,7 +60,9 @@ pub async fn ncm_request(
     };
 
     builder = builder.header(USER_AGENT, APP_USER_AGENT);
-    builder = builder.header("Referer", "https://music.163.com/");
+    if let Some(referer) = policy.referer {
+        builder = builder.header("Referer", referer);
+    }
 
     if let Some(cookie) = cookie.filter(|cookie| !cookie.is_empty()) {
         let value =
@@ -73,7 +91,7 @@ pub async fn ncm_request(
         return Err(format!("API error: {status} {data}"));
     }
 
-    Ok(NcmResponse { data, cookie })
+    Ok(ApiResponse { data, cookie })
 }
 
 // ── helpers ────────────────────────────────────────────────
@@ -160,7 +178,10 @@ mod tests {
         );
         headers.append(SET_COOKIE, HeaderValue::from_static("NMTID=nmt"));
 
-        assert_eq!(collect_set_cookie(&headers), "MUSIC_U=token; __csrf=csrf; NMTID=nmt");
+        assert_eq!(
+            collect_set_cookie(&headers),
+            "MUSIC_U=token; __csrf=csrf; NMTID=nmt"
+        );
     }
 
     #[test]
@@ -170,5 +191,13 @@ mod tests {
         headers.append(SET_COOKIE, HeaderValue::from_bytes(&[0xff]).unwrap());
 
         assert_eq!(collect_set_cookie(&headers), "");
+    }
+
+    #[test]
+    fn provider_policy_defaults_to_netease_and_rejects_unknown_providers() {
+        let policy = provider_policy(None).expect("default provider policy");
+        assert!(is_allowed_host(&policy, "music.xubuyuan.top"));
+        assert!(!is_allowed_host(&policy, "attacker-music.163.com"));
+        assert!(provider_policy(Some("unknown")).is_err());
     }
 }

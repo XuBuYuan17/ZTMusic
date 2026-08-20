@@ -11,7 +11,9 @@
       body {
         margin: 0;
         background: #0a0a0a;
-        font-family: -apple-system, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+        /* 与 app.css 的 --font 保持一致，避免开屏到应用的字体跳变。
+           此处不能用 var(--font)：app.css 尚未加载。改这里请同步改 app.css。 */
+        font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         user-select: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -21,7 +23,7 @@
         html:not(.mobile-runtime) body { overflow-x: hidden; }
       }
 
-      /* ── 开屏：ZT Music 光弧扫过 ── */
+      /* ── 开屏：ZTmusic 唱片声波 ── */
       #splash {
         position: fixed;
         inset: 0;
@@ -31,10 +33,12 @@
         align-items: center;
         justify-content: center;
         overflow: hidden;
-        background: radial-gradient(ellipse at 50% 60%, #1C1C1E 0%, #0A0A0A 80%);
-        opacity: 0;
-        animation: splash-bg-fade-in 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s forwards;
-        transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        background:
+          radial-gradient(circle at 50% 48%, rgba(255, 49, 64, 0.14), transparent 32%),
+          radial-gradient(circle at 50% 54%, #202023 0%, #0a0a0a 66%);
+        opacity: 1;
+        animation: splash-bg-fade-in 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+        transition: opacity 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
         -webkit-tap-highlight-color: transparent;
       }
       #splash.splash-hide {
@@ -50,23 +54,44 @@
 
       .splash-glow {
         position: absolute;
-        width: 60vw;
-        height: 60vw;
-        max-width: 700px;
-        max-height: 700px;
+        width: clamp(220px, 42vw, 520px);
+        height: clamp(220px, 42vw, 520px);
         border-radius: 50%;
-        background: radial-gradient(circle at 50% 50%, rgba(212, 44, 44, 0.06) 0%, transparent 70%);
+        background:
+          conic-gradient(from 110deg, transparent 0 16%, rgba(255, 49, 64, .22) 24%, transparent 34% 72%, rgba(255,255,255,.08) 80%, transparent 88%),
+          radial-gradient(circle, rgba(255,255,255,.05) 0 18%, transparent 19%),
+          radial-gradient(circle, rgba(255, 49, 64, 0.08) 0%, transparent 68%);
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         pointer-events: none;
         opacity: 0;
-        animation: splash-glow-pulse 3s ease-in-out 2s infinite alternate;
+        animation: splash-disc-in 620ms cubic-bezier(.22, 1, .36, 1) 40ms both, splash-disc-spin 2.8s linear 660ms infinite;
       }
 
-      @keyframes splash-glow-pulse {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-        100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.1); }
+      .splash-glow::before,
+      .splash-glow::after {
+        content: "";
+        position: absolute;
+        inset: 18%;
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 50%;
+      }
+
+      .splash-glow::after {
+        inset: 42%;
+        background: radial-gradient(circle, #f4f4f5 0 12%, #ff3140 13% 32%, #111 34%);
+        border: 0;
+        box-shadow: 0 0 34px rgba(255, 49, 64, .22);
+      }
+
+      @keyframes splash-disc-in {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(.82) rotate(-22deg); filter: blur(10px); }
+        100% { opacity: .95; transform: translate(-50%, -50%) scale(1) rotate(0); filter: blur(0); }
+      }
+
+      @keyframes splash-disc-spin {
+        to { transform: translate(-50%, -50%) rotate(360deg); }
       }
 
       .splash-top-line {
@@ -74,11 +99,11 @@
         top: clamp(32px, 6vh, 60px);
         left: 50%;
         transform: translateX(-50%);
-        width: clamp(40px, 6vw, 80px);
+        width: clamp(52px, 8vw, 104px);
         height: 1px;
-        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15), transparent);
+        background: linear-gradient(to right, transparent, rgba(255, 49, 64, .65), rgba(255,255,255,.3), transparent);
         opacity: 0;
-        animation: splash-line-in 1.2s ease-out 1.8s forwards;
+        animation: splash-line-in 280ms ease-out 100ms forwards;
       }
 
       @keyframes splash-line-in {
@@ -91,16 +116,18 @@
         display: flex;
         align-items: flex-end;
         justify-content: center;
-        gap: 0;
-        transform: scale(1.05);
-        opacity: 0.6;
-        animation: splash-hero-entry 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s forwards;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        transform: translateY(8px) scale(.98);
+        opacity: 0;
+        animation: splash-hero-entry 520ms cubic-bezier(.22, 1, .36, 1) 120ms forwards;
         -webkit-tap-highlight-color: transparent;
       }
 
       @keyframes splash-hero-entry {
-        0% { transform: scale(1.05); opacity: 0.6; }
-        100% { transform: scale(1); opacity: 1; }
+        0% { transform: translateY(8px) scale(.98); opacity: 0; filter: blur(8px); }
+        100% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
       }
 
       .splash-zt {
@@ -110,22 +137,22 @@
 
       .splash-zt-base,
       .splash-zt-mask {
-        font-size: clamp(80px, 22vw, 190px);
+        font-size: clamp(58px, 15vw, 132px);
         font-weight: 900;
-        letter-spacing: -0.03em;
+        letter-spacing: 0;
         line-height: 1;
         display: block;
       }
 
       .splash-zt-base {
-        color: #5A5A5E;
+        color: rgba(244, 244, 245, .92);
         position: relative;
         z-index: 1;
         text-shadow: 0 2px 40px rgba(0, 0, 0, 0.6);
       }
 
       .splash-zt-mask {
-        color: #D42C2C;
+        color: #ff3140;
         position: absolute;
         top: 0;
         left: 0;
@@ -138,7 +165,7 @@
         mask-size: 32% 100%;
         mask-position: -32% 0;
         mask-repeat: no-repeat;
-        animation: splash-arc-sweep 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1s forwards;
+        animation: splash-arc-sweep 420ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 60ms forwards;
       }
 
       @keyframes splash-arc-sweep {
@@ -167,21 +194,50 @@
       }
 
       .splash-music {
-        font-size: clamp(24px, 5.5vw, 52px);
-        font-weight: 600;
-        letter-spacing: 0.1em;
-        color: #B0B0B6;
-        margin-left: clamp(6px, 1.2vw, 16px);
-        margin-bottom: clamp(6px, 1vw, 12px);
+        font-size: clamp(13px, 2.2vw, 19px);
+        font-weight: 700;
+        letter-spacing: 0;
+        color: rgba(244,244,245,.72);
+        margin-left: 0;
+        margin-bottom: 0;
         opacity: 0;
-        transform: translateY(6px);
-        animation: splash-music-in 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) 2.4s forwards;
+        transform: translateY(6px) scale(.98);
+        animation: splash-music-in 300ms cubic-bezier(.22, 1, .36, 1) 280ms forwards;
         text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5);
       }
 
       @keyframes splash-music-in {
         0% { opacity: 0; transform: translateY(6px); }
-        100% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      .splash-wave {
+        display: flex;
+        align-items: end;
+        justify-content: center;
+        gap: 4px;
+        height: 28px;
+        margin-top: 20px;
+        opacity: 0;
+        animation: splash-footer-in 260ms cubic-bezier(.22, 1, .36, 1) 360ms forwards;
+      }
+
+      .splash-wave span {
+        width: 3px;
+        height: 8px;
+        border-radius: 3px;
+        background: rgba(255,255,255,.5);
+        animation: splash-wave-bar .82s ease-in-out infinite;
+      }
+
+      .splash-wave span:nth-child(2) { animation-delay: .08s; }
+      .splash-wave span:nth-child(3) { animation-delay: .16s; }
+      .splash-wave span:nth-child(4) { animation-delay: .24s; }
+      .splash-wave span:nth-child(5) { animation-delay: .32s; }
+
+      @keyframes splash-wave-bar {
+        0%, 100% { height: 8px; background: rgba(255,255,255,.38); }
+        50% { height: 25px; background: #ff3140; }
       }
 
       .splash-footer {
@@ -192,9 +248,9 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        gap: 2px;
+        gap: 8px;
         opacity: 0;
-        animation: splash-footer-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 2.6s forwards;
+        animation: splash-footer-in 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 150ms forwards;
         -webkit-tap-highlight-color: transparent;
       }
 
@@ -204,11 +260,11 @@
       }
 
       .splash-footer-label {
-        font-size: clamp(15px, 2.4vw, 22px);
-        font-weight: 400;
-        letter-spacing: 0.06em;
-        color: #7A7A80;
-        margin-right: 4px;
+        font-size: clamp(12px, 1.8vw, 15px);
+        font-weight: 600;
+        letter-spacing: 0;
+        color: rgba(244,244,245,.46);
+        margin-right: 0;
       }
 
       .splash-dots {
@@ -224,7 +280,7 @@
         border-radius: 50%;
         background: #7A7A80;
         opacity: 0.3;
-        animation: splash-dot-pulse 1.8s ease-in-out infinite;
+        animation: splash-dot-pulse 1.2s ease-in-out infinite;
       }
 
       .splash-dots span:nth-child(1) { animation-delay: 0s; }
@@ -237,10 +293,6 @@
       }
 
       @media (max-width: 480px) {
-        .splash-music {
-          margin-left: 4px;
-          margin-bottom: 4px;
-        }
         .splash-zt-base,
         .splash-zt-mask {
           font-size: clamp(56px, 18vw, 80px);
@@ -261,7 +313,7 @@
         .splash-zt-mask {
           color: #D42C2C;
           opacity: 0;
-          animation: splash-fallback-fade 1.2s ease-in 1.8s forwards;
+          animation: splash-fallback-fade 300ms ease-in 80ms forwards;
         }
         @keyframes splash-fallback-fade {
           0% { opacity: 0; }
@@ -277,12 +329,14 @@
         .splash-zt-mask,
         .splash-music,
         .splash-footer,
+        .splash-wave,
         .splash-dots span {
           animation: none !important;
         }
         #splash { opacity: 1; }
         .splash-hero,
         .splash-music,
+        .splash-wave,
         .splash-footer { opacity: 1; transform: none; }
         .splash-zt-mask {
           -webkit-mask-image: none;
@@ -307,7 +361,14 @@
           <span class="splash-zt-base">ZT</span>
           <span class="splash-zt-mask" id="splashZtMask">ZT</span>
         </div>
-        <span class="splash-music">Music</span>
+        <span class="splash-music">ZTmusic</span>
+        <div class="splash-wave" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
       </div>
       <div class="splash-footer">
         <span class="splash-footer-label">少女祈祷中</span>
@@ -335,10 +396,10 @@
           }
         })
 
-        // arcSweep 1.8s + delay 1s；兜底避免 animationend 未触发
+        // 光弧在短开屏周期内完成；兜底避免 animationend 未触发
         setTimeout(function () {
           if (!ztMask.classList.contains('revealed')) revealRed()
-        }, 3200)
+        }, 620)
       })()
     </script>
     <script type="module" src="/src/main.js"></script>

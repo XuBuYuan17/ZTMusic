@@ -16,7 +16,7 @@
 
 <span class="artist-links">
   {#each artists as artist, index (artist.id || artist.name)}
-    {#if artist.id}
+    {#if artist.id && onOpenArtist}
       <span
         class="artist-link"
         role="button"

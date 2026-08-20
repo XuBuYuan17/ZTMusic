@@ -94,6 +94,13 @@
       <span class="nav-label">最近播放</span>
     </button>
 
+    <button class="nav-item" class:active={activeView === 'localMusic'} onclick={() => nav('localMusic')}>
+      <span class="nav-icon">
+        <Icon name="music" size={22} strokeWidth={1.5}/>
+      </span>
+      <span class="nav-label">本地音乐</span>
+    </button>
+
     <button class="nav-item" class:active={activeView === 'messages'} onclick={() => nav('messages')}>
       <span class="nav-icon">
         <Icon name="messages" size={22} strokeWidth={1.5}/>

@@ -1,13 +1,15 @@
 /**
  * 原生媒体会话管理
  * - Linux 桌面 MPRIS（通过 Tauri Rust 后端）
- * - Windows/macOS 桌面系统媒体控件（Web Media Session API，由 PlayerState 直接维护）
+ * - Windows 桌面 SMTC（通过 Tauri Rust 后端）
+ * - Web/macOS 系统媒体控件（Web Media Session API，由 PlayerState 直接维护）
  *
  * 职责：仅处理原生平台媒体控件的双向同步，不涉及播放逻辑。
  */
 
 import { PLAYBACK } from '../utils/constants.js'
 import { debugLog, swallowError } from '../utils/error.js'
+import { selectMediaBackend } from './native-media-platform.js'
 
 let _tauriInvoke = null
 let _nativeMediaPollTimer = null
@@ -23,20 +25,24 @@ function isTauriRuntime() {
   return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
 }
 
+function runtimePlatform() {
+  return navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
+}
+
 function isTauriLinux() {
-  if (!isTauriRuntime()) return false
-  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
-  return /Linux/i.test(platform)
+  return isTauriRuntime() && /Linux/i.test(runtimePlatform())
 }
 
 function isTauriWindows() {
-  if (!isTauriRuntime()) return false
-  const platform = navigator.userAgentData?.platform || navigator.platform || navigator.userAgent
-  return /Win/i.test(platform)
+  return isTauriRuntime() && /Win/i.test(runtimePlatform())
 }
 
 function shouldUseNativeBridge() {
-  return isTauriLinux()
+  return selectMediaBackend(isTauriRuntime(), runtimePlatform()) === 'native'
+}
+
+export function shouldUseWebMediaSession() {
+  return selectMediaBackend(isTauriRuntime(), runtimePlatform()) === 'web'
 }
 
 function invokeNative(command, payload, context) {
@@ -69,8 +75,7 @@ export async function initNativeMedia(options = {}) {
     swallowError('NativeMedia.importInvoke', err)
   }
 
-  // Linux 轮询 MPRIS 媒体键回调。
-  // Windows/macOS 使用 Web Media Session API，不走 Tauri 原生桥，避免双注册媒体会话。
+  // Linux 和 Windows 都由原生桥接收系统媒体键，避免 WebView2 重复注册媒体会话。
   if (shouldUseNativeBridge() && _tauriInvoke && !_nativeMediaPollTimer) {
     const interval = PLAYBACK.NATIVE_POLL_INTERVAL
     _nativeMediaPollTimer = setInterval(() => {
@@ -126,7 +131,7 @@ export function syncNativeMedia() {
       _pendingSyncTimer = setTimeout(() => _doSyncNative(), 500)
     }
   }
-  // Windows/macOS: navigator.mediaSession（Web Media Session API）由 PlayerState 直接处理。
+  // Web/macOS: navigator.mediaSession（Web Media Session API）由 PlayerState 直接处理。
 }
 
 function _doSyncNative() {

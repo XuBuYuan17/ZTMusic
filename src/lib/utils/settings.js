@@ -2,13 +2,15 @@ import { QUALITY_ORDER, STORAGE_KEYS } from './constants.js'
 import { getStorage, setStorage } from './storage.js'
 
 export const SETTINGS_SCHEMA_KEY = 'settings_schema_version'
-export const SETTINGS_SCHEMA_VERSION = 2
+export const SETTINGS_SCHEMA_VERSION = 4
 
 export const SETTING_DEFAULTS = {
   'default_page': 'home',
   'layout_mode': 'auto',
   'lyrics_blur_effect': 'true',
   'lyrics_text_blur_effect': 'true',
+  'wallpaper_video_play': 'true',
+  'accent_theme': 'red',
   [STORAGE_KEYS.RESTORE_SESSION]: 'true',
   [STORAGE_KEYS.VOLUME]: '0.8',
   [STORAGE_KEYS.MODE]: 'list',
@@ -18,6 +20,7 @@ export const SETTING_DEFAULTS = {
 const BOOLEAN_KEYS = new Set([
   'lyrics_blur_effect',
   'lyrics_text_blur_effect',
+  'wallpaper_video_play',
   STORAGE_KEYS.RESTORE_SESSION,
 ])
 
@@ -57,6 +60,10 @@ function normalizeLayoutMode(value) {
   return ['auto', 'pc', 'mobile'].includes(value) ? value : SETTING_DEFAULTS.layout_mode
 }
 
+function normalizeAccentTheme(value) {
+  return ['red', 'berry', 'violet', 'blue', 'teal', 'orange', 'cover'].includes(value) ? value : SETTING_DEFAULTS.accent_theme
+}
+
 function normalizeSetting(key, value) {
   if (BOOLEAN_KEYS.has(key)) return normalizeBoolean(value, SETTING_DEFAULTS[key])
   if (key === STORAGE_KEYS.VOLUME) return normalizeVolume(value)
@@ -64,6 +71,7 @@ function normalizeSetting(key, value) {
   if (key === STORAGE_KEYS.PREFERRED_QUALITY) return normalizeQuality(value)
   if (key === 'default_page') return normalizeDefaultPage(value)
   if (key === 'layout_mode') return normalizeLayoutMode(value)
+  if (key === 'accent_theme') return normalizeAccentTheme(value)
   return value == null ? SETTING_DEFAULTS[key] : String(value)
 }
 

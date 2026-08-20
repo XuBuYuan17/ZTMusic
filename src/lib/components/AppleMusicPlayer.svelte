@@ -49,6 +49,7 @@
 
   let moreMenuItems = $derived([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
+    { label: '播放队列', icon: 'list', action: handleToggleLocalQueue, disabled: !player.id },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
     { label: '专辑', icon: 'music', action: openAlbum, disabled: !album?.id },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
@@ -56,6 +57,7 @@
     { label: '热评', icon: 'messages', action: () => openSecondaryPanel('comments'), disabled: !player.id },
     { label: '相似歌单', icon: 'list', action: () => openSecondaryPanel('playlists'), disabled: !player.id },
     { label: '播放器主题', icon: 'sun', action: () => openSecondaryPanel('theme') },
+    { label: '切换应用外观', icon: 'moon', action: toggleTheme },
   ]);
 
   let secondaryTitle = $derived.by(() => {
@@ -231,6 +233,7 @@
   }
 
   function handleMenuItem(item) {
+    showMoreMenu = false;
     item.action?.();
   }
 
@@ -267,6 +270,10 @@
     {#if showMoreMenu}
       <div class="am-more-backdrop" role="presentation" onclick={closeMoreMenu}></div>
       <div class="am-more-menu" role="menu" aria-label="更多操作菜单">
+        <div class="am-more-track" aria-hidden="true">
+          {#if player.cover}<img src={coverUrl(player.cover, 96)} alt="" referrerpolicy="no-referrer" />{/if}
+          <span><strong>{player.title || '未在播放'}</strong><small>{player.artist || ''}</small></span>
+        </div>
         {#each moreMenuItems as item}
           <button class="am-more-item" type="button" role="menuitem" onclick={() => handleMenuItem(item)} disabled={item.disabled}>
             <Icon name={item.icon} size={18} strokeWidth={1.8} />
@@ -435,10 +442,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    opacity: 0.48;
-    color: rgba(255,255,255,0.74);
-    background: rgba(255,255,255,0.045);
+    border-radius: var(--radius-sm);
+    opacity: 0.9;
+    color: rgba(255,255,255,0.92);
+    background: rgba(20,20,20,0.28);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
     backdrop-filter: blur(16px) saturate(140%);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -491,19 +498,39 @@
     bottom: 0;
     z-index: 43;
     width: 100%;
-    padding: 8px 0 calc(12px + env(safe-area-inset-bottom));
+    padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);
     border-bottom: none;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
     background: var(--bg-surface);
     box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
-    overflow: hidden;
+    max-height: min(82dvh, 620px);
+    overflow-x: hidden;
+    overflow-y: auto;
     animation: queue-slide-up 0.32s var(--ease-out);
   }
+
+  .am-more-track {
+    min-height: 70px;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin: 0 16px 8px;
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .am-more-track img { width: 48px; height: 48px; border-radius: var(--radius-xs); object-fit: cover; }
+  .am-more-track span { min-width: 0; display: grid; gap: 2px; }
+  .am-more-track strong,
+  .am-more-track small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .am-more-track strong { font-size: 15px; font-weight: 700; }
+  .am-more-track small { color: var(--text-secondary); font-size: 12px; }
 
   .am-more-item {
     min-height: 44px;
@@ -549,7 +576,7 @@
     padding: 2px 20px 0;
     color: var(--text-secondary);
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 700;
   }
 
   @keyframes queue-slide-up {
@@ -576,7 +603,7 @@
     flex-direction: column;
     border: 1px solid var(--border);
     border-bottom: none;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     background: var(--bg-surface);
     box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
     backdrop-filter: blur(40px) saturate(180%);
@@ -657,7 +684,7 @@
   }
 
   .am-secondary-row.active span {
-    font-weight: 800;
+    font-weight: 700;
   }
 
   .am-secondary-context {
@@ -726,7 +753,7 @@
     height: 48px;
     aspect-ratio: auto;
     margin: 0;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     object-fit: cover;
     background: var(--bg-layer);
     flex-shrink: 0;
@@ -757,14 +784,14 @@
     flex-shrink: 0;
     color: var(--accent);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .am-secondary-context :global(.ly-context-subhead span) {
     min-width: 0;
     color: rgba(255,255,255,0.9);
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -813,7 +840,7 @@
   .am-flying-cover {
     position: absolute;
     z-index: 10;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: 0 8px 30px rgba(0,0,0,0.6);
     cursor: pointer;
@@ -831,7 +858,7 @@
     width: var(--am-cover-size);
     height: var(--am-cover-size);
     overflow: visible;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     box-shadow: 0 16px 42px rgba(0,0,0,0.44);
   }
 
@@ -858,7 +885,7 @@
     position: absolute;
     inset: 0;
     z-index: 3;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -28px 44px rgba(0,0,0,0.16);
     pointer-events: none;
   }
@@ -885,12 +912,12 @@
     left: 18px;
     width: 62px;
     height: 62px;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
   }
 
   .lyrics-mode.vinyl-theme .am-flying-cover {
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     box-shadow: 0 8px 24px rgba(0,0,0,0.36);
   }
 
@@ -926,7 +953,7 @@
     z-index: 1;
     width: 100%;
     height: 100%;
-    border-radius: 14px;
+    border-radius: var(--radius-lg);
     box-shadow: none;
     animation: none;
   }
@@ -979,7 +1006,7 @@
   }
   .am-track-title {
     font-size: 24px;
-    font-weight: 800;
+    font-weight: 700;
     color: #fff;
     margin-bottom: 4px;
     line-height: 1.2;

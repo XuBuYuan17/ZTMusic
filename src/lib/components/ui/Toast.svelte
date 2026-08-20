@@ -16,7 +16,7 @@
     transform: translateX(-50%);
     z-index: 9999;
     padding: 10px 20px;
-    border-radius: 22px;
+    border-radius: var(--radius-xl);
     border: none;
     font-family: inherit;
     font-size: 14px;

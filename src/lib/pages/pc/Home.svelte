@@ -4,7 +4,7 @@
   import { player } from '../../stores/player.svelte.js'
   import { ncm } from '../../api/client.js'
   import { loadHomeData } from '../../services/home.js'
-  import { loadDailyHistoryData } from '../../services/dailyHistory.js'
+  import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.js'
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
@@ -26,26 +26,27 @@
   let likedPlaylist = $state(null)
   let weeklyPlaylist = $state(null)
   let recommendPlaylists = $state([])
-  let dailyHistoryDates = $state([])
-  let dailyHistorySongs = $state([])
-  let selectedDailyDate = $state('')
+  let localListeningStats = $state({ ...EMPTY_LOCAL_LISTENING_STATS })
 
   let songActions = $state(null)
   let _requestId = 0
+  let _statsRequestId = 0
+
+  async function refreshLocalListeningStats() {
+    const rid = ++_statsRequestId
+    const stats = await loadLocalListeningStats()
+    if (rid === _statsRequestId) localListeningStats = stats
+  }
 
   async function load() {
     const rid = ++_requestId; loading = true; error = ''
-    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []; dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = ''
+    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
     try {
       if (!auth.isLoggedIn) return
-      const [data, dailyHistory] = await Promise.all([
-        loadHomeData(ncm, auth.user),
-        loadDailyHistoryData(ncm),
-      ])
+      const data = await loadHomeData(ncm, auth.user)
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
       weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks; recommendPlaylists = data.recommendPlaylists
-      dailyHistoryDates = dailyHistory.dates; dailyHistorySongs = dailyHistory.songs; selectedDailyDate = dailyHistory.selectedDate
       data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
       data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; if (v.recentTracks.length) recentTracks = v.recentTracks }).catch(() => {})
       data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
@@ -62,7 +63,14 @@
   $effect(() => { if (auth.isLoggedIn) load() })
 
   $effect(() => {
-    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = []; dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = '' }
+    refreshLocalListeningStats()
+    const refresh = () => refreshLocalListeningStats()
+    window.addEventListener('local-listening-history-change', refresh)
+    return () => window.removeEventListener('local-listening-history-change', refresh)
+  })
+
+  $effect(() => {
+    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = [] }
   })
 
   function handleCardKeydown(event, action) {
@@ -84,22 +92,18 @@
     return track?.picUrl || extractCover(track)
   }
 
-  function formatDateLabel(date) {
-    if (!date) return '历史日推'
-    const parts = String(date).split('-')
-    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : date
-  }
-
   const heroReady = $derived(recommendPlaylists.length > 0)
   const heroPlaylist = $derived(heroReady ? recommendPlaylists[0] : null)
   const heroImage = $derived(auth.user?.avatarUrl || '')
   const stationCards = $derived([
     {
-      title: '历史日推',
-      label: 'Daily Archive',
-      value: dailyHistorySongs.length ? `${formatDateLabel(selectedDailyDate)} · ${dailyHistorySongs.length} 首` : '查看每日推荐记录',
-      accent: 'rank',
-      action: () => onNavigate?.('dailyHistory'),
+      title: '本地听歌统计',
+      label: 'On This Device',
+      value: localListeningStats.playCount
+        ? `${localListeningStats.playCount} 次 · ${localListeningStats.durationLabel}`
+        : '从第一次播放开始记录',
+      accent: 'stats',
+      action: () => onNavigate?.('recent'),
     },
     {
       title: '喜欢的音乐',
@@ -123,7 +127,7 @@
     <section class="home-listen-hero">
       <div class="home-listen-copy">
         <div class="home-kicker">现在就听</div>
-        <h1>为 {auth.user?.nickname || '你'} 准备的声音</h1>
+        <h1><span>为 {auth.user?.nickname || '你'}</span><span>准备的声音</span></h1>
         <p>继续你的播放习惯，或者从今天的推荐里挑一张开始。</p>
         <div class="home-hero-actions">
           {#if heroReady && heroPlaylist}
@@ -201,7 +205,7 @@
           <div class="home-section-header compact">
             <div>
               <div class="home-section-eyebrow">Recently Played</div>
-              <h2 class="home-section-title">继续播放</h2>
+              <h2 class="home-section-title">历史播放</h2>
             </div>
             <button class="home-section-more" onclick={() => onNavigate?.('recent')}>查看全部</button>
           </div>
@@ -249,7 +253,7 @@
         </div>
       </section>
 
-      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0 && dailyHistorySongs.length === 0}
+      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0 && localListeningStats.trackCount === 0}
         <div class="home-empty">
           <div class="home-empty-icon">
             <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

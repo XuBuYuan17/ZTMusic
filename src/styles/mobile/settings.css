@@ -1,0 +1,226 @@
+/* Settings */
+html.mobile-runtime .m-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+html.mobile-runtime .m-segmented button {
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+html.mobile-runtime .m-segmented button.active {
+  background: var(--bg-layer);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+html.mobile-runtime .m-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+html.mobile-runtime .m-option-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-option-item.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+html.mobile-runtime .m-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-toggle-row,
+html.mobile-runtime .m-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--bg-layer);
+  position: relative;
+  transition: background 0.2s;
+}
+
+html.mobile-runtime .m-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+html.mobile-runtime .m-toggle.on {
+  background: var(--accent);
+}
+
+html.mobile-runtime .m-toggle.on::after {
+  transform: translateX(18px);
+}
+
+html.mobile-runtime .m-info-row {
+  cursor: default;
+}
+
+html.mobile-runtime .m-info-row span:last-child {
+  color: var(--text-tertiary);
+}
+
+html.mobile-runtime .m-danger-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+html.mobile-runtime .m-view-fade {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: m-view-enter 0.16s var(--ease-out) both;
+  will-change: opacity, transform;
+}
+
+@keyframes m-view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes m-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+html.mobile-runtime .m-avatar-btn,
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .search-toggle,
+html.mobile-runtime .search-panel,
+html.mobile-runtime .queue-panel,
+html.mobile-runtime .m-drawer .sidebar,
+html.mobile-runtime .m-library-stats div {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.mobile-runtime .m-library-hero-bg,
+html.mobile-runtime .now-cover-bg,
+html.mobile-runtime .player-bg,
+html.mobile-runtime .hero-blur,
+html.mobile-runtime .ambient-glow {
+  filter: none !important;
+}
+
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-avatar-btn,
+html.mobile-runtime .m-hero-card,
+html.mobile-runtime .m-library-collection,
+html.mobile-runtime .m-home-profile,
+html.mobile-runtime .m-home-hero,
+html.mobile-runtime .m-home-action,
+html.mobile-runtime .m-library-added-cover,
+html.mobile-runtime .m-library-playlist-cover,
+html.mobile-runtime .m-playlist-cover,
+html.mobile-runtime .ly-cover,
+html.mobile-runtime .queue-panel,
+html.mobile-runtime .search-panel {
+  box-shadow: none !important;
+}
+
+html.mobile-runtime .m-subpage-enter {
+  animation-duration: 0.18s;
+}
+
+html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-drawer,
+html.mobile-runtime .m-tab,
+html.mobile-runtime .m-avatar-btn {
+  transition-duration: 0.16s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .m-view-fade,
+html.mobile-runtime .m-subpage-enter,
+html.mobile-runtime .m-drawer-backdrop {
+    animation: none !important;
+  }
+
+  html.mobile-runtime .m-tabs,
+html.mobile-runtime .m-drawer,
+html.mobile-runtime .m-tab,
+html.mobile-runtime .m-avatar-btn {
+    transition: none !important;
+  }
+}
+
+

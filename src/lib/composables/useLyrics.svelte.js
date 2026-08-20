@@ -22,7 +22,7 @@ export function useLyrics() {
 
   async function refresh() {
     const id = player.id
-    if (!id) { lyrics = []; loading = false; return }
+    if (!id || player.currentTrack?.source === 'local') { lyrics = []; loading = false; return }
     const reqId = ++requestId
     const cached = getCachedLyrics(id)
     if (cached) {
@@ -50,7 +50,8 @@ export function useLyrics() {
   // Auto-fetch when the playing track changes
   $effect(() => {
     const id = player.id
-    if (!id) { clear(); return }
+    const isLocal = player.currentTrack?.source === 'local'
+    if (!id || isLocal) { clear(); return }
     lyrics = []
     refresh()
   })

@@ -59,6 +59,18 @@
       项目仅用于学习和个人使用。使用时请遵守相关服务条款和版权规则。
     </p>
   </section>
+
+  <!-- HarmonyOS Sans 许可证要求在软件内显著声明字体的使用，勿删 -->
+  <section class="about-card about-note" aria-labelledby="about-font-title">
+    <h2 id="about-font-title">字体</h2>
+    <p>
+      本应用界面使用 <strong>HarmonyOS Sans</strong> 字体。
+      Copyright 2021 Huawei Device Co., Ltd.，依 HarmonyOS Sans Fonts License Agreement 授权随包分发，字体文件未经修改。
+    </p>
+    <p>
+      完整授权条款见随包文件 <code>fonts/HarmonyOS-Sans-LICENSE.txt</code>。
+    </p>
+  </section>
 </div>
 
 <style>
@@ -83,11 +95,11 @@
     place-items: center;
     width: 72px;
     height: 72px;
-    border-radius: 18px;
+    border-radius: var(--radius-lg);
     background: var(--accent);
     color: #fff;
     font-size: 30px;
-    font-weight: 820;
+    font-weight: 700;
     letter-spacing: 0;
   }
 
@@ -108,6 +120,15 @@
     color: var(--text-secondary);
   }
 
+  .about-note code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 1px 5px;
+    background: var(--bg-layer);
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
   .about-title-block p {
     max-width: 620px;
     margin: 0;
@@ -120,7 +141,7 @@
     gap: 14px;
     padding: 18px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
   }
 
@@ -165,7 +186,7 @@
     overflow: hidden;
     color: var(--text);
     font-size: 13px;
-    font-weight: 650;
+    font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
   }

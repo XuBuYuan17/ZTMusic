@@ -1,20 +1,31 @@
 import './app.css'
-import { layoutMode, shouldUseMobileLayout } from './lib/utils/layout-mode.js'
+import './styles/shell.css'
+import './styles/wallpaper.css'
+import './styles/search-overlay.css'
+import './styles/player-bar.css'
+import './styles/theme-transition.css'
+import './styles/loading.css'
+import './styles/home.css'
+import './styles/library.css'
+import './styles/content.css'
+import './styles/lyrics.css'
+import './styles/explore.css'
+import './styles/lyrics/player.css'
+import './styles/lyrics/context.css'
+import './styles/lyrics/controls.css'
+import './styles/lyrics/mobile.css'
+import './app-pc.css'
+import './app-mobile.css'
+import './styles/mobile/lyrics.css'
+import './styles/mobile/components.css'
+import './styles/mobile/library.css'
+import './styles/mobile/settings.css'
+import './styles/mobile/responsive.css'
+import './styles/product-polish.css'
+import { layoutMode } from './lib/utils/layout-mode.js'
 import { installNativeShell } from './lib/app/native-shell.js'
 
 installNativeShell()
-
-let loadedLayout = null
-
-async function loadLayoutCss() {
-  // 初始化时直接判断，不需要订阅 store —— 此时 DOM 已经有尺寸了
-  // 布局切换时再次调用:补加载另一个 CSS(幂等)
-  const isMobile = shouldUseMobileLayout(window.innerWidth, window.innerHeight)
-  const target = isMobile ? './app-mobile.css' : './app-pc.css'
-  if (loadedLayout === target) return
-  loadedLayout = target
-  await import(target)
-}
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -71,8 +82,6 @@ installDevErrorReporter()
 
 function syncMobileRuntime(state) {
   document.documentElement.classList.toggle('mobile-runtime', state.isMobile)
-  // 响应式布局切换(窗口缩放/设备旋转)时,补加载对应的布局 CSS
-  loadLayoutCss()
 }
 
 // 唯一响应式来源：layoutMode store → mobile-runtime class → CSS 选择器
@@ -98,10 +107,9 @@ function hideSplash() {
       import('./App.svelte'),
     ])
 
-    // 布局 CSS、应用代码和开屏动画并行准备，避免串行等待。
-    await loadLayoutCss()
+    // 应用代码和开屏动画并行准备，避免串行等待。
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const minimumDuration = reduceMotion ? 0 : 1100
+    const minimumDuration = reduceMotion ? 0 : 420
     const remainingDelay = Math.max(0, minimumDuration - (performance.now() - bootstrapStartedAt))
     const [modules] = await Promise.all([
       appModules,

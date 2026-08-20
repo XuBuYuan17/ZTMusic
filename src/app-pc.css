@@ -50,7 +50,7 @@ html:not(.mobile-runtime) .ly-cover-wrap {
 html:not(.mobile-runtime) .ly-cover {
   width: 100%;
   height: 100%;
-  border-radius: 24px;
+  border-radius: var(--radius-xl);
   object-fit: cover;
 }
 
@@ -72,12 +72,13 @@ html:not(.mobile-runtime) .ly-track-top {
 
 html:not(.mobile-runtime) .ly-track-title {
   font-size: clamp(20px, 1.8vw, 32px);
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
   white-space: normal;
   overflow: visible;
   text-overflow: unset;
   line-height: 1.12;
+  letter-spacing: -0.018em;
 }
 
 html:not(.mobile-runtime) .ly-star-btn {
@@ -257,17 +258,18 @@ html:not(.mobile-runtime) .ly-play-btn {
   width: clamp(68px, 6.2vw, 104px);
   height: clamp(68px, 6.2vw, 104px);
   border-radius: 50%;
-  background: var(--accent-gradient);
+  /* 歌词页是沉浸式深色背景，播放键保持无填充的白图标；
+     不要加 accent 渐变+光晕（会在按钮外圈出现一道红环）。移动端同此，见 app.css。 */
+  background: none;
   border: none;
-  color: #fff;
+  color: rgba(255,255,255,0.9);
   cursor: pointer;
-  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 40%, transparent);
-  transition: transform 0.2s cubic-bezier(.2,.9,.2,1), box-shadow 0.2s;
+  transition: transform 0.2s cubic-bezier(.2,.9,.2,1), color 0.15s;
 }
 
-.ly-play-btn:hover {
+html:not(.mobile-runtime) .ly-play-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 16px 40px color-mix(in srgb, var(--accent) 52%, transparent);
+  color: #fff;
 }
 
 html:not(.mobile-runtime) .ly-play-btn:active {

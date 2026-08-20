@@ -80,7 +80,7 @@
       background: rgba(0, 0, 0, 0.85);
       color: white;
       padding: 10px 20px;
-      border-radius: 22px;
+      border-radius: var(--radius-xl);
       font-size: 14px;
       font-weight: 500;
       z-index: 9999;

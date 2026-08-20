@@ -1,6 +1,7 @@
 <script>
   import { auth } from '../../stores/auth.svelte.js'
   import { ncm } from '../../api/client.js'
+  import { musicService } from '../../music/service.js'
   import { player } from '../../stores/player.svelte.js'
   import { formatDuration } from '../../format.js'
   import { coverUrl } from '../../utils/image.js'
@@ -30,9 +31,7 @@
         songs = []
         return
       }
-      const detailRes = await ncm.songDetail(ids)
-      const raw = detailRes.songs || detailRes.data?.songs || []
-      songs = raw.map(normalizeSong).filter(Boolean)
+      songs = (await musicService.getTracks(ids)).map(normalizeSong).filter(Boolean)
     } catch (e) {
       error = '加载失败'
       console.error(e)
@@ -62,19 +61,17 @@
 
 <div class="liked-page fade-in">
   <div class="liked-hero">
-    <div class="liked-hero-icon">
-      <Icon name="liked" size={64} strokeWidth={1} />
+    <div class="liked-hero-art" aria-hidden="true">
+      <Icon name="heart-filled" size={54} />
     </div>
     <div class="liked-hero-copy">
-      <div class="liked-kicker">My Library</div>
+      <div class="liked-kicker">资料库 · 歌单</div>
       <h1>我喜欢的音乐</h1>
-      <p>收藏你喜欢的每一首歌。</p>
-      <div class="liked-hero-stats">
-        <span>{songs.length} 首歌曲</span>
-      </div>
+      <p>你收藏的歌曲都会保存在这里。</p>
+      <div class="liked-hero-meta">哲听 · {songs.length} 首歌曲</div>
     </div>
     {#if songs.length > 0}
-      <button class="liked-hero-play" onclick={playAll}>播放全部</button>
+      <button class="liked-hero-play" onclick={playAll}><Icon name="play" size={18} />播放</button>
     {/if}
   </div>
 
@@ -82,8 +79,8 @@
     <div class="liked-skeleton">
       {#each Array(10) as _, i}
         <div class="liked-skeleton-row" style="animation-delay:{i * 30}ms">
-          <span class="skeleton-line" style="width:32px;height:32px;border-radius:8px"></span>
-          <span class="skeleton-line" style="width:48px;height:48px;border-radius:12px"></span>
+          <span class="skeleton-line" style="width:32px;height:32px;border-radius:var(--radius-sm)"></span>
+          <span class="skeleton-line" style="width:48px;height:48px;border-radius:var(--radius-md)"></span>
           <span style="flex:1;display:grid;gap:4px">
             <span class="skeleton-line" style="width:60%"></span>
             <span class="skeleton-line" style="width:40%"></span>
@@ -135,32 +132,48 @@
 </div>
 
 <style>
-  .liked-page { display: grid; gap: 20px; }
-  .liked-hero { position: relative; overflow: hidden; min-height: 200px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 30px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: 28px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, var(--bg-layer)), color-mix(in srgb, var(--accent) 6%, var(--bg-surface))); }
-  .liked-hero-icon { position: absolute; top: 30px; right: 30px; opacity: 0.15; }
-  .liked-hero-copy { position: relative; z-index: 1; }
-  .liked-kicker { color: var(--accent); font-size: 12px; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
-  .liked-hero h1 { font-size: clamp(32px, 3.6vw, 48px); line-height: 0.92; margin: 0; }
+  .liked-page { display: grid; gap: 26px; max-width: 1120px; margin: 0 auto; }
+  .liked-hero { min-height: 184px; display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; align-items: end; gap: 24px; padding: 0 0 24px; border-bottom: 1px solid var(--border); }
+  .liked-hero-art { width: 168px; height: 168px; display: grid; place-items: center; border-radius: var(--radius-sm); color: #fff; background: linear-gradient(145deg, #fa2a55, #c81741 70%, #8d1531); box-shadow: 0 16px 38px rgba(157, 18, 53, 0.24); }
+  .liked-hero-copy { min-width: 0; padding-bottom: 2px; }
+  .liked-kicker { margin-bottom: 7px; color: var(--text-tertiary); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
+  .liked-hero h1 { margin: 0; font-size: clamp(30px, 3.2vw, 46px); line-height: 1.03; letter-spacing: -0.045em; }
   .liked-hero p { margin-top: 10px; color: var(--text-secondary); font-size: 14px; }
-  .liked-hero-stats { display: flex; gap: 8px; margin-top: 14px; }
-  .liked-hero-stats span { display: inline-flex; align-items: center; padding: 0 12px; height: 30px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--text); font-size: 12px; font-weight: 760; }
-  .liked-hero-play { flex-shrink: 0; height: 42px; padding: 0 20px; border: none; border-radius: 999px; background: var(--accent); color: white; font-weight: 850; cursor: pointer; z-index: 1; transition: transform 0.18s, filter 0.18s; }
-  .liked-hero-play:hover { transform: translateY(-1px); filter: brightness(1.05); }
-  .liked-skeleton { display: grid; gap: 6px; padding: 10px; }
-  .liked-skeleton-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; animation: likedFadeIn 0.3s both; }
-  .liked-song-list { display: grid; gap: 4px; padding: 8px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 24px; background: color-mix(in srgb, var(--bg-layer) 82%, transparent); }
-  .liked-song-row { display: grid; grid-template-columns: 36px 48px 1fr 56px; gap: 12px; align-items: center; padding: 6px 10px; border-radius: 14px; cursor: pointer; transition: background 0.16s; }
+  .liked-hero-meta { margin-top: 14px; color: var(--text-tertiary); font-size: 12px; font-weight: 500; }
+  .liked-hero-play { min-width: 104px; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 18px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: white; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.15s; }
+  .liked-hero-play:hover { background: var(--accent-hover); }
+  .liked-hero-play:active { transform: scale(0.97); }
+  .liked-skeleton { display: grid; }
+  .liked-skeleton-row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-bottom: 1px solid var(--border); animation: likedFadeIn 0.3s both; }
+  .liked-song-list { display: grid; }
+  .liked-song-row { display: grid; grid-template-columns: 32px 44px minmax(0, 1fr) 56px; gap: 12px; align-items: center; min-height: 60px; padding: 7px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .liked-song-row:last-child { border-bottom: none; }
   .liked-song-row:hover { background: var(--bg-hover); }
-  .liked-song-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .liked-song-index { color: var(--text-tertiary); font-size: 13px; font-weight: 850; text-align: center; }
-  .liked-song-cover { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; }
+  .liked-song-row.active { background: var(--accent-bg); color: var(--accent); }
+  .liked-song-index { color: var(--text-tertiary); font-size: 12px; font-weight: 500; text-align: center; }
+  .liked-song-cover { width: 44px; height: 44px; border-radius: var(--radius-xs); object-fit: cover; }
   .liked-song-main { min-width: 0; display: grid; gap: 2px; }
-  .liked-song-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .liked-song-main em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 13px; color: var(--text-tertiary); }
-  .liked-song-dur { color: var(--text-tertiary); font-size: 13px; text-align: right; }
+  .liked-song-main strong { overflow: hidden; color: var(--text); font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .liked-song-main em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; font-size: 12px; color: var(--text-tertiary); }
+  .liked-song-dur { color: var(--text-tertiary); font-size: 12px; text-align: right; }
   .liked-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; color: var(--text-secondary); text-align: center; }
   .artist-sep { margin: 0 3px; color: var(--text-tertiary); }
   .artist-link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0; font: inherit; }
   .artist-link:hover { text-decoration: underline; }
+  @media (max-width: 760px) {
+    .liked-page { gap: 14px; }
+    .liked-hero { min-height: 0; grid-template-columns: 94px minmax(0, 1fr); gap: 14px; padding: 8px 2px 18px; }
+    .liked-hero-art { width: 94px; height: 94px; box-shadow: 0 10px 24px rgba(157, 18, 53, 0.2); }
+    .liked-hero-art :global(svg) { width: 34px; height: 34px; }
+    .liked-kicker { margin-bottom: 3px; font-size: 10px; }
+    .liked-hero h1 { font-size: 24px; }
+    .liked-hero p { display: none; }
+    .liked-hero-meta { margin-top: 7px; }
+    .liked-hero-play { grid-column: 1 / -1; width: 100%; height: 42px; }
+    .liked-song-row { grid-template-columns: 42px minmax(0, 1fr) 42px; gap: 10px; min-height: 58px; padding: 7px 2px; }
+    .liked-song-index { display: none; }
+    .liked-song-cover { width: 42px; height: 42px; }
+    .liked-song-dur { font-size: 11px; }
+  }
   @keyframes likedFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 </style>

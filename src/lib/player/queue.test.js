@@ -4,7 +4,7 @@
  * Status code: 0 = pass, 1 = fail.
  */
 
-import { getNextIndex, getPrevIndex, commitNextIndex } from './queue.js'
+import { compactTrack, getNextIndex, getPrevIndex, commitNextIndex } from './queue.js'
 
 let passed = 0
 let failed = 0
@@ -19,6 +19,19 @@ function assertEqual(a, b, msg) {
 
 function freshState() {
   return { order: [], position: -1 }
+}
+
+// ── 本地歌曲字段必须穿过队列压缩，否则重启后会误走远程 URL 解析 ──
+{
+  const track = compactTrack({
+    id: 'local:1234', localId: 'local:1234', source: 'local', name: '本地歌曲',
+    ar: [{ id: 'local-artist:a', name: '歌手' }], al: { id: 'local-album:a', name: '专辑' },
+    dt: 120000, fileName: 'song.mp3', relativePath: 'album/song.mp3', mime: 'audio/mpeg', fileSize: 2048,
+  })
+  assertEqual(track.source, 'local', 'compactTrack 保留本地来源')
+  assertEqual(track.localId, 'local:1234', 'compactTrack 保留本地文件 ID')
+  assertEqual(track.fileName, 'song.mp3', 'compactTrack 保留本地文件名')
+  assertEqual(track.fileSize, 2048, 'compactTrack 保留本地文件大小')
 }
 
 // ── 空队列 ──

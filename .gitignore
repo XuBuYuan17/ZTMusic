@@ -37,3 +37,6 @@ src-tauri/target
 # Agent / AI development files
 .agents/
 AGENTS.md
+.claude/
+.codex-target/
+.pnpm-store/

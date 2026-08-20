@@ -1,11 +1,12 @@
+mod api;
 #[cfg(target_os = "linux")]
 mod linux_mpris;
-#[cfg(target_os = "windows")]
-mod windows_smtc;
-mod api;
 mod media_metadata;
 mod media_playback;
 mod pending_action;
+mod webdav;
+#[cfg(target_os = "windows")]
+mod windows_smtc;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,7 +29,8 @@ pub(crate) struct NativeMediaState {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct NcmRequest {
+pub(crate) struct ApiRequest {
+    pub(crate) provider: Option<String>,
     pub(crate) base: String,
     pub(crate) endpoint: String,
     pub(crate) params: Value,
@@ -40,7 +42,7 @@ pub(crate) struct NcmRequest {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct NcmResponse {
+pub(crate) struct ApiResponse {
     pub(crate) data: Value,
     pub(crate) cookie: String,
 }
@@ -67,8 +69,12 @@ fn dev_report_client_error(log: ClientErrorLog) {
             "[client:{}] {}{}{}",
             log.level,
             log.message,
-            log.source.map(|source| format!("\nsource: {source}")).unwrap_or_default(),
-            log.stack.map(|stack| format!("\n{stack}")).unwrap_or_default()
+            log.source
+                .map(|source| format!("\nsource: {source}"))
+                .unwrap_or_default(),
+            log.stack
+                .map(|stack| format!("\n{stack}"))
+                .unwrap_or_default()
         );
     }
 }
@@ -86,10 +92,7 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 
             #[cfg(target_os = "windows")]
             {
-                let _ = api;
-                app.manage(NativeMediaState {
-                    smtc: windows_smtc::WindowsSmtcState::new(),
-                });
+                let _ = (app, api);
             }
 
             #[cfg(not(any(target_os = "linux", target_os = "windows")))]
@@ -104,6 +107,11 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    if let Err(error) = windows_smtc::set_process_app_id() {
+        eprintln!("failed to set Windows AppUserModelID: {error}");
+    }
+
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(API_TIMEOUT_SECS))
         // 禁用自动重定向：防止白名单 host 302 到内网/攻击者地址绕过 SSRF 校验
@@ -115,18 +123,31 @@ pub fn run() {
         .manage(AppState { client })
         .plugin(native_media_plugin())
         .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                let window = app.get_webview_window("main").ok_or_else(|| {
+                    std::io::Error::new(std::io::ErrorKind::NotFound, "main window not found")
+                })?;
+                let hwnd = window.hwnd()?.0 as isize;
+                app.manage(NativeMediaState {
+                    smtc: windows_smtc::WindowsSmtcState::new(hwnd),
+                });
+            }
+
             #[cfg(desktop)]
             {
                 // 单实例：桌面端再次启动时聚焦已有窗口，避免多开
-                app.handle().plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                }))?;
+                app.handle()
+                    .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.unminimize();
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }))?;
                 // 窗口状态：记住桌面端窗口大小与位置
-                app.handle().plugin(tauri_plugin_window_state::Builder::default().build())?;
+                app.handle()
+                    .plugin(tauri_plugin_window_state::Builder::default().build())?;
             }
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -138,10 +159,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            api::ncm_request,
+            api::api_request,
             media_metadata::updateMetadata,
             media_playback::updatePlaybackState,
             pending_action::pollPendingAction,
+            webdav::webdav_list_audio,
+            webdav::webdav_cache_audio,
             dev_report_client_error
         ])
         .run(tauri::generate_context!())

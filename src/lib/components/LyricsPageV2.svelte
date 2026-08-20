@@ -99,7 +99,7 @@
   <div class="ly-fullscreen" class:mounted class:entered class:closing
     bind:this={_fullscreenEl}
     class:ly-no-blur={$responsive.isMobile}
-    style={`${player.cover ? `--ly-cover: url(${player.cover});` : ''} --ly-origin-x: ${origin?.x ?? (typeof window !== 'undefined' ? window.innerWidth / 2 : 0)}px; --ly-origin-y: ${origin?.y ?? (typeof window !== 'undefined' ? window.innerHeight : 0)}px;`}
+    style={`${player.cover ? `--ly-cover: url(${player.cover});` : ''} --ly-origin-x: ${origin?.x ?? (typeof window !== 'undefined' ? window.innerWidth / 2 : 0)}px; --ly-origin-y: ${origin?.y ?? (typeof window !== 'undefined' ? window.innerHeight : 0)}px; --ly-origin-top: ${origin?.top ?? (typeof window !== 'undefined' ? window.innerHeight : 0)}px; --ly-origin-right: ${origin?.right ?? 0}px; --ly-origin-bottom: ${origin?.bottom ?? 0}px; --ly-origin-left: ${origin?.left ?? 0}px; --ly-origin-radius: ${origin?.radius ?? 12}px;`}
     role="presentation" onclick={handleClose}>
 
     <div class="ly-container" class:controls-hidden={!controlsVisible} role="presentation"

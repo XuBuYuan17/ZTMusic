@@ -2,22 +2,33 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use async_channel::{unbounded, Receiver, Sender};
-use windows::core::HSTRING;
-use windows::Foundation::{TimeSpan, TypedEventHandler};
-use windows::Media::Playback::MediaPlayer;
+use windows::core::{w, HSTRING};
+use windows::Foundation::{TimeSpan, TypedEventHandler, Uri};
 use windows::Media::{
-    MediaPlaybackStatus, SystemMediaTransportControlsButton,
-    SystemMediaTransportControlsButtonPressedEventArgs,
+    MediaPlaybackStatus, SystemMediaTransportControls, SystemMediaTransportControlsButton,
+    SystemMediaTransportControlsButtonPressedEventArgs, SystemMediaTransportControlsDisplayUpdater,
     SystemMediaTransportControlsTimelineProperties,
 };
-use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
+use windows::Storage::Streams::RandomAccessStreamReference;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::System::WinRT::{
+    ISystemMediaTransportControlsInterop, RoGetActivationFactory, RoInitialize, RoUninitialize,
+    RO_INIT_MULTITHREADED,
+};
+use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
-struct ComApartment;
+const APP_USER_MODEL_ID: &str = "com.zheting.music";
 
-impl Drop for ComApartment {
+struct WindowsRuntimeApartment;
+
+impl Drop for WindowsRuntimeApartment {
     fn drop(&mut self) {
-        unsafe { CoUninitialize() };
+        unsafe { RoUninitialize() };
     }
+}
+
+pub fn set_process_app_id() -> windows::core::Result<()> {
+    unsafe { SetCurrentProcessExplicitAppUserModelID(w!("com.zheting.music")) }
 }
 
 #[derive(Debug)]
@@ -42,24 +53,19 @@ pub struct WindowsSmtcState {
 }
 
 impl WindowsSmtcState {
-    pub fn new() -> Self {
+    pub fn new(hwnd: isize) -> Self {
         let (sender, receiver) = unbounded();
         let pending_action = Arc::new(Mutex::new(None));
         let thread_pending_action = Arc::clone(&pending_action);
 
         thread::spawn(move || {
-            // COM 是线程绑定的，本线程只初始化一次；重连时复用同一 apartment。
-            unsafe {
-                if let Err(error) = CoInitializeEx(None, COINIT_MULTITHREADED).ok() {
-                    log::error!(
-                        "Windows SMTC CoInitializeEx failed: {error}, aborting SMTC thread"
-                    );
-                    return;
-                }
+            if let Err(error) = unsafe { RoInitialize(RO_INIT_MULTITHREADED) } {
+                log::error!("Windows SMTC RoInitialize failed: {error}, aborting SMTC thread");
+                return;
             }
-            let _com_apartment = ComApartment;
+            let _runtime_apartment = WindowsRuntimeApartment;
             loop {
-                if let Err(error) = run_smtc(&receiver, &thread_pending_action) {
+                if let Err(error) = run_smtc(hwnd, &receiver, &thread_pending_action) {
                     log::warn!("Windows SMTC disconnected: {error}, reconnecting in 5s...");
                     std::thread::sleep(std::time::Duration::from_secs(5));
                 } else {
@@ -86,13 +92,11 @@ impl WindowsSmtcState {
     }
 
     pub fn update_playback_state(&self, playing: bool, position: f64, duration: f64) {
-        let _ = self
-            .sender
-            .try_send(WindowsSmtcMessage::Playback {
-                playing,
-                position,
-                duration,
-            });
+        let _ = self.sender.try_send(WindowsSmtcMessage::Playback {
+            playing,
+            position,
+            duration,
+        });
     }
 
     pub fn poll_pending_action(&self) -> String {
@@ -105,18 +109,23 @@ impl WindowsSmtcState {
 }
 
 fn run_smtc(
+    hwnd: isize,
     receiver: &Receiver<WindowsSmtcMessage>,
     pending_action: &Arc<Mutex<Option<String>>>,
 ) -> windows::core::Result<()> {
-    // COM 在外层线程入口已初始化一次，本函数不再重复初始化。
+    // 首次有歌曲或播放状态时才创建会话，避免应用启动后出现空白媒体卡片。
+    let first_message = match receiver.recv_blocking() {
+        Ok(message) => message,
+        Err(_) => return Ok(()),
+    };
 
-    // Create a MediaPlayer - this automatically creates the SMTC integration
-    let player = MediaPlayer::new()?;
+    let activation_factory: ISystemMediaTransportControlsInterop = unsafe {
+        RoGetActivationFactory(&HSTRING::from("Windows.Media.SystemMediaTransportControls"))?
+    };
+    let smtc: SystemMediaTransportControls =
+        unsafe { activation_factory.GetForWindow(HWND(hwnd as *mut std::ffi::c_void))? };
 
-    // Get the SystemMediaTransportControls
-    let smtc = player.SystemMediaTransportControls()?;
-
-    // Enable buttons
+    smtc.SetIsEnabled(true)?;
     smtc.SetIsPlayEnabled(true)?;
     smtc.SetIsPauseEnabled(true)?;
     smtc.SetIsNextEnabled(true)?;
@@ -144,77 +153,73 @@ fn run_smtc(
         },
     ))?;
 
-    // Get display updater
     let display_updater = smtc.DisplayUpdater()?;
+    display_updater.SetAppMediaId(&HSTRING::from(APP_USER_MODEL_ID))?;
 
-    // Process messages
+    handle_message(&smtc, &display_updater, first_message)?;
     while let Ok(message) = receiver.recv_blocking() {
-        match message {
-            WindowsSmtcMessage::Metadata {
-                title,
-                artist,
-                cover_url,
-                duration: _,
-            } => {
-                // Update display properties
-                display_updater.SetType(windows::Media::MediaPlaybackType::Music)?;
-                display_updater
-                    .MusicProperties()?
-                    .SetTitle(&HSTRING::from(&title))?;
-                display_updater
-                    .MusicProperties()?
-                    .SetArtist(&HSTRING::from(&artist))?;
-                // ponytail: Windows SMTC 封面图暂未实现，需要异步下载图片后通过
-                // display_updater.Thumbnail() 设置 RandomAccessStreamReference。
-                // 当前 cover_url 已接收但未使用，锁屏界面不会显示封面。
-                log::debug!(
-                    "SMTC metadata update: {} - {} (cover: {})",
-                    title,
-                    artist,
-                    cover_url
-                );
-
-                // Update SMTC
-                display_updater.Update()?;
-            }
-            WindowsSmtcMessage::Playback {
-                playing,
-                position,
-                duration,
-            } => {
-                // Update playback status
-                let status = if playing {
-                    MediaPlaybackStatus::Playing
-                } else {
-                    MediaPlaybackStatus::Paused
-                };
-
-                // Note: We don't directly control the MediaPlayer playback here
-                // because the actual audio is played in the webview
-                // We just update the SMTC status display
-                smtc.SetPlaybackStatus(status)?;
-
-                // 时间轴:SMTC 客户端(Lyricify 等)与系统媒体浮窗靠它同步歌词/进度条。
-                // TimeSpan 单位为 100ns,秒 = 1e7 tick。
-                let timeline = SystemMediaTransportControlsTimelineProperties::new()?;
-                timeline.SetEndTime(TimeSpan {
-                    Duration: (duration * 10_000_000.0) as i64,
-                })?;
-                timeline.SetPosition(TimeSpan {
-                    Duration: (position * 10_000_000.0) as i64,
-                })?;
-                smtc.UpdateTimelineProperties(&timeline)?;
-
-                log::debug!(
-                    "SMTC playback update: playing={}, position={}, duration={}",
-                    playing,
-                    position,
-                    duration
-                );
-            }
-        }
+        handle_message(&smtc, &display_updater, message)?;
     }
 
+    smtc.SetIsEnabled(false)?;
+    Ok(())
+}
+
+fn handle_message(
+    smtc: &SystemMediaTransportControls,
+    display_updater: &SystemMediaTransportControlsDisplayUpdater,
+    message: WindowsSmtcMessage,
+) -> windows::core::Result<()> {
+    match message {
+        WindowsSmtcMessage::Metadata {
+            title,
+            artist,
+            cover_url,
+            duration: _,
+        } => {
+            display_updater.SetType(windows::Media::MediaPlaybackType::Music)?;
+            let properties = display_updater.MusicProperties()?;
+            properties.SetTitle(&HSTRING::from(&title))?;
+            properties.SetArtist(&HSTRING::from(&artist))?;
+
+            if !cover_url.is_empty() {
+                match Uri::CreateUri(&HSTRING::from(&cover_url))
+                    .and_then(|uri| RandomAccessStreamReference::CreateFromUri(&uri))
+                {
+                    Ok(thumbnail) => display_updater.SetThumbnail(&thumbnail)?,
+                    Err(error) => log::warn!("SMTC cover URL rejected: {error}"),
+                }
+            }
+
+            display_updater.Update()?;
+            log::debug!("SMTC metadata update: {title} - {artist}");
+        }
+        WindowsSmtcMessage::Playback {
+            playing,
+            position,
+            duration,
+        } => {
+            let status = if playing {
+                MediaPlaybackStatus::Playing
+            } else {
+                MediaPlaybackStatus::Paused
+            };
+            smtc.SetPlaybackStatus(status)?;
+
+            let timeline = SystemMediaTransportControlsTimelineProperties::new()?;
+            timeline.SetEndTime(TimeSpan {
+                Duration: (duration * 10_000_000.0) as i64,
+            })?;
+            timeline.SetPosition(TimeSpan {
+                Duration: (position * 10_000_000.0) as i64,
+            })?;
+            smtc.UpdateTimelineProperties(&timeline)?;
+
+            log::debug!(
+                "SMTC playback update: playing={playing}, position={position}, duration={duration}"
+            );
+        }
+    }
     Ok(())
 }
 

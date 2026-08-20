@@ -5,7 +5,7 @@
   import { coverUrl } from '../../utils/image.js'
   import { extractCover } from '../../utils/normalize.js'
   import { loadHomeData } from '../../services/home.js'
-  import { loadDailyHistoryData } from '../../services/dailyHistory.js'
+  import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.js'
   import Icon from '../../components/ui/Icon.svelte'
   import Spinner from '../../components/Spinner.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
@@ -27,28 +27,28 @@
   let likedPlaylist = $state(null)
   let weeklyPlaylist = $state(null)
   let recommendPlaylists = $state([])
-  let dailyHistoryDates = $state([])
-  let dailyHistorySongs = $state([])
-  let selectedDailyDate = $state('')
+  let localListeningStats = $state({ ...EMPTY_LOCAL_LISTENING_STATS })
 
   let _requestId = 0
+  let _statsRequestId = 0
+
+  async function refreshLocalListeningStats() {
+    const rid = ++_statsRequestId
+    const stats = await loadLocalListeningStats()
+    if (rid === _statsRequestId) localListeningStats = stats
+  }
 
   async function load() {
     const rid = ++_requestId; loading = true; error = ''
     userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null
-    recommendPlaylists = []; dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = ''
+    recommendPlaylists = []
     try {
       if (!auth.isLoggedIn) return
-      const [data, dailyHistory] = await Promise.all([
-        loadHomeData(ncm, auth.user),
-        loadDailyHistoryData(ncm),
-      ])
+      const data = await loadHomeData(ncm, auth.user)
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
       weeklyPlaylist = data.weeklyPlaylist; recentTracks = data.recentTracks
       recommendPlaylists = data.recommendPlaylists
-      dailyHistoryDates = dailyHistory.dates; dailyHistorySongs = dailyHistory.songs
-      selectedDailyDate = dailyHistory.selectedDate
       data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
       data.weeklyPromise?.then(v => {
         if (rid !== _requestId) return
@@ -62,9 +62,14 @@
 
   $effect(() => { if (auth.isLoggedIn) load() })
   $effect(() => {
+    refreshLocalListeningStats()
+    const refresh = () => refreshLocalListeningStats()
+    window.addEventListener('local-listening-history-change', refresh)
+    return () => window.removeEventListener('local-listening-history-change', refresh)
+  })
+  $effect(() => {
     if (!auth.isLoggedIn) {
       loading = false; userPlaylists = []; recentTracks = []
-      dailyHistoryDates = []; dailyHistorySongs = []; selectedDailyDate = ''
     }
   })
 
@@ -80,12 +85,6 @@
 
   function coverOf(track) {
     return track?.picUrl || extractCover(track)
-  }
-
-  function formatDateLabel(date) {
-    if (!date) return '历史日推'
-    const parts = String(date).split('-')
-    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : date
   }
 
   const heroPlaylist = $derived(recommendPlaylists.length ? recommendPlaylists[0] : null)
@@ -156,10 +155,10 @@
           <span>最近播放</span>
           <small>{recentTracks.length} 首</small>
         </button>
-        <button class="m-quick-tile" onclick={() => onNavigate?.('dailyHistory')}>
-          <Icon name="calendar" size={22} />
-          <span>历史日推</span>
-          <small>{selectedDailyDate ? formatDateLabel(selectedDailyDate) : '每日推荐'}</small>
+        <button class="m-quick-tile" onclick={() => onNavigate?.('recent')}>
+          <Icon name="music" size={22} />
+          <span>本地听歌统计</span>
+          <small>{localListeningStats.playCount ? `${localListeningStats.playCount} 次播放` : '等待记录'}</small>
         </button>
         <button class="m-quick-tile" onclick={() => onNavigate?.('library')}>
           <Icon name="list" size={22} />
@@ -212,25 +211,34 @@
       </section>
     {/if}
 
-    <!-- 每日推荐日期芯片 -->
-    {#if dailyHistoryDates.length}
-      <section class="m-section">
-        <div class="m-section-head">
-          <h2>历史日推</h2>
-          <button class="m-section-action" onclick={() => onNavigate?.('dailyHistory')}>查看全部</button>
+    <section class="m-section m-listening-section">
+      <div class="m-section-head">
+        <div>
+          <small class="m-section-eyebrow">On This Device</small>
+          <h2>本地听歌统计</h2>
         </div>
-        <div class="m-rail">
-          {#each dailyHistoryDates.slice(0, 14) as date (date)}
-            <button
-              class="m-date-chip"
-              class:active={date === selectedDailyDate}
-              onclick={() => onNavigate?.('dailyHistory', { date })}
-            >
-              {formatDateLabel(date)}
-            </button>
-          {/each}
-        </div>
-      </section>
-    {/if}
+      </div>
+      <div class="m-listening-stats">
+        <article>
+          <strong>{localListeningStats.playCount}</strong>
+          <span>播放次数</span>
+        </article>
+        <article>
+          <strong>{localListeningStats.durationLabel}</strong>
+          <span>累计歌曲时长</span>
+        </article>
+        <article>
+          <strong>{localListeningStats.activeDays}</strong>
+          <span>活跃天数</span>
+        </article>
+      </div>
+      <p class="m-listening-note">
+        {#if localListeningStats.trackCount}
+          已在本机记录 {localListeningStats.trackCount} 首歌曲，常听艺人是 {localListeningStats.topArtist}。
+        {:else}
+          播放歌曲后，这里会在本机生成你的听歌摘要。
+        {/if}
+      </p>
+    </section>
   {/if}
 </div>

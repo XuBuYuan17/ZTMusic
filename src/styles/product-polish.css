@@ -1,0 +1,50 @@
+/* Product-level finishing pass: calm hierarchy, restrained surfaces and motion. */
+html:not(.mobile-runtime) :where(.page-header h1, .home-section-title, .music-section-head h2, .daily-section-header h2) {
+  letter-spacing: -0.035em;
+}
+
+html:not(.mobile-runtime) :where(
+  .home-editorial-card,
+  .home-station-card,
+  .music-feature-card,
+  .music-cover-card,
+  .shared-card
+) {
+  border-radius: var(--radius-sm);
+}
+
+html:not(.mobile-runtime) :where(
+  .home-editorial-card,
+  .home-station-card,
+  .music-feature-card,
+  .music-cover-card,
+  .shared-card,
+  .library-card
+):hover {
+  transform: none;
+}
+
+html:not(.mobile-runtime) :where(.home-station-card, .music-cover-card, .shared-card):active {
+  opacity: 0.68;
+  transform: none;
+}
+
+html.mobile-runtime :where(.m-page-header h1, .m-section-head h2) {
+  letter-spacing: -0.035em;
+}
+
+html.mobile-runtime :where(.m-cover-card img, .m-editor-card img, .m-library-card-cover) {
+  border-radius: var(--radius-xs);
+}
+
+html.mobile-runtime :where(.m-settings-card, .m-list, .m-library-shortcuts) {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ly-fullscreen,
+  .ly-fullscreen .ly-container,
+  .apple-music-player {
+    transition-duration: 0.01ms !important;
+  }
+}

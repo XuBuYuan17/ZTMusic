@@ -19,7 +19,7 @@ import { getPlayableUrls, fillFallbackUrls } from '../player/url-resolver.js'
 import { getTrialPlaybackMessage } from '../player/trial-message.js'
 import { compactTrack, compactQueue, getNextIndex, getPrevIndex, commitNextIndex } from '../player/queue.js'
 import { dbHistory } from '../db/history.js'
-import { initNativeMedia, syncNativeMedia, destroyNativeMedia } from '../player/native-media.js'
+import { initNativeMedia, syncNativeMedia, destroyNativeMedia, shouldUseWebMediaSession } from '../player/native-media.js'
 import { createPrefetchManager } from '../player/prefetch.js'
 import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEMPLATE } from '../utils/constants.js'
 import { ERROR_KIND, createErrorSnapshot, debugLog, swallowError } from '../utils/error.js'
@@ -27,6 +27,14 @@ import { getBooleanSetting, getSetting, setSetting } from '../utils/settings.js'
 import { createFallbackController } from '../player/fallback.js'
 import { abortAllRequests } from '../utils/request.js'
 import { toast } from './toast.svelte.js'
+import { getLocalPlayableUrl } from '../local-music/storage.js'
+import { getWebDavPlayableUrl } from '../local-music/webdav.js'
+
+function parseStoredTrackId(value) {
+  const raw = String(value || '')
+  if (raw.startsWith('local:') || raw.startsWith('webdav:')) return raw
+  return Number.parseInt(raw, 10) || 0
+}
 
 class PlayerState {
   // ===== 当前歌曲 =====
@@ -59,6 +67,13 @@ class PlayerState {
   _shouldAutoPlay = false
   /** 保存进度的定时器 */
   _saveTimer = null
+  /** 进度 UI 合帧更新 */
+  _timeUpdateFrame = null
+  _pendingCurrentTime = 0
+  _lastCurrentTimeCommit = 0
+  _lastTimedNativeSyncAt = 0
+  _lastTimedWebSyncAt = 0
+  _lastWebMediaPosition = 0
   /** loading 超时保护 */
   _loadingTimer = null
   /** 上次 error 的 reqId（防重复） */
@@ -130,7 +145,7 @@ class PlayerState {
   // ==========================================
 
   _restoreInitialState() {
-    this.id = parseInt(getStorage(STORAGE_KEYS.PLAYER_ID, '0')) || 0
+    this.id = parseStoredTrackId(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))
     this.title = getStorage(STORAGE_KEYS.PLAYER_TITLE, '')
     this.artist = getStorage(STORAGE_KEYS.PLAYER_ARTIST, '')
     this.cover = getStorage(STORAGE_KEYS.PLAYER_COVER, '')
@@ -147,10 +162,7 @@ class PlayerState {
 
   _setupEngineListeners() {
     engine.onTimeUpdate((t) => {
-      this.currentTime = t
-      this._debouncedSaveTime(t)
-      this._syncWebMediaPosition()
-      syncNativeMedia()
+      this._scheduleProgressUpdate(t)
     })
 
     engine.onEnded((state) => {
@@ -169,11 +181,14 @@ class PlayerState {
       this.playing = this._shouldAutoPlay && !engine.paused
       // 恢复播放时 seek
       if (this._restoreSeeking && this.currentTime > 0) {
-        engine.seek(this.currentTime)
+        const restoreTime = this.currentTime
+        engine.seek(restoreTime)
+        this._commitProgress(restoreTime, { force: true })
         this._restoreSeeking = false
+      } else {
+        this._commitProgress(engine.currentTime, { force: true })
       }
-      this._syncWebMediaPosition()
-      syncNativeMedia()
+      this._syncTimedMedia(this.currentTime, { force: true })
     })
 
     engine.onError((state) => {
@@ -187,17 +202,19 @@ class PlayerState {
     engine.onPlay(() => {
       this.playing = true
       this._setWebPlaybackState('playing')
-      syncNativeMedia()
+      this._syncTimedMedia(engine.currentTime, { force: true })
     })
 
     engine.onPause(() => {
+      this._commitProgress(engine.currentTime, { force: true })
       if (!this.loading || !this._shouldAutoPlay) this.playing = false
       this._setWebPlaybackState('paused')
-      syncNativeMedia()
+      this._syncTimedMedia(this.currentTime, { force: true })
     })
   }
 
   _initMediaSession() {
+    if (!shouldUseWebMediaSession()) return
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
     if (this._mediaSessionInited) return
     this._mediaSessionInited = true
@@ -233,11 +250,13 @@ class PlayerState {
   }
 
   _setWebPlaybackState(state) {
+    if (!shouldUseWebMediaSession()) return
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return
     try { navigator.mediaSession.playbackState = state } catch { /* ignore */ }
   }
 
-  _syncWebMediaPosition() {
+  _syncWebMediaPosition(position = this.currentTime) {
+    if (!shouldUseWebMediaSession()) return
     if (typeof navigator === 'undefined' || !navigator.mediaSession?.setPositionState) return
     const duration = this.duration > 0 ? this.duration : 0
     if (!duration) return
@@ -245,10 +264,49 @@ class PlayerState {
       navigator.mediaSession.setPositionState({
         duration,
         playbackRate: 1,
-        position: Math.min(Math.max(this.currentTime || 0, 0), duration),
+        position: Math.min(Math.max(position || 0, 0), duration),
       })
     } catch {
       // Ignore invalid or unsupported position state.
+    }
+  }
+
+  _scheduleProgressUpdate(time) {
+    this._pendingCurrentTime = Number.isFinite(time) ? time : 0
+    if (this._timeUpdateFrame) return
+    const frame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (fn) => setTimeout(fn, 16)
+    this._timeUpdateFrame = frame(() => {
+      this._timeUpdateFrame = null
+      this._commitProgress(this._pendingCurrentTime)
+      this._syncTimedMedia(this._pendingCurrentTime)
+    })
+  }
+
+  _commitProgress(time, { force = false } = {}) {
+    const next = Number.isFinite(time) ? time : 0
+    const nearEnd = this.duration > 0 && Math.abs(this.duration - next) < 0.35
+    if (force || nearEnd || Math.abs(next - this._lastCurrentTimeCommit) >= 0.2) {
+      this.currentTime = next
+      this._lastCurrentTimeCommit = next
+    }
+    this._debouncedSaveTime(next)
+  }
+
+  _syncTimedMedia(position, { force = false } = {}) {
+    const now = Date.now()
+    const pos = Number.isFinite(position) ? position : 0
+
+    if (force || now - this._lastTimedWebSyncAt >= 1000 || Math.abs(pos - this._lastWebMediaPosition) >= 1) {
+      this._syncWebMediaPosition(pos)
+      this._lastTimedWebSyncAt = now
+      this._lastWebMediaPosition = pos
+    }
+
+    if (force || now - this._lastTimedNativeSyncAt >= 1000) {
+      syncNativeMedia()
+      this._lastTimedNativeSyncAt = now
     }
   }
 
@@ -410,19 +468,30 @@ class PlayerState {
     debugLog('player', 'play-track', { id: playableTrack.id, index, preferredLevel: this.preferredLevel })
 
     // 更新媒体会话元数据
-    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
+    if (shouldUseWebMediaSession() && typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      const mediaMetadata = {
         title: this.title,
         artist: this.artist,
-        album: '',
-        artwork: [{ src: coverUrl(this.cover, 512), sizes: '512x512', type: 'image/jpeg' }],
-      })
+        album: playableTrack.al?.name || '',
+      }
+      if (this.cover) mediaMetadata.artwork = [{ src: coverUrl(this.cover, 512), sizes: '512x512', type: 'image/jpeg' }]
+      navigator.mediaSession.metadata = new MediaMetadata(mediaMetadata)
     }
 
     this._persistState()
-    dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
-    this._syncWebMediaPosition()
-    syncNativeMedia()
+    if (playableTrack.source !== 'local' && playableTrack.source !== 'webdav') {
+      dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
+    }
+    this._syncTimedMedia(this.currentTime, { force: true })
+
+    if (playableTrack.source === 'local') {
+      this._playLocalTrack(playableTrack, requestId)
+      return
+    }
+    if (playableTrack.source === 'webdav') {
+      this._playWebDavTrack(playableTrack, requestId)
+      return
+    }
 
     // 获取可播放 URL，传入 auth 状态供 url-resolver 使用（而非 url-resolver 直接 import auth）
     const authOpts = { isLoggedIn: this._authProvider.isLoggedIn(), checkLoginStatus: () => this._authProvider.checkLoginStatus() }
@@ -474,6 +543,50 @@ class PlayerState {
         this._shouldAutoPlay = false
         this._setPlayerError('ResolvePlayableUrlsFailed', err, ERROR_MESSAGES.NO_URL)
       })
+  }
+
+  async _playLocalTrack(track, requestId) {
+    try {
+      const url = await getLocalPlayableUrl(track.localId || track.id)
+      if (requestId !== this._playRequestId) return
+      this._firstUrlLevel = 'local'
+      this._fallback.updateUrls([url])
+      this._prefetchNextTrack(requestId)
+      const first = this._fallback.next()
+      if (first.status !== 'playing') throw new Error('Local audio URL is unavailable')
+      engine.load(first.url)
+      await engine.play()
+      if (requestId === this._playRequestId) this.playing = true
+    } catch (error) {
+      if (requestId !== this._playRequestId) return
+      this._clearLoadingTimer()
+      this.loading = false
+      this.playing = false
+      this._shouldAutoPlay = false
+      this._setPlayerError('LocalPlaybackFailed', error, error?.message || '本地音频播放失败')
+    }
+  }
+
+  async _playWebDavTrack(track, requestId) {
+    try {
+      const url = await getWebDavPlayableUrl(track)
+      if (requestId !== this._playRequestId) return
+      this._firstUrlLevel = 'webdav'
+      this._fallback.updateUrls([url])
+      this._prefetchNextTrack(requestId)
+      const first = this._fallback.next()
+      if (first.status !== 'playing') throw new Error('WebDAV audio URL is unavailable')
+      engine.load(first.url)
+      await engine.play()
+      if (requestId === this._playRequestId) this.playing = true
+    } catch (error) {
+      if (requestId !== this._playRequestId) return
+      this._clearLoadingTimer()
+      this.loading = false
+      this.playing = false
+      this._shouldAutoPlay = false
+      this._setPlayerError('WebDavPlaybackFailed', error, error?.message || 'WebDAV 音频播放失败')
+    }
   }
 
   _prefetchNextTrack(reqId) {
@@ -642,8 +755,9 @@ class PlayerState {
   /** 跳转到指定时间 */
   seek(time) {
     engine.seek(time)
-    this.currentTime = time
+    this._commitProgress(time, { force: true })
     setStorage(STORAGE_KEYS.PLAYER_TIME, time)
+    this._syncTimedMedia(time, { force: true })
   }
 
   /** 设置音量 */
@@ -675,6 +789,32 @@ class PlayerState {
     this.queueIndex = -1
     removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
     removeStorage(STORAGE_KEYS.PLAYER_QI)
+  }
+
+  /** 从队列移除一组曲目 ID，供本地曲库删除文件时清理悬空引用。 */
+  removeTracksById(ids) {
+    const removedIds = ids instanceof Set ? ids : new Set(ids || [])
+    if (removedIds.size === 0) return
+    const currentRemoved = removedIds.has(this.id)
+    const nextQueue = this.queue.filter((track) => !removedIds.has(track.id))
+
+    if (currentRemoved) {
+      engine.pause()
+      this.queue = nextQueue
+      if (nextQueue.length > 0) {
+        const nextIndex = Math.min(Math.max(this.queueIndex, 0), nextQueue.length - 1)
+        this.playTrack(nextQueue[nextIndex], nextIndex)
+      } else {
+        this._clearCurrentTrack()
+      }
+    } else {
+      const removedBefore = this.queue.slice(0, Math.max(this.queueIndex, 0)).filter((track) => removedIds.has(track.id)).length
+      this.queue = nextQueue
+      this.queueIndex = Math.max(-1, this.queueIndex - removedBefore)
+    }
+
+    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
+    setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
   }
 
   /** 从队列移除指定索引 */
@@ -720,7 +860,7 @@ class PlayerState {
   restore() {
     if (!getBooleanSetting(STORAGE_KEYS.RESTORE_SESSION, 'true')) return
 
-    const savedId = parseInt(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))
+    const savedId = parseStoredTrackId(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))
     if (!savedId) return
 
     const savedQueue = compactQueue(getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, []))
@@ -754,6 +894,26 @@ class PlayerState {
     this._abortController.abort()
     this._abortController = new AbortController()
     const signal = this._abortController.signal
+
+    if (this.currentTrack?.source === 'local' || this.currentTrack?.source === 'webdav') {
+      const resolver = this.currentTrack.source === 'webdav'
+        ? getWebDavPlayableUrl(this.currentTrack)
+        : getLocalPlayableUrl(this.currentTrack.localId || savedId)
+      resolver
+        .then((url) => {
+          if (requestId !== this._playRequestId) return
+          this._fallback.updateUrls([url])
+          const first = this._fallback.next()
+          if (first.status === 'playing') engine.load(first.url)
+        })
+        .catch((err) => {
+          if (requestId !== this._playRequestId) return
+          this._clearLoadingTimer()
+          this.loading = false
+          this._setPlayerError('RestoreLocalTrackFailed', err, err?.message || '本地音频恢复失败')
+        })
+      return
+    }
 
     getPlayableUrls(savedId, this.preferredLevel, this._prefetchCache, requestId, {
       isLoggedIn: this._authProvider.isLoggedIn(),
@@ -806,6 +966,11 @@ class PlayerState {
     if (this._saveTimer) {
       clearTimeout(this._saveTimer)
       this._saveTimer = null
+    }
+    if (this._timeUpdateFrame) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this._timeUpdateFrame)
+      else clearTimeout(this._timeUpdateFrame)
+      this._timeUpdateFrame = null
     }
     destroyNativeMedia()
     engine.destroy()

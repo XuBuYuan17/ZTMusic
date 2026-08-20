@@ -1,8 +1,9 @@
 <script>
   import { tick } from 'svelte'
-  import { ncm } from '../api/client.js'
+  import { musicService } from '../music/service.js'
   import { player } from '../stores/player.svelte.js'
   import { coverUrl } from '../utils/image.js'
+  import { formatDuration } from '../format.js'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
@@ -18,7 +19,7 @@
   let keyword = $state('')
   let loading = $state(false)
   let results = $state({ songs: [], artists: [], playlists: [] })
-  let activeType = $state('songs')
+  let activeType = $state('all')
   let error = $state('')
   let inputEl = $state(null)
   let requestId = 0
@@ -35,13 +36,17 @@
     return id
   }
 
+  let total = $derived(results.songs.length + results.artists.length + results.playlists.length)
+
   const categories = $derived([
+    { id: 'all', label: '综合', count: total },
     { id: 'songs', label: '歌曲', count: results.songs.length },
     { id: 'artists', label: '歌手', count: results.artists.length },
     { id: 'playlists', label: '歌单', count: results.playlists.length },
   ])
 
-  let activeItems = $derived(results[activeType] || [])
+  /** 最佳匹配：Apple Music 的「Top Result」——取第一首歌 */
+  let topResult = $derived(results.songs[0] || null)
 
   function withTimeout(promise, fallback, timeout = 4500) {
     return Promise.race([
@@ -87,39 +92,13 @@
     error = ''
     results = { songs: [], artists: [], playlists: [] }
     try {
-      const [songRes, artistRes, playlistRes] = await Promise.all([
-        withTimeout(ncm.searchSongs(query, 16), { result: {} }),
-        withTimeout(ncm.searchArtists(query, 10), { result: {} }),
-        withTimeout(ncm.searchPlaylists(query, 10), { result: {} }),
-      ])
+      const searchResults = await withTimeout(
+        musicService.search(query, { songLimit: 20, artistLimit: 12, playlistLimit: 12 }),
+        { songs: [], artists: [], playlists: [] },
+      )
       if (currentRequest !== requestId) return
-      const songs = songRes?.result?.songs || []
-      const detailRes = songs.length ? await withTimeout(ncm.songDetail(songs.map(song => song.id)), { songs: [] }, 3500) : { songs: [] }
-      if (currentRequest !== requestId) return
-      const detailMap = new Map((detailRes?.songs || []).map(song => [song.id, song]))
-      results = {
-        songs: songs.map(song => {
-        const detail = detailMap.get(song.id) || {}
-        const album = detail.al || song.album || song.al || {}
-        const picUrl = album.picUrl || album.imgUrl || song.album?.picUrl || song.al?.picUrl || ''
-        return { ...detail, id: song.id, name: song.name, ar: detail.ar || song.artists || song.ar || [], al: album, dt: detail.dt || song.duration || song.dt || 0, picUrl }
-        }),
-        artists: (artistRes?.result?.artists || []).map(artist => ({
-          id: artist.id,
-          name: artist.name,
-          picUrl: artist.picUrl || artist.img1v1Url || artist.img1Url || '',
-          musicSize: artist.musicSize || 0,
-          albumSize: artist.albumSize || 0,
-        })),
-        playlists: (playlistRes?.result?.playlists || []).map(playlist => ({
-          id: playlist.id,
-          name: playlist.name,
-          picUrl: playlist.coverImgUrl || playlist.picUrl || '',
-          trackCount: playlist.trackCount || 0,
-          creator: playlist.creator?.nickname || '',
-        })),
-      }
-      activeType = results.songs.length ? 'songs' : results.artists.length ? 'artists' : results.playlists.length ? 'playlists' : 'songs'
+      results = searchResults
+      activeType = 'all'
     } catch (err) {
       if (currentRequest === requestId) error = err?.message || '搜索失败'
     } finally {
@@ -153,98 +132,153 @@
   }
 </script>
 
+{#snippet songRow(track)}
+  <button type="button" class="so-row" class:active={player.id === track.id} onclick={() => playTrack(track)}>
+    {#if track.picUrl}
+      <img class="so-art" src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    {:else}
+      <span class="so-art so-art--ph">♫</span>
+    {/if}
+    <span class="so-copy">
+      <strong>{track.name}</strong>
+      <em><ArtistNames artists={track.ar || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em>
+    </span>
+    {#if track.dt}<span class="so-dur">{formatDuration(track.dt)}</span>{/if}
+  </button>
+{/snippet}
+
+{#snippet artistRow(artist)}
+  <button type="button" class="so-row" onclick={() => openArtist(artist)}>
+    {#if artist.picUrl}
+      <img class="so-art so-art--round" src={coverUrl(artist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    {:else}
+      <span class="so-art so-art--round so-art--ph">{artist.name?.charAt(0) || '?'}</span>
+    {/if}
+    <span class="so-copy">
+      <strong>{artist.name}</strong>
+      <em>歌手 · {artist.musicSize || 0} 首歌曲</em>
+    </span>
+  </button>
+{/snippet}
+
+{#snippet playlistRow(playlist)}
+  <button type="button" class="so-row" onclick={() => openPlaylist(playlist)}>
+    {#if playlist.picUrl}
+      <img class="so-art" src={coverUrl(playlist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+    {:else}
+      <span class="so-art so-art--ph">♫</span>
+    {/if}
+    <span class="so-copy">
+      <strong>{playlist.name}</strong>
+      <em>歌单 · {playlist.creator || '未知'} · {playlist.trackCount || 0} 首</em>
+    </span>
+  </button>
+{/snippet}
+
 {#if show}
   <div class="search-overlay" role="dialog" aria-modal="true" aria-label="搜索音乐">
     <button class="search-overlay__scrim" type="button" aria-label="关闭搜索" onclick={onClose}></button>
     <section class="search-overlay__panel">
-      <div class="search-overlay__titlebar">
-        <div>
-          <span>Search</span>
-          <strong>快速搜索</strong>
-        </div>
-        <button type="button" class="search-overlay__close" aria-label="关闭搜索" onclick={onClose}>
-          <Icon name="close" size={18} />
-        </button>
-      </div>
-      <div class="search-overlay__head">
-        <label class="search-overlay__input-wrap" aria-label="搜索音乐">
+      <div class="so-head">
+        <label class="so-field" aria-label="搜索音乐">
           <Icon name="search" size={18} />
-          <input bind:this={inputEl} bind:value={keyword} oninput={handleInput} onkeydown={handleKeydown} placeholder="搜索歌曲" />
+          <input bind:this={inputEl} bind:value={keyword} oninput={handleInput} onkeydown={handleKeydown} placeholder="歌曲、歌手、歌单" />
           {#if keyword}
-            <button type="button" class="search-overlay__clear" aria-label="清空搜索" onclick={() => { keyword = ''; results = { songs: [], artists: [], playlists: [] }; error = '' }}>
+            <button type="button" class="so-clear" aria-label="清空搜索" onclick={() => { keyword = ''; results = { songs: [], artists: [], playlists: [] }; error = '' }}>
               <Icon name="close" size={15} />
             </button>
           {/if}
         </label>
-        <button type="button" class="search-overlay__submit" onclick={doSearch} disabled={loading || !keyword.trim()}>
-          {loading ? '搜索中' : '搜索'}
-        </button>
+        <button type="button" class="so-cancel" onclick={onClose}>取消</button>
       </div>
+
+      {#if total > 0 && !loading}
+        <nav class="so-tabs" aria-label="搜索结果分类">
+          {#each categories as category (category.id)}
+            <button type="button" class:active={activeType === category.id} disabled={category.count === 0} onclick={() => activeType = category.id}>
+              {category.label}
+            </button>
+          {/each}
+        </nav>
+      {/if}
 
       <div class="search-overlay__body">
         {#if loading}
-          <div class="search-overlay__state"><Spinner size="sm" /> 搜索中...</div>
+          <div class="so-state"><Spinner size="sm" /> 搜索中…</div>
         {:else if error}
-          <div class="search-overlay__state">{error}</div>
-        {:else if keyword.trim() && categories.every(category => category.count === 0)}
-          <div class="search-overlay__state">没有找到相关结果</div>
-        {:else if categories.some(category => category.count > 0)}
-          <nav class="search-overlay__tabs" aria-label="搜索结果分类">
-            {#each categories as category (category.id)}
-              <button type="button" class:active={activeType === category.id} disabled={category.count === 0} onclick={() => activeType = category.id}>
-                <span>{category.label}</span>
-                <em>{category.count}</em>
-              </button>
-            {/each}
-          </nav>
-
-          <div class="search-overlay__results">
-            {#if activeType === 'songs'}
-              {#each activeItems as track (track.id)}
-                <button type="button" class="search-overlay__row" class:active={player.id === track.id} onclick={() => playTrack(track)}>
-                  {#if track.picUrl}
-                    <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+          <div class="so-state">{error}</div>
+        {:else if keyword.trim() && total === 0}
+          <div class="so-state">没有找到「{keyword.trim()}」的相关结果</div>
+        {:else if total > 0}
+          {#if activeType === 'all'}
+            {#if topResult}
+              <section class="so-section">
+                <h3>最佳匹配</h3>
+                <button type="button" class="so-top" onclick={() => playTrack(topResult)}>
+                  {#if topResult.picUrl}
+                    <img src={coverUrl(topResult.picUrl, 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
-                    <span class="search-overlay__cover-ph">♫</span>
+                    <span class="so-top__ph">♫</span>
                   {/if}
-                  <span class="search-overlay__copy">
-                    <strong>{track.name}</strong>
-                    <em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em>
+                  <span class="so-top__copy">
+                    <small>歌曲</small>
+                    <strong>{topResult.name}</strong>
+                    <em><ArtistNames artists={topResult.ar || []} {onOpenArtist} /></em>
                   </span>
                 </button>
-              {/each}
-            {:else if activeType === 'artists'}
-              {#each activeItems as artist (artist.id)}
-                <button type="button" class="search-overlay__row" onclick={() => openArtist(artist)}>
-                  {#if artist.picUrl}
-                    <img class="search-overlay__avatar" src={coverUrl(artist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <span class="search-overlay__avatar search-overlay__cover-ph">{artist.name?.charAt(0) || '?'}</span>
-                  {/if}
-                  <span class="search-overlay__copy">
-                    <strong>{artist.name}</strong>
-                    <em>{artist.musicSize || 0} 首歌曲 · {artist.albumSize || 0} 张专辑</em>
-                  </span>
-                </button>
-              {/each}
-            {:else}
-              {#each activeItems as playlist (playlist.id)}
-                <button type="button" class="search-overlay__row" onclick={() => openPlaylist(playlist)}>
-                  {#if playlist.picUrl}
-                    <img src={coverUrl(playlist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <span class="search-overlay__cover-ph">♫</span>
-                  {/if}
-                  <span class="search-overlay__copy">
-                    <strong>{playlist.name}</strong>
-                    <em>{playlist.creator || '歌单'} · {playlist.trackCount || 0} 首</em>
-                  </span>
-                </button>
-              {/each}
+              </section>
             {/if}
-          </div>
+
+            {#if results.songs.length > 1}
+              <section class="so-section">
+                <h3>歌曲</h3>
+                <div class="so-list">
+                  {#each results.songs.slice(1, 6) as track (track.id)}{@render songRow(track)}{/each}
+                </div>
+                {#if results.songs.length > 6}
+                  <button type="button" class="so-more" onclick={() => activeType = 'songs'}>查看全部 {results.songs.length} 首歌曲</button>
+                {/if}
+              </section>
+            {/if}
+
+            {#if results.artists.length}
+              <section class="so-section">
+                <h3>歌手</h3>
+                <div class="so-list">
+                  {#each results.artists.slice(0, 4) as artist (artist.id)}{@render artistRow(artist)}{/each}
+                </div>
+                {#if results.artists.length > 4}
+                  <button type="button" class="so-more" onclick={() => activeType = 'artists'}>查看全部 {results.artists.length} 位歌手</button>
+                {/if}
+              </section>
+            {/if}
+
+            {#if results.playlists.length}
+              <section class="so-section">
+                <h3>歌单</h3>
+                <div class="so-list">
+                  {#each results.playlists.slice(0, 4) as playlist (playlist.id)}{@render playlistRow(playlist)}{/each}
+                </div>
+                {#if results.playlists.length > 4}
+                  <button type="button" class="so-more" onclick={() => activeType = 'playlists'}>查看全部 {results.playlists.length} 个歌单</button>
+                {/if}
+              </section>
+            {/if}
+          {:else if activeType === 'songs'}
+            <div class="so-list">
+              {#each results.songs as track (track.id)}{@render songRow(track)}{/each}
+            </div>
+          {:else if activeType === 'artists'}
+            <div class="so-list">
+              {#each results.artists as artist (artist.id)}{@render artistRow(artist)}{/each}
+            </div>
+          {:else}
+            <div class="so-list">
+              {#each results.playlists as playlist (playlist.id)}{@render playlistRow(playlist)}{/each}
+            </div>
+          {/if}
         {:else}
-          <div class="search-overlay__state">输入关键词搜索歌曲</div>
+          <div class="so-state">输入关键词搜索歌曲、歌手或歌单</div>
         {/if}
       </div>
     </section>

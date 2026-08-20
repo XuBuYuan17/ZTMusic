@@ -1,4 +1,4 @@
-import { ncm } from '../api/client.js'
+import { musicService } from '../music/service.js'
 import { parseLyricResponse } from '../utils/lyrics.js'
 
 const DEFAULT_CACHE_SIZE = 32
@@ -41,9 +41,9 @@ export function createLyricsLoader(fetchLyrics, maxEntries = DEFAULT_CACHE_SIZE)
     }
 
     const request = Promise.resolve(fetchLyrics(id))
-      .then((response) => parseLyricResponse(response || {}).lines
-        .map(normalizeLyricLine)
-        .filter((line) => line.text))
+      .then((response) => Array.isArray(response)
+        ? response.filter((line) => line?.text)
+        : parseLyricResponse(response || {}).lines.map(normalizeLyricLine).filter((line) => line.text))
       .then((lines) => set(id, lines))
       .finally(() => {
         if (pending.get(id) === request) pending.delete(id)
@@ -61,7 +61,7 @@ export function createLyricsLoader(fetchLyrics, maxEntries = DEFAULT_CACHE_SIZE)
   return { load, get, clear }
 }
 
-const sharedLyricsLoader = createLyricsLoader((id) => ncm.lyric(id))
+const sharedLyricsLoader = createLyricsLoader((id) => musicService.getLyrics(id))
 
 export const loadLyrics = (id, options) => sharedLyricsLoader.load(id, options)
 export const getCachedLyrics = (id) => sharedLyricsLoader.get(id)

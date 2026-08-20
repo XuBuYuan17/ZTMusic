@@ -276,7 +276,7 @@
   .artist-page { min-height: 100%; padding-bottom: 18px; }
   .artist-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 14px; min-height: 360px; color: var(--text-secondary); }
   .artist-empty p { margin: 0; }
-  .artist-empty button { min-height: 36px; padding: 0 16px; border-radius: var(--radius-lg); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 750; }
+  .artist-empty button { min-height: 36px; padding: 0 16px; border-radius: var(--radius-lg); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 700; }
   .artist-empty button:hover { background: var(--accent-bg-hover); }
   .artist-hero { position: relative; display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); align-items: end; gap: 34px; min-height: 390px; margin: -24px -32px 22px; padding: 78px 40px 40px; overflow: hidden; isolation: isolate; }
   .artist-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; filter: blur(10px) saturate(1.2); transform: scale(1.04); opacity: 0.58; }
@@ -285,10 +285,10 @@
   .artist-back { position: absolute; left: 32px; top: 28px; z-index: 2; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.18); background: rgba(20,20,20,0.45); color: #fff; display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(16px); transition: transform .18s, background .18s; }
   .artist-back:hover { transform: translateX(-2px); background: rgba(20,20,20,0.62); }
   .artist-avatar-wrap { position: relative; z-index: 1; flex-shrink: 0; }
-  .artist-avatar { width: clamp(158px, 18vw, 220px); height: clamp(158px, 18vw, 220px); border-radius: 28px; object-fit: cover; box-shadow: 18px 24px 60px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.18); }
-  .artist-avatar-placeholder { display: grid; place-items: center; background: var(--accent-bg); color: var(--accent); font-size: 48px; font-weight: 800; }
+  .artist-avatar { width: clamp(158px, 18vw, 220px); height: clamp(158px, 18vw, 220px); border-radius: var(--radius-xl); object-fit: cover; box-shadow: 18px 24px 60px rgba(0,0,0,0.42), 0 0 0 1px rgba(255,255,255,0.18); }
+  .artist-avatar-placeholder { display: grid; place-items: center; background: var(--accent-bg); color: var(--accent); font-size: 48px; font-weight: 700; }
   .artist-info { position: relative; z-index: 1; min-width: 0; color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,0.36); }
-  .artist-label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.76); margin-bottom: 8px; }
+  .artist-label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(255,255,255,0.76); margin-bottom: 8px; }
   .artist-label span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px var(--accent); }
   .artist-info h1 { font-size: clamp(46px, 8vw, 88px); line-height: 0.92; margin: 0 0 14px; letter-spacing: -3px; color: #fff; max-width: 980px; }
   .artist-alias { color: rgba(255,255,255,0.74); font-size: 15px; margin-bottom: 12px; }
@@ -306,7 +306,7 @@
   .artist-section-action.secondary { background: var(--accent-bg); color: var(--accent); }
   .artist-section-action.secondary:hover { background: var(--accent-bg-hover); }
   .artist-section { margin-bottom: 34px; }
-  .artist-bio-section { padding: 22px; border-radius: 18px; background: linear-gradient(135deg, var(--bg-surface), var(--bg-layer)); border: 1px solid var(--border); }
+  .artist-bio-section { padding: 22px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--bg-surface), var(--bg-layer)); border: 1px solid var(--border); }
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: -0.4px; }
   .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
@@ -315,9 +315,9 @@
   .artist-link:hover { color: var(--accent); text-decoration: underline; }
   .artist-sep { color: var(--text-tertiary); }
   .artist-albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; }
-  .artist-album-card { cursor: pointer; transition: transform .18s; min-width: 0; padding: 8px; border-radius: 16px; }
+  .artist-album-card { cursor: pointer; transition: transform .18s; min-width: 0; padding: 8px; border-radius: var(--radius-lg); }
   .artist-album-card:hover { transform: translateY(-3px); background: var(--bg-hover); }
-  .artist-album-cover { width: 100%; aspect-ratio: 1; border-radius: 14px; overflow: hidden; box-shadow: var(--shadow-sm); background: var(--bg-surface); margin-bottom: 10px; }
+  .artist-album-cover { width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--bg-surface); margin-bottom: 10px; }
   .artist-album-cover img { width: 100%; height: 100%; object-fit: cover; }
   .artist-album-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--text-tertiary); }
   .artist-album-name { color: var(--text); font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -329,7 +329,7 @@
 
   @media (max-width: 720px) {
     .artist-hero { grid-template-columns: 1fr; align-items: end; min-height: 520px; padding: 78px 24px 32px; margin-left: -24px; margin-right: -24px; }
-    .artist-avatar { width: 142px; height: 142px; border-radius: 22px; }
+    .artist-avatar { width: 142px; height: 142px; border-radius: var(--radius-xl); }
     .artist-info h1 { font-size: 42px; letter-spacing: -1.6px; }
     .artist-albums { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }

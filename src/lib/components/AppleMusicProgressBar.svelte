@@ -3,7 +3,17 @@
 
   let progressBar = $state(null);
   let isDragging = $state(false);
-  let displayPercent = $derived(duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
+  let dragPercent = $state(0);
+  let pendingSeek = null;
+  let seekFrame = null;
+  let displayPercent = $derived(isDragging ? dragPercent : duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
+
+  $effect(() => () => {
+    if (seekFrame) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame);
+      else clearTimeout(seekFrame);
+    }
+  });
 
   function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
@@ -17,20 +27,49 @@
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }
 
+  function scheduleSeek(percent) {
+    pendingSeek = percent * duration;
+    if (seekFrame) return;
+    const frame = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (fn) => setTimeout(fn, 16);
+    seekFrame = frame(() => {
+      seekFrame = null;
+      if (pendingSeek !== null) onseek?.(pendingSeek);
+    });
+  }
+
+  function flushSeek() {
+    if (seekFrame) {
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame);
+      else clearTimeout(seekFrame);
+      seekFrame = null;
+    }
+    if (pendingSeek !== null) {
+      onseek?.(pendingSeek);
+      pendingSeek = null;
+    }
+  }
+
   function handlePointerDown(e) {
     if (disabled || !duration) return;
     e.preventDefault();
     isDragging = true;
     try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
-    onseek?.(clientXToPercent(e.clientX) * duration);
+    const percent = clientXToPercent(e.clientX);
+    dragPercent = percent * 100;
+    scheduleSeek(percent);
   }
 
   function handlePointerMove(e) {
     if (!isDragging) return;
-    onseek?.(clientXToPercent(e.clientX) * duration);
+    const percent = clientXToPercent(e.clientX);
+    dragPercent = percent * 100;
+    scheduleSeek(percent);
   }
 
   function handlePointerUp() {
+    flushSeek();
     isDragging = false;
   }
 </script>
@@ -131,7 +170,7 @@
     justify-content: space-between;
     margin-top: 6px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1;
     color: rgba(255, 255, 255, 0.72);
   }

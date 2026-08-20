@@ -156,7 +156,7 @@
     color: var(--text-primary);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     border: 1px solid var(--border);
-    border-radius: 24px;
+    border-radius: var(--radius-xl);
     box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
     transform: translate(-50%, -50%);
   }
@@ -172,7 +172,7 @@
   .follow-dialog-head span {
     color: var(--text-tertiary);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
     letter-spacing: 0.08em;
   }
 
@@ -210,7 +210,7 @@
     border-radius: 999px;
     color: var(--text-secondary);
     background: transparent;
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -234,7 +234,7 @@
     gap: 12px;
     min-height: 66px;
     padding: 9px 8px;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
   }
 
   .follow-user-row:hover {
@@ -249,7 +249,7 @@
     color: var(--accent);
     background: var(--accent-bg);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -314,7 +314,7 @@
     border-radius: 999px;
     color: #fff;
     background: var(--accent);
-    font-weight: 800;
+    font-weight: 700;
   }
 
   @media (max-width: 760px) {
@@ -325,7 +325,7 @@
       bottom: calc(10px + env(safe-area-inset-bottom));
       width: auto;
       max-height: min(72dvh, 620px);
-      border-radius: 26px;
+      border-radius: var(--radius-xl);
       transform: none;
     }
   }

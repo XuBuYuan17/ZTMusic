@@ -15,7 +15,7 @@ pnpm install              # 安装依赖（使用 pnpm，有 pnpm-lock.yaml）
 pnpm dev                  # 浏览器端开发（Vite，默认走 /ncm-api 代理）
 pnpm tauri:dev            # 桌面端开发（Tauri）
 pnpm build                # 前端构建
-pnpm tauri:build          # 构建当前平台安装包
+pnpm tauri:build          # 构建当前平台安装包（Windows 已内置 --target x86_64-pc-windows-gnu，勿裸跑 tauri build）
 pnpm test                 # 运行全部单元测试
 pnpm verify               # = pnpm check:versions + pnpm test + pnpm build
 ```

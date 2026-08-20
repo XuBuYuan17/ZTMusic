@@ -1,0 +1,319 @@
+/* --- Left: Cover + Track + Controls --- */
+.ly-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding-top: clamp(80px, 10vh, 200px);
+  padding-right: clamp(12px, 1.8vw, 32px);
+  min-height: 0;
+}
+.ly-left-cover {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.4vw, 24px);
+  align-items: center;
+  min-height: 0;
+  margin-bottom: clamp(8px, 1vw, 20px);
+  flex: none;
+}
+.ly-cover-wrap {
+  width: min(100%, clamp(280px, 25vw, 460px));
+  aspect-ratio: 1;
+  flex-shrink: 0;
+}
+
+.ly-cover {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-xl);
+  object-fit: cover;
+}
+
+/* Content entrance animation */
+.ly-top-bar,
+.ly-left-controls,
+.ly-right-panel {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.ly-fullscreen.entered .ly-top-bar,
+.ly-fullscreen.entered .ly-left-controls,
+.ly-fullscreen.entered .ly-right-panel {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ly-fullscreen.entered .ly-top-bar { transition-delay: 0.05s; }
+.ly-fullscreen.entered .ly-left-controls { transition-delay: 0.15s; }
+.ly-fullscreen.entered .ly-right-panel { transition-delay: 0.25s; }
+
+.ly-fullscreen.closing .ly-top-bar,
+.ly-fullscreen.closing .ly-left-controls,
+.ly-fullscreen.closing .ly-right-panel {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  transition-delay: 0s;
+}
+
+.ly-track-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-width: 0;
+  width: min(100%, clamp(280px, 25vw, 460px));
+  position: relative;
+}
+.ly-track-top {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 0.8vw, 14px);
+}
+.ly-track-title {
+  font-size: clamp(20px, 1.8vw, 32px);
+  font-weight: 700;
+  color: #fff;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+}
+.ly-star-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.ly-star-btn svg { transform: scale(1.2); }
+.ly-star-btn:hover { color: #fff; background: rgba(255,255,255,0.24); }
+.ly-star-btn.active { color: rgba(255,255,255,0.96); }
+.ly-track-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.62);
+  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+}
+.ly-track-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.ly-track-info .ly-artist,
+.ly-track-info .ly-album {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ly-track-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.ly-sep { color: rgba(255,255,255,0.2); }
+.ly-artist,
+.ly-album { display: inline; }
+
+/* Menu popup (fixed, top-level, not clipped by overflow:hidden) */
+@keyframes lyMenuIn {
+  from { opacity: 0; transform: translateY(calc(-100% + 10px)) scale(0.96); filter: blur(5px); }
+  to { opacity: 1; transform: translateY(-100%) scale(1); filter: blur(0); }
+}
+
+/* Right: lyrics */
+.ly-right {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 0;
+}
+.ly-right-panel {
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 36px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+.ly-right-panel::before,
+.ly-right-panel::after {
+  display: none;
+}
+
+.ly-lyrics-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  position: relative;
+  z-index: 1;
+  -webkit-overflow-scrolling: touch;
+  padding: 12vh 6px;
+  display: flex;
+  flex-direction: column;
+}
+.ly-lyrics-scroll::-webkit-scrollbar { display: none; }
+.ly-lyrics-inner {
+  display: flex;
+  flex-direction: column;
+}
+.ly-line {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: opacity 260ms ease, transform 260ms ease, background 260ms ease;
+  backface-visibility: hidden;
+  position: relative;
+}
+.ly-line:not(.active) {
+  opacity: 0.38;
+  transform: translateY(2px);
+}
+.ly-line.sung:not(.active) {
+  opacity: 0.48;
+}
+.ly-line:not(.active):not(.sung) {
+  opacity: 0.32;
+}
+.ly-line:hover { background: rgba(255,255,255,0.04); }
+.ly-line-text {
+  display: block;
+  font-size: 24px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.72);
+  transition: color 260ms ease, text-shadow 260ms ease;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  position: relative;
+  z-index: 2;
+}
+.ly-line.sung .ly-line-text {
+  color: rgba(255,255,255,0.55);
+}
+.ly-line.active {
+  opacity: 1;
+  filter: none;
+  transform: translateY(0);
+  background: transparent;
+  z-index: 5;
+}
+.ly-line.active .ly-line-text {
+  color: #fff;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.28);
+}
+.ly-line.active .ly-line-trans {
+  color: rgba(255,255,255,0.82);
+  font-size: 15px;
+}
+.ly-line-trans {
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  color: rgba(224,224,224,0.68);
+  margin-top: 8px;
+  transition: all 0.4s ease;
+  line-height: 1.36;
+}
+.ly-line.active .ly-line-trans {
+  color: rgba(224,224,224,0.9);
+  font-size: 15px;
+}
+
+/* 逐词 Q 弹入场动画 */
+.ly-word {
+  display: inline-block;
+  opacity: 1;
+  transform: none;
+  transform-origin: center;
+  filter: none;
+  transition: opacity 260ms ease, transform 260ms ease;
+  will-change: transform, opacity;
+}
+
+.ly-line.animate-words .ly-word {
+  animation-name: lyIn;
+  animation-duration: 420ms;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(.25,.9,.35,1);
+  animation-delay: calc(var(--i) * 36ms);
+}
+
+@keyframes lyIn {
+  0%   { opacity: 0; transform: translateY(12px) scale(0.96); filter: blur(0.8px); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.02); filter: blur(0); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: none; }
+}
+
+.ly-line.animate-words { pointer-events: auto; }
+
+.ly-no-text-blur .ly-line:not(.active) {
+  filter: none;
+  transform: none;
+}
+.ly-no-text-blur .ly-line.sung:not(.active) {
+  filter: none;
+}
+.ly-no-text-blur .ly-line:not(.active):not(.sung) {
+  filter: none;
+}
+.ly-no-text-blur .ly-line.animate-words .ly-word {
+  animation-name: none;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+@media (hover: none), (max-width: 768px) {
+  .ly-line:not(.active) { filter: none; opacity: 0.62; transform: none; }
+  .ly-line.active .ly-line-text { font-size: 24px; }
+  .ly-line.animate-words .ly-word {
+    animation-duration: 420ms;
+    animation-delay: calc(var(--i) * 16ms);
+  }
+  @keyframes lyIn {
+    0%   { opacity: 0; transform: translateY(14px) scale(0.96); }
+    60%  { opacity: 1; transform: translateY(-4px) scale(1.02); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
+
