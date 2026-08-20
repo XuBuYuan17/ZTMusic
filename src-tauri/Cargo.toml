@@ -12,9 +12,9 @@ rust-version = "1.88.0"
 
 [lib]
 name = "app_lib"
-# staticlib (iOS) / cdylib (Android .so) 是移动端才需要的产物，安卓端已放弃。
-# 桌面端 main.rs 只是 app_lib::run()，rlib 足够。
-crate-type = ["rlib"]
+# staticlib / cdylib 供 Tauri 移动端生成 iOS/Android 原生库，
+# rlib 供桌面端 main.rs 调用 app_lib::run()。
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
