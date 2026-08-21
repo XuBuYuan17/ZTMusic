@@ -309,6 +309,40 @@ cargo check                        # 在 src-tauri/ 下跑
 
 本地首次配置签名可运行 `pnpm setup:android-signing`。脚本会生成 `.android-signing/upload-keystore.jks` 和 `.android-signing/android-keystore-password.txt`，并通过 GitHub CLI 写入仓库 Secrets；`.android-signing/` 已在 `.gitignore` 中，不能提交。更新同一个 Android 应用必须继续使用同一个 keystore，丢失后无法给已安装用户平滑升级。
 
+> 该脚本是 `.ps1`，**仅限 Windows**。Linux 上直接用 `keytool` 生成 keystore，再喂给 `scripts/configure-android-signing.mjs`（它只依赖那 4 个环境变量，跨平台可用），见下。
+
+### 本机构建环境（Linux / Fedora）
+
+CI 用 ubuntu-24.04 + apt，Fedora 的包名不同。系统依赖：
+
+```bash
+sudo dnf install -y webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel \
+  librsvg2-devel patchelf dbus-devel
+```
+
+CI 的 apt 列表里还有 `libssl-dev` 和 `rpm`，但本项目**不需要**对应的 `openssl-devel` / `rpm-build`：`reqwest` 用 `rustls-tls`（`Cargo.toml` 里 `default-features = false`），Tauri 的 rpm 打包器是纯 Rust 实现、不调 `rpmbuild`。实测两者都未安装时 `.deb` 与 `.rpm` 均正常产出。
+
+其余全部装在 `$HOME`，不需要 root：
+
+| 组件 | 装法 | 说明 |
+|---|---|---|
+| pnpm | `curl -fsSL https://get.pnpm.io/install.sh \| env PNPM_VERSION=10.28.1 sh -` | Fedora 的 `nodejs22-bin` 不带 corepack；`npm i -g` 会写 root 目录 |
+| Rust | rustup，`--default-toolchain 1.88.0 --profile minimal` | 与 CI 的 `RUST_TOOLCHAIN` 一致 |
+| Android target | `rustup target add aarch64-linux-android` | 只这一个，对应 `arm64-v8a` |
+| JDK 17 | Temurin tarball 解到 `~/opt/jdk-17` | **Fedora 44 仓库只有 JDK 25/26**；Android 模板是 AGP 8.11 + Gradle 8.14，Gradle 8.14 支持上限 JDK 23，用系统 JDK 25 会失败。不要改系统默认 `java` |
+| Android SDK | cmdline-tools → `~/Android/Sdk`，再 `sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"` | 版本号照抄 `build.yml` 的 env，约 5–6 GB |
+
+Android 构建需要同时设 `JAVA_HOME` / `ANDROID_HOME` / `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT` / `NDK_HOME`（Tauri 各版本读的名字不一，CI 三个 NDK 变量都设）。把这些连同 4 个签名变量写进一个未跟踪的 `.env.android.local`（`.gitignore` 的 `*.local` 已覆盖），用时 `source` 一下：
+
+```bash
+source .env.android.local && pnpm tauri:build:android
+```
+
+本机 keystore 用 `keytool -genkeypair` 生成到 `~/.android-signing/`（仓库外），别名和密码通过上述 4 个环境变量传给 `configure-android-signing.mjs`。
+
+> ⚠️ 本机 keystore 与线上发布版签名不同，产出的 APK 无法覆盖升级正式版，需先卸载。
+> ⚠️ 本机 webkit2gtk 版本通常比 CI 新，生成的 `.deb`/`.rpm` 依赖声明指向本机库版本，**仅供本机安装测试，不要分发**；正式产物走 CI。
+
 **CI**（`.github/workflows/`）：
 - `build.yml`：push 到 `main`、PR、tag `v*` 或手动触发都会先跑 `pnpm verify`，再按触发条件构建 Windows NSIS `.exe`、Linux `.deb/.rpm` 与 Android arm64-v8a release `.apk`。tag 构建完成后自动发布 GitHub Release，release notes 从 CHANGELOG 抽。
 - `release-prepare.yml`：手动触发，跑 `pnpm verify` → 自动算版本号 → 更新 package.json / Cargo.toml / Cargo.lock / tauri.conf.json / CHANGELOG → 原子 push `HEAD:main` 与 tag。tag push 会自然触发 `build.yml`，不再额外手动 dispatch，避免重复构建。
@@ -474,7 +508,9 @@ node scripts/converge-font-weight.mjs         # 写入（覆盖全局 CSS + 组�
 >
 > 代价：`dist/` 因此从 2.3 MB 涨到 26 MB（ttf 23.5 MB，NSIS/LZMA 压缩后约 16 MB）。若要减小体积，只能减少字面档数，不能裁字。
 
-大字号标题另有光学字距要求，见 `src/lib/utils/type-scale.test.js`：`font-size >= 22px` 必须有负 `letter-spacing`，`clamp()` 流体字号要用 `em` 单位（收紧量随字号缩放）。歌词正文 `.ly-line-text` 用正字距是有意为之（长句可读性），在白名单里。
+大字号另有字距要求，见 `src/lib/utils/type-scale.test.js`：`font-size >= 22px` 的规则**不得使用负 `letter-spacing`**。小屏中英文混排时负字距更容易挤压笔画，移动端尤其明显；层级交给字重和字号承担即可。`clamp()` 等流体字号按其中**最小**的 px 档判定是否受约束。正字距不受限制，歌词正文 `.ly-line-text` 的 `0.02em` 是有意为之（长句可读性）。
+
+自检扫描 `scripts/css-files.mjs` 列出的全局 CSS（跳过 at-rule 外壳，其内部规则各自被扫到），并断言至少扫到 20 条大字号规则 —— 这条是防扫描器本身失效后静默放行。
 
 ### 清理无引用的 CSS
 
