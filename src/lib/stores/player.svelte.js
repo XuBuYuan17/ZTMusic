@@ -76,8 +76,6 @@ class PlayerState {
   _lastWebMediaPosition = 0
   /** loading 超时保护 */
   _loadingTimer = null
-  /** 上次 error 的 reqId（防重复） */
-  _lastErrorReqId = 0
   /** 播放请求 ID（用于竞态控制） */
   _playRequestId = 0
   /** 首条 URL 的音质等级 */
@@ -192,9 +190,6 @@ class PlayerState {
     })
 
     engine.onError((state) => {
-      if (this._playRequestId !== this._lastErrorReqId) {
-        this._lastErrorReqId = this._playRequestId
-      }
       this._setPlayerError('EngineError', state, ERROR_MESSAGES.PLAY_FAILED)
       this._fallbackNext('EngineErrorNoFallback')
     })

@@ -138,10 +138,6 @@ export const dbCache = {
     } catch { /* ignore */ }
   },
 
-  /** localStorage API 缓存统计（保持设置页同步展示兼容） */
-  getLegacyApiStats() {
-    return getLegacyApiStatsAsync()
-  },
   async getLegacyApiStatsAsync() {
     if (isAvailable()) {
       try {
