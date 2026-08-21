@@ -24,6 +24,8 @@ src-tauri/gen/android/keystore.properties
 
 # Tauri build outputs
 src-tauri/target
+# Tauri 移动端脚手架：CI 每次按需重新 init，属可再生产物
+src-tauri/gen/
 
 # Editor directories and files
 .vscode/*
