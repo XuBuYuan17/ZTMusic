@@ -211,6 +211,12 @@ fn split_response_blocks(xml: &str) -> Vec<&str> {
 fn track_from_block(block: &str, base_url: &Url) -> Option<WebDavTrack> {
     let href = tag_value(block, "href")?;
     let url = base_url.join(&decode_xml(&href)).ok()?;
+    // href 可以是绝对 URL，此时 Url::join 会整体替换 base。必须把 origin 钉死：
+    // 否则被攻陷的 server 只需回一个 <href>http://内网地址/x.mp3</href>，
+    // 该地址就会被持久化成曲目，之后 webdav_cache_audio 会带着用户的 Basic 凭据去抓它。
+    if url.origin() != base_url.origin() {
+        return None;
+    }
     if url.as_str().trim_end_matches('/') == base_url.as_str().trim_end_matches('/') {
         return None;
     }
@@ -351,5 +357,23 @@ mod tests {
     fn decodes_percent_file_names() {
         let url = Url::parse("https://dav.example.com/music/%E5%A4%9C%E6%9B%B2.flac").unwrap();
         assert_eq!(file_name_from_url(&url), "夜曲.flac");
+    }
+
+    #[test]
+    fn rejects_hrefs_pointing_outside_the_base_origin() {
+        let base = Url::parse("https://dav.example.com/music/").unwrap();
+        let xml = r#"
+          <D:multistatus xmlns:D="DAV:">
+            <D:response><D:href>http://169.254.169.254/latest/meta-data.mp3</D:href></D:response>
+            <D:response><D:href>http://127.0.0.1:8080/secret.mp3</D:href></D:response>
+            <D:response><D:href>https://dav.example.com:8443/music/other.mp3</D:href></D:response>
+            <D:response><D:href>http://dav.example.com/music/downgraded.mp3</D:href></D:response>
+            <D:response><D:href>/music/legit.mp3</D:href></D:response>
+          </D:multistatus>
+        "#;
+
+        let tracks = parse_webdav_tracks(xml, &base);
+        assert_eq!(tracks.len(), 1, "只有同 origin 的 href 能通过");
+        assert_eq!(tracks[0].url, "https://dav.example.com/music/legit.mp3");
     }
 }
