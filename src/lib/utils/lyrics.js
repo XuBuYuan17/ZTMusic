@@ -3,11 +3,12 @@ export function parseLRC(lrc) {
   const lines = lrc.split('\n')
   const result = []
   for (const line of lines) {
-    const match = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/)
+    const match = line.match(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\](.*)/)
     if (!match) continue
     const min = +match[1]
     const sec = +match[2]
-    const ms = match[3].length === 3 ? +match[3] : +match[3] * 10
+    // 毫秒字段可缺省（[mm:ss]），位数也不定：补零到 3 位统一成毫秒（.45 → 450）
+    const ms = match[3] ? +match[3].padEnd(3, '0') : 0
     const time = min * 60 + sec + ms / 1000
     const content = match[4].trim()
     if (content) result.push({ time, content, rawTime: match[0] })
