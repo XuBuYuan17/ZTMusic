@@ -20,14 +20,12 @@
     getAccentProperties,
     normalizeAccentTheme,
   } from './lib/theme/accent.js'
-  import Icon from './lib/components/ui/Icon.svelte'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
   import QueuePanel from './lib/components/QueuePanel.svelte'
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
-  import SearchOverlay from './lib/components/SearchOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import { isMobileDevice, responsive } from './lib/utils/responsive.js'
   import HomePage from './lib/pages/pc/Home.svelte'
@@ -59,7 +57,6 @@
   let contentScrollEl = $state(null)
   let showSheet = $state(false)
   let showLogin = $state(false)
-  let showSearch = $state(false)
   let showFollowDialog = $state(false)
   let showQueuePanel = $state(false)
   let showMobileDrawer = $state(false)
@@ -229,7 +226,6 @@
     if (action === 'mobileDrawer') showMobileDrawer = false
     else if (action === 'sheet') closeSheet()
     else if (action === 'queue') closeQueue()
-    else if (action === 'search') showSearch = false
     else if (action === 'login') showLogin = false
     else if (action === 'followDialog') showFollowDialog = false
     else if (action === 'routeBack') router.goBack()
@@ -242,7 +238,6 @@
       showMobileDrawer,
       showSheet,
       showQueuePanel,
-      showSearch,
       showLogin,
       showFollowDialog,
       routeStackLength: router.routeStack.length,
@@ -293,7 +288,7 @@
           onOpenPlaylist={router.goPlaylist}
           onOpenAlbum={router.goAlbum}
           onOpenArtist={router.goArtist}
-          onSearch={() => showSearch = true}
+          onSearch={() => router.handleNav('search')}
           onOpenLogin={() => showLogin = true}
           onSetTheme={setTheme}
           {accentTheme}
@@ -308,10 +303,6 @@
         <div class="loading-state" role="alert">移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
-    <button class="global-search-btn" type="button" onclick={() => showSearch = true} aria-label="搜索">
-      <Icon name="search" size={18} />
-    </button>
-
     <div class="content-scroll" bind:this={contentScrollEl} id="main-content">
       <div class="content-inner">
         <div class="page-enter" transition:fade={{ duration: 150 }}>
@@ -364,7 +355,7 @@
           {:else if router.activeView === 'explore'}
             {#await loadExplorePage() then module}
               <module.default
-                onSearch={() => showSearch = true}
+                onSearch={() => router.handleNav('search')}
                 onBannerClick={router.handleBannerClick}
                 onOpenPlaylist={router.goPlaylist}
                 onOpenAlbum={router.goAlbum}
@@ -413,7 +404,6 @@
 </div>
 
 <LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
-<SearchOverlay show={showSearch} onClose={() => showSearch = false} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />

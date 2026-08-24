@@ -25,7 +25,7 @@ assert.ok(contrast(darkTertiary, darkSurface) >= 4.5, '暗色三级文字在表�
 
 const shellCss = await readFile(new URL('src/styles/shell.css', ROOT), 'utf8')
 const radiusDeclaration = 'border-' + 'radius'
-assert.match(shellCss, new RegExp(`\\.global-search-btn\\s*\\{[\\s\\S]*?${radiusDeclaration}:\\s*var\\(--radius-sm\\)`))
+assert.match(shellCss, new RegExp(`\\.nav-item\\s*\\{[\\s\\S]*?${radiusDeclaration}:\\s*var\\(--radius-md\\)`))
 
 const searchCss = await readFile(new URL('src/styles/search-overlay.css', ROOT), 'utf8')
 assert.match(searchCss, new RegExp(`\\.so-tabs button\\s*\\{[\\s\\S]*?${radiusDeclaration}:\\s*var\\(--radius-sm\\)`))
