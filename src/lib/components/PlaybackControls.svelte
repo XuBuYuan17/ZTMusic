@@ -17,6 +17,7 @@
     onrepeat,
     onqueue,
     showQueue = false,
+    showQueueButton = true,
   } = $props()
 
   let sz = $derived(isLyrics ? 32 : size === 'sm' ? 22 : 24)
@@ -156,9 +157,11 @@
 
   <!-- 播放列表 - 歌词模式下在PC端显示，移动端在下方操作按钮组显示 -->
   <!-- 播放列表按钮 - 总是显示 -->
-  <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={(e) => handleClick(e, onqueue)} aria-label="播放列表" style="display: flex !important; visibility: visible; opacity: 1; color: white;">
-    <Icon name="list" size={sz} strokeWidth={2.2} />
-  </button>
+  {#if showQueueButton}
+    <button class={btnClass} class:active={showQueue} class:ly-queue-btn={true} onclick={(e) => handleClick(e, onqueue)} aria-label="播放列表">
+      <Icon name="list" size={sz} strokeWidth={2.2} />
+    </button>
+  {/if}
 
 </div>
 

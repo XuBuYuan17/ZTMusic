@@ -433,3 +433,264 @@ button.ly-context-card.active {
   }
 }
 
+
+@media (min-width: 769px) {
+  .ly-context-scrim {
+    background: radial-gradient(circle at 76% 70%, rgba(255,255,255,0.035), transparent 34%);
+    animation: lyContextScrimIn 0.24s ease both;
+  }
+
+  .ly-context-detail {
+    right: clamp(18px, 2.4vw, 42px);
+    bottom: clamp(28px, 4vh, 56px);
+    width: min(520px, calc(100% - 36px));
+    max-height: min(58vh, 520px);
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.075);
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.105), rgba(255,255,255,0.045)),
+      rgba(18, 20, 20, 0.36);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.09),
+      0 28px 70px rgba(0,0,0,0.24);
+    backdrop-filter: blur(34px) saturate(155%);
+    -webkit-backdrop-filter: blur(34px) saturate(155%);
+    transform-origin: right bottom;
+    animation: lyContextDetailSoftIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .ly-context-detail-head {
+    min-height: 36px;
+    margin: 0 0 8px;
+    padding: 0 2px 0 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.92);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .ly-context-detail-head button {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.075);
+    color: rgba(255,255,255,0.64);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ly-context-detail-head button:hover,
+  .ly-context-detail-head button:focus-visible {
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+  }
+
+  .ly-context-detail-head button:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  .ly-context-detail-list,
+  .ly-context-comment-list,
+  .ly-context-detail-grid {
+    max-height: calc(min(58vh, 520px) - 58px);
+    padding: 2px;
+    scrollbar-width: none;
+  }
+
+  .ly-context-detail-list,
+  .ly-context-comment-list {
+    gap: 4px;
+  }
+
+  .ly-context-detail-row {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 11px;
+    min-height: 58px;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: rgba(255,255,255,0.86);
+    transform: translateY(4px);
+    opacity: 0;
+    animation: lyContextItemIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ly-context-detail-row:nth-child(1) { animation-delay: 25ms; }
+  .ly-context-detail-row:nth-child(2) { animation-delay: 45ms; }
+  .ly-context-detail-row:nth-child(3) { animation-delay: 65ms; }
+  .ly-context-detail-row:nth-child(4) { animation-delay: 85ms; }
+  .ly-context-detail-row:nth-child(5) { animation-delay: 105ms; }
+  .ly-context-detail-row:nth-child(6) { animation-delay: 125ms; }
+
+  .ly-context-detail-row:hover,
+  .ly-context-detail-row:focus-visible {
+    background: rgba(255,255,255,0.085);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  .ly-context-detail-row:active {
+    transform: translateY(1px) scale(0.994);
+  }
+
+  .ly-context-detail-row img,
+  .ly-context-detail-row .ly-context-cover-ph {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+  }
+
+  .ly-context-detail-row strong {
+    font-size: 13px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.92);
+    line-height: 1.18;
+  }
+
+  .ly-context-detail-row em {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.46);
+  }
+
+  .ly-context-detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ly-context-detail-playlist {
+    padding: 8px;
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.035);
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+    animation: lyContextItemIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: background 0.18s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ly-context-detail-playlist:nth-child(1) { animation-delay: 25ms; }
+  .ly-context-detail-playlist:nth-child(2) { animation-delay: 45ms; }
+  .ly-context-detail-playlist:nth-child(3) { animation-delay: 65ms; }
+  .ly-context-detail-playlist:nth-child(4) { animation-delay: 85ms; }
+  .ly-context-detail-playlist:nth-child(5) { animation-delay: 105ms; }
+  .ly-context-detail-playlist:nth-child(6) { animation-delay: 125ms; }
+
+  .ly-context-detail-playlist:hover,
+  .ly-context-detail-playlist:focus-visible {
+    background: rgba(255,255,255,0.095);
+    transform: translateY(-2px);
+  }
+
+  .ly-context-detail-playlist:active {
+    transform: translateY(1px) scale(0.99);
+  }
+
+  .ly-context-detail-playlist img,
+  .ly-context-detail-playlist .ly-context-cover-ph {
+    border-radius: var(--radius-md);
+    margin-bottom: 9px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.18);
+  }
+
+  .ly-context-detail-playlist strong {
+    color: rgba(255,255,255,0.86);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .ly-context-subhead {
+    min-height: 34px;
+    margin: 0 0 8px;
+    padding: 0 2px;
+  }
+
+  .ly-context-subhead button {
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.085);
+    color: rgba(255,255,255,0.76);
+    font-weight: 800;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ly-context-subhead button:hover,
+  .ly-context-subhead button:focus-visible {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+  }
+
+  .ly-context-subhead span {
+    color: rgba(255,255,255,0.86);
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .ly-context-comment-row {
+    padding: 12px 10px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    opacity: 0;
+    transform: translateY(5px);
+    animation: lyContextItemIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: background 0.18s ease, transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .ly-context-comment-row:nth-child(1) { animation-delay: 25ms; }
+  .ly-context-comment-row:nth-child(2) { animation-delay: 45ms; }
+  .ly-context-comment-row:nth-child(3) { animation-delay: 65ms; }
+  .ly-context-comment-row:nth-child(4) { animation-delay: 85ms; }
+  .ly-context-comment-row:nth-child(5) { animation-delay: 105ms; }
+  .ly-context-comment-row:nth-child(6) { animation-delay: 125ms; }
+
+  .ly-context-comment-row:hover {
+    background: rgba(255,255,255,0.065);
+    transform: translateY(-1px);
+  }
+
+  .ly-context-comment-row strong {
+    margin-bottom: 6px;
+    color: rgba(255,255,255,0.82);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .ly-context-comment-row p {
+    color: rgba(255,255,255,0.64);
+    font-size: 12px;
+    line-height: 1.62;
+  }
+
+  .ly-context-empty {
+    min-height: 150px;
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.035);
+    color: rgba(255,255,255,0.55);
+    font-weight: 700;
+  }
+
+  @keyframes lyContextScrimIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes lyContextDetailSoftIn {
+    from { opacity: 0; transform: translate3d(18px, 18px, 0) scale(0.975); filter: blur(8px); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  }
+
+  @keyframes lyContextItemIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
