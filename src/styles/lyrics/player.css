@@ -14,14 +14,14 @@
 .ly-pc-player .pb-times {
   color: rgba(255,255,255,0.9) !important;
   font-size: 14px !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
   opacity: 1 !important;
   text-shadow: 0 1px 8px rgba(0,0,0,0.28);
 }
 
 .ly-pc-player .pb-time {
   color: rgba(255,255,255,0.9) !important;
-  font-weight: 800 !important;
+  font-weight: 700 !important;
 }
 
 .ly-system-actions {
@@ -407,7 +407,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1;
 }
 .ly-cover-tool-primary span {
@@ -421,7 +421,7 @@
   background: rgba(0,0,0,0.22);
   color: rgba(255,255,255,0.82);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 700;
   animation: lyCoverToolsIn 0.18s ease both;
 }
 @keyframes lyCoverToolsIn {
