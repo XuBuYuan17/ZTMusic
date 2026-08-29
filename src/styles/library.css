@@ -1,4 +1,3 @@
-/* ===== Square Playlist Card ===== */
 /* ===== Library Page ===== */
 .library-page {
   max-width: 1420px;
@@ -70,8 +69,17 @@
   gap: 3px;
 }
 
-.library-eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: 0; }
-.library-header-info p { color: var(--text-secondary); font-size: 13px; }
+.library-eyebrow {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.library-header-info p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
 
 .library-header-info h1 {
   font-size: 34px;
@@ -80,170 +88,6 @@
   letter-spacing: 0;
 }
 
-.library-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
-  gap: 20px 18px;
-}
-
-.library-card {
-  cursor: pointer;
-  transition: opacity var(--dur-fast);
-}
-
-@media (max-width: 760px) {
-  .library-page {
-    padding-bottom: 0;
-  }
-
-  .library-logged-out {
-    min-height: calc(100dvh - 230px);
-    padding: 34px 18px;
-  }
-
-  .library-hero-icon {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 16px;
-  }
-
-  .library-header {
-    margin-bottom: 16px;
-  }
-
-  .library-header-info {
-    display: grid;
-    gap: 4px;
-  }
-
-  .library-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 12px;
-  }
-
-  .library-card-info {
-    padding-top: 8px;
-  }
-
-  .library-card-name {
-    font-size: 13px;
-  }
-}
-
-.library-card:hover {
-  opacity: 0.78;
-}
-
-.library-card:focus,
-.library-card:focus-visible {
-  outline: none;
-}
-
-.library-card:active {
-  opacity: 0.62;
-}
-
-.library-card-cover {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  overflow: hidden;
-  background: var(--bg-layer);
-  box-shadow: 0 8px 18px rgba(0,0,0,0.12);
-}
-
-.library-card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.library-card-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-  background: linear-gradient(135deg, var(--bg-layer), var(--bg-surface));
-}
-
-.library-card-play-btn {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #1a1a1a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out);
-}
-
-.library-card:hover .library-card-play-btn {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.library-card-info {
-  padding: 9px 2px 0;
-}
-
-.library-card-name {
-  display: -webkit-box;
-  min-height: 2.6em;
-  overflow: hidden;
-  font-size: 13.5px;
-  font-weight: 700;
-  white-space: normal;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-height: 1.3;
-}
-
-.library-card-meta {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.library-card-creator {
-  color: var(--text-tertiary);
-}
-
-.library-card-skeleton {
-  pointer-events: none;
-}
-
-@media (max-width: 768px) {
-  .library-grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 12px;
-  }
-}
-
-/* ===== Empty State / Login Prompt ===== */
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-tertiary);
-}
-
-/* ===== Library Page (PC) ===== */
 .library-notice {
   background: var(--accent-alpha, rgba(255, 59, 48, 0.1));
   color: var(--accent);
@@ -282,16 +126,14 @@
 }
 
 .library-section {
-  margin-top: 28px;
+  margin-top: 30px;
 }
 
 .library-section-head {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
 }
 
 .library-section-title {
@@ -302,8 +144,16 @@
 }
 
 .library-section-count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-layer);
+  color: var(--text-secondary);
   font-size: 12px;
-  color: var(--text-tertiary);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
 }
 
 .library-section-empty {
@@ -314,6 +164,181 @@
   text-align: center;
   color: var(--text-tertiary);
   font-size: 13px;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+  gap: 26px 22px;
+}
+
+.library-card {
+  min-width: 0;
+  cursor: pointer;
+  animation: libraryCardIn 0.34s var(--ease-out) both;
+  animation-delay: calc(min(var(--card-i, 0), 12) * 26ms);
+  transition: transform 0.22s var(--ease-out);
+}
+
+.library-card:hover {
+  transform: translateY(-4px);
+}
+
+.library-card:focus,
+.library-card:focus-visible {
+  outline: none;
+}
+
+.library-card:focus-visible .library-card-cover {
+  box-shadow: 0 0 0 3px var(--accent-alpha, rgba(255, 59, 48, 0.18)), 0 18px 34px rgba(0, 0, 0, 0.2);
+}
+
+.library-card:active {
+  transform: translateY(-1px) scale(0.985);
+}
+
+.library-card-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-layer);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+  contain: paint;
+  transition: box-shadow 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+}
+
+.library-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.001);
+  transition: transform 0.36s var(--ease-out), filter 0.36s var(--ease-out);
+  will-change: transform;
+}
+
+.library-card:hover .library-card-cover,
+.library-card:focus-visible .library-card-cover {
+  border-color: color-mix(in srgb, var(--border) 38%, transparent);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.2);
+}
+
+.library-card:hover .library-card-cover img,
+.library-card:focus-visible .library-card-cover img {
+  transform: scale(1.035);
+}
+
+.library-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  background: linear-gradient(135deg, var(--bg-layer), var(--bg-surface));
+}
+
+.library-card-play-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(230, 0, 18, 0.26), 0 2px 8px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(8px) scale(0.82);
+  transition: opacity 0.22s var(--ease-out), transform 0.22s var(--ease-out), background 0.18s var(--ease-out);
+}
+
+.library-card-play-btn svg {
+  margin-left: 2px;
+}
+
+.library-card:hover .library-card-play-btn,
+.library-card:focus-visible .library-card-play-btn {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.library-card-info {
+  padding: 10px 2px 0;
+}
+
+.library-card-name {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: normal;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+}
+
+.library-card-meta {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-card-creator {
+  color: var(--text-tertiary);
+}
+
+.library-card-skeleton {
+  pointer-events: none;
+}
+
+.library-card-managed {
+  position: relative;
+}
+
+.library-card-unsubscribe {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(20, 20, 20, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.86);
+  transition: opacity 0.2s var(--ease-out), transform 0.2s var(--ease-out), background 0.18s var(--ease-out);
+  z-index: 2;
+}
+
+.library-card-managed:hover .library-card-unsubscribe,
+.library-card-managed:focus-visible .library-card-unsubscribe {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.library-card-unsubscribe:hover {
+  background: var(--danger, #ff3b30);
 }
 
 /* 快速入口 */
@@ -399,39 +424,6 @@
   color: var(--text-tertiary);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.library-card-managed {
-  position: relative;
-}
-
-.library-card-unsubscribe {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.55);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  cursor: pointer;
-  opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 0.18s var(--ease-out), transform 0.18s var(--ease-out);
-  z-index: 2;
-}
-
-.library-card-managed:hover .library-card-unsubscribe {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.library-card-unsubscribe:hover {
-  background: var(--danger, #ff3b30);
 }
 
 /* 创建歌单弹窗 */
@@ -531,7 +523,56 @@
   background: var(--accent-hover);
 }
 
+/* ===== Empty State / Login Prompt ===== */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-tertiary);
+}
+
+.empty-state p {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
 @media (max-width: 760px) {
+  .library-page {
+    padding-bottom: 0;
+  }
+
+  .library-logged-out {
+    min-height: calc(100dvh - 230px);
+    padding: 34px 18px;
+  }
+
+  .library-hero-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+  }
+
+  .library-header {
+    margin-bottom: 16px;
+  }
+
+  .library-header-info {
+    display: grid;
+    gap: 4px;
+  }
+
+  .library-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 13px;
+  }
+
+  .library-card-info {
+    padding-top: 8px;
+  }
+
+  .library-card-name {
+    font-size: 13px;
+  }
+
   .library-quick-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -549,7 +590,13 @@
   }
 }
 
-.empty-state p {
-  font-size: 14px;
-  margin-bottom: 16px;
+@keyframes libraryCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
