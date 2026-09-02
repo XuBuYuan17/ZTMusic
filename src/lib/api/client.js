@@ -9,6 +9,7 @@ import {
 } from './cache-policy.js'
 import { apiSession, DEFAULT_API_BASE, DEV_PROXY_API_BASE } from './session.js'
 import { normalizeError } from '../utils/error-core.js'
+import { isTauriRuntime } from '../utils/runtime.js'
 
 export { DEFAULT_API_BASE }
 
@@ -25,10 +26,6 @@ function getRequestBase(base) {
 }
 
 const DEFAULT_TIMEOUT = 15000
-
-function isTauriRuntime() {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
 
 async function getTauriInvoke() {
   if (!isTauriRuntime()) return null

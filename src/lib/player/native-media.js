@@ -10,6 +10,7 @@
 import { PLAYBACK } from '../utils/constants.js'
 import { debugLog, swallowError } from '../utils/error.js'
 import { selectMediaBackend } from './native-media-platform.js'
+import { isTauriRuntime, runtimePlatform } from '../utils/runtime.js'
 
 let _tauriInvoke = null
 let _nativeMediaPollTimer = null
@@ -20,18 +21,6 @@ let _lastNativePlaying = null
 let _getMetadata = () => ({})
 let _getPlaybackState = () => ({})
 let _onMediaButton = null
-
-function isTauriRuntime() {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
-
-function runtimePlatform() {
-  return [
-    navigator.userAgentData?.platform,
-    navigator.platform,
-    navigator.userAgent,
-  ].filter(Boolean).join(' ')
-}
 
 function isTauriLinux() {
   return isTauriRuntime() && /Linux/i.test(runtimePlatform())

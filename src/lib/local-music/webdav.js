@@ -1,12 +1,10 @@
+import { isTauriRuntime } from '../utils/runtime.js'
+
 const AUDIO_EXTENSIONS = new Set(['aac', 'flac', 'm4a', 'mp3', 'oga', 'ogg', 'opus', 'wav'])
 const SETTINGS_KEY = 'zheting.webdav.settings'
 const PASSWORD_KEY = 'zheting.webdav.password'
 const playableUrlCache = new Map()
 let tauriApiPromise = null
-
-function isTauriRuntime() {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
 
 async function getTauriApi() {
   if (!isTauriRuntime()) throw new Error('WebDAV 播放目前仅支持桌面端')

@@ -5,19 +5,19 @@
  *
  * 兼容性策略（重要）：
  *   - 纯浏览器环境：OPFS 正常工作，数据持久化
- *   - Tauri 环境：WebView 不支持 OPFS/SharedArrayBuffer，跳过 SQLite
- *   - 任一失败：静默降级到 localStorage/IndexedDB
+ *   - Tauri Android：WebView 行为更接近移动浏览器，OPFS 不可靠，跳过 SQLite
+ *   - Tauri 桌面（Linux/Windows）：尝试 SQLite，失败时静默降级到 IndexedDB
+ *   - 任一失败：降级到 localStorage/IndexedDB
  */
+
+import { isTauriAndroid } from '../utils/runtime.js'
+import { debugLog } from '../utils/logging.js'
 
 let SQLocal = null
 let _db = null
 let _ready = false
 let _errored = false
 let _initPromise = null
-
-function isTauriRuntime() {
-  return typeof window !== 'undefined' && !!window.__TAURI_INTERNALS__
-}
 
 async function loadSQLocal() {
   if (SQLocal) return SQLocal
@@ -31,11 +31,12 @@ export async function initDB() {
   if (_errored) return false
   if (_initPromise) return _initPromise
 
-  // Tauri: WebView 不支持 OPFS/SharedArrayBuffer，跳过 SQLite
-  if (isTauriRuntime()) {
-    console.debug('[DB] Tauri runtime detected, skipping SQLite')
+  // Tauri Android: WebView 行为更接近移动浏览器，OPFS 不可靠，直接降级。
+  // 桌面端（Linux/Windows WebView2/WebKitGTK）尝试走 SQLite 路径。
+  if (isTauriAndroid()) {
+    debugLog('db', 'skip SQLite on Tauri Android')
     _errored = true
-    try { setStorage('db_fallback_reason', 'tauri_runtime') } catch { /* ignore */ }
+    try { setStorage('db_fallback_reason', 'android_tauri') } catch { /* ignore */ }
     return false
   }
 
@@ -82,11 +83,13 @@ export async function initDB() {
       await _db.sql(`CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at)`)
 
       _ready = true
-      console.debug('[DB] SQLite initialized successfully')
+      debugLog('db', 'sqlite ready')
       return true
     } catch (err) {
+      // sqlocal 抛 'OPFS not available'、wasm init 失败、cross-origin isolated 缺失
+      // 等任何 SQLite 不可用的情况：都降级到 IndexedDB/localStorage。
       const reason = err?.message || String(err)
-      console.warn('[DB] SQLite initialization failed, falling back:', reason)
+      debugLog('db', 'sqlite init failed, falling back', { reason })
       _errored = true
       try { setStorage('db_fallback_reason', reason.slice(0, 200)) } catch { /* ignore */ }
       return false
