@@ -17,7 +17,7 @@
 
 哲听是一个干净、轻量的跨平台音乐客户端。没有广告，也没有喧宾夺主的社交功能，只想让听歌回归简单。
 
-最初是想给自己做一个安静的听歌工具，后来顺手支持了 Linux。API 基于 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced)，默认后端是 `https://music.xubuyuan.top`。
+最初是想给自己做一个安静的听歌工具，后来顺手支持了 Linux。API 基于 [NeteaseCloudMusicApi Enhanced](https://github.com/NeteaseCloudMusicApiEnhanced)，默认后端是自建的网易云 API 服务。
 
 ## 能干什么
 
@@ -114,6 +114,9 @@ ZTmusic/
 4. tag 构建完成后自动发布到 GitHub Releases，release notes 从 CHANGELOG 抽
 
 详细的架构说明、API 链路、调试技巧见 [`docs/development.md`](docs/development.md)。
+
+这个项目耗费了我很多时间和精力，奈何本人能力不足，总是会有各种奇奇怪怪的 BUG。
+如果遇到了，希望您不要介意。
 
 ## 许可证
 
