@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=哲听
+GenericName=音乐播放器
+Name[zh_CN]=哲听
+Name[en]=ZTmusic
+Comment=网易云音乐第三方客户端
+Comment[zh_CN]=网易云音乐第三方客户端
+Comment[en]=A third-party Netease Cloud Music desktop client
+Exec=zheting %U
+Icon=zheting
+Terminal=false
+Categories=AudioVideo;Audio;Player;Network;
+Keywords=music;ncm;netease;mpris;player;音乐;网易云;
+StartupNotify=true
+StartupWMClass=zheting
+MimeType=x-scheme-handler/zheting;

@@ -25,6 +25,10 @@
  *   M              静音 / 取消静音
  *   J / L          快退 / 快进 10 秒
  *   ?              显示快捷键帮助
+ *
+ * 原生媒体键（Linux WebKitGTK 上由 DE 转发，部分 Sway/Hyprland 不转发到 WebView 时
+ *  仍能通过 keydown 兜底；Web Media Session 不会触发这些 keydown）：
+ *   MediaPlayPause / MediaTrackNext / MediaTrackPrevious / MediaStop
  */
 
 const SEEK_STEP = 5
@@ -193,6 +197,25 @@ export function installKeyboardShortcuts({ player, isMobile }) {
       case '?':
         e.preventDefault()
         showShortcutsHelp()
+        break
+      // Linux 媒体键兜底：DE 不把 XF86Audio* 转发给 WebKitGTK 时，
+      // 部分版本会翻译为 MediaPlayPause 等 keydown 事件。
+      // Windows / macOS 不会触发这些 keydown（Web Media Session 自己消费）。
+      case 'MediaPlayPause':
+        e.preventDefault()
+        player.togglePlay()
+        break
+      case 'MediaTrackNext':
+        e.preventDefault()
+        player.next()
+        break
+      case 'MediaTrackPrevious':
+        e.preventDefault()
+        player.prev()
+        break
+      case 'MediaStop':
+        e.preventDefault()
+        player.pause()
         break
       default:
         break

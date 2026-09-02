@@ -39,6 +39,18 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/applications/zheting.desktop": "linux/zheting.desktop"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/share/applications/zheting.desktop": "linux/zheting.desktop"
+        }
+      }
+    },
     "windows": {
       "nsis": {
         "languages": ["SimpChinese"],

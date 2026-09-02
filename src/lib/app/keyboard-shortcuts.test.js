@@ -32,11 +32,13 @@ function makePlayer() {
     toggleCount: 0,
     nextCount: 0,
     prevCount: 0,
+    paused: false,
     seekedTo: null,
     volumeSet: null,
     togglePlay() { this.toggleCount++ },
     next() { this.nextCount++ },
     prev() { this.prevCount++ },
+    pause() { this.paused = true },
     seek(t) { this.seekedTo = t },
     setVolume(v) { this.volumeSet = v; this.volume = v },
   }
@@ -123,6 +125,21 @@ function fireKey(key, opts = {}) {
   assertEqual(player.volumeSet, 0, 'm mutes')
   fireKey('m')
   assert(player.volumeSet > 0, 'm unmutes')
+  uninstall()
+}
+
+// ── Linux 媒体键兜底：DE 不转发 XF86Audio* 时 WebKitGTK 仍会触发这些 keydown ──
+{
+  const player = makePlayer()
+  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  fireKey('MediaPlayPause')
+  assertEqual(player.toggleCount, 1, 'MediaPlayPause toggles play')
+  fireKey('MediaTrackNext')
+  assertEqual(player.nextCount, 1, 'MediaTrackNext = next')
+  fireKey('MediaTrackPrevious')
+  assertEqual(player.prevCount, 1, 'MediaTrackPrevious = prev')
+  fireKey('MediaStop')
+  assertEqual(player.paused, true, 'MediaStop pauses')
   uninstall()
 }
 

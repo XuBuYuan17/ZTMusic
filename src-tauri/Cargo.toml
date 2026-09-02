@@ -33,6 +33,8 @@ tauri-plugin-single-instance = "2"
 async-channel = "2"
 futures-lite = "2"
 mpris-server = "0.10.0"
+# 用于启动前探测 D-Bus session bus 是否可用（容器 / WSL 等环境可能没有 dbus-daemon）
+zbus = { version = "5", default-features = false, features = ["blocking-api"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 async-channel = "2"
