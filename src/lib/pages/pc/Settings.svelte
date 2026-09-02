@@ -1,7 +1,7 @@
 <script>
   import { auth } from '../../stores/auth.svelte.js'
   import { t } from '../../i18n/index.svelte.js'
-  import { QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
+  import { DEFAULT_API_BASE, QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
   import { wallpaper } from '../../stores/wallpaper.svelte.js'
   import { formatWallpaperSize } from '../../services/wallpaper-storage.js'
   import { ACCENT_THEME_OPTIONS } from '../../theme/accent.js'
@@ -257,7 +257,7 @@
             oninput={(e) => settings.handleSetApiBase(e.target.value)}
           />
           <div class="settings-desc developer-api-hint">
-            内置地址：<code>https://music.xubuyuan.top</code>
+            内置地址：<code>{DEFAULT_API_BASE}</code>
             {#if settings.apiBaseStatus}
               <span class="developer-status">· {settings.apiBaseStatus}</span>
             {/if}
@@ -275,10 +275,10 @@
         <div class="settings-row">
           <div>
             <div class="settings-label">清除持久缓存</div>
-            <div class="settings-desc">{settings.idbCacheText} · 包含歌曲 URL 和 API 响应</div>
+            <div class="settings-desc">歌曲 URL 与 API 响应，当前 {settings.idbCacheText}</div>
           </div>
           <button class="settings-secondary-btn" onclick={settings.handleClearIdbCache}>
-            {settings.idbCleared || '清除'}
+            {settings.idbCleared || t('settings.clear', '清除')}
           </button>
         </div>
       </div>

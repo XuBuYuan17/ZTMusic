@@ -1,7 +1,7 @@
 <script>
   import { auth } from '../../stores/auth.svelte.js'
   import { t } from '../../i18n/index.svelte.js'
-  import { QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
+  import { DEFAULT_API_BASE, QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
   import { wallpaper } from '../../stores/wallpaper.svelte.js'
   import { formatWallpaperSize } from '../../services/wallpaper-storage.js'
   import { ACCENT_THEME_OPTIONS } from '../../theme/accent.js'
@@ -16,7 +16,7 @@
   let wallpaperStatus = $derived(
     wallpaper.error || (wallpaper.active
       ? `${wallpaper.kind === 'video' ? '视频' : '图片'} · ${wallpaper.name} · ${formatWallpaperSize(wallpaper.size)}`
-      : '图片 ≤ 30 MB，视频 ≤ 300 MB'),
+      : '未设置 · 图片 ≤ 30 MB，视频 ≤ 300 MB'),
   )
 
   async function handleWallpaperFile(event) {
@@ -216,7 +216,7 @@
         <button class="m-settings-row m-settings-row--action" onclick={() => auth.refreshVipInfo()}>
           <div class="m-settings-row-info">
             <span class="m-settings-label">会员状态</span>
-            <span class="m-settings-desc">用于判断账号权限和高音质可用性</span>
+            <span class="m-settings-desc">判断账号权限与高音质可用性，不绕过平台限制</span>
           </div>
           <span class="m-settings-action-text">{auth.vipLabel}</span>
         </button>
@@ -224,7 +224,7 @@
         <button class="m-settings-row m-settings-row--action" onclick={settings.handleCheckCookie}>
           <div class="m-settings-row-info">
             <span class="m-settings-label">检测 Cookie 状态</span>
-            <span class="m-settings-desc">验证当前登录凭证是否有效</span>
+            <span class="m-settings-desc">验证登录凭证，失效时自动退出登录</span>
           </div>
           <span class="m-settings-action-text">{settings.cookieCheckMsg || '检测'}</span>
         </button>
@@ -239,7 +239,7 @@
       <summary class="m-settings-row">
         <div class="m-settings-row-info">
           <span class="m-settings-label">开发者选项</span>
-          <span class="m-settings-desc">后端 API 与缓存管理</span>
+          <span class="m-settings-desc">后端 API 与缓存清理</span>
         </div>
         <Icon class="m-developer-chevron" name="chevron-down" size={18} />
       </summary>
@@ -248,7 +248,7 @@
           <div class="m-settings-row-info">
             <span class="m-settings-label">API 后端地址</span>
             <span class="m-settings-desc">
-              内置地址：<code>https://music.xubuyuan.top</code>
+              内置地址：<code>{DEFAULT_API_BASE}</code>
                 {#if settings.apiBaseStatus}
                   <span class="m-settings-status"> · {settings.apiBaseStatus}</span>
                 {/if}
@@ -272,7 +272,7 @@
         <button class="m-settings-row m-settings-row--action" onclick={settings.handleClearIdbCache}>
           <div class="m-settings-row-info">
             <span class="m-settings-label">清除持久缓存</span>
-            <span class="m-settings-desc">{settings.idbCacheText}</span>
+            <span class="m-settings-desc">歌曲 URL 与 API 响应，当前 {settings.idbCacheText}</span>
           </div>
           <span class="m-settings-action-text">{settings.idbCleared || t('settings.clear', '清除')}</span>
         </button>

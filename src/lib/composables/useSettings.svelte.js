@@ -9,7 +9,7 @@
  *   s.lyricsBlur              // 响应式读
  *   s.handleLyricsBlur(!s.lyricsBlur)
  */
-import { ncm } from '../api/client.js'
+import { ncm, DEFAULT_API_BASE } from '../api/client.js'
 import { player, clearHistory } from '../stores/player.svelte.js'
 import { auth } from '../stores/auth.svelte.js'
 import { i18n, setLocale } from '../i18n/index.svelte.js'
@@ -23,6 +23,9 @@ export const QUALITY_LABELS = {
   higher: '较高',
   standard: '标准',
 }
+
+/** 内置后端地址，供设置页展示「恢复默认」的参照值 */
+export { DEFAULT_API_BASE }
 
 function formatBytes(bytes) {
   if (!bytes) return '0 B'
