@@ -2,21 +2,21 @@
 .ly-left-controls {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 0.9vw, 16px);
+  gap: 12px;
   flex-shrink: 0;
   padding: clamp(4px, 0.4vw, 8px) 0;
-  width: min(100%, clamp(280px, 25vw, 460px));
+  width: min(100%, clamp(320px, 28vw, 480px));
 }
 .ly-progress-row {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 2px;
 }
 .ly-progress-track {
   height: 8px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 1px;
+  background: rgba(255,255,255,0.17);
+  border-radius: 999px;
   cursor: pointer;
   touch-action: none;
 }
@@ -29,15 +29,16 @@
   justify-content: space-between;
 }
 .ly-time {
-  font-size: 13px;
-  color: rgba(255,255,255,0.35);
+  font-size: 12px;
+  color: rgba(255,255,255,0.42);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
 }
 .ly-progress-fill {
   height: 100%;
-  background: rgba(255,255,255,0.9);
-  border-radius: 2px;
+  background: rgba(255,255,255,0.92);
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(255,255,255,0.16);
   transition: width 0.15s linear;
 }
 
@@ -46,17 +47,17 @@
   align-items: center;
   justify-content: flex-start;
   padding-left: 0;
-  width: min(100%, clamp(330px, 30vw, 520px));
+  width: min(100%, clamp(320px, 28vw, 480px));
   margin: 0 auto;
-  gap: clamp(18px, 2vw, 34px);
-  transform: translateY(clamp(-28px, -1.8vw, -14px)) translateX(clamp(-8px, -0.2vw, -2px));
+  gap: clamp(24px, 2.6vw, 42px);
+  transform: none;
 }
 .ly-ctrl-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(58px, 5.2vw, 86px);
-  height: clamp(58px, 5.2vw, 86px);
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: none;
   background: none;
@@ -86,8 +87,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(68px, 6.2vw, 104px);
-  height: clamp(68px, 6.2vw, 104px);
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: none;
   color: rgba(255,255,255,0.9);
@@ -97,7 +98,7 @@
   flex-shrink: 0;
 }
 .ly-play-row svg {
-  transform: scale(1.55);
+  transform: scale(1.16);
 }
 .ly-play-btn:active {
   transform: scale(0.85);
@@ -212,4 +213,50 @@
 /* ===== Queue Panel Layout Adjustment ===== */
 .player-bar-wrap.queue-open {
   right: 352px;
+}
+
+.ly-play-btn,
+.ly-play-btn:hover,
+.ly-play-btn:focus,
+.ly-play-btn:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.ly-play-btn svg {
+  display: block;
+  background: transparent;
+  filter: none;
+}
+
+.ly-play-row .ly-ctrl-btn,
+.ly-play-row .ly-queue-btn,
+.ly-play-row .ly-ctrl-btn:hover,
+.ly-play-row .ly-queue-btn:hover,
+.ly-play-row .ly-ctrl-btn:focus,
+.ly-play-row .ly-queue-btn:focus,
+.ly-play-row .ly-ctrl-btn:focus-visible,
+.ly-play-row .ly-queue-btn:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.ly-play-row .ly-ctrl-btn:active,
+.ly-play-row .ly-queue-btn:active {
+  background: transparent !important;
+}
+
+.ly-play-row .ly-queue-btn {
+  color: rgba(255,255,255,0.5);
+}
+
+.ly-play-row .ly-queue-btn.active {
+  color: var(--accent, #1db954);
+}
+
+.ly-play-row > button:first-child svg,
+.ly-play-row .ly-queue-btn svg {
+  transform: scale(1.02);
 }

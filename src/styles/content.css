@@ -384,10 +384,6 @@ html.mobile-runtime .mobile-tabs {
   display: grid;
 }
 
-html.mobile-runtime .global-search-btn {
-  display: none;
-}
-
 /* mobile shell: html.mobile-runtime (was max-width:760) */
 
   html.mobile-runtime,
@@ -407,10 +403,6 @@ html.mobile-runtime .global-search-btn {
 
   html.mobile-runtime .sidebar {
     display: none !important;
-  }
-
-  html.mobile-runtime .global-search-btn {
-    display: none;
   }
 
   html.mobile-runtime .main-area {

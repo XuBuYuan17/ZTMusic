@@ -128,6 +128,9 @@
         <PCPlayer
           {onClose}
           {onOpenArtist}
+          {onOpenAlbum}
+          {onOpenPlaylist}
+          {onToggleTheme}
           {showLocalQueue}
           {toggleLocalQueue}
         />

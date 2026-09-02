@@ -209,13 +209,14 @@
   .local-import-status > div { height: 4px; overflow: hidden; border-radius: 999px; background: var(--bg-layer); }
   .local-import-status i { display: block; height: 100%; background: var(--accent); transition: width .16s; }
   .local-message.error { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
-  .local-webdav { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(320px, 1.4fr); align-items: end; gap: 16px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-elevated) 70%, transparent); }
+  .local-webdav { min-width: 0; display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.4fr); align-items: end; gap: 16px; padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-elevated) 70%, transparent); }
   .local-webdav h2 { margin: 6px 0 5px; font-size: 20px; line-height: 1.2; }
   .local-webdav p { max-width: 460px; color: var(--text-tertiary); font-size: 13px; line-height: 1.5; }
-  .local-webdav-form { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(120px, .7fr) minmax(120px, .7fr) auto auto; gap: 8px; align-items: end; }
+  .local-webdav-form { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(96px, .7fr) minmax(96px, .7fr) max-content max-content; gap: 8px; align-items: end; }
   .local-webdav-form label { min-width: 0; display: grid; gap: 6px; color: var(--text-tertiary); font-size: 12px; font-weight: 500; }
-  .local-webdav-form input { width: 100%; min-width: 0; height: 38px; padding: 0 11px; border: 1px solid var(--border); border-radius: var(--radius-md); outline: 0; color: var(--text); background: var(--bg-layer); font: inherit; }
+  .local-webdav-form input { width: 100%; min-width: 0; height: 38px; padding: 0 11px; border: 1px solid var(--border); border-radius: var(--radius-md); outline: 0; color: var(--text); background: var(--bg-layer); font: inherit; overflow: hidden; text-overflow: ellipsis; }
   .local-webdav-form input:focus { border-color: var(--accent); }
+  .local-webdav-form .local-btn { min-width: 0; white-space: nowrap; }
   .local-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .local-search { width: min(420px, 100%); min-height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-tertiary); }
   .local-search:focus-within { border-color: var(--accent); }
@@ -242,6 +243,12 @@
   .local-empty h2 { color: var(--text); font-size: 20px; }
   .local-empty p { max-width: 420px; font-size: 13px; line-height: 1.6; }
   .local-empty--compact { min-height: 180px; }
+
+  @media (max-width: 1120px) {
+    .local-webdav { grid-template-columns: 1fr; align-items: stretch; }
+    .local-webdav-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .local-webdav-form label:first-child { grid-column: 1 / -1; }
+  }
 
   :global(html.mobile-runtime) .local-page { gap: 16px; padding-bottom: 24px; }
   :global(html.mobile-runtime) .local-header { align-items: stretch; flex-direction: column; gap: 14px; }

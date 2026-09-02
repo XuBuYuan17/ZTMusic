@@ -80,6 +80,13 @@
       <span class="nav-label">发现</span>
     </button>
 
+    <button class="nav-item" class:active={activeView === 'search'} onclick={() => nav('search')}>
+      <span class="nav-icon">
+        <Icon name="search" size={22} strokeWidth={1.5}/>
+      </span>
+      <span class="nav-label">搜索</span>
+    </button>
+
     <button class="nav-item" class:active={activeView === 'library'} onclick={() => nav('library')}>
       <span class="nav-icon">
         <Icon name="liked" size={22} strokeWidth={1.5}/>

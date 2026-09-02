@@ -9,28 +9,126 @@
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
+  import Icon from './ui/Icon.svelte';
+  import { QUALITY_ORDER } from '../utils/constants.js';
 
-  let { onClose, onOpenArtist, showLocalQueue = false, toggleLocalQueue } = $props();
+  let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme, showLocalQueue = false, toggleLocalQueue } = $props();
 
   const lyricState = useLyrics();
   const like = useLike();
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
+  let album = $derived(player.currentTrack?.al || player.currentTrack?.album || null);
+  let firstArtist = $derived(currentArtists.find(artist => artist?.id));
   let lyricsEl = $state(null);
+  let contextPanelRequest = $state(null);
+  let showLyricsVolume = $state(false);
+  let showLyricTools = $state(false);
+  let menuMessage = $state('');
+  let actionBusy = $state('');
 
   $effect(() => {
     if (!lyricsEl) return;
     scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5);
   });
+
+  function closeLyricTools() {
+    showLyricTools = false;
+  }
+
+  function openContextPanel(type) {
+    contextPanelRequest = type;
+    closeLyricTools();
+  }
+
+  function toggleLyricTools() {
+    showLyricTools = !showLyricTools;
+  }
+
+  const qualityLabels = {
+    lossless: '无损',
+    exhigh: '极高',
+    higher: '较高',
+    standard: '标准',
+  };
+
+  function showMenuMessage(text) {
+    menuMessage = text;
+    setTimeout(() => {
+      if (menuMessage === text) menuMessage = '';
+    }, 1600);
+  }
+
+  async function shareTrack() {
+    if (!player.id || actionBusy === 'share') return;
+    actionBusy = 'share';
+    const url = `https://music.163.com/song?id=${player.id}`;
+    const title = player.title || '哲听歌曲';
+    const text = player.artist ? `${title} - ${player.artist}` : title;
+    try {
+      if (navigator.share) await navigator.share({ title, text, url });
+      else await navigator.clipboard?.writeText(url);
+      showMenuMessage(navigator.share ? '已打开分享' : '链接已复制');
+    } catch (error) {
+      if (error?.name !== 'AbortError') showMenuMessage('分享失败');
+    } finally {
+      actionBusy = '';
+    }
+  }
+
+  function closeAndNavigate(fn, id, preview) {
+    if (!id) return;
+    closeLyricTools();
+    onClose?.();
+    fn?.(id, true, preview);
+  }
+
+  function openAlbum() {
+    closeAndNavigate(onOpenAlbum, album?.id, album);
+  }
+
+  function openArtist() {
+    closeAndNavigate(onOpenArtist, firstArtist?.id, firstArtist);
+  }
+
+  function cycleQuality() {
+    const index = QUALITY_ORDER.indexOf(player.preferredLevel);
+    const next = QUALITY_ORDER[(index + 1) % QUALITY_ORDER.length] || 'standard';
+    player.setPreferredLevel(next);
+    showMenuMessage(`音质：${qualityLabels[next] || '标准'}`);
+  }
+
+  function toggleQueueFromCover() {
+    closeLyricTools();
+    toggleLocalQueue?.();
+  }
 </script>
 
 <!-- PC Layout: Two Columns -->
 <div class="ly-pc-player">
+  <div class="ly-system-actions" aria-label="歌词页工具">
+    <div class="ly-volume-control" class:open={showLyricsVolume} role="button" tabindex="0" aria-label="音量" onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showLyricsVolume = !showLyricsVolume } }}>
+      <span class="ly-volume-shell">
+        <button class="ly-glass-icon-btn" type="button" onclick={(event) => { event.stopPropagation(); if (showLyricsVolume) player.setVolume(player.volume === 0 ? 0.8 : 0); else showLyricsVolume = true }} aria-label={player.volume === 0 ? '取消静音' : '音量'}>
+          <Icon name={player.volume > 0 ? 'volume-full' : 'volume-off'} size={19} strokeWidth={2.2} />
+        </button>
+        {#if showLyricsVolume}
+          <span class="ly-volume-track">
+            <input type="range" min="0" max="1" step="0.01" value={player.volume} onclick={(event) => event.stopPropagation()} oninput={(event) => player.setVolume(event.currentTarget.value)} aria-label="音量" />
+            <span class="ly-volume-fill" style={`width:${Math.round(player.volume * 100)}%`}></span>
+          </span>
+        {/if}
+      </span>
+    </div>
+  </div>
+
   <!-- LEFT COLUMN: Cover + Controls -->
   <div class="ly-left">
-    <div class="ly-left-cover">
+    <div class="ly-left-cover" class:tools-open={showLyricTools}>
       <div class="ly-cover-wrap">
-        <img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />
+        <button class="ly-cover-button" type="button" onclick={toggleLyricTools} aria-label="展开歌曲操作" aria-expanded={showLyricTools}>
+          <img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />
+        </button>
       </div>
       <div class="ly-track-wrap">
         <div class="ly-track-top">
@@ -50,9 +148,61 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>
               {/if}
             </button>
+            <button class="ly-star-btn" class:active={showLyricTools} type="button" onclick={toggleLyricTools} aria-label="更多" aria-expanded={showLyricTools}>
+              <Icon name="more" size={16} strokeWidth={2} />
+            </button>
           </div>
         </div>
       </div>
+      <div class="ly-cover-tool-panel" class:open={showLyricTools} role="menu" aria-label="歌曲更多操作" aria-hidden={!showLyricTools}>
+          <div class="ly-cover-tool-primary">
+            <button class="primary" type="button" role="menuitem" onclick={like.toggle} disabled={!showLyricTools || !player.id || like.busy}>
+              <Icon name={like.liked ? 'heart-filled' : 'heart'} size={20} strokeWidth={2} />
+              <span>{like.liked ? '取消收藏' : '收藏'}</span>
+            </button>
+            <button class="primary" type="button" role="menuitem" onclick={toggleQueueFromCover} disabled={!showLyricTools || !player.id}>
+              <Icon name="list" size={20} strokeWidth={2.2} />
+              <span>播放队列</span>
+            </button>
+            <button class="primary" type="button" role="menuitem" onclick={shareTrack} disabled={!showLyricTools || !player.id || actionBusy === 'share'}>
+              <Icon name="share" size={20} strokeWidth={2} />
+              <span>分享</span>
+            </button>
+          </div>
+          <div class="ly-cover-tool-secondary">
+            <button type="button" role="menuitem" onclick={openAlbum} disabled={!showLyricTools || !album?.id}>
+              <Icon name="music" size={16} strokeWidth={2} />
+              <span>专辑</span>
+            </button>
+            <button type="button" role="menuitem" onclick={openArtist} disabled={!showLyricTools || !firstArtist?.id}>
+              <Icon name="user" size={16} strokeWidth={2} />
+              <span>歌手</span>
+            </button>
+            <button type="button" role="menuitem" onclick={cycleQuality} disabled={!showLyricTools || !player.id}>
+              <Icon name="settings" size={16} strokeWidth={2} />
+              <span>{qualityLabels[player.preferredLevel] || '标准'}</span>
+            </button>
+            <button type="button" role="menuitem" onclick={() => openContextPanel('comments')} disabled={!showLyricTools || !player.id}>
+              <Icon name="messages" size={16} strokeWidth={2} />
+              <span>热评</span>
+            </button>
+            <button class="wide" type="button" role="menuitem" onclick={() => openContextPanel('songs')} disabled={!showLyricTools || !player.id}>
+              <Icon name="lyrics" size={16} strokeWidth={2} />
+              <span>相似歌曲</span>
+            </button>
+            <button class="wide" type="button" role="menuitem" onclick={() => openContextPanel('playlists')} disabled={!showLyricTools || !player.id}>
+              <Icon name="list" size={16} strokeWidth={2.2} />
+              <span>相似歌单</span>
+            </button>
+            <button type="button" role="menuitem" onclick={() => { closeLyricTools(); onToggleTheme?.(); }} disabled={!showLyricTools}>
+              <Icon name="moon" size={16} strokeWidth={2} />
+              <span>外观</span>
+            </button>
+          </div>
+          {#if menuMessage}
+            <div class="ly-cover-menu-message" aria-live="polite">{menuMessage}</div>
+          {/if}
+        </div>
     </div>
 
     <div class="ly-left-controls">
@@ -95,7 +245,7 @@
           {/if}
         </div>
       </div>
-      <SongContextStrip variant="desktop" {onOpenArtist} {onClose} />
+      <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} {onOpenArtist} {onClose} />
     </div>
   </div>
 

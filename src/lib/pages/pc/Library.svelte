@@ -241,8 +241,8 @@
       <ErrorBlock message={error} onRetry={load} />
     {:else if loading && !library}
       <div class="library-grid" aria-label="加载收藏歌单">
-        {#each Array(10) as _}
-          <div class="library-card library-card-skeleton">
+        {#each Array(10) as _, i}
+          <div class="library-card library-card-skeleton" style={`--card-i:${i}`}>
             <div class="library-card-cover skeleton-block"></div>
             <div class="library-card-info">
               <div class="library-card-name skeleton-line"></div>
@@ -260,8 +260,8 @@
         </div>
         {#if createdPlaylists.length > 0}
           <div class="library-grid">
-            {#each createdPlaylists as pl (pl.id)}
-              <div class="library-card" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
+            {#each createdPlaylists as pl, i (pl.id)}
+              <div class="library-card" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
                 <div class="library-card-cover">
                   {#if pl.picUrl}
                     <img src={coverUrl(pl.picUrl, 400)} alt={pl.name} loading="lazy" referrerpolicy="no-referrer" />
@@ -296,8 +296,8 @@
         </div>
         {#if savedPlaylists.length > 0}
           <div class="library-grid">
-            {#each savedPlaylists as pl (pl.id)}
-              <div class="library-card library-card-managed" role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
+            {#each savedPlaylists as pl, i (pl.id)}
+              <div class="library-card library-card-managed" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
                 <div class="library-card-cover">
                   {#if pl.picUrl}
                     <img src={coverUrl(pl.picUrl, 400)} alt={pl.name} loading="lazy" referrerpolicy="no-referrer" />

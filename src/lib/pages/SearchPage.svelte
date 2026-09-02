@@ -1,11 +1,11 @@
 <script>
-  import { slide } from 'svelte/transition'
   import { musicService } from '../music/service.js'
   import { player } from '../stores/player.svelte.js'
   import { formatDuration } from '../format.js'
   import { coverUrl as imageCoverUrl } from '../utils/image.js'
   import ArtistNames from '../components/ArtistNames.svelte'
   import SongListActions from '../components/SongListActions.svelte'
+  import Icon from '../components/ui/Icon.svelte'
 
   let { onOpenArtist, onOpenAlbum, onOpenPlaylist } = $props()
 
@@ -48,10 +48,6 @@
     if (currentRequest === requestId) loading = false
   }
 
-  function handleKeydown(e) {
-    if (e.key === 'Enter') doSearch()
-  }
-
   function playSong(track) {
     player.playTrack(track, 0)
   }
@@ -65,10 +61,6 @@
     doSearch()
   }
 
-  function artistText(track) {
-    return (track.ar || track.artists || []).map(artist => artist.name).join(' / ')
-  }
-
   const searchCategories = $derived([
     { key: 'all', label: '综合', count: results.songs.length + results.artists.length + results.playlists.length },
     { key: 'songs', label: '歌曲', count: results.songs.length },
@@ -77,27 +69,29 @@
   ])
 </script>
 
-<div class="search-page fade-in" transition:slide={{ duration: 240, axis: 'x' }}>
-  <section class="search-command">
-    <div class="search-command-bg"></div>
-    <div class="search-command-copy">
-      <div class="search-kicker">搜索</div>
-      <h1>搜索音乐</h1>
-      <p>查找歌曲、歌手、专辑和歌单。</p>
+<div class="search-page fade-in">
+  <header class="search-header">
+    <div>
+      <span class="search-kicker">Search</span>
+      <h1>搜索</h1>
+      <p>查找歌曲、歌手和歌单。</p>
     </div>
-    <div class="search-input-panel">
-      <div class="search-input-wrap">
-        <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input class="search-input" type="text" placeholder="歌曲、歌手、歌单" bind:value={keyword} onkeydown={handleKeydown} />
+  </header>
+
+  <form class="search-toolbar" onsubmit={(e) => { e.preventDefault(); doSearch() }}>
+    <label class="search-input-wrap" aria-label="搜索音乐">
+      <Icon name="search" size={18} strokeWidth={1.8} />
+      <input class="search-input" type="search" placeholder="歌曲、歌手、歌单" bind:value={keyword} />
         {#if keyword}
-          <button class="search-clear" onclick={() => keyword = ''} aria-label="清空搜索">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <button type="button" class="search-clear" onclick={() => keyword = ''} aria-label="清空搜索">
+            <Icon name="close" size={15} strokeWidth={2} />
           </button>
         {/if}
-        <button class="search-submit" onclick={doSearch}>搜索</button>
-      </div>
-    </div>
-  </section>
+    </label>
+    <button class="search-submit" type="submit" disabled={!keyword.trim() || loading}>
+      {loading ? '搜索中' : '搜索'}
+    </button>
+  </form>
 
   {#if keyword.trim() !== '' && !loading}
     <nav class="search-category-tabs" aria-label="搜索结果分类">
@@ -162,7 +156,7 @@
     </div>
   {:else if results.songs.length === 0 && results.artists.length === 0 && results.playlists.length === 0}
     <div class="search-empty">
-      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <Icon name="search" size={42} strokeWidth={1.2} />
       <p>未找到相关结果</p>
     </div>
   {:else}
@@ -266,49 +260,46 @@
 </div>
 
 <style>
-  .search-page { display: grid; gap: 20px; }
-  .search-command { position: relative; overflow: hidden; display: grid; gap: 18px; min-height: 0; padding: 26px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 88%, transparent)); box-shadow: 0 22px 60px rgba(0,0,0,0.18); }
-  .search-command-bg { position: absolute; inset: 0; background: radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 32%), radial-gradient(circle at 82% 24%, rgba(255,255,255,0.14), transparent 26%), linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.22)); pointer-events: none; }
-  .search-command-copy, .search-input-panel { position: relative; z-index: 1; }
-  .search-kicker { color: color-mix(in srgb, var(--accent) 84%, white); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-  .search-command h1 { max-width: 520px; font-size: clamp(34px, 4vw, 52px); line-height: 0.98; letter-spacing: 0; margin: 0; }
-  .search-command p { max-width: 520px; margin-top: 8px; color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
-  .search-input-panel { display: block; padding: 0; border: none; border-radius: var(--radius-xl); background: transparent; backdrop-filter: none; }
-  .search-input-wrap { display: flex; align-items: center; gap: 12px; min-height: 58px; background: color-mix(in srgb, var(--bg-surface) 76%, transparent); border: 1px solid color-mix(in srgb, var(--border) 62%, transparent); border-radius: var(--radius-xl); padding: 7px 8px 7px 18px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 36px rgba(0,0,0,0.12); transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; backdrop-filter: blur(16px); }
-  .search-input-wrap:focus-within { border-color: color-mix(in srgb, var(--accent) 46%, var(--border)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent), 0 16px 42px rgba(0,0,0,0.16); background: color-mix(in srgb, var(--bg-surface) 88%, transparent); }
-  .search-icon { color: color-mix(in srgb, var(--text-tertiary) 84%, var(--text)); flex-shrink: 0; }
-  .search-input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 17px; color: var(--text); }
+  .search-page { display: grid; gap: 18px; }
+  .search-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+  .search-kicker { display: block; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; }
+  .search-header h1 { margin: 0 0 5px; font-size: 36px; line-height: 1.08; letter-spacing: 0; }
+  .search-header p { color: var(--text-tertiary); font-size: 13px; }
+  .search-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-elevated) 76%, transparent); }
+  .search-input-wrap { min-width: 0; height: 42px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-layer); color: var(--text-tertiary); }
+  .search-input-wrap:focus-within { border-color: var(--accent); color: var(--accent); }
+  .search-input { flex: 1; min-width: 0; border: none; background: none; outline: none; font-size: 15px; color: var(--text); }
   .search-input::placeholder { color: var(--text-tertiary); }
   .search-clear, .search-submit { border: none; cursor: pointer; }
-  .search-clear { color: var(--text-tertiary); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: transparent; }
+  .search-clear { flex-shrink: 0; color: var(--text-tertiary); width: 28px; height: 28px; border-radius: var(--radius-sm); display: grid; place-items: center; background: transparent; }
   .search-clear:hover { background: var(--bg-hover); }
-  .search-submit { height: 44px; min-width: 82px; padding: 0 20px; border-radius: var(--radius-lg); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white), var(--accent)); color: white; font-weight: 700; box-shadow: 0 10px 22px color-mix(in srgb, var(--accent) 22%, transparent); }
-  .search-submit:hover { filter: brightness(1.04); }
-  .search-loading { display: flex; justify-content: center; padding: 82px 0; }
+  .search-submit { height: 42px; min-width: 78px; padding: 0 18px; border-radius: var(--radius-md); background: var(--accent); color: white; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .search-submit:disabled { opacity: .48; cursor: default; }
+  .search-loading { display: flex; justify-content: center; padding: 72px 0; }
   .search-spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-  .search-category-tabs { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 5px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-layer) 82%, transparent); overflow-x: auto; }
+  .search-category-tabs { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 5px; border: 1px solid var(--border); border-radius: var(--radius-md); background: color-mix(in srgb, var(--bg-elevated) 76%, transparent); overflow-x: auto; }
   .search-category-tabs button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px; border: none; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
   .search-category-tabs button:hover { background: var(--bg-hover); color: var(--text); }
   .search-category-tabs button.active { background: var(--accent-bg); color: var(--accent); }
   .search-category-tabs em { color: inherit; font-size: 11px; font-style: normal; opacity: 0.72; }
   .search-empty-layout { display: grid; grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr); gap: 18px; align-items: start; }
   .search-results-layout { display: grid; gap: 18px; align-items: start; }
-  .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 82%, transparent); padding: 16px; box-shadow: 0 14px 42px rgba(0,0,0,0.12); }
+  .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-elevated) 76%, transparent); padding: 16px; }
   .search-section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
   .search-section-header h2 { font-size: 18px; font-weight: 700; letter-spacing: 0; }
   .search-section-header span, .search-section-header button { color: var(--text-tertiary); font-size: 12px; font-weight: 700; }
   .search-section-header button { color: var(--accent); border: none; background: transparent; cursor: pointer; }
   .search-hot-list, .search-songs, .search-compact-list { display: grid; gap: 5px; }
-  .search-hot-row, .search-song-row, .search-compact-list button { display: grid; align-items: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: pointer; text-align: left; border-radius: var(--radius-lg); }
+  .search-hot-row, .search-song-row, .search-compact-list button { display: grid; align-items: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: pointer; text-align: left; border-radius: var(--radius-md); }
   .search-hot-row { grid-template-columns: 44px minmax(0, 1fr) 58px; min-height: 44px; padding: 0 12px; }
   .search-hot-row:hover, .search-song-row:hover, .search-compact-list button:hover { background: var(--bg-hover); }
-  .search-hot-row.top { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 68%); }
+  .search-hot-row.top { background: color-mix(in srgb, var(--accent-bg) 72%, transparent); }
   .search-hot-row.top span { color: var(--accent); }
   .search-hot-row span { color: var(--text-tertiary); font-weight: 700; }
   .search-hot-row strong, .search-song-info strong, .search-compact-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-hot-row em { justify-self: end; color: var(--text-tertiary); font-size: 11px; font-style: normal; }
   .search-chart-songs { display: grid; gap: 5px; }
-  .search-chart-song-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 58px; gap: 12px; align-items: center; min-height: 44px; width: 100%; padding: 0 12px; border: none; border-radius: var(--radius-lg); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+  .search-chart-song-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 58px; gap: 12px; align-items: center; min-height: 44px; width: 100%; padding: 0 12px; border: none; border-radius: var(--radius-md); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
   .search-chart-song-row:hover { background: var(--bg-hover); }
   .search-chart-skeleton { cursor: default; pointer-events: none; }
   .search-chart-skeleton .skeleton-line { display: block; width: 100%; height: 12px; border-radius: 999px; background: linear-gradient(90deg, color-mix(in srgb, var(--bg-hover) 70%, transparent), color-mix(in srgb, var(--border) 72%, transparent), color-mix(in srgb, var(--bg-hover) 70%, transparent)); background-size: 220% 100%; animation: searchSkeleton 1.15s ease-in-out infinite; }
@@ -317,15 +308,15 @@
   @keyframes searchSkeleton { 0% { background-position: 100% 0; } 100% { background-position: -120% 0; } }
   .search-chart-rank { color: var(--text-tertiary); font-size: 13px; font-weight: 700; text-align: center; }
   .search-chart-song-row:nth-child(-n + 3) .search-chart-rank { color: var(--accent); }
-  .search-feature-song { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 17px; align-items: end; width: 100%; text-align: left; color: var(--text); cursor: pointer; border: none; background: transparent; }
-  .search-feature-song img, .search-feature-cover { width: 112px; height: 112px; object-fit: cover; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+  .search-feature-song { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 15px; align-items: end; width: 100%; text-align: left; color: var(--text); cursor: pointer; border: none; background: transparent; }
+  .search-feature-song img, .search-feature-cover { width: 96px; height: 96px; object-fit: cover; border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
   .search-feature-song span, .search-song-info, .search-compact-list span { min-width: 0; display: grid; }
   .search-feature-song small { color: var(--accent); font-size: 12px; font-weight: 700; }
-  .search-feature-song strong { font-size: 28px; line-height: 1.08; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .search-feature-song strong { font-size: 22px; line-height: 1.14; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-feature-song em, .search-song-info em, .search-compact-list em, .search-playlist-grid em { color: var(--text-tertiary); font-size: 12px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-song-row { grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 12px; min-height: 60px; padding: 6px 8px; }
   .search-song-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .search-song-cover { width: 48px; height: 48px; border-radius: var(--radius-md); object-fit: cover; }
+  .search-song-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; }
   .search-cover-placeholder, .search-avatar-ph { display: grid; place-items: center; background: var(--bg-surface); color: var(--text-tertiary); }
   .search-song-dur { color: var(--text-tertiary); font-size: 12px; justify-self: end; }
   .search-compact-list button { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; min-height: 60px; padding: 6px; }
@@ -333,21 +324,19 @@
   .search-result-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
   .search-playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
   .search-playlist-grid button { min-width: 0; text-align: left; cursor: pointer; color: var(--text); border: none; background: transparent; }
-  .search-playlist-grid img, .search-playlist-grid .search-cover-placeholder { width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); object-fit: cover; margin-bottom: 8px; }
+  .search-playlist-grid img, .search-playlist-grid .search-cover-placeholder { width: 100%; aspect-ratio: 1; border-radius: var(--radius-md); object-fit: cover; margin-bottom: 8px; }
   .search-playlist-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-  .search-empty { display: grid; place-items: center; gap: 10px; min-height: 280px; color: var(--text-tertiary); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 72%, transparent); }
-  @media (max-width: 980px) { .search-command, .search-empty-layout { grid-template-columns: 1fr; } .search-command { min-height: auto; padding: 24px; } }
+  .search-empty { display: grid; place-items: center; gap: 10px; min-height: 280px; color: var(--text-tertiary); border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-elevated) 58%, transparent); }
+  @media (max-width: 980px) { .search-empty-layout { grid-template-columns: 1fr; } }
   @media (max-width: 560px) {
     .search-page { gap: 14px; }
-    .search-command { gap: 0; padding: 0; border: none; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
-    .search-command-bg,
-    .search-command-copy { display: none; }
-    .search-input-panel { position: sticky; top: 0; z-index: 12; padding-bottom: 2px; background: var(--bg); }
-    .search-input-wrap { min-height: 48px; gap: 8px; padding: 6px 6px 6px 12px; border-radius: var(--radius-lg); }
+    .search-header h1 { font-size: 30px; }
+    .search-toolbar { position: sticky; top: 0; z-index: 12; grid-template-columns: minmax(0, 1fr) auto; padding: 8px; margin: 0 -2px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .search-input-wrap { height: 40px; gap: 8px; padding: 0 10px; border-radius: var(--radius-md); }
     .search-input { font-size: 15px; }
-    .search-submit { width: auto; min-width: 64px; height: 36px; padding: 0 14px; border-radius: var(--radius-md); }
-    .search-category-tabs { position: sticky; top: 0; z-index: 11; width: 100%; background: color-mix(in srgb, var(--bg-layer) 92%, transparent); }
-    .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { padding: 12px; border-radius: var(--radius-lg); box-shadow: 0 10px 28px rgba(0,0,0,0.1); }
+    .search-submit { min-width: 60px; height: 40px; padding: 0 12px; }
+    .search-category-tabs { width: 100%; background: color-mix(in srgb, var(--bg-elevated) 86%, transparent); }
+    .search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card { padding: 12px; border-radius: var(--radius-md); }
     .search-empty-layout { gap: 12px; }
     .search-song-chart-panel { padding-bottom: 10px; }
     .search-section-header { margin-bottom: 10px; }
@@ -361,7 +350,7 @@
     .search-chart-rank { font-size: 12px; }
     .search-chart-song-row .search-song-dur { display: none; }
     .search-feature-song { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; }
-    .search-feature-song img, .search-feature-cover { width: 72px; height: 72px; border-radius: var(--radius-lg); }
+    .search-feature-song img, .search-feature-cover { width: 72px; height: 72px; border-radius: var(--radius-md); }
     .search-feature-song strong { font-size: 18px; }
     .search-song-row { grid-template-columns: 42px minmax(0, 1fr); min-height: 54px; }
     .search-song-cover { width: 42px; height: 42px; }
