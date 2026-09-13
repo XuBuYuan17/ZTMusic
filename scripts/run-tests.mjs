@@ -12,7 +12,7 @@ async function findTests(directory) {
   const tests = await Promise.all(entries.map((entry) => {
     const path = resolve(directory, entry.name)
     if (entry.isDirectory()) return findTests(path)
-    return entry.isFile() && /\.test\.m?js$/.test(entry.name) ? [path] : []
+    return entry.isFile() && /\.test\.(?:m?js|ts)$/.test(entry.name) ? [path] : []
   }))
   return tests.flat()
 }
@@ -36,7 +36,11 @@ if (tests.length === 0) {
     // These self-checks install browser globals and patch module singletons. A
     // fresh process per file prevents one test's runtime from leaking into the
     // next while keeping their existing direct-execution contract intact.
-    const result = spawnSync(process.execPath, [test], {
+    // .ts 测试靠 Node 原生类型擦除直接执行；显式传旗兼容 Node 22.x 并静音实验警告。
+    const args = test.endsWith('.ts')
+      ? ['--experimental-strip-types', '--disable-warning=ExperimentalWarning', test]
+      : [test]
+    const result = spawnSync(process.execPath, args, {
       cwd: root,
       stdio: 'inherit',
     })

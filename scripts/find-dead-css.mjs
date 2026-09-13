@@ -24,7 +24,7 @@ function walk(dir, acc = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name)
     if (entry.isDirectory()) walk(path, acc)
-    else if (/\.(svelte|js)$/.test(entry.name) && !/\.test\.js$/.test(entry.name)) acc.push(path)
+    else if (/\.(svelte|js|ts)$/.test(entry.name) && !/\.test\.(js|ts)$/.test(entry.name)) acc.push(path)
   }
   return acc
 }

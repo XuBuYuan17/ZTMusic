@@ -9,10 +9,11 @@
     "dev:clean": "rm -rf node_modules/.vite && vite",
     "dev:5173": "vite --host 127.0.0.1 --port 5173 --strictPort --clearScreen false",
     "build": "vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:versions": "node scripts/verify-versions.mjs",
     "test": "node scripts/run-tests.mjs",
     "preview": "vite preview",
-    "verify": "pnpm check:versions && pnpm test && pnpm build",
+    "verify": "pnpm check:versions && pnpm check && pnpm test && pnpm build",
     "verify:tauri": "pnpm build && pnpm tauri:build:linux",
     "setup:android-signing": "powershell.exe -ExecutionPolicy Bypass -File scripts/setup-android-signing.ps1",
     "tauri": "tauri",
@@ -25,7 +26,10 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2.11.2",
+    "@types/node": "^22.20.2",
     "svelte": "^5.55.5",
+    "svelte-check": "^4.7.6",
+    "typescript": "^6.0.3",
     "vite": "^8.0.12"
   },
   "dependencies": {
