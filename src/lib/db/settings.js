@@ -8,8 +8,9 @@
  *   const vol = await dbSettings.get('volume', '0.5')
  */
 
-import { getDB, isReady } from './init.js'
+import { ensureDB, getDB, isReady } from './init.js'
 import { getStorage, setStorage, removeStorage } from '../utils/storage.js'
+import { debugLog } from '../utils/logging.js'
 
 function isAvailable() {
   return isReady() && getDB()
@@ -23,6 +24,7 @@ export const dbSettings = {
    * @returns {Promise<string>}
    */
   async get(key, fallbackVal = '') {
+    await ensureDB()
     if (!isAvailable()) return getStorage(key, fallbackVal)
     try {
       const db = getDB()
@@ -31,8 +33,9 @@ export const dbSettings = {
         return result[0].value
       }
       return fallbackVal
-    } catch {
-      return getStorage(key, fallbackVal)
+    } catch (error) {
+      debugLog('db', 'settings get failed', { key, message: error?.message || String(error) })
+      return fallbackVal
     }
   },
 
@@ -42,6 +45,7 @@ export const dbSettings = {
    * @param {string} value
    */
   async set(key, value) {
+    await ensureDB()
     if (!isAvailable()) {
       setStorage(key, value)
       return
@@ -52,8 +56,8 @@ export const dbSettings = {
         `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
         [key, String(value)]
       )
-    } catch {
-      setStorage(key, value)
+    } catch (error) {
+      debugLog('db', 'settings set failed', { key, message: error?.message || String(error) })
     }
   },
 
@@ -89,6 +93,7 @@ export const dbSettings = {
    * @param {string} key
    */
   async remove(key) {
+    await ensureDB()
     if (!isAvailable()) {
       // 保持与 get/set 一致：SQLite 不可用时清理 localStorage fallback，避免遗留脏值
       removeStorage(key)
@@ -97,6 +102,8 @@ export const dbSettings = {
     try {
       const db = getDB()
       await db.sql(`DELETE FROM settings WHERE key = ?`, [key])
-    } catch { /* ignore */ }
+    } catch (error) {
+      debugLog('db', 'settings remove failed', { key, message: error?.message || String(error) })
+    }
   },
 }

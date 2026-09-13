@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ZTmusic DB OPFS integration</title>
+  </head>
+  <body>
+    <pre id="result">running</pre>
+    <script type="module">
+      const params = new URLSearchParams(location.search)
+      const legacyHistoryKey = 'local_history'
+      const legacyMessageKey = 'zheting-message-read-state'
+      const persistenceKey = 'opfs-integration-setting'
+
+      if (params.has('seed')) {
+        localStorage.setItem(legacyHistoryKey, JSON.stringify([{
+          id: 'local:opfs-legacy',
+          name: 'OPFS legacy track',
+          artists: [{ name: 'Integration Artist' }],
+          album: { name: 'Integration Album' },
+          duration: 123000,
+          playedAt: 1000,
+          playCount: 3,
+          source: 'local',
+          localId: 'local:opfs-legacy',
+          fileName: 'legacy.flac',
+        }]))
+        localStorage.setItem(legacyMessageKey, JSON.stringify({ 'integration-message': 456 }))
+      }
+
+      const { ensureDB, getDB, getDBBackend } = await import('/src/lib/db/init.js')
+      const { dbHistory } = await import('/src/lib/db/history.js')
+      const { dbSettings } = await import('/src/lib/db/settings.js')
+
+      const initialized = await ensureDB()
+      if (params.has('write')) {
+        await dbSettings.set(persistenceKey, 'persisted-through-opfs')
+        await dbHistory.add({
+          id: 'local:opfs-write',
+          name: 'OPFS write track',
+          artists: [{ name: 'Integration Artist' }],
+          album: { name: 'Integration Album' },
+          duration: 456000,
+          source: 'local',
+          localId: 'local:opfs-write',
+          fileName: 'write.flac',
+        })
+      }
+
+      const db = getDB()
+      const sqliteVersion = db ? await db.sql('SELECT sqlite_version() AS version') : []
+      const history = await dbHistory.list()
+      const messageState = await dbSettings.getJson(legacyMessageKey, {})
+      const persistedSetting = await dbSettings.get(persistenceKey, '')
+      const result = {
+        initialized,
+        backend: getDBBackend(),
+        sqliteVersion: sqliteVersion[0]?.version || '',
+        migratedHistory: history.find(track => track.id === 'local:opfs-legacy')?.playCount || 0,
+        writtenHistory: history.some(track => track.id === 'local:opfs-write'),
+        migratedMessageTime: messageState['integration-message'] || 0,
+        persistedSetting,
+        legacyHistoryRemoved: localStorage.getItem(legacyHistoryKey) === null,
+        legacyMessageRemoved: localStorage.getItem(legacyMessageKey) === null,
+      }
+      const passed = result.initialized
+        && result.backend === 'sqlite'
+        && Boolean(result.sqliteVersion)
+        && result.migratedHistory === 3
+        && result.writtenHistory
+        && result.migratedMessageTime === 456
+        && result.persistedSetting === 'persisted-through-opfs'
+        && result.legacyHistoryRemoved
+        && result.legacyMessageRemoved
+
+      document.body.dataset.status = passed ? 'passed' : 'failed'
+      document.querySelector('#result').textContent = JSON.stringify({ passed, ...result }, null, 2)
+    </script>
+  </body>
+</html>

@@ -17,7 +17,17 @@ import { normalizeImageUrl, coverUrl } from '../utils/image.js'
 import { dbCache } from '../db/cache.js'
 import { getPlayableUrls, fillFallbackUrls } from '../player/url-resolver.js'
 import { getTrialPlaybackMessage } from '../player/trial-message.js'
-import { compactTrack, compactQueue, getNextIndex, getPrevIndex, commitNextIndex } from '../player/queue.js'
+import {
+  compactTrack,
+  compactQueue,
+  createShuffleState,
+  replaceQueueState,
+  moveQueueItemState,
+  removeQueueItemState,
+  getNextIndex,
+  getPrevIndex,
+  commitNextIndex,
+} from '../player/queue.js'
 import { dbHistory } from '../db/history.js'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia, shouldUseWebMediaSession } from '../player/native-media.js'
 import { createPrefetchManager } from '../player/prefetch.js'
@@ -104,7 +114,7 @@ class PlayerState {
   /** 当前播放请求的中止控制器 */
   _abortController = new AbortController()
   /** 洗牌状态：保存当前队列的 Fisher-Yates 顺序 */
-  shuffleState = { order: [], position: -1 }
+  shuffleState = createShuffleState()
 
   constructor() {
     // 从 localStorage 恢复初始状态
@@ -152,8 +162,13 @@ class PlayerState {
     this.volume = parseFloat(getSetting(STORAGE_KEYS.VOLUME, '0.8'))
     this.mode = getSetting(STORAGE_KEYS.MODE, 'list')
     this.preferredLevel = getSetting(STORAGE_KEYS.PREFERRED_QUALITY, 'standard')
-    this.queue = getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, [])
-    this.queueIndex = parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1'))
+    const restoredQueue = replaceQueueState(
+      getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, []),
+      parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1')),
+    )
+    this.queue = restoredQueue.queue
+    this.queueIndex = restoredQueue.queueIndex
+    this.shuffleState = restoredQueue.shuffleState
 
     engine.setVolume(this.volume)
   }
@@ -367,6 +382,20 @@ class PlayerState {
     setStorage(STORAGE_KEYS.PLAYER_ARTIST, this.artist)
     setStorage(STORAGE_KEYS.PLAYER_COVER, this.cover)
     setStorage(STORAGE_KEYS.PLAYER_DURATION, this.duration)
+    setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
+  }
+
+  _commitQueueState(state, { clearStorage = false } = {}) {
+    this.queue = state.queue
+    this.queueIndex = state.queueIndex
+    this.shuffleState = state.shuffleState || createShuffleState()
+    engine.cancelPreload()
+    if (clearStorage) {
+      removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
+      removeStorage(STORAGE_KEYS.PLAYER_QI)
+      return
+    }
+    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
     setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
   }
 
@@ -644,14 +673,15 @@ class PlayerState {
    * @param {number} startIndex - 开始播放的索引
    */
   playQueue(tracks, startIndex = 0) {
-    this.shuffleState = { order: [], position: -1 }
-    this.queue = compactQueue(tracks)
-    this.queueIndex = Math.min(Math.max(startIndex, 0), Math.max(this.queue.length - 1, 0))
-    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
-    setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
+    this.replaceQueue(tracks, startIndex)
     if (this.queue[this.queueIndex]) {
       this.playTrack(this.queue[this.queueIndex], this.queueIndex)
     }
+  }
+
+  /** 替换队列但不自动播放。 */
+  replaceQueue(tracks, startIndex = 0) {
+    this._commitQueueState(replaceQueueState(tracks, startIndex))
   }
 
   /** 下一首 */
@@ -685,21 +715,28 @@ class PlayerState {
     const tracks = Array.isArray(track) ? track : [track]
     if (tracks.length === 0) return
     const insertAt = this.queueIndex + 1
-    this.queue = [
+    const queue = compactQueue([
       ...this.queue.slice(0, insertAt),
-      ...compactQueue(tracks),
+      ...tracks,
       ...this.queue.slice(insertAt),
-    ]
-    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
+    ])
+    this._commitQueueState({
+      queue,
+      queueIndex: this.queueIndex < 0 && queue.length > 0 ? 0 : this.queueIndex,
+      shuffleState: createShuffleState(),
+    })
   }
 
   /** 添加到队列末尾 */
   addToQueue(track) {
     const tracks = Array.isArray(track) ? track : [track]
     if (tracks.length === 0) return
-    this.queue = [...this.queue, ...compactQueue(tracks)]
-    if (this.queueIndex < 0 && this.queue.length > 0) this.queueIndex = 0
-    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
+    const queue = compactQueue([...this.queue, ...tracks])
+    this._commitQueueState({
+      queue,
+      queueIndex: this.queueIndex < 0 && queue.length > 0 ? 0 : this.queueIndex,
+      shuffleState: createShuffleState(),
+    })
   }
 
   /** 上一首 */
@@ -778,10 +815,10 @@ class PlayerState {
   /** 清空队列 */
   clearQueue() {
     abortAllRequests()
-    this.queue = []
-    this.queueIndex = -1
-    removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
-    removeStorage(STORAGE_KEYS.PLAYER_QI)
+    this._commitQueueState(
+      { queue: [], queueIndex: -1, shuffleState: createShuffleState() },
+      { clearStorage: true },
+    )
   }
 
   /** 从队列移除一组曲目 ID，供本地曲库删除文件时清理悬空引用。 */
@@ -793,43 +830,47 @@ class PlayerState {
 
     if (currentRemoved) {
       engine.pause()
-      this.queue = nextQueue
+      const nextIndex = nextQueue.length > 0
+        ? Math.min(Math.max(this.queueIndex, 0), nextQueue.length - 1)
+        : -1
+      this._commitQueueState({ queue: nextQueue, queueIndex: nextIndex, shuffleState: createShuffleState() })
       if (nextQueue.length > 0) {
-        const nextIndex = Math.min(Math.max(this.queueIndex, 0), nextQueue.length - 1)
         this.playTrack(nextQueue[nextIndex], nextIndex)
       } else {
         this._clearCurrentTrack()
       }
     } else {
       const removedBefore = this.queue.slice(0, Math.max(this.queueIndex, 0)).filter((track) => removedIds.has(track.id)).length
-      this.queue = nextQueue
-      this.queueIndex = Math.max(-1, this.queueIndex - removedBefore)
+      this._commitQueueState({
+        queue: nextQueue,
+        queueIndex: Math.max(-1, this.queueIndex - removedBefore),
+        shuffleState: createShuffleState(),
+      })
     }
-
-    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
-    setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
   }
 
-  /** 从队列移除指定索引 */
-  removeFromQueue(index) {
-    if (index < 0 || index >= this.queue.length) return
+  /** 移动队列项并保持当前歌曲指向不变。 */
+  moveQueueItem(fromIndex, toIndex) {
+    const state = moveQueueItemState(this.queue, this.queueIndex, fromIndex, toIndex)
+    if (!state) return false
+    this._commitQueueState(state)
+    return true
+  }
 
-    const wasCurrent = index === this.queueIndex
-    this.queue = this.queue.filter((_, i) => i !== index)
+  /** 从队列移除指定索引。 */
+  removeQueueItem(index) {
+    const state = removeQueueItemState(this.queue, this.queueIndex, index)
+    if (!state) return false
+    this._commitQueueState(state)
 
-    if (wasCurrent) {
-      this.queueIndex = Math.min(index, this.queue.length - 1)
+    if (state.wasCurrent) {
       if (this.queue.length > 0 && this.queueIndex >= 0) {
         this.playTrack(this.queue[this.queueIndex], this.queueIndex)
       } else {
         this._clearCurrentTrack()
       }
-    } else if (index < this.queueIndex) {
-      this.queueIndex--
     }
-
-    setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
-    setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
+    return true
   }
 
   _clearCurrentTrack() {
@@ -856,13 +897,17 @@ class PlayerState {
     const savedId = parseStoredTrackId(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))
     if (!savedId) return
 
-    const savedQueue = compactQueue(getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, []))
+    const savedQueueState = replaceQueueState(
+      getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, []),
+      parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1')),
+    )
+    const savedQueue = savedQueueState.queue
     const savedTime = parseFloat(getStorage(STORAGE_KEYS.PLAYER_TIME, '0'))
-    const savedIndex = parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1'))
-    const idx = savedIndex >= 0 ? savedIndex : 0
+    const idx = savedQueueState.queueIndex
 
     this.queue = savedQueue
     this.queueIndex = idx
+    this.shuffleState = savedQueueState.shuffleState
     this.id = savedId
     this.title = getStorage(STORAGE_KEYS.PLAYER_TITLE, '')
     this.artist = getStorage(STORAGE_KEYS.PLAYER_ARTIST, '')
@@ -974,5 +1019,4 @@ class PlayerState {
 export const player = new PlayerState()
 
 // ===== 历史记录 API 导出（保持向后兼容）=====
-import { getLocalHistory, clearHistory } from '../player/history.js'
-export { getLocalHistory, clearHistory }
+export { clearHistory } from '../player/history.js'

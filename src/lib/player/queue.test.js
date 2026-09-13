@@ -4,7 +4,16 @@
  * Status code: 0 = pass, 1 = fail.
  */
 
-import { compactTrack, getNextIndex, getPrevIndex, commitNextIndex } from './queue.js'
+import {
+  compactTrack,
+  compactQueue,
+  moveQueueItemState,
+  removeQueueItemState,
+  replaceQueueState,
+  getNextIndex,
+  getPrevIndex,
+  commitNextIndex,
+} from './queue.js'
 
 let passed = 0
 let failed = 0
@@ -19,6 +28,10 @@ function assertEqual(a, b, msg) {
 
 function freshState() {
   return { order: [], position: -1 }
+}
+
+function tracks(count) {
+  return Array.from({ length: count }, (_, id) => ({ id, name: `Track ${id}` }))
 }
 
 // ── 本地歌曲字段必须穿过队列压缩，否则重启后会误走远程 URL 解析 ──
@@ -38,6 +51,40 @@ function freshState() {
 {
   assertEqual(getNextIndex({ currentIndex: 0, queueLength: 0, mode: 'list' }), -1, 'empty queue next = -1')
   assertEqual(getPrevIndex({ currentIndex: 0, queueLength: 0 }), -1, 'empty queue prev = -1')
+}
+
+// ── 所有队列入口都遵守最大容量 ──
+{
+  assertEqual(compactQueue(tracks(600)).length, 500, 'queue is capped at MAX_QUEUE')
+  const replaced = replaceQueueState(tracks(600), 599)
+  assertEqual(replaced.queue.length, 500, 'replaceQueue caps queue')
+  assertEqual(replaced.queueIndex, 499, 'replaceQueue clamps current index after cap')
+}
+
+// ── reorder 保持当前歌曲，并使旧 shuffle 顺序失效 ──
+{
+  const movedCurrent = moveQueueItemState(tracks(5), 1, 1, 3)
+  assertEqual(movedCurrent.queueIndex, 3, 'moving current track follows it')
+  assertEqual(movedCurrent.queue[3].id, 1, 'current track identity survives reorder')
+  assertEqual(movedCurrent.shuffleState.order.length, 0, 'reorder resets shuffle order')
+  assertEqual(movedCurrent.shuffleState.position, -1, 'reorder resets shuffle position')
+
+  const crossedCurrent = moveQueueItemState(tracks(5), 2, 0, 4)
+  assertEqual(crossedCurrent.queueIndex, 1, 'moving an earlier item past current adjusts index')
+  assertEqual(crossedCurrent.queue[1].id, 2, 'adjusted index still points to current track')
+}
+
+// ── 删除当前歌曲选择同位置的下一首，删除末项则退到前一首 ──
+{
+  const middle = removeQueueItemState(tracks(4), 1, 1)
+  assertEqual(middle.wasCurrent, true, 'remove marks current track')
+  assertEqual(middle.queueIndex, 1, 'removing current keeps its position')
+  assertEqual(middle.queue[1].id, 2, 'next track becomes current')
+  assertEqual(middle.shuffleState.order.length, 0, 'remove resets shuffle order')
+
+  const last = removeQueueItemState(tracks(4), 3, 3)
+  assertEqual(last.queueIndex, 2, 'removing last current track selects previous track')
+  assertEqual(last.queue[2].id, 2, 'previous track becomes current at queue end')
 }
 
 // ── list 模式环绕 ──

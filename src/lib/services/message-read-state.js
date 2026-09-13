@@ -1,5 +1,5 @@
 import { dbSettings } from '../db/settings.js'
-import { getStorageJson, setStorage } from '../utils/storage.js'
+import { getStorageJson } from '../utils/storage.js'
 
 const MESSAGE_READ_STATE_KEY = 'zheting-message-read-state'
 
@@ -9,13 +9,11 @@ export function getInitialMessageReadState() {
 
 export async function loadMessageReadState() {
   const state = await dbSettings.getJson(MESSAGE_READ_STATE_KEY, getInitialMessageReadState())
-  setStorage(MESSAGE_READ_STATE_KEY, state)
   return state
 }
 
 export function saveMessageReadState(state) {
-  setStorage(MESSAGE_READ_STATE_KEY, state)
-  dbSettings.setJson(MESSAGE_READ_STATE_KEY, state)
+  return dbSettings.setJson(MESSAGE_READ_STATE_KEY, state)
 }
 
 export function getMessageIdentity(msg) {

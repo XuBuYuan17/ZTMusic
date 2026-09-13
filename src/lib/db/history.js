@@ -8,10 +8,11 @@
  *   const list = await dbHistory.list()
  */
 
-import { getDB, isReady } from './init.js'
+import { ensureDB, getDB, isReady } from './init.js'
 import { getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
 import { normalizeImageUrl } from '../utils/image.js'
 import { LIMITS, STORAGE_KEYS } from '../utils/constants.js'
+import { debugLog } from '../utils/logging.js'
 
 const FALLBACK_KEY = STORAGE_KEYS.LOCAL_HISTORY
 const HISTORY_CHANGE_EVENT = 'local-listening-history-change'
@@ -20,6 +21,7 @@ const HISTORY_FIELDS = [
   'localId',
   'webdavId',
   'remoteUrl',
+  'webdavBaseUrl',
   'webdavUsername',
   'fileName',
   'relativePath',
@@ -42,6 +44,7 @@ export const dbHistory = {
    */
   async add(track) {
     if (!track || !track.id) return
+    await ensureDB()
 
     const album = track.al || track.album || {}
     const source = track.source || ''
@@ -57,6 +60,7 @@ export const dbHistory = {
       local_id: track.localId || '',
       webdav_id: track.webdavId || '',
       remote_url: track.remoteUrl || '',
+      webdav_base_url: track.webdavBaseUrl || '',
       webdav_username: track.webdavUsername || '',
       file_name: track.fileName || '',
       relative_path: track.relativePath || '',
@@ -95,17 +99,17 @@ export const dbHistory = {
       await db.sql(
         `INSERT INTO play_history (
           song_id, name, artists, album, pic_url, duration, played_at, play_count,
-          source, local_id, webdav_id, remote_url, webdav_username, file_name, relative_path, mime, file_size
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          source, local_id, webdav_id, remote_url, webdav_base_url, webdav_username, file_name, relative_path, mime, file_size
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           entry.song_id, entry.name, entry.artists, entry.album, entry.pic_url, entry.duration, entry.played_at, playCount,
-          entry.source, entry.local_id, entry.webdav_id, entry.remote_url, entry.webdav_username, entry.file_name,
+          entry.source, entry.local_id, entry.webdav_id, entry.remote_url, entry.webdav_base_url, entry.webdav_username, entry.file_name,
           entry.relative_path, entry.mime, entry.file_size,
         ]
       )
       notifyHistoryChange()
-    } catch {
-      // fallback silently
+    } catch (error) {
+      debugLog('db', 'history add failed', { trackId: track.id, message: error?.message || String(error) })
     }
   },
 
@@ -115,6 +119,7 @@ export const dbHistory = {
    * @returns {Promise<Array>}
    */
   async list(limit = 200) {
+    await ensureDB()
     if (!isAvailable()) {
       return getStorageJson(FALLBACK_KEY, [])
     }
@@ -123,7 +128,7 @@ export const dbHistory = {
       const rows = await db.sql(
         `SELECT
           song_id, name, artists, album, pic_url, duration, played_at, play_count,
-          source, local_id, webdav_id, remote_url, webdav_username, file_name, relative_path, mime, file_size
+          source, local_id, webdav_id, remote_url, webdav_base_url, webdav_username, file_name, relative_path, mime, file_size
         FROM play_history ORDER BY played_at DESC LIMIT ?`,
         [limit]
       )
@@ -142,14 +147,16 @@ export const dbHistory = {
         localId: r.local_id || undefined,
         webdavId: r.webdav_id || undefined,
         remoteUrl: r.remote_url || undefined,
+        webdavBaseUrl: r.webdav_base_url || undefined,
         webdavUsername: r.webdav_username || undefined,
         fileName: r.file_name || undefined,
         relativePath: r.relative_path || undefined,
         mime: r.mime || undefined,
         fileSize: r.file_size || 0,
       }))
-    } catch {
-      return getStorageJson(FALLBACK_KEY, [])
+    } catch (error) {
+      debugLog('db', 'history list failed', { message: error?.message || String(error) })
+      return []
     }
   },
 
@@ -157,6 +164,7 @@ export const dbHistory = {
    * 清空播放历史
    */
   async clear() {
+    await ensureDB()
     if (!isAvailable()) {
       removeStorage(FALLBACK_KEY)
       notifyHistoryChange()
@@ -166,6 +174,8 @@ export const dbHistory = {
       const db = getDB()
       await db.sql(`DELETE FROM play_history`)
       notifyHistoryChange()
-    } catch { /* ignore */ }
+    } catch (error) {
+      debugLog('db', 'history clear failed', { message: error?.message || String(error) })
+    }
   },
 }

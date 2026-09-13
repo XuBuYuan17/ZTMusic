@@ -10,14 +10,22 @@
  *   - 任一失败：降级到 localStorage/IndexedDB
  */
 
-import { isTauriAndroid } from '../utils/runtime.js'
+import { isTauriAndroid, isTauriRuntime } from '../utils/runtime.js'
 import { debugLog } from '../utils/logging.js'
+import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.js'
+import { STORAGE_KEYS } from '../utils/constants.js'
+import { LEGACY_MESSAGE_READ_STATE_KEY, migrateLegacyData } from './migration.js'
 
 let SQLocal = null
 let _db = null
 let _ready = false
 let _errored = false
 let _initPromise = null
+let _backend = 'pending'
+
+export function supportsPersistentSQLiteRuntime(runtime = globalThis) {
+  return runtime?.crossOriginIsolated === true
+}
 
 async function loadSQLocal() {
   if (SQLocal) return SQLocal
@@ -26,24 +34,50 @@ async function loadSQLocal() {
   return SQLocal
 }
 
+export function adaptSQLocal(client) {
+  const sql = client.sql.bind(client)
+  client.sql = (statement, ...params) => (
+    params.length === 1 && Array.isArray(params[0])
+      ? sql(statement, ...params[0])
+      : sql(statement, ...params)
+  )
+  return client
+}
+
 export async function initDB() {
   if (_ready) return true
   if (_errored) return false
   if (_initPromise) return _initPromise
+
+  if (typeof window === 'undefined') {
+    _errored = true
+    _backend = 'fallback'
+    try { setStorage('db_fallback_reason', 'non_browser_runtime') } catch { /* ignore */ }
+    return false
+  }
 
   // Tauri Android: WebView 行为更接近移动浏览器，OPFS 不可靠，直接降级。
   // 桌面端（Linux/Windows WebView2/WebKitGTK）尝试走 SQLite 路径。
   if (isTauriAndroid()) {
     debugLog('db', 'skip SQLite on Tauri Android')
     _errored = true
+    _backend = 'fallback'
     try { setStorage('db_fallback_reason', 'android_tauri') } catch { /* ignore */ }
+    return false
+  }
+
+  if (!isTauriRuntime() && !supportsPersistentSQLiteRuntime()) {
+    debugLog('db', 'skip SQLite without cross-origin isolation')
+    _errored = true
+    _backend = 'fallback'
+    try { setStorage('db_fallback_reason', 'cross_origin_isolation_unavailable') } catch { /* ignore */ }
     return false
   }
 
   _initPromise = (async () => {
     try {
       const SQLocalClass = await loadSQLocal()
-      _db = new SQLocalClass('zheting.db')
+      _db = adaptSQLocal(new SQLocalClass('zheting.db'))
 
       await _db.sql(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
       await _db.sql(`CREATE TABLE IF NOT EXISTS play_history (
@@ -51,7 +85,7 @@ export async function initDB() {
         name TEXT NOT NULL, artists TEXT, album TEXT, pic_url TEXT,
         duration INTEGER, played_at INTEGER NOT NULL, play_count INTEGER NOT NULL DEFAULT 1,
         source TEXT, local_id TEXT, webdav_id TEXT, remote_url TEXT,
-        webdav_username TEXT, file_name TEXT, relative_path TEXT, mime TEXT, file_size INTEGER
+        webdav_base_url TEXT, webdav_username TEXT, file_name TEXT, relative_path TEXT, mime TEXT, file_size INTEGER
       )`)
       const addHistoryColumn = async (definition) => {
         try { await _db.sql(`ALTER TABLE play_history ADD COLUMN ${definition}`) } catch { /* already exists */ }
@@ -61,6 +95,7 @@ export async function initDB() {
       await addHistoryColumn('local_id TEXT')
       await addHistoryColumn('webdav_id TEXT')
       await addHistoryColumn('remote_url TEXT')
+      await addHistoryColumn('webdav_base_url TEXT')
       await addHistoryColumn('webdav_username TEXT')
       await addHistoryColumn('file_name TEXT')
       await addHistoryColumn('relative_path TEXT')
@@ -82,7 +117,18 @@ export async function initDB() {
       await _db.sql(`CREATE INDEX IF NOT EXISTS idx_history_played_at ON play_history(played_at DESC)`)
       await _db.sql(`CREATE INDEX IF NOT EXISTS idx_api_cache_expires ON api_cache(expires_at)`)
 
+      const legacySettings = {}
+      const messageReadState = getStorage(LEGACY_MESSAGE_READ_STATE_KEY, null)
+      if (messageReadState != null) legacySettings[LEGACY_MESSAGE_READ_STATE_KEY] = messageReadState
+      await migrateLegacyData(_db, {
+        history: getStorageJson(STORAGE_KEYS.LOCAL_HISTORY, []),
+        settings: legacySettings,
+      })
+      removeStorage(STORAGE_KEYS.LOCAL_HISTORY)
+      removeStorage(LEGACY_MESSAGE_READ_STATE_KEY)
+
       _ready = true
+      _backend = 'sqlite'
       debugLog('db', 'sqlite ready')
       return true
     } catch (err) {
@@ -91,6 +137,8 @@ export async function initDB() {
       const reason = err?.message || String(err)
       debugLog('db', 'sqlite init failed, falling back', { reason })
       _errored = true
+      _db = null
+      _backend = 'fallback'
       try { setStorage('db_fallback_reason', reason.slice(0, 200)) } catch { /* ignore */ }
       return false
     }
@@ -99,5 +147,7 @@ export async function initDB() {
   return _initPromise
 }
 
+export function ensureDB() { return initDB() }
 export function getDB() { return _ready ? _db : null }
 export function isReady() { return _ready }
+export function getDBBackend() { return _backend }

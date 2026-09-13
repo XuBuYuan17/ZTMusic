@@ -34,6 +34,7 @@ export function compactTrack(track) {
     compacted.localId = track.localId || track.id
     compacted.webdavId = track.webdavId || track.id
     compacted.remoteUrl = track.remoteUrl || ''
+    compacted.webdavBaseUrl = track.webdavBaseUrl || ''
     compacted.webdavUsername = track.webdavUsername || ''
     compacted.fileName = track.fileName || ''
     compacted.relativePath = track.relativePath || ''
@@ -61,6 +62,58 @@ export function compactQueue(tracks) {
     .slice(0, LIMITS.MAX_QUEUE)
     .map(compactTrack)
     .filter(Boolean)
+}
+
+export function createShuffleState() {
+  return { order: [], position: -1 }
+}
+
+export function replaceQueueState(tracks, startIndex = 0) {
+  const queue = compactQueue(tracks)
+  const queueIndex = queue.length === 0
+    ? -1
+    : Math.min(Math.max(Number.isInteger(startIndex) ? startIndex : 0, 0), queue.length - 1)
+  return { queue, queueIndex, shuffleState: createShuffleState() }
+}
+
+export function moveQueueItemState(queue, queueIndex, fromIndex, toIndex) {
+  const source = Array.isArray(queue) ? queue : []
+  if (
+    !Number.isInteger(fromIndex) || !Number.isInteger(toIndex)
+    || fromIndex < 0 || fromIndex >= source.length
+    || toIndex < 0 || toIndex >= source.length
+    || fromIndex === toIndex
+  ) return null
+
+  const nextQueue = [...source]
+  const [moved] = nextQueue.splice(fromIndex, 1)
+  nextQueue.splice(toIndex, 0, moved)
+
+  let nextIndex = queueIndex
+  if (fromIndex === queueIndex) nextIndex = toIndex
+  else if (fromIndex < queueIndex && toIndex >= queueIndex) nextIndex--
+  else if (fromIndex > queueIndex && toIndex <= queueIndex) nextIndex++
+
+  return { queue: nextQueue, queueIndex: nextIndex, shuffleState: createShuffleState() }
+}
+
+export function removeQueueItemState(queue, queueIndex, index) {
+  const source = Array.isArray(queue) ? queue : []
+  if (!Number.isInteger(index) || index < 0 || index >= source.length) return null
+
+  const nextQueue = source.filter((_, i) => i !== index)
+  const wasCurrent = index === queueIndex
+  let nextIndex = queueIndex
+  if (nextQueue.length === 0) nextIndex = -1
+  else if (wasCurrent) nextIndex = Math.min(index, nextQueue.length - 1)
+  else if (index < queueIndex) nextIndex--
+
+  return {
+    queue: nextQueue,
+    queueIndex: nextIndex,
+    shuffleState: createShuffleState(),
+    wasCurrent,
+  }
 }
 
 /**

@@ -93,6 +93,7 @@ export function createWebDavTrack(raw) {
     picUrl: '',
     fileName,
     remoteUrl: raw.url,
+    webdavBaseUrl: raw.baseUrl || '',
     mime: raw.mime || '',
     fileSize: raw.fileSize || 0,
     addedAt: Date.now(),
@@ -106,7 +107,7 @@ export async function listWebDavTracks(settings) {
   saveWebDavSettings(settings)
   return (Array.isArray(tracks) ? tracks : [])
     .filter((track) => track?.url && isSupportedWebDavAudio(track.name || track.url))
-    .map(createWebDavTrack)
+    .map((track) => createWebDavTrack({ ...track, baseUrl: request.url }))
 }
 
 export async function getWebDavPlayableUrl(track) {
@@ -115,11 +116,15 @@ export async function getWebDavPlayableUrl(track) {
   if (playableUrlCache.has(id)) return playableUrlCache.get(id)
   const remoteUrl = normalizeWebDavUrl(track.remoteUrl)
   if (!remoteUrl) throw new Error('WebDAV 曲目地址无效，请重新扫描')
+  const storedSettings = getStoredWebDavSettings()
+  const baseUrl = normalizeWebDavUrl(track.webdavBaseUrl || storedSettings.url)
+  if (!baseUrl) throw new Error('WebDAV 服务器地址无效，请重新扫描')
   const { invoke, convertFileSrc } = await getTauriApi()
   const cached = await invoke('webdav_cache_audio', {
     request: {
       url: remoteUrl,
-      username: String(track.webdavUsername || getStoredWebDavSettings().username || ''),
+      baseUrl,
+      username: String(track.webdavUsername || storedSettings.username || ''),
       password: getWebDavPassword(),
     },
   })

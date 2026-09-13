@@ -1,7 +1,10 @@
 use std::{
     collections::hash_map::DefaultHasher,
-    fs,
+    fs::{self, OpenOptions},
     hash::{Hash, Hasher},
+    io::Write,
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use reqwest::{
@@ -26,11 +29,14 @@ const PROPFIND_BODY: &str = r#"<?xml version="1.0" encoding="utf-8" ?>
 
 const AUDIO_EXTENSIONS: &[&str] = &["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav"];
 const MAX_TRACKS: usize = 500;
+const MAX_AUDIO_BYTES: u64 = 1024 * 1024 * 1024;
+const MAX_CACHE_BYTES: u64 = 3 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebDavRequest {
     pub url: String,
+    pub base_url: Option<String>,
     pub username: Option<String>,
     pub password: Option<String>,
 }
@@ -98,7 +104,37 @@ pub async fn webdav_cache_audio(
     state: State<'_, AppState>,
     request: WebDavRequest,
 ) -> Result<WebDavCachedAudio, String> {
-    let url = validate_webdav_url(&request.url)?;
+    let base_url = request
+        .base_url
+        .as_deref()
+        .ok_or_else(|| "WebDAV base URL is required; please rescan the library".to_string())?;
+    let url = validate_download_url(&request.url, base_url)?;
+    let base_origin = validate_webdav_url(base_url)?.origin();
+    let cache_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Cannot resolve app cache directory: {error}"))?
+        .join("webdav-audio");
+    fs::create_dir_all(&cache_dir)
+        .map_err(|error| format!("Cannot create WebDAV cache: {error}"))?;
+
+    let extension = extension_from_url(&url);
+    let path = cache_dir.join(cache_file_name(url.as_str(), extension));
+    if path
+        .metadata()
+        .is_ok_and(|metadata| metadata.is_file() && metadata.len() > 0)
+    {
+        touch_cache_file(&path);
+        let _ = prune_cache(&cache_dir, MAX_CACHE_BYTES, Some(&path));
+        return Ok(WebDavCachedAudio {
+            path: path.to_string_lossy().to_string(),
+            mime: mime_from_extension(extension).to_string(),
+        });
+    }
+    if path.exists() {
+        let _ = fs::remove_file(&path);
+    }
+
     let mut builder = state
         .client
         .get(url.clone())
@@ -112,10 +148,13 @@ pub async fn webdav_cache_audio(
         builder = builder.basic_auth(username, request.password.clone());
     }
 
-    let response = builder
+    let mut response = builder
         .send()
         .await
         .map_err(|error| format!("WebDAV audio request failed: {error}"))?;
+    if response.url().origin() != base_origin {
+        return Err("WebDAV audio redirect changed the configured origin".to_string());
+    }
     let status = response.status();
     if !status.is_success() {
         return Err(format!("WebDAV audio request failed: {status}"));
@@ -127,7 +166,7 @@ pub async fn webdav_cache_audio(
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse::<u64>().ok())
         .unwrap_or(0);
-    if content_length > 1024 * 1024 * 1024 {
+    if content_length > MAX_AUDIO_BYTES {
         return Err("WebDAV audio is larger than 1 GB".to_string());
     }
 
@@ -140,27 +179,111 @@ pub async fn webdav_cache_audio(
         .next()
         .unwrap_or("audio/mpeg")
         .to_string();
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| format!("WebDAV audio download failed: {error}"))?;
-
-    let cache_dir = app
-        .path()
-        .app_cache_dir()
-        .map_err(|error| format!("Cannot resolve app cache directory: {error}"))?
-        .join("webdav-audio");
-    fs::create_dir_all(&cache_dir)
-        .map_err(|error| format!("Cannot create WebDAV cache: {error}"))?;
-
-    let file_name = cache_file_name(url.as_str(), extension_from_url(&url));
-    let path = cache_dir.join(file_name);
-    fs::write(&path, &bytes).map_err(|error| format!("Cannot write WebDAV cache: {error}"))?;
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temp_path = cache_dir.join(format!(
+        "{}.{}.part",
+        cache_file_name(url.as_str(), extension),
+        nonce
+    ));
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temp_path)
+        .map_err(|error| format!("Cannot create WebDAV cache file: {error}"))?;
+    let download_result: Result<(), String> = async {
+        let mut downloaded = 0_u64;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| format!("WebDAV audio download failed: {error}"))?
+        {
+            downloaded = downloaded
+                .checked_add(chunk.len() as u64)
+                .ok_or_else(|| "WebDAV audio is too large".to_string())?;
+            if downloaded > MAX_AUDIO_BYTES {
+                return Err("WebDAV audio is larger than 1 GB".to_string());
+            }
+            file.write_all(&chunk)
+                .map_err(|error| format!("Cannot write WebDAV cache: {error}"))?;
+        }
+        if downloaded == 0 {
+            return Err("WebDAV audio response is empty".to_string());
+        }
+        file.sync_all()
+            .map_err(|error| format!("Cannot flush WebDAV cache: {error}"))?;
+        Ok(())
+    }
+    .await;
+    drop(file);
+    if let Err(error) = download_result {
+        let _ = fs::remove_file(&temp_path);
+        return Err(error);
+    }
+    if let Err(error) = fs::rename(&temp_path, &path) {
+        if path.metadata().is_ok_and(|metadata| metadata.len() > 0) {
+            let _ = fs::remove_file(&temp_path);
+        } else {
+            let _ = fs::remove_file(&temp_path);
+            return Err(format!("Cannot finalize WebDAV cache: {error}"));
+        }
+    }
+    touch_cache_file(&path);
+    let _ = prune_cache(&cache_dir, MAX_CACHE_BYTES, Some(&path));
 
     Ok(WebDavCachedAudio {
         path: path.to_string_lossy().to_string(),
         mime,
     })
+}
+
+fn validate_download_url(remote: &str, base: &str) -> Result<Url, String> {
+    let remote_url = validate_webdav_url(remote)?;
+    let base_url = validate_webdav_url(base)?;
+    if remote_url.origin() != base_url.origin() {
+        return Err("WebDAV audio origin does not match the configured server".to_string());
+    }
+    Ok(remote_url)
+}
+
+fn touch_cache_file(path: &Path) {
+    if let Ok(file) = OpenOptions::new().write(true).open(path) {
+        let _ = file.set_modified(SystemTime::now());
+    }
+}
+
+fn prune_cache(cache_dir: &Path, max_bytes: u64, protected: Option<&Path>) -> Result<(), String> {
+    let mut entries: Vec<(PathBuf, u64, SystemTime)> = fs::read_dir(cache_dir)
+        .map_err(|error| format!("Cannot read WebDAV cache: {error}"))?
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) == Some("part") {
+                return None;
+            }
+            let metadata = entry.metadata().ok()?;
+            metadata.is_file().then(|| {
+                let modified = metadata.modified().unwrap_or(UNIX_EPOCH);
+                (path, metadata.len(), modified)
+            })
+        })
+        .collect();
+    let mut total = entries.iter().map(|(_, size, _)| size).sum::<u64>();
+    entries.sort_by_key(|(_, _, modified)| *modified);
+    for (path, size, _) in entries {
+        if total <= max_bytes {
+            break;
+        }
+        if protected.is_some_and(|value| value == path.as_path()) {
+            continue;
+        }
+        if fs::remove_file(&path).is_ok() {
+            total = total.saturating_sub(size);
+        }
+    }
+    Ok(())
 }
 
 fn validate_webdav_url(raw: &str) -> Result<Url, String> {
@@ -285,6 +408,17 @@ fn extension_from_url(url: &Url) -> &str {
         .unwrap_or("mp3")
 }
 
+fn mime_from_extension(extension: &str) -> &str {
+    match extension {
+        "aac" => "audio/aac",
+        "flac" => "audio/flac",
+        "m4a" => "audio/mp4",
+        "oga" | "ogg" | "opus" => "audio/ogg",
+        "wav" => "audio/wav",
+        _ => "audio/mpeg",
+    }
+}
+
 fn cache_file_name(input: &str, ext: &str) -> String {
     format!("{:016x}.{ext}", hash_text(input))
 }
@@ -375,5 +509,51 @@ mod tests {
         let tracks = parse_webdav_tracks(xml, &base);
         assert_eq!(tracks.len(), 1, "只有同 origin 的 href 能通过");
         assert_eq!(tracks[0].url, "https://dav.example.com/music/legit.mp3");
+    }
+
+    #[test]
+    fn validates_origin_again_before_download() {
+        assert!(validate_download_url(
+            "https://dav.example.com/music/song.flac",
+            "https://dav.example.com/music/"
+        )
+        .is_ok());
+        assert!(validate_download_url(
+            "http://127.0.0.1/private/song.flac",
+            "https://dav.example.com/music/"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn prunes_oldest_cache_files_first() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("zheting-webdav-cache-{nonce}"));
+        fs::create_dir_all(&dir).unwrap();
+        let old = dir.join("old.flac");
+        let recent = dir.join("recent.flac");
+        fs::write(&old, [0_u8; 3]).unwrap();
+        fs::write(&recent, [0_u8; 3]).unwrap();
+        OpenOptions::new()
+            .write(true)
+            .open(&old)
+            .unwrap()
+            .set_modified(UNIX_EPOCH + std::time::Duration::from_secs(1))
+            .unwrap();
+        OpenOptions::new()
+            .write(true)
+            .open(&recent)
+            .unwrap()
+            .set_modified(UNIX_EPOCH + std::time::Duration::from_secs(2))
+            .unwrap();
+
+        prune_cache(&dir, 3, Some(&recent)).unwrap();
+
+        assert!(!old.exists());
+        assert!(recent.exists());
+        fs::remove_dir_all(dir).unwrap();
     }
 }

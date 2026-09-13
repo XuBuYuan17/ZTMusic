@@ -14,7 +14,7 @@
  *   await dbCache.urlSet(songId, urls)
  */
 
-import { getDB, isReady, initDB } from './init.js'
+import { ensureDB, getDB, isReady } from './init.js'
 import { getStorage, setStorage } from '../utils/storage.js'
 import { debugLog } from '../utils/logging.js'
 import {
@@ -31,18 +31,6 @@ const URL_CACHE_PREFIX = 'db_fallback_url_'  // localStorage fallback for song U
 
 function isAvailable() {
   return isReady() && getDB()
-}
-
-let _ensureDBPromise = null
-function ensureDB() {
-  if (isReady()) return Promise.resolve(true)
-  if (!_ensureDBPromise) {
-    _ensureDBPromise = initDB().catch((err) => {
-      debugLog('db', 'ensureDB failed', { message: err?.message || String(err) })
-      return false
-    })
-  }
-  return _ensureDBPromise
 }
 
 export const dbCache = {
@@ -85,8 +73,9 @@ export const dbCache = {
         await db.sql(`DELETE FROM api_cache WHERE key = ?`, [key]).catch(() => {})
       }
       return null
-    } catch {
-      return readCache(key, { allowExpired }) ?? null
+    } catch (error) {
+      debugLog('db', 'apiGet SQLite failed', { key: key?.slice(0, 32), message: error?.message || String(error) })
+      return null
     }
   },
 
@@ -110,9 +99,8 @@ export const dbCache = {
         `INSERT INTO api_cache (key, value, expires_at, saved_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, expires_at = excluded.expires_at, saved_at = excluded.saved_at`,
         [key, JSON.stringify(value), Date.now() + ttl, Date.now()]
       )
-    } catch {
-      writeCache(key, value, ttl)
-      dbApiWrite(key, value, ttl).catch(() => {})
+    } catch (error) {
+      debugLog('db', 'apiSet SQLite failed', { key: key?.slice(0, 32), message: error?.message || String(error) })
     }
   },
 
@@ -120,6 +108,7 @@ export const dbCache = {
    * 删除过期 API 缓存
    */
   async apiCleanExpired() {
+    await ensureDB()
     if (!isAvailable()) return
     try {
       const db = getDB()
@@ -129,6 +118,7 @@ export const dbCache = {
 
   /** 清空 API 缓存（包含旧 localStorage / IndexedDB fallback） */
   async apiClear() {
+    await ensureDB()
     clearLegacyApiCache()
     await dbApiClear().catch(() => {})
     if (!isAvailable()) return
@@ -139,12 +129,13 @@ export const dbCache = {
   },
 
   async getLegacyApiStatsAsync() {
+    await ensureDB()
     if (isAvailable()) {
       try {
         const db = getDB()
         const rows = await db.sql(`SELECT COUNT(*) as cnt FROM api_cache`)
         return { entries: rows[0]?.cnt || 0, source: 'sqlite' }
-      } catch { /* fall through */ }
+      } catch { return { entries: 0, source: 'sqlite' } }
     }
     const legacy = getLegacyApiCacheStats()
     return { ...legacy, source: 'localStorage' }
@@ -185,13 +176,14 @@ export const dbCache = {
         const expiresAt = rows[0].expires_at
         if (expiresAt && expiresAt > 0 && expiresAt < Date.now()) {
           debugLog('db', 'urlGet expired', { songId, expiresAt: new Date(expiresAt).toISOString() })
-          return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
+          return null
         }
         return JSON.parse(rows[0].urls)
       }
-      return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
-    } catch {
-      return readLocalFallback() || await dbUrlGet(songId).catch(() => null)
+      return null
+    } catch (error) {
+      debugLog('db', 'urlGet SQLite failed', { songId, message: error?.message || String(error) })
+      return null
     }
   },
 
@@ -215,8 +207,8 @@ export const dbCache = {
         `INSERT INTO song_urls (song_id, urls, expires_at, saved_at) VALUES (?, ?, ?, ?) ON CONFLICT(song_id) DO UPDATE SET urls = excluded.urls, expires_at = excluded.expires_at, saved_at = excluded.saved_at`,
         [songId, JSON.stringify(urls), expiresAt, Date.now()]
       )
-    } catch {
-      setStorage(URL_CACHE_PREFIX + songId, JSON.stringify({ urls, expiresAt }))
+    } catch (error) {
+      debugLog('db', 'urlSet SQLite failed', { songId, message: error?.message || String(error) })
     }
   },
 
@@ -225,6 +217,7 @@ export const dbCache = {
    * @returns {Promise<{apiCache: number, urlCache: number}>
    */
   async getStats() {
+    await ensureDB()
     if (!isAvailable()) {
       return dbGetStats()
     }
@@ -237,15 +230,14 @@ export const dbCache = {
         urlCache: urlResult[0]?.cnt || 0,
         available: true,
       }
-    } catch {
-      return dbGetStats()
-    }
+    } catch { return { apiCache: 0, urlCache: 0, available: true } }
   },
 
   /**
    * 清空所有缓存
    */
   async clearAll() {
+    await ensureDB()
     clearLegacyApiCache()
     await dbClearAll().catch(() => {})
     if (!isAvailable()) return

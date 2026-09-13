@@ -71,6 +71,7 @@ export function normalizeLocalHistorySong(item) {
     localId: item.localId,
     webdavId: item.webdavId,
     remoteUrl: item.remoteUrl,
+    webdavBaseUrl: item.webdavBaseUrl,
     webdavUsername: item.webdavUsername,
     fileName: item.fileName,
     relativePath: item.relativePath,

@@ -3,8 +3,6 @@
   import { formatDuration } from '../format.js'
   import { coverUrl } from '../utils/image.js'
   import { extractCover } from '../utils/normalize.js'
-  import { setStorage } from '../utils/storage.js'
-  import { STORAGE_KEYS } from '../utils/constants.js'
   import ArtistNames from './ArtistNames.svelte'
   import Icon from './ui/Icon.svelte'
 
@@ -25,7 +23,7 @@
 
   function handleRemove(e, index) {
     e.stopPropagation()
-    player.removeFromQueue(index)
+    player.removeQueueItem(index)
   }
 
   function handleItemKeyDown(e, track, index) {
@@ -81,17 +79,7 @@
     e.preventDefault()
     const from = dragIndex
     if (from === null || from === index) { dragIndex = null; dragOverIndex = null; return }
-    const newQueue = [...player.queue]
-    const [moved] = newQueue.splice(from, 1)
-    newQueue.splice(index, 0, moved)
-    let newQi = player.queueIndex
-    if (from === newQi) newQi = index
-    else {
-      if (from < newQi && index >= newQi) newQi--
-      else if (from > newQi && index <= newQi) newQi++
-    }
-    player.queue = newQueue
-    player.queueIndex = newQi
+    player.moveQueueItem(from, index)
     dragIndex = null
     dragOverIndex = null
   }
