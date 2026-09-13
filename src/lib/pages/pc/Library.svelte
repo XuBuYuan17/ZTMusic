@@ -1,14 +1,32 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { normalizePlaylist } from '../../utils/normalize.js'
-  import { coverUrl } from '../../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { NormalizedPlaylist } from '../../utils/normalize.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { normalizePlaylist } from '../../utils/normalize.ts'
+  import { coverUrl } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
 
-  let { onOpenLogin, onOpenPlaylist, onNavigate } = $props()
+  interface LibraryData {
+    stats: { follow: number; fans: number; playlist: number }
+    createdPlaylists: NormalizedPlaylist[]
+    savedPlaylists: NormalizedPlaylist[]
+    likedPlaylist: NormalizedPlaylist | null
+  }
+  interface RawPlaylist {
+    specialType?: number
+    creator?: { userId?: SongId } | null
+  }
+  type SafeTimer = ReturnType<typeof setTimeout>
 
-  let library = $state(null)
+  let { onOpenLogin, onOpenPlaylist, onNavigate }: {
+    onOpenLogin?: () => void
+    onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
+    onNavigate?: (view: string) => void
+  } = $props()
+
+  let library = $state<LibraryData | null>(null)
   let loading = $state(false)
   let error = $state('')
   let _requestId = 0
@@ -19,13 +37,13 @@
   let creating = $state(false)
 
   // 取消收藏确认
-  let unsubscribeTarget = $state(null)
+  let unsubscribeTarget = $state<NormalizedPlaylist | null>(null)
   let unsubscribing = $state(false)
 
   // 轻提示
   let notice = $state('')
 
-  const emptyLibrary = {
+  const emptyLibrary: LibraryData = {
     stats: { follow: 0, fans: 0, playlist: 0 },
     createdPlaylists: [],
     savedPlaylists: [],
@@ -36,11 +54,21 @@
   let savedPlaylists = $derived(data.savedPlaylists || [])
   let createdPlaylists = $derived(data.createdPlaylists || [])
 
-  async function load() {
+  function rec(v: unknown): Record<string, unknown> | null {
+    return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
+  }
+
+  function isOwnPlaylist(p: unknown, uid: SongId): boolean {
+    const r = rec(p) as RawPlaylist | null
+    return r?.creator?.userId === uid && r.specialType !== 5
+  }
+
+  async function load(): Promise<void> {
     const rid = ++_requestId; loading = true; library = null; error = ''
     if (!auth.isLoggedIn) { loading = false; return }
     try {
-      const uid = auth.user?.userId || auth.user?.id
+      const rawUid: unknown = auth.user?.userId || auth.user?.id
+      const uid: SongId = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : 0
       const [plRes, subRes, detailRes] = await Promise.all([
         ncm.userPlaylist(uid).catch(() => ({ playlist: [] })),
         ncm.userSubcount().catch(() => ({})),
@@ -48,110 +76,118 @@
       ])
       if (rid !== _requestId) return
 
-      const all = (plRes.playlist || []).slice(0, 100)
-      const normalized = all.map(normalizePlaylist).filter(Boolean)
-      const saved = all.filter(p => p.creator?.userId !== uid && p.specialType !== 5).map(normalizePlaylist).filter(Boolean)
-      const created = all.filter(p => p.creator?.userId === uid && p.specialType !== 5).map(normalizePlaylist).filter(Boolean)
-      const liked = normalizePlaylist(all.find(p => p.creator?.userId === uid && p.specialType === 5))
+      const rawList = rec(plRes)?.playlist
+      const all: unknown[] = Array.isArray(rawList) ? rawList.slice(0, 100) : []
+      const normalized = all.map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
+      const saved = all.filter(p => !isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
+      const created = all.filter(p => isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
+      const liked = normalizePlaylist(all.find(p => {
+        const r = rec(p) as RawPlaylist | null
+        return r?.creator?.userId === uid && r.specialType === 5
+      }))
 
-      const sub = subRes.data || subRes
-      const detail = detailRes.data || detailRes
-      const profile = detail.profile || {}
+      const subR = rec(subRes)
+      const sub = rec(subR?.data) || subR || {}
+      const detailR = rec(detailRes)
+      const detail = rec(detailR?.data) || detailR || {}
+      const profile = rec(detail.profile) || {}
 
       library = {
         stats: {
-          follow: sub.artistCount || sub.followCount || 0,
-          fans: profile.followeds || detail.followeds || 0,
-          playlist: (sub.createdPlaylistCount || 0) + (sub.subPlaylistCount || 0) || normalized.length,
+          follow: (sub.artistCount || sub.followCount || 0) as number,
+          fans: (profile.followeds || detail.followeds || 0) as number,
+          playlist: ((sub.createdPlaylistCount || 0) as number) + ((sub.subPlaylistCount || 0) as number) || normalized.length,
         },
         createdPlaylists: created,
         savedPlaylists: saved,
         likedPlaylist: liked,
       }
     } catch (e) {
-      if (rid === _requestId) error = e?.message || '加载失败'
+      if (rid === _requestId) error = ((e as { message?: unknown } | null | undefined)?.message || '加载失败') as string
     } finally {
       if (rid === _requestId) loading = false
     }
   }
 
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
+  const timers = new Set<SafeTimer>()
+  function safeTimeout(fn: () => void, ms: number): SafeTimer {
     const id = setTimeout(() => { timers.delete(id); fn() }, ms)
     timers.add(id)
     return id
   }
 
-  function showNotice(text) {
+  function showNotice(text: string): void {
     notice = text
     safeTimeout(() => { if (notice === text) notice = '' }, 1800)
   }
 
-  function openCreateModal() {
+  function openCreateModal(): void {
     createName = ''
     showCreateModal = true
   }
 
-  function focusOnMount(node) {
+  function focusOnMount(node: HTMLInputElement) {
     queueMicrotask(() => node.focus())
   }
 
-  function handleCreateModalKeydown(event) {
+  function handleCreateModalKeydown(event: KeyboardEvent): void {
     if (showCreateModal && event.key === 'Escape') {
       event.preventDefault()
       closeCreateModal()
     }
   }
 
-  function handleCreateModalBackdrop(event) {
+  function handleCreateModalBackdrop(event: MouseEvent): void {
     if (event.target === event.currentTarget) closeCreateModal()
   }
 
-  function closeCreateModal() {
+  function closeCreateModal(): void {
     if (creating) return
     showCreateModal = false
     createName = ''
   }
 
-  async function submitCreate() {
+  async function submitCreate(): Promise<void> {
     if (creating) return
     const name = createName.trim()
     if (!name) return
     creating = true
     try {
       const res = await ncm.playlistCreate(name)
-      if (res && res.code !== 200) throw new Error(res.message || res.msg || '创建失败')
+      const r = rec(res)
+      if (r && r.code !== 200) throw new Error((r.message || r.msg || '创建失败') as string)
       closeCreateModal()
       showNotice('已创建歌单')
       await load()
     } catch (e) {
-      showNotice(e?.message || '创建失败')
+      showNotice(((e as { message?: unknown } | null | undefined)?.message || '创建失败') as string)
     } finally {
       creating = false
     }
   }
 
-  function confirmUnsubscribe(pl) {
+  function confirmUnsubscribe(pl: NormalizedPlaylist): void {
     unsubscribeTarget = pl
   }
 
-  function closeUnsubscribe() {
+  function closeUnsubscribe(): void {
     if (unsubscribing) return
     unsubscribeTarget = null
   }
 
-  async function submitUnsubscribe() {
+  async function submitUnsubscribe(): Promise<void> {
     const pl = unsubscribeTarget
     if (!pl?.id || unsubscribing) return
     unsubscribing = true
     try {
-      const res = await ncm.playlistSubscribe(pl.id, false)
-      if (res && res.code !== 200) throw new Error(res.message || res.msg || '操作失败')
+      const res = await ncm.playlistSubscribe(pl.id as SongId, false)
+      const r = rec(res)
+      if (r && r.code !== 200) throw new Error((r.message || r.msg || '操作失败') as string)
       unsubscribeTarget = null
       showNotice('已取消收藏')
       await load()
     } catch (e) {
-      showNotice(e?.message || '操作失败')
+      showNotice(((e as { message?: unknown } | null | undefined)?.message || '操作失败') as string)
     } finally {
       unsubscribing = false
     }
@@ -205,7 +241,7 @@
       <h2 class="library-section-title">快速入口</h2>
       <div class="library-quick-grid">
         <button class="library-quick-card library-quick-liked" type="button"
-          onclick={() => data.likedPlaylist?.id && onOpenPlaylist?.(data.likedPlaylist.id, true, data.likedPlaylist)}
+          onclick={() => { const pl = data.likedPlaylist; if (pl?.id) onOpenPlaylist?.(pl.id as SongId, true, pl) }}
           disabled={!data.likedPlaylist?.id}>
           <span class="library-quick-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -260,11 +296,11 @@
         </div>
         {#if createdPlaylists.length > 0}
           <div class="library-grid">
-            {#each createdPlaylists as pl, i (pl.id)}
-              <div class="library-card" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
+            {#each createdPlaylists as pl, i (pl.id as SongId)}
+              <div class="library-card" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id as SongId, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id as SongId, true, pl) } }}>
                 <div class="library-card-cover">
                   {#if pl.picUrl}
-                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name} loading="lazy" referrerpolicy="no-referrer" />
+                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <div class="library-card-placeholder">
                       <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -296,11 +332,11 @@
         </div>
         {#if savedPlaylists.length > 0}
           <div class="library-grid">
-            {#each savedPlaylists as pl, i (pl.id)}
-              <div class="library-card library-card-managed" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id, true, pl) } }}>
+            {#each savedPlaylists as pl, i (pl.id as SongId)}
+              <div class="library-card library-card-managed" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id as SongId, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id as SongId, true, pl) } }}>
                 <div class="library-card-cover">
                   {#if pl.picUrl}
-                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name} loading="lazy" referrerpolicy="no-referrer" />
+                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <div class="library-card-placeholder">
                       <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

@@ -1,35 +1,47 @@
-<script>
-  import { player } from '../stores/player.svelte.js'
-  import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.js'
-  import { coverUrl } from '../utils/image.js'
-  import { hapticTap } from '../utils/haptics.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import type { CompactTrack, CompactArtist } from '../player/queue.ts'
+  import type { DisplayLyricLine } from '../services/lyrics-loader.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.ts'
+  import { coverUrl } from '../utils/image.ts'
+  import { hapticTap } from '../utils/haptics.ts'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
-  let { onOpenSheet, onToggleQueue, showQueuePanel = false, onOpenArtist } = $props()
+  let { onOpenSheet, onToggleQueue, showQueuePanel = false, onOpenArtist }: {
+    onOpenSheet?: (el: Element) => void
+    onToggleQueue?: () => void
+    showQueuePanel?: boolean
+    onOpenArtist?: (id: SongId) => void
+  } = $props()
+
+  type SafeTimer = ReturnType<typeof setTimeout>
 
   let showVolume = $state(false)
   let isPressing = $state(false)
-  let barLyrics = $state([])
-  let lyricTrackId = $state(null)
+  let barLyrics = $state<DisplayLyricLine[]>([])
+  let lyricTrackId = $state<SongId | null>(null)
   let lyricLoading = $state(false)
-  let currentLyric = $state(null)
-  let gestureStart = null
+  let currentLyric = $state<DisplayLyricLine | null>(null)
+  let gestureStart: { x: number; y: number; pointerId: number } | null = null
   let swipeDirection = $state('')
-  let swipeTimer = null
+  let swipeTimer: SafeTimer | null = null
   let lyricRequestId = 0
-  let _lyricRequestedId = null
+  let _lyricRequestedId: SongId | null = null
 
-  function fmt(t) {
+  function fmt(t: number | undefined): string {
     if (!t || isNaN(t)) return '0:00'
     const m = Math.floor(t / 60)
     const s = Math.floor(t % 60)
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function openLyricsFromBar(e) {
+  function openLyricsFromBar(e: PointerEvent | KeyboardEvent): void {
     if (!player.id) return
-    const barEl = e.currentTarget?.closest?.('.player-bar') || e.currentTarget || e.target?.closest?.('.player-bar')
+    const currentEl = e.currentTarget as Element | null
+    const targetEl = e.target as Element | null
+    const barEl = currentEl?.closest?.('.player-bar') || currentEl || targetEl?.closest?.('.player-bar')
     const originEl = barEl?.querySelector?.('.lcd-artwork__img') || barEl
     if (originEl) onOpenSheet?.(originEl)
   }
@@ -39,15 +51,15 @@
     if (swipeTimer) clearTimeout(swipeTimer)
   })
 
-  function handleBarPointerDown(e) {
+  function handleBarPointerDown(e: PointerEvent): void {
     if (e.pointerType !== 'mouse') hapticTap()
-    if (e.target.closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
+    if ((e.target as Element).closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
     isPressing = true
     gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
-    try { e.currentTarget?.setPointerCapture?.(e.pointerId) } catch {}
+    try { (e.currentTarget as Element | null)?.setPointerCapture?.(e.pointerId) } catch {}
   }
 
-  function handleBarPointerUp(e) {
+  function handleBarPointerUp(e: PointerEvent): void {
     if (!gestureStart || gestureStart.pointerId !== e.pointerId) return
     const dx = e.clientX - gestureStart.x
     const dy = e.clientY - gestureStart.y
@@ -68,14 +80,14 @@
     }
   }
 
-  function handleBarPointerCancel() {
+  function handleBarPointerCancel(): void {
     gestureStart = null
     isPressing = false
   }
 
   // ---- 定时器管理器 ----
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
+  const timers = new Set<SafeTimer>()
+  function safeTimeout(fn: () => void, ms: number): SafeTimer {
     const id = setTimeout(() => {
       timers.delete(id)
       fn()
@@ -86,36 +98,38 @@
 
   $effect(() => () => timers.forEach(id => clearTimeout(id)))
 
-  function playSwipeAnimation(direction) {
+  function playSwipeAnimation(direction: string): void {
     swipeDirection = ''
-    clearTimeout(swipeTimer)
-    timers.delete(swipeTimer)
+    if (swipeTimer) {
+      clearTimeout(swipeTimer)
+      timers.delete(swipeTimer)
+    }
     requestAnimationFrame(() => {
       swipeDirection = direction
       swipeTimer = safeTimeout(() => { swipeDirection = '' }, 360)
     })
   }
 
-  function onVolBarClick(e) {
+  function onVolBarClick(e: MouseEvent): void {
     e.stopPropagation()
-    const bar = e.currentTarget
+    const bar = e.currentTarget as HTMLDivElement
     const rect = bar.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
     player.setVolume(pct)
   }
 
-  function toggleMute(e) {
+  function toggleMute(e: MouseEvent): void {
     e.stopPropagation()
     player.setVolume(player.volume === 0 ? 0.8 : 0)
   }
 
-  function toggleVolume() {
+  function toggleVolume(): void {
     showVolume = !showVolume
   }
 
-  function handleVolumeBarDrag(e) {
+  function handleVolumeBarDrag(e: MouseEvent): void {
     e.stopPropagation()
-    const bar = e.currentTarget
+    const bar = e.currentTarget as HTMLDivElement
     const rect = bar.getBoundingClientRect()
     const pct = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
     player.setVolume(1 - pct)
@@ -168,45 +182,52 @@
 
     let idx = -1
     for (let i = barLyrics.length - 1; i >= 0; i--) {
-      if (now >= barLyrics[i].time) {
+      if (now >= Number(barLyrics[i]!.time)) {
         idx = i
         break
       }
     }
 
-    currentLyric = idx >= 0 ? barLyrics[idx] : null
+    currentLyric = idx >= 0 ? barLyrics[idx]! : null
   })
 
   let showLyric = $derived(Boolean(player.playing && !player.loading && currentLyric?.text))
   let compactMode = $derived(Boolean(!player.id || player.loading || !player.playing || !showLyric))
   let currentTrack = $derived(player.currentTrack || player.queue?.find(track => track?.id === player.id) || player.queue?.[player.queueIndex])
-  let currentArtists = $derived(currentTrack?.ar || currentTrack?.artists || [])
+  // CompactTrack 类型无 artists 字段，历史 localStorage 队列缓存可能携带，保留原回退读取
+  let currentArtists = $derived(currentTrack?.ar
+    || (currentTrack as (CompactTrack & { artists?: CompactArtist[] }) | undefined)?.artists
+    || [])
   let artistNavigation = $derived(currentTrack?.source === 'local' ? undefined : onOpenArtist)
 
-  function handleBarKeyDown(e) {
+  function handleBarKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       openLyricsFromBar(e)
     }
   }
-  function handleVolumeToggleKeyDown(e) {
+  function handleVolumeToggleKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       e.stopPropagation()
       toggleVolume()
     }
   }
-  function handleVolumeTrackKeyDown(e) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      e.stopPropagation()
-      onVolBarClick(e)
-    }
+  function handleVolumeTrackKeyDown(e: KeyboardEvent): void {
+    let next: number | null = null
+    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') next = Math.min(1, player.volume + 0.05)
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') next = Math.max(0, player.volume - 0.05)
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End') next = 1
+    if (next === null) return
+    e.preventDefault()
+    e.stopPropagation()
+    player.setVolume(next)
   }
 
   // 点击外部关闭音量面板
-  function handleOutsideClick(e) {
-    if (showVolume && !e.target.closest('.player-bar__actions')) {
+  function handleOutsideClick(e: MouseEvent): void {
+    if (showVolume && !(e.target as Element).closest('.player-bar__actions')) {
       showVolume = false
     }
   }
@@ -240,11 +261,11 @@
     {/if}
     <div class="lcd-meta" class:show-lyric={showLyric}>
       {#if showLyric}
-        {#key `${currentLyric.time}-${currentLyric.text}`}
+        {#key `${currentLyric!.time}-${currentLyric!.text}`}
           <div class="lcd-meta__lyric-group">
-            <div class="lcd-meta__lyric">{currentLyric.text}</div>
-            {#if currentLyric.translation && currentLyric.translation !== currentLyric.text}
-              <div class="lcd-meta__translation">{currentLyric.translation}</div>
+            <div class="lcd-meta__lyric">{currentLyric!.text}</div>
+            {#if currentLyric!.translation && currentLyric!.translation !== currentLyric!.text}
+              <div class="lcd-meta__translation">{currentLyric!.translation}</div>
             {/if}
           </div>
         {/key}

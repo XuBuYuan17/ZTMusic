@@ -1,22 +1,39 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { loadMobileLibraryData } from '../../services/home.js'
-  import { coverUrl } from '../../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { loadMobileLibraryData } from '../../services/home.ts'
+  import { coverUrl } from '../../utils/image.ts'
   import Spinner from '../../components/Spinner.svelte'
   import Icon from '../../components/ui/Icon.svelte'
 
-  let { onOpenPlaylist, onOpenLogin, onNavigate } = $props()
+  type LibraryData = Awaited<ReturnType<typeof loadMobileLibraryData>>
+  type LibraryPlaylist = LibraryData['createdPlaylists'][number]
+  type SheetType = 'create' | 'subscribe' | 'unsubscribe' | 'delete'
+
+  interface SheetState {
+    type: SheetType
+    title: string
+    label?: string
+    value: string
+    playlist?: LibraryPlaylist
+  }
+
+  let { onOpenPlaylist, onOpenLogin, onNavigate }: {
+    onOpenPlaylist?: (id: SongId) => void
+    onOpenLogin?: () => void
+    onNavigate?: (view: string) => void
+  } = $props()
 
   let loading = $state(false)
-  let applyingId = $state(null)
+  let applyingId = $state<SongId | null>(null)
   let creating = $state(false)
   let notice = $state('')
-  let sheet = $state(null)
-  let library = $state(null)
+  let sheet = $state<SheetState | null>(null)
+  let library = $state<LibraryData | null>(null)
   let _requestId = 0
 
-  const emptyLibrary = {
+  const emptyLibrary: LibraryData = {
     profile: null,
     stats: [],
     createdPlaylists: [],
@@ -27,9 +44,15 @@
   let data = $derived(library || emptyLibrary)
   let savedPlaylists = $derived(data.savedPlaylists || [])
   let createdPlaylists = $derived(data.createdPlaylists || [])
-  let historyPlaylist = $derived(data.createdPlaylists.find(pl => /历史|history|最近/i.test(pl.name)) || null)
+  let historyPlaylist = $derived(data.createdPlaylists.find(pl => /历史|history|最近/i.test(String(pl.name))) || null)
 
-  async function load(reset = true) {
+  function rec(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+
+  async function load(reset = true): Promise<void> {
     const rid = ++_requestId
     loading = true
     if (reset) library = null
@@ -41,8 +64,8 @@
   }
 
   // 定时器管理器
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
+  const timers = new Set<ReturnType<typeof setTimeout>>()
+  function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
     const id = setTimeout(() => {
       timers.delete(id)
       fn()
@@ -51,21 +74,24 @@
     return id
   }
 
-  function resultError(result, fallback) {
-    if (!result || result.code === 200) return ''
-    return result.message || result.msg || fallback
+  function resultError(result: unknown, fallback: string): string {
+    const r = rec(result)
+    if (!r || r.code === 200) return ''
+    return (r.message || r.msg || fallback) as string
   }
 
-  function addCreatedPlaylist(playlist) {
-    if (!playlist?.id) return
+  function addCreatedPlaylist(playlist: unknown): void {
+    const p = rec(playlist)
+    if (!p?.id) return
+    // ponytail: 乐观插入的对象只有模板用到的 6 个字段，缺 playCountText 等 NormalizedPlaylist 字段；读取点都在本组件内，双 cast 比凑齐字段诚实
     const nextPlaylist = {
-      id: playlist.id,
-      name: playlist.name || '新歌单',
-      picUrl: playlist.picUrl || playlist.coverImgUrl || '',
-      trackCount: playlist.trackCount || 0,
-      playCount: playlist.playCount || 0,
-      creator: playlist.creator,
-    }
+      id: p.id as SongId,
+      name: p.name || '新歌单',
+      picUrl: (p.picUrl || p.coverImgUrl || '') as string,
+      trackCount: (p.trackCount || 0) as number,
+      playCount: (p.playCount || 0) as number,
+      creator: p.creator,
+    } as unknown as LibraryPlaylist
     const current = library || emptyLibrary
     library = {
       ...current,
@@ -73,7 +99,7 @@
     }
   }
 
-  function removeCreatedPlaylist(id) {
+  function removeCreatedPlaylist(id: SongId): void {
     if (!id || !library) return
     library = {
       ...library,
@@ -81,28 +107,28 @@
     }
   }
 
-  function showNotice(text) {
+  function showNotice(text: string): void {
     notice = text
     safeTimeout(() => { if (notice === text) notice = '' }, 1800)
   }
 
-  function openCreateSheet() {
+  function openCreateSheet(): void {
     sheet = { type: 'create', title: '新建歌单', label: '歌单名称', value: '' }
   }
 
-  function openSubscribeSheet() {
+  function openSubscribeSheet(): void {
     sheet = { type: 'subscribe', title: '收藏歌单', label: '歌单 ID', value: '' }
   }
 
-  function openConfirmSheet(type, playlist) {
-    sheet = { type, playlist, title: type === 'delete' ? '删除歌单' : '取消收藏', value: playlist?.name || '' }
+  function openConfirmSheet(type: 'unsubscribe' | 'delete', playlist: LibraryPlaylist): void {
+    sheet = { type, playlist, title: type === 'delete' ? '删除歌单' : '取消收藏', value: (playlist?.name || '') as string }
   }
 
-  function closeSheet() {
+  function closeSheet(): void {
     sheet = null
   }
 
-  async function submitSheet() {
+  async function submitSheet(): Promise<void> {
     const current = sheet
     if (!current) return
     if (current.type === 'create') await createPlaylist(current.value)
@@ -111,7 +137,7 @@
     else if (current.type === 'delete') await deletePlaylist(current.playlist)
   }
 
-  async function createPlaylist(nameInput) {
+  async function createPlaylist(nameInput: string): Promise<void> {
     if (creating) return
     const name = nameInput?.trim()
     if (!name) return
@@ -121,33 +147,34 @@
       const error = resultError(result, '创建失败')
       if (error) throw new Error(error)
       closeSheet()
-      addCreatedPlaylist(result.playlist || result.data?.playlist)
+      const r = rec(result)
+      addCreatedPlaylist(r?.playlist || rec(r?.data)?.playlist)
       showNotice('已创建歌单')
     } catch (error) {
-      showNotice(error?.message || '创建失败')
+      showNotice((error as { message?: string } | null | undefined)?.message || '创建失败')
     } finally {
       creating = false
     }
   }
 
-  async function unsubscribePlaylist(playlist) {
+  async function unsubscribePlaylist(playlist: LibraryPlaylist | undefined): Promise<void> {
     if (!playlist?.id || applyingId) return
-    applyingId = playlist.id
+    applyingId = playlist.id as SongId
     try {
-      const result = await ncm.playlistSubscribe(playlist.id, false)
+      const result = await ncm.playlistSubscribe(playlist.id as SongId, false)
       const error = resultError(result, '操作失败')
       if (error) throw new Error(error)
       closeSheet()
       showNotice('已取消收藏')
       await load()
     } catch (error) {
-      showNotice(error?.message || '操作失败')
+      showNotice((error as { message?: string } | null | undefined)?.message || '操作失败')
     } finally {
       applyingId = null
     }
   }
 
-  async function subscribePlaylist(idInput) {
+  async function subscribePlaylist(idInput: string): Promise<void> {
     if (applyingId) return
     const id = idInput?.trim()
     if (!id) return
@@ -160,24 +187,24 @@
       showNotice('已收藏歌单')
       await load()
     } catch (error) {
-      showNotice(error?.message || '收藏失败')
+      showNotice((error as { message?: string } | null | undefined)?.message || '收藏失败')
     } finally {
       applyingId = null
     }
   }
 
-  async function deletePlaylist(playlist) {
+  async function deletePlaylist(playlist: LibraryPlaylist | undefined): Promise<void> {
     if (!playlist?.id || applyingId) return
-    applyingId = playlist.id
+    applyingId = playlist.id as SongId
     try {
-      const result = await ncm.playlistDelete(playlist.id)
+      const result = await ncm.playlistDelete(playlist.id as SongId)
       const error = resultError(result, '删除失败')
       if (error) throw new Error(error)
       closeSheet()
-      removeCreatedPlaylist(playlist.id)
+      removeCreatedPlaylist(playlist.id as SongId)
       showNotice('已删除歌单')
     } catch (error) {
-      showNotice(error?.message || '删除失败')
+      showNotice((error as { message?: string } | null | undefined)?.message || '删除失败')
     } finally {
       applyingId = null
     }
@@ -209,7 +236,7 @@
     {#if notice}<div class="m-library-notice">{notice}</div>{/if}
 
     <section class="m-section m-library-overview">
-      <button class="m-library-featured" onclick={() => data.likedPlaylist && onOpenPlaylist?.(data.likedPlaylist.id)} disabled={!data.likedPlaylist}>
+      <button class="m-library-featured" onclick={() => data.likedPlaylist && onOpenPlaylist?.(data.likedPlaylist.id as SongId)} disabled={!data.likedPlaylist}>
         <span class="m-library-featured-cover">
           {#if data.likedPlaylist?.picUrl}
             <img src={coverUrl(data.likedPlaylist.picUrl, 280)} alt="" referrerpolicy="no-referrer" />
@@ -240,9 +267,9 @@
         </div>
       {:else}
         <div class="m-library-card-grid">
-          {#each savedPlaylists as pl (pl.id)}
+          {#each savedPlaylists as pl (pl.id as SongId)}
             <div class="m-library-card">
-              <button class="m-library-card-main" type="button" onclick={() => onOpenPlaylist?.(pl.id)}>
+              <button class="m-library-card-main" type="button" onclick={() => onOpenPlaylist?.(pl.id as SongId)}>
                 <span class="m-library-card-cover">
                   {#if pl.picUrl}
                     <img src={coverUrl(pl.picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -265,9 +292,9 @@
         <h2>创建的歌单</h2>
       </div>
       <div class="m-library-card-grid">
-        {#each createdPlaylists as pl (pl.id)}
+        {#each createdPlaylists as pl (pl.id as SongId)}
           <div class="m-library-card">
-            <button class="m-library-card-main" type="button" onclick={() => onOpenPlaylist?.(pl.id)}>
+            <button class="m-library-card-main" type="button" onclick={() => onOpenPlaylist?.(pl.id as SongId)}>
               <span class="m-library-card-cover">
               {#if pl.picUrl}
                 <img src={coverUrl(pl.picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />

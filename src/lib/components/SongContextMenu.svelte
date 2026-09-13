@@ -1,10 +1,34 @@
-<script>
-  import { auth } from '../stores/auth.svelte.js'
-  import { ncm } from '../api/client.js'
-  import { coverUrl } from '../utils/image.js'
-  import { parseLikeCheck } from '../utils/like-check.js'
-  import { debugLog } from '../utils/error.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import { auth } from '../stores/auth.svelte.ts'
+  import { ncm } from '../api/client.ts'
+  import { coverUrl } from '../utils/image.ts'
+  import { parseLikeCheck } from '../utils/like-check.ts'
+  import { debugLog } from '../utils/error.ts'
   import Icon from './ui/Icon.svelte'
+
+  interface MenuArtist { id?: SongId; name?: unknown }
+  interface MenuAlbum { id?: SongId; name?: unknown; picUrl?: unknown }
+  interface MenuTrack {
+    id?: SongId
+    name?: unknown
+    picUrl?: unknown
+    artists?: MenuArtist[]
+    ar?: MenuArtist[]
+    album?: MenuAlbum
+    al?: MenuAlbum
+  }
+  interface UserPlaylist {
+    id: SongId
+    name: unknown
+    trackCount?: number
+    userId?: SongId
+    specialType?: number
+    coverImgUrl?: unknown
+    picUrl?: unknown
+  }
+  type PlaylistMode = 'menu' | 'add' | 'remove'
+  type SafeTimer = ReturnType<typeof setTimeout>
 
   let {
     show = false,
@@ -15,22 +39,46 @@
     onOpenArtist,
     onOpenAlbum,
     onToast,
+  }: {
+    show?: boolean
+    track?: unknown
+    x?: number
+    y?: number
+    onClose?: () => void
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onToast?: (message: unknown) => void
   } = $props()
 
-  let userPlaylists = $state([])
+  let userPlaylists = $state<UserPlaylist[]>([])
   let loadingPlaylists = $state(false)
-  let playlistMode = $state('menu')
+  let playlistMode = $state<PlaylistMode>('menu')
   let liked = $state(false)
   let likeLoading = $state(false)
   let toastText = $state('')
-  let lastTrackId = $state(null)
-  let userPlaylistsOwnerId = $state(null)
-  let playlistApplyingId = $state(null)
+  let lastTrackId = $state<SongId | null>(null)
+  let userPlaylistsOwnerId = $state<SongId | null>(null)
+  let playlistApplyingId = $state<SongId | null>(null)
   let likeCheckRequestId = 0
 
+  function rec(v: unknown): Record<string, unknown> | null {
+    return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
+  }
+
+  function asMenuTrack(t: unknown): MenuTrack | null {
+    return rec(t) as MenuTrack | null
+  }
+
+  const mt = $derived(asMenuTrack(track))
+
+  function activeUid(): SongId | null {
+    const uid: unknown = auth.user?.userId || auth.user?.id
+    return typeof uid === 'number' || typeof uid === 'string' ? uid : null
+  }
+
   // 定时器管理器
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
+  const timers = new Set<SafeTimer>()
+  function safeTimeout(fn: () => void, ms: number): SafeTimer {
     const id = setTimeout(() => {
       timers.delete(id)
       fn()
@@ -46,7 +94,7 @@
   let menuLeft = $derived(Math.max(MENU_MARGIN, Math.min(x || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerWidth : 1200) - MENU_WIDTH - MENU_MARGIN)))
   let menuTop = $derived(Math.max(MENU_MARGIN, Math.min(y || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerHeight : 800) - MENU_HEIGHT - MENU_MARGIN)))
 
-  function portal(node) {
+  function portal(node: HTMLElement) {
     document.body.appendChild(node)
     return {
       destroy() {
@@ -56,11 +104,11 @@
   }
 
   $effect(() => {
-    if (!show || !track?.id) return
+    if (!show || !mt?.id) return
     playlistMode = 'menu'
     toastText = ''
-    if (lastTrackId !== track.id) {
-      lastTrackId = track.id
+    if (lastTrackId !== mt.id) {
+      lastTrackId = mt.id
       liked = false
       likeLoading = false
       playlistApplyingId = null
@@ -85,92 +133,99 @@
   // Escape 键关闭菜单
   $effect(() => {
     if (!show) return
-    const onKeyDown = (e) => { if (e.key === 'Escape') onClose?.() }
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   })
 
-  function artistsOf(t) {
-    return t?.artists || t?.ar || []
+  function artistsOf(t: unknown): MenuArtist[] {
+    const m = asMenuTrack(t)
+    const list = m?.artists || m?.ar || []
+    return Array.isArray(list) ? list : []
   }
 
-  function artistText(t) {
+  function artistText(t: unknown): string {
     return artistsOf(t).map(artist => artist.name).filter(Boolean).join(' / ')
   }
 
-  function albumOf(t) {
-    return t?.album || t?.al || {}
+  function albumOf(t: unknown): MenuAlbum {
+    const m = asMenuTrack(t)
+    return m?.album || m?.al || {}
   }
 
-  function albumName(t) {
+  function albumName(t: unknown): unknown {
     return albumOf(t)?.name || ''
   }
 
-  function firstArtist(t) {
+  function firstArtist(t: unknown): MenuArtist | undefined {
     return artistsOf(t).find(artist => artist?.id)
   }
 
-  function isEditablePlaylist(playlist, uid) {
+  function isEditablePlaylist(playlist: UserPlaylist, uid: SongId): boolean {
     if (Number(playlist.userId) !== Number(uid)) return false
     return Number(playlist.specialType || 0) !== 5
   }
 
-  async function checkLiked() {
-    if (!auth.isLoggedIn || !track?.id) return
+  async function checkLiked(): Promise<void> {
+    const t = mt
+    if (!auth.isLoggedIn || !t?.id) return
     const requestId = ++likeCheckRequestId
-    const trackId = track.id
+    const trackId = t.id
     try {
       const res = await ncm.songLikeCheck(trackId)
-      if (requestId === likeCheckRequestId && track?.id === trackId) liked = parseLikeCheck(res, trackId)
+      if (requestId === likeCheckRequestId && mt?.id === trackId) liked = parseLikeCheck(res, trackId)
     } catch (err) {
-      debugLog('SongContextMenu', 'like-check-fallback', { error: err?.message || String(err) })
-      const uid = auth.user?.userId || auth.user?.id
+      debugLog('SongContextMenu', 'like-check-fallback', { error: (err as { message?: unknown } | null | undefined)?.message || String(err) })
+      const uid = activeUid()
       if (!uid) return
       try {
         const res = await ncm.likelist(uid)
-        const ids = res?.ids || res?.data || []
-        if (requestId === likeCheckRequestId && track?.id === trackId) liked = ids.map(Number).includes(Number(trackId))
-      } catch (err2) { debugLog('SongContextMenu', 'likelist-error', { error: err2?.message || String(err2) }) }
+        const r = rec(res)
+        const rawIds = r?.ids || r?.data || []
+        const ids: unknown[] = Array.isArray(rawIds) ? rawIds : []
+        if (requestId === likeCheckRequestId && mt?.id === trackId) liked = ids.map(Number).includes(Number(trackId))
+      } catch (err2) { debugLog('SongContextMenu', 'likelist-error', { error: (err2 as { message?: unknown } | null | undefined)?.message || String(err2) }) }
     }
   }
 
-  function showToast(text) {
+  function showToast(text: string): void {
     toastText = text
     onToast?.(text)
     safeTimeout(() => { if (toastText === text) toastText = '' }, 1600)
   }
 
-  async function toggleLike() {
-    if (!auth.isLoggedIn || !track?.id || likeLoading) {
+  async function toggleLike(): Promise<void> {
+    const t = mt
+    if (!auth.isLoggedIn || !t?.id || likeLoading) {
       if (!auth.isLoggedIn) showToast('请先登录')
       return
     }
-    const uid = auth.user?.userId || auth.user?.id
+    const uid = activeUid()
     if (!uid) {
       showToast('登录状态异常')
       return
     }
     likeLoading = true
     const nextLiked = !liked
-    const trackId = track.id
+    const trackId = t.id
     try {
       await ncm.like(trackId, nextLiked, uid)
-      if (track?.id !== trackId) return
+      if (mt?.id !== trackId) return
       liked = nextLiked
       showToast(nextLiked ? '已添加到我喜欢' : '已取消喜欢')
     } catch {
       showToast('操作失败')
     } finally {
-      if (track?.id === trackId) likeLoading = false
+      if (mt?.id === trackId) likeLoading = false
     }
   }
 
-  async function ensurePlaylists() {
+  async function ensurePlaylists(): Promise<boolean> {
     if (!auth.isLoggedIn) {
       showToast('请先登录')
       return false
     }
-    const uid = auth.user?.userId || auth.user?.id
+    const uid = activeUid()
     if (!uid) {
       showToast('登录状态异常')
       return false
@@ -180,8 +235,10 @@
     loadingPlaylists = true
     try {
       const res = await ncm.userPlaylist(uid)
-      userPlaylists = (res.playlist || [])
-        .filter(playlist => isEditablePlaylist(playlist, uid))
+      const rawList = rec(res)?.playlist
+      userPlaylists = (Array.isArray(rawList) ? rawList : [])
+        .map(p => rec(p) as UserPlaylist | null)
+        .filter((p): p is UserPlaylist => p !== null && isEditablePlaylist(p, uid))
         .slice(0, 80)
       userPlaylistsOwnerId = uid
       return true
@@ -193,7 +250,7 @@
     }
   }
 
-  async function openPlaylistPanel(mode) {
+  async function openPlaylistPanel(mode: PlaylistMode): Promise<void> {
     if (!auth.isLoggedIn) {
       showToast('请先登录')
       return
@@ -202,10 +259,11 @@
     await ensurePlaylists()
   }
 
-  async function applyPlaylist(plId) {
-    if (!track?.id || playlistApplyingId) return
+  async function applyPlaylist(plId: SongId): Promise<void> {
+    const t = mt
+    if (!t?.id || playlistApplyingId) return
     const mode = playlistMode
-    const trackId = track.id
+    const trackId = t.id
     playlistApplyingId = plId
     try {
       if (mode === 'remove') {
@@ -225,7 +283,7 @@
     }
   }
 
-  function updatePlaylistCount(plId, delta) {
+  function updatePlaylistCount(plId: SongId, delta: number): void {
     userPlaylists = userPlaylists.map(playlist => {
       if (Number(playlist.id) !== Number(plId)) return playlist
       const trackCount = Math.max(0, (playlist.trackCount || 0) + delta)
@@ -233,8 +291,8 @@
     })
   }
 
-  function openArtist() {
-    const artist = firstArtist(track)
+  function openArtist(): void {
+    const artist = firstArtist(mt)
     if (artist?.id) {
       onOpenArtist?.(artist.id)
       onClose?.()
@@ -243,8 +301,8 @@
     }
   }
 
-  function openAlbum() {
-    const album = albumOf(track)
+  function openAlbum(): void {
+    const album = albumOf(mt)
     if (album?.id) {
       onOpenAlbum?.(album.id)
       onClose?.()
@@ -253,18 +311,19 @@
     }
   }
 
-  function copyLink() {
-    if (!track?.id) return
-    navigator.clipboard?.writeText(`https://music.163.com/#/song?id=${track.id}`).catch(() => {})
+  function copyLink(): void {
+    const id = mt?.id
+    if (!id) return
+    navigator.clipboard?.writeText(`https://music.163.com/#/song?id=${id}`).catch(() => {})
     showToast('已复制歌曲链接')
   }
 
-  function handleContextmenu(event) {
+  function handleContextmenu(event: MouseEvent): void {
     event.preventDefault()
   }
 </script>
 
-{#if show && track}
+{#if show && mt}
   <div class="song-menu-portal" use:portal>
     <button class="song-menu-scrim" type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
     <div
@@ -278,15 +337,15 @@
     >
     <header class="song-menu__header">
       <div class="song-menu__cover">
-        {#if albumOf(track)?.picUrl || track.picUrl}
-          <img src={coverUrl(albumOf(track)?.picUrl || track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+        {#if albumOf(mt)?.picUrl || mt.picUrl}
+          <img src={coverUrl(albumOf(mt)?.picUrl || mt.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
         {:else}
           <span>♫</span>
         {/if}
       </div>
       <div class="song-menu__title">
-        <strong>{track.name || '未知歌曲'}</strong>
-        <span>{artistText(track) || '未知歌手'}</span>
+        <strong>{mt.name || '未知歌曲'}</strong>
+        <span>{artistText(mt) || '未知歌手'}</span>
       </div>
     </header>
 
@@ -308,14 +367,14 @@
       </div>
 
       <div class="song-menu__group">
-        <button class="song-menu__item" onclick={openArtist} disabled={!firstArtist(track)?.id}>
+        <button class="song-menu__item" onclick={openArtist} disabled={!firstArtist(mt)?.id}>
           <span class="song-menu__icon"><Icon name="user" size={16} /></span>
           <span>查看歌手</span>
         </button>
-        <button class="song-menu__item" onclick={openAlbum} disabled={!albumOf(track)?.id}>
+        <button class="song-menu__item" onclick={openAlbum} disabled={!albumOf(mt)?.id}>
           <span class="song-menu__icon"><Icon name="music" size={16} /></span>
           <span>查看专辑</span>
-          {#if albumName(track)}<em>{albumName(track)}</em>{/if}
+          {#if albumName(mt)}<em>{albumName(mt)}</em>{/if}
         </button>
       </div>
 
@@ -330,7 +389,7 @@
         <button onclick={() => playlistMode = 'menu'} aria-label="返回"><Icon name="chevron-left" size={18} fill="none" /></button>
         <div>
           <strong>{playlistMode === 'remove' ? '从歌单移除' : '添加到歌单'}</strong>
-          <span>{track.name}</span>
+          <span>{mt.name}</span>
         </div>
       </div>
       <div class="song-menu__playlists">

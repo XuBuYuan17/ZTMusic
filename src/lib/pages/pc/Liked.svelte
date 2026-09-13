@@ -1,37 +1,50 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { musicService } from '../../music/service.js'
-  import { player } from '../../stores/player.svelte.js'
-  import { formatDuration } from '../../format.js'
-  import { coverUrl } from '../../utils/image.js'
-  import { normalizeSong } from '../../utils/normalize.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { NormalizedSong } from '../../utils/normalize.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { musicService } from '../../music/service.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import { formatDuration } from '../../format.ts'
+  import { coverUrl } from '../../utils/image.ts'
+  import { normalizeSong } from '../../utils/normalize.ts'
   import Spinner from '../../components/Spinner.svelte'
   import Icon from '../../components/ui/Icon.svelte'
 
+  interface RefArtist { id?: SongId; name?: unknown }
+
   let {
-    onPlayTrack,
-    onPlayAll,
     onOpenArtist,
     onOpenAlbum,
+  }: {
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let songs = $state([])
+  let songs = $state<NormalizedSong[]>([])
   let loading = $state(true)
   let error = $state('')
 
-  async function loadLiked() {
-    if (!auth.isLoggedIn || !auth.user?.userId) return
+  function rec(v: unknown): Record<string, unknown> | null {
+    return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
+  }
+
+  async function loadLiked(): Promise<void> {
+    const uid = auth.user?.userId
+    if (!auth.isLoggedIn || !uid) return
     loading = true
     error = ''
     try {
-      const res = await ncm.likelist(auth.user.userId)
-      const ids = res.ids || res.data?.ids || []
+      const res = await ncm.likelist(uid)
+      const r = rec(res)
+      const rawIds = r?.ids || rec(r?.data)?.ids || []
+      const ids: unknown[] = Array.isArray(rawIds) ? rawIds : []
       if (ids.length === 0) {
         songs = []
         return
       }
-      songs = (await musicService.getTracks(ids)).map(normalizeSong).filter(Boolean)
+      songs = (await musicService.getTracks(ids as SongId[])).map(normalizeSong).filter((s): s is NormalizedSong => s !== null)
     } catch (e) {
       error = '加载失败'
       console.error(e)
@@ -40,18 +53,19 @@
     }
   }
 
-  function playAll() {
-    if (songs.length) player.playQueue(songs, 0)
+  function playAll(): void {
+    if (songs.length) player.playQueue(songs as unknown as CompactTrackInput[], 0)
   }
 
-  function playTrack(track) {
+  function playTrack(track: NormalizedSong): void {
     const idx = songs.findIndex(t => t.id === track.id)
-    if (idx >= 0) player.playQueue(songs, idx)
-    else player.playTrack(track, 0)
+    if (idx >= 0) player.playQueue(songs as unknown as CompactTrackInput[], idx)
+    else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
 
-  function artistsOf(track) {
-    return track.ar || track.artists || []
+  function artistsOf(track: NormalizedSong): RefArtist[] {
+    const list = track.ar || track.artists || []
+    return Array.isArray(list) ? list as RefArtist[] : []
   }
 
   $effect(() => {
@@ -103,7 +117,7 @@
   {:else}
     {#key songs.length}
       <div class="liked-song-list">
-        {#each songs as track, i (track.id)}
+        {#each songs as track, i (track.id as SongId)}
           <div class="liked-song-row" role="button" tabindex="0"
             class:active={player.id === track.id}
             onclick={() => playTrack(track)}
@@ -113,7 +127,7 @@
             <span class="liked-song-main">
               <strong>{track.name}</strong>
               <em>
-                {#each artistsOf(track) as artist, j (artist.id || artist.name)}
+                {#each artistsOf(track) as artist, j ((artist.id || artist.name) as SongId)}
                   {#if j > 0}<span class="artist-sep">/</span>{/if}
                   {#if artist.id}
                     <button class="artist-link" onclick={(e) => { e.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
@@ -123,7 +137,7 @@
                 {/each}
               </em>
             </span>
-            <span class="liked-song-dur">{formatDuration(track.dt || track.duration || 0)}</span>
+            <span class="liked-song-dur">{formatDuration(track.dt || (track.duration as number) || 0)}</span>
           </div>
         {/each}
       </div>

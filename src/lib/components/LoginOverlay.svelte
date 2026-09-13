@@ -1,13 +1,19 @@
-<script>
+<script lang="ts">
   import QRCode from 'qrcode'
   import { tick } from 'svelte'
-  import { auth } from '../stores/auth.svelte.js'
+  import { auth } from '../stores/auth.svelte.ts'
   import { fade } from 'svelte/transition'
   import Spinner from './Spinner.svelte'
 
-  let { showLogin = false, onClose, onLoginSuccess } = $props()
+  type LoginMode = 'qr' | 'phone' | 'email'
 
-  let mode = $state('qr')
+  let { showLogin = false, onClose, onLoginSuccess }: {
+    showLogin?: boolean
+    onClose?: () => void
+    onLoginSuccess?: () => void
+  } = $props()
+
+  let mode = $state<LoginMode>('qr')
   let phone = $state('')
   let email = $state('')
   let password = $state('')
@@ -16,12 +22,12 @@
   let qrStatus = $state('')
   let processing = $state(false)
   let error = $state('')
-  let qrCancel
+  let qrCancel: (() => void) | undefined
   let pollActive = $state(false)
   let qrRequestId = 0
   let loginRequestId = 0
-  let phoneInput = $state(null)
-  let emailInput = $state(null)
+  let phoneInput = $state<HTMLInputElement | null>(null)
+  let emailInput = $state<HTMLInputElement | null>(null)
 
   $effect(() => {
     if (showLogin && mode === 'qr') startQr()
@@ -35,7 +41,7 @@
     else if (mode === 'email') tick().then(() => emailInput?.focus())
   })
 
-  async function startQr() {
+  async function startQr(): Promise<void> {
     const requestId = ++qrRequestId
     qrImg = ''
     qrStatus = '获取二维码...'
@@ -55,7 +61,7 @@
       qrStatus = '请使用网易云音乐APP扫码'
       pollActive = true
 
-      const { promise, cancel } = auth.startQrPolling(key, (code) => {
+      const { promise, cancel } = auth.startQrPolling(key, (code: unknown) => {
         if (requestId !== qrRequestId) return
         if (code === 801) qrStatus = '请使用网易云音乐APP扫码'
         else if (code === 802) qrStatus = '已扫码，请在手机上确认'
@@ -73,7 +79,7 @@
     } catch (e) {
       if (requestId !== qrRequestId) return
       pollActive = false
-      error = e.message || '二维码登录失败'
+      error = (e as { message?: string } | null | undefined)?.message || '二维码登录失败'
       qrStatus = ''
     }
   }
@@ -99,12 +105,12 @@
       onClose?.()
     } catch (e) {
       if (requestId !== loginRequestId) return
-      error = e.message || '登录失败'
+      error = (e as { message?: string } | null | undefined)?.message || '登录失败'
     }
     processing = false
   }
 
-  function switchMode(m) {
+  function switchMode(m: LoginMode): void {
     mode = m
     error = ''
     qrStatus = ''
@@ -113,12 +119,12 @@
     pollActive = false
   }
 
-  function handleOverlayKeyDown(e) {
+  function handleOverlayKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') { e.preventDefault(); onClose?.() }
   }
 
-  function stopEvent(e) {
-    if (e.key === 'Escape') return  // 让 Escape 能穿透关闭
+  function stopEvent(e: MouseEvent | KeyboardEvent): void {
+    if ('key' in e && e.key === 'Escape') return  // 让 Escape 能穿透关闭
     e.stopPropagation()
   }
 </script>

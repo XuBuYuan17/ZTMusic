@@ -1,35 +1,45 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { player } from '../../stores/player.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { loadRecentData } from '../../services/home.js'
-  import { formatDuration } from '../../format.js'
-  import { coverUrl } from '../../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
+  import type { NormalizedRecordSong, NormalizedLocalHistorySong } from '../../utils/normalize.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { loadRecentData } from '../../services/home.ts'
+  import { formatDuration } from '../../format.ts'
+  import { coverUrl } from '../../utils/image.ts'
   import SongListActions from '../../components/SongListActions.svelte'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
-  let { onOpenArtist, onOpenAlbum } = $props()
+  type RecentTrack = NormalizedRecordSong | NormalizedLocalHistorySong
+  interface TrackArtist { id?: SongId; name?: unknown }
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
-  let recentTracks = $state([])
+  let { onOpenArtist, onOpenAlbum }: {
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+  } = $props()
+
+  let recentTracks = $state<RecentTrack[]>([])
   let recentLoading = $state(false)
   let error = $state('')
-  let songActions = $state(null)
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
   let _requestId = 0
 
-  async function load() {
+  async function load(): Promise<void> {
     const rid = ++_requestId; recentLoading = true; recentTracks = []; error = ''
     try {
       const tracks = await loadRecentData(ncm, auth.user)
       if (rid === _requestId) recentTracks = tracks
-    } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    } catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) recentLoading = false }
   }
 
-  function playTrack(track) {
+  function playTrack(track: RecentTrack): void {
     const idx = recentTracks.findIndex(t => t.id === track.id)
-    if (idx >= 0) player.playQueue(recentTracks, idx); else player.playTrack(track, 0)
+    if (idx >= 0) player.playQueue(recentTracks as unknown as CompactTrackInput[], idx); else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
-  function playAll() { if (recentTracks.length) player.playQueue(recentTracks, 0) }
+  function playAll(): void { if (recentTracks.length) player.playQueue(recentTracks as unknown as CompactTrackInput[], 0) }
 
   $effect(() => {
     load()
@@ -38,8 +48,12 @@
     return () => window.removeEventListener('local-listening-history-change', refresh)
   })
 
-  function artistsOf(track) {
-    return track.artists || track.ar || []
+  function artistsOf(track: RecentTrack): TrackArtist[] {
+    return (track.artists || track.ar || []) as TrackArtist[]
+  }
+
+  function albumNameOf(track: RecentTrack): string {
+    return ((track.album as { name?: unknown } | null | undefined)?.name as string) || (track.al?.name as string) || ''
   }
 </script>
 
@@ -106,17 +120,17 @@
             </td>
             <td class="col-title">{track.name}</td>
             <td class="col-artist artist-links">
-              {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+              {#each artistsOf(track) as artist, index (artist.id || (artist.name as SongId))}
                 {#if index > 0}<span class="artist-sep">/</span>{/if}
                 {#if artist.id}
-                  <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+                  <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id!) }}>{artist.name}</button>
                 {:else}
                   <span>{artist.name}</span>
                 {/if}
               {/each}
             </td>
-            <td class="col-album">{track.album?.name || track.al?.name || ''}</td>
-            <td class="col-dur">{formatDuration(track.duration || track.dt || 0)}</td>
+            <td class="col-album">{albumNameOf(track)}</td>
+            <td class="col-dur">{formatDuration((track.duration as number) || track.dt || 0)}</td>
           </tr>
         {/each}
       </tbody>
@@ -131,8 +145,8 @@
     </div>
   {/if}
   {#if error}
-    <ErrorBlock {error} onRetry={load} />
+    <ErrorBlock message={error} onRetry={load} />
   {/if}
 
-  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn: RowBinder) => { songActions = { bindRow: fn } }} />
 </div>

@@ -1,11 +1,14 @@
-<script>
-  import { player } from '../stores/player.svelte.js';
-  import { ncm } from '../api/client.js';
-  import { coverUrl } from '../utils/image.js';
-  import { QUALITY_ORDER } from '../utils/constants.js';
-  import { useLyrics } from '../composables/useLyrics.svelte.js';
-  import { useLike } from '../composables/useLike.svelte.js';
-  import { scrollLyricIntoView } from '../utils/scroll-lyric.js';
+<script lang="ts">
+  import type { SongId } from '../types/music.ts';
+  import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
+  import type { DisplayLyricLine } from '../services/lyrics-loader.ts';
+  import { player } from '../stores/player.svelte.ts';
+  import { ncm } from '../api/client.ts';
+  import { coverUrl } from '../utils/image.ts';
+  import { QUALITY_ORDER } from '../utils/constants.ts';
+  import { useLyrics } from '../composables/useLyrics.svelte.ts';
+  import { useLike } from '../composables/useLike.svelte.ts';
+  import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
@@ -13,18 +16,47 @@
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
 
-  let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme, showLocalQueue = false, toggleLocalQueue } = $props();
+  type Panel = 'quality' | 'comments' | 'playlists' | 'theme';
+  // 与 SongContextStrip 本地 ContextPanel 同型（该类型未导出）
+  type StripPanel = 'songs' | 'playlists' | 'comments';
+
+  interface MenuItem {
+    label: string;
+    icon: string;
+    action?: () => void;
+    disabled?: boolean;
+  }
+
+  type SafeTimer = ReturnType<typeof setTimeout>;
+
+  let {
+    onClose,
+    onOpenArtist,
+    onOpenAlbum,
+    onOpenPlaylist,
+    onToggleTheme,
+    showLocalQueue = false,
+    toggleLocalQueue,
+  }: {
+    onClose?: () => void;
+    onOpenArtist?: (id: number | null) => void;
+    onOpenAlbum?: (id: number | null) => void;
+    onOpenPlaylist?: (id: number | null) => void;
+    onToggleTheme?: (event?: MouseEvent) => void;
+    showLocalQueue?: boolean;
+    toggleLocalQueue?: () => void;
+  } = $props();
 
   let lyricsMode = $state(false);
   let showMoreMenu = $state(false);
   let menuMessage = $state('');
   let actionBusy = $state('');
-  let contextPanelRequest = $state(null);
-  let secondaryPanel = $state(null);
+  let contextPanelRequest = $state<StripPanel | null>(null);
+  let secondaryPanel = $state<Panel | null>(null);
   let playerTheme = $state('card');
   let entered = $state(false);
   let closing = $state(false);
-  let lyricsEl = $state(null);
+  let lyricsEl = $state<HTMLElement | null>(null);
   let swipeStartX = 0;
   let swipeStartY = 0;
   let swipeActive = false;
@@ -34,20 +66,24 @@
   const like = useLike(showMenuMessage);
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
-  let album = $derived(player.currentTrack?.al || player.currentTrack?.album || null);
+  let album = $derived(
+    player.currentTrack?.al
+      || (player.currentTrack as (CompactTrack & { album?: CompactAlbum }) | null)?.album
+      || null,
+  );
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
-  let qualityLabels = {
+  const qualityLabels: Record<string, string> = {
     lossless: '无损',
     exhigh: '极高',
     higher: '较高',
     standard: '标准',
   };
-  let playerThemeOptions = [
+  const playerThemeOptions: Array<{ value: string; label: string; icon: string }> = [
     { value: 'card', label: '卡片封面', icon: 'music' },
     { value: 'vinyl', label: '黑胶唱片', icon: 'disc' },
   ];
 
-  let moreMenuItems = $derived([
+  let moreMenuItems = $derived<MenuItem[]>([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
     { label: '播放队列', icon: 'list', action: handleToggleLocalQueue, disabled: !player.id },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
@@ -69,8 +105,8 @@
   });
 
   // ---- 定时器管理器 ----
-  const timers = new Set();
-  function safeTimeout(fn, ms) {
+  const timers = new Set<SafeTimer>();
+  function safeTimeout(fn: () => void, ms: number): SafeTimer {
     const id = setTimeout(() => {
       timers.delete(id);
       fn();
@@ -96,18 +132,18 @@
     scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.am-lyric-line', 0.25);
   });
 
-  function toggleLyricsMode() {
+  function toggleLyricsMode(): void {
     lyricsMode = !lyricsMode;
   }
 
-  function handlePlayerPointerDown(event) {
+  function handlePlayerPointerDown(event: PointerEvent): void {
     if (secondaryPanel || showMoreMenu || showLocalQueue) return;
     swipeStartX = event.clientX;
     swipeStartY = event.clientY;
     swipeActive = true;
   }
 
-  function handlePlayerPointerUp(event) {
+  function handlePlayerPointerUp(event: PointerEvent): void {
     if (!swipeActive) return;
     swipeActive = false;
     const dx = event.clientX - swipeStartX;
@@ -120,7 +156,7 @@
     safeTimeout(() => { suppressCoverClick = false; }, 80);
   }
 
-  function handleCoverClick() {
+  function handleCoverClick(): void {
     if (suppressCoverClick) {
       suppressCoverClick = false;
       return;
@@ -128,90 +164,106 @@
     toggleLyricsMode();
   }
 
-  function toggleMoreMenu() {
+  function toggleMoreMenu(): void {
     showMoreMenu = !showMoreMenu;
   }
 
-  function closeMoreMenu() {
+  function closeMoreMenu(): void {
     showMoreMenu = false;
   }
 
-  function openSecondaryPanel(panel) {
+  function openSecondaryPanel(panel: Panel): void {
     showMoreMenu = false;
     secondaryPanel = panel;
     if (panel === 'comments' || panel === 'playlists') contextPanelRequest = panel;
   }
 
-  function closeSecondaryPanel() {
+  function closeSecondaryPanel(): void {
     secondaryPanel = null;
     contextPanelRequest = null;
   }
 
-  function handleToggleLocalQueue() {
+  function handleToggleLocalQueue(): void {
     showMoreMenu = false;
     toggleLocalQueue?.();
   }
 
-  function showMenuMessage(text) {
+  // LyricsPageV2 传入的导航函数收 number|null，ArtistNames/SongContextStrip 收 SongId；
+  // 组件内统一在这一层 cast（QueuePanel 同款接缝）。
+  function handleOpenArtist(id: SongId): void {
+    onOpenArtist?.(id as number | null);
+  }
+
+  function showMenuMessage(text: string): void {
     menuMessage = text;
     safeTimeout(() => {
       if (menuMessage === text) menuMessage = '';
     }, 1600);
   }
 
-  async function shareTrack() {
+  function rec(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  }
+
+  async function shareTrack(): Promise<void> {
     if (!player.id) return;
     actionBusy = 'share';
     const url = `https://music.163.com/song?id=${player.id}`;
     const title = player.title || '哲听歌曲';
     const text = player.artist ? `${title} - ${player.artist}` : title;
+    // typeof 守卫：lib.dom 把 navigator.share 声明成必选，但旧 WebView 运行时可能没有（PCPlayer 同款）
+    const canShare = typeof navigator.share === 'function';
     try {
-      if (navigator.share) await navigator.share({ title, text, url });
+      if (canShare) await navigator.share({ title, text, url });
       else await navigator.clipboard?.writeText(url);
-      showMenuMessage(navigator.share ? '已打开分享' : '链接已复制');
+      showMenuMessage(canShare ? '已打开分享' : '链接已复制');
     } catch (error) {
-      if (error?.name !== 'AbortError') showMenuMessage('分享失败');
+      const name = (error as { name?: unknown } | null | undefined)?.name;
+      if (name !== 'AbortError') showMenuMessage('分享失败');
     } finally {
       actionBusy = '';
     }
   }
 
-  function closeAndNavigate(fn, id, preview) {
+  type NavigateFn = (id: number, push?: boolean, preview?: unknown) => void;
+
+  function closeAndNavigate(fn: NavigateFn | undefined, id: SongId | null | undefined, preview?: unknown): void {
     if (!id) return;
     showMoreMenu = false;
     onClose?.();
-    fn?.(id, true, preview);
+    fn?.(id as number, true, preview);
   }
 
-  function openAlbum() {
+  function openAlbum(): void {
     closeAndNavigate(onOpenAlbum, album?.id);
   }
 
-  function openArtist() {
+  function openArtist(): void {
     closeAndNavigate(onOpenArtist, firstArtist?.id);
   }
 
-  function cycleQuality() {
+  function cycleQuality(): void {
     const index = QUALITY_ORDER.indexOf(player.preferredLevel);
     const next = QUALITY_ORDER[(index + 1) % QUALITY_ORDER.length] || 'standard';
     setQuality(next);
   }
 
-  function setQuality(level) {
+  function setQuality(level: string): void {
     player.setPreferredLevel(level);
   }
 
-  async function openSimilarPlaylist() {
+  async function openSimilarPlaylist(): Promise<void> {
     if (!player.id || actionBusy === 'similar') return;
     actionBusy = 'similar';
     try {
       const res = await ncm.simiPlaylist(player.id);
-      const playlist = (res?.playlists || [])[0];
+      const list = rec(res)?.playlists;
+      const playlist = rec(Array.isArray(list) ? list[0] : null);
       if (!playlist?.id) {
         showMenuMessage('暂无相似歌单');
         return;
       }
-      closeAndNavigate(onOpenPlaylist, playlist.id, playlist);
+      closeAndNavigate(onOpenPlaylist, playlist.id as SongId, playlist);
     } catch {
       showMenuMessage('加载失败');
     } finally {
@@ -219,35 +271,35 @@
     }
   }
 
-  function openHotComments() {
+  function openHotComments(): void {
     if (!player.id) return;
     openSecondaryPanel('comments');
   }
 
-  function toggleTheme() {
+  function toggleTheme(): void {
     onToggleTheme?.();
   }
 
-  function setPlayerTheme(theme) {
+  function setPlayerTheme(theme: string): void {
     playerTheme = theme;
   }
 
-  function handleMenuItem(item) {
+  function handleMenuItem(item: MenuItem): void {
     showMoreMenu = false;
     item.action?.();
   }
 
-  function secondaryContextPanel() {
+  function secondaryContextPanel(): StripPanel | null {
     if (secondaryPanel === 'comments') return contextPanelRequest || 'comments';
     if (secondaryPanel === 'playlists') return contextPanelRequest || 'playlists';
     return null;
   }
 </script>
 
-{#snippet lyricLine(line, i)}
+{#snippet lyricLine(line: DisplayLyricLine, i: number)}
   <button class="am-lyric-line" class:active={i === lyricState.highlightIndex} class:before={i < lyricState.highlightIndex}
     aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
-    onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))); }}>
+    onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
     <span class="am-lyric-text">{line.text || '...'}</span>
     {#if line.translation}
       <span class="am-lyric-trans">{line.translation}</span>
@@ -299,7 +351,7 @@
   <div class="am-track-info">
     <div class="am-track-title">{player.title || '未在播放'}</div>
     <div class="am-track-artist">
-      <ArtistNames artists={currentArtists} onOpenArtist={onOpenArtist} fallback={player.artist || ''} />
+      <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />
     </div>
   </div>
 
@@ -307,7 +359,7 @@
   <div class="am-corner-info">
     <div class="am-corner-title">{player.title || ''}</div>
     <div class="am-corner-artist">
-      <ArtistNames artists={currentArtists} onOpenArtist={onOpenArtist} fallback={player.artist || ''} />
+      <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />
     </div>
   </div>
 
@@ -353,7 +405,7 @@
         </div>
       {:else}
         <div class="am-secondary-context">
-          <SongContextStrip variant="mobile" activePanel={secondaryContextPanel()} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} {onOpenArtist} />
+          <SongContextStrip variant="mobile" activePanel={secondaryContextPanel()} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} />
         </div>
       {/if}
     </section>

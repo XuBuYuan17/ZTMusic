@@ -1,26 +1,31 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { t } from '../../i18n/index.svelte.js'
-  import { DEFAULT_API_BASE, QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.js'
-  import { wallpaper } from '../../stores/wallpaper.svelte.js'
-  import { formatWallpaperSize } from '../../services/wallpaper-storage.js'
-  import { ACCENT_THEME_OPTIONS } from '../../theme/accent.js'
+<script lang="ts">
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { t } from '../../i18n/index.svelte.ts'
+  import { DEFAULT_API_BASE, QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.ts'
+  import { wallpaper } from '../../stores/wallpaper.svelte.ts'
+  import { formatWallpaperSize } from '../../services/wallpaper-storage.ts'
+  import { ACCENT_THEME_OPTIONS } from '../../theme/accent.ts'
   import pkg from '../../../../package.json'
   import Icon from '../../components/ui/Icon.svelte'
 
-  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme } = $props()
+  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme }: {
+    theme?: string
+    accentTheme?: string
+    onSetTheme?: (theme: string) => void
+    onSetAccentTheme?: (theme: string) => void
+  } = $props()
 
   const settings = useSettings()
   const qualityLabels = QUALITY_LABELS
-  let wallpaperInput = $state(null)
+  let wallpaperInput = $state<HTMLInputElement | null>(null)
   let wallpaperStatus = $derived(
     wallpaper.error || (wallpaper.active
       ? `${wallpaper.kind === 'video' ? '视频' : '图片'} · ${wallpaper.name} · ${formatWallpaperSize(wallpaper.size)}`
       : '未设置 · 图片 ≤ 30 MB，视频 ≤ 300 MB'),
   )
 
-  async function handleWallpaperFile(event) {
-    const input = event.currentTarget
+  async function handleWallpaperFile(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement
     const file = input.files?.[0]
     if (file) await wallpaper.selectFile(file)
     input.value = ''
@@ -125,7 +130,7 @@
           <span class="m-settings-label">{t('settings.quality', '默认音质')}</span>
           <span class="m-settings-desc">{t('settings.qualityDesc', '优先使用的音质等级')}</span>
         </div>
-        <select class="m-settings-select" value={settings.preferredQuality} onchange={(e) => settings.handleQuality(e.target.value)}>
+        <select class="m-settings-select" value={settings.preferredQuality} onchange={(e) => settings.handleQuality((e.target as HTMLSelectElement).value)}>
           {#each Object.entries(qualityLabels) as [val, label]}
             <option value={val}>{label}</option>
           {/each}
@@ -138,7 +143,7 @@
           <span class="m-settings-label">{t('settings.defaultPage', '启动默认页面')}</span>
           <span class="m-settings-desc">{t('settings.defaultPageDesc', '启动时自动打开的页面')}</span>
         </div>
-        <select class="m-settings-select" value={settings.defaultPage} onchange={(e) => settings.handleDefaultPage(e.target.value)}>
+        <select class="m-settings-select" value={settings.defaultPage} onchange={(e) => settings.handleDefaultPage((e.target as HTMLSelectElement).value)}>
           <option value="home">{t('page.home', '主页')}</option>
           <option value="explore">{t('page.explore', '发现')}</option>
           <option value="library">{t('page.library', '资料库')}</option>
@@ -151,7 +156,7 @@
           <span class="m-settings-label">布局模式</span>
           <span class="m-settings-desc">自动时手机使用移动布局，平板可手动切换到 PC 布局获得更大内容空间</span>
         </div>
-        <select class="m-settings-select" value={settings.layoutMode} onchange={(e) => settings.handleLayoutMode(e.target.value)}>
+        <select class="m-settings-select" value={settings.layoutMode} onchange={(e) => settings.handleLayoutMode((e.target as HTMLSelectElement).value)}>
           <option value="auto">自动</option>
           <option value="pc">PC 布局（大屏推荐）</option>
           <option value="mobile">移动布局</option>
@@ -259,7 +264,7 @@
             class="m-settings-input"
             placeholder="https://your-api-server.com"
             value={settings.apiBaseValue}
-            oninput={(e) => settings.handleSetApiBase(e.target.value)}
+            oninput={(e) => settings.handleSetApiBase((e.target as HTMLInputElement).value)}
           />
         </div>
         <button class="m-settings-row m-settings-row--action" onclick={settings.handleClearCache}>

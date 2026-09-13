@@ -1,7 +1,9 @@
-<script>
-  let { size = 'md', label = '' } = $props()
+<script lang="ts">
+  type SpinnerSize = 'sm' | 'md' | 'lg'
 
-  const sizeMap = {
+  let { size = 'md', label = '' }: { size?: SpinnerSize; label?: string } = $props()
+
+  const sizeMap: Record<SpinnerSize, number> = {
     sm: 20,
     md: 32,
     lg: 48,

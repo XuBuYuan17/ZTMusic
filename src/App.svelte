@@ -1,25 +1,28 @@
-<script>
+<script lang="ts">
   import { fade } from 'svelte/transition'
   import { tick, untrack } from 'svelte'
-  import { player } from './lib/stores/player.svelte.js'
-  import { auth } from './lib/stores/auth.svelte.js'
-  import { router } from './lib/stores/router.svelte.js'
-  import { wallpaper } from './lib/stores/wallpaper.svelte.js'
-  import { getStorage, setStorage } from './lib/utils/storage.js'
-  import { getSetting, migrateSettings, setSetting } from './lib/utils/settings.js'
-  import { countUnreadMessages, loadMessageReadState } from './lib/services/message-read-state.js'
-  import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.js'
-  import { coverUrl } from './lib/utils/image.js'
-  import { getAppBackAction } from './lib/app/back.js'
-  import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.js'
-  import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.js'
-  import { createThemeTransition } from './lib/app/theme-transition.js'
+  import type { SongId } from './lib/types/music.ts'
+  import { player } from './lib/stores/player.svelte.ts'
+  import { auth } from './lib/stores/auth.svelte.ts'
+  import { router } from './lib/stores/router.svelte.ts'
+  import { wallpaper } from './lib/stores/wallpaper.svelte.ts'
+  import { getStorage, setStorage } from './lib/utils/storage.ts'
+  import { getSetting, migrateSettings, setSetting } from './lib/utils/settings.ts'
+  import { countUnreadMessages, getInitialMessageReadState, loadMessageReadState } from './lib/services/message-read-state.ts'
+  import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.ts'
+  import { coverUrl } from './lib/utils/image.ts'
+  import { getAppBackAction } from './lib/app/back.ts'
+  import type { AppBackState } from './lib/app/back.ts'
+  import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.ts'
+  import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.ts'
+  import { createThemeTransition } from './lib/app/theme-transition.ts'
   import {
     applyAccentProperties,
     extractCoverAccent,
     getAccentProperties,
     normalizeAccentTheme,
-  } from './lib/theme/accent.js'
+  } from './lib/theme/accent.ts'
+  import type { AccentThemeName } from './lib/theme/accent.ts'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
   import QueuePanel from './lib/components/QueuePanel.svelte'
@@ -27,15 +30,28 @@
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
-  import { isMobileDevice, responsive } from './lib/utils/responsive.js'
+  import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
   import HomePage from './lib/pages/pc/Home.svelte'
   import Toast from './lib/components/ui/Toast.svelte'
 
-  const isMobileRuntime = () => isMobileDevice()
-  const lazyModule = (loader) => {
-    let module
-    let promise
-    return () => module ?? (promise ??= loader().then((loaded) => module = loaded))
+  interface LyricsOrigin {
+    x?: number
+    y?: number
+    top?: number
+    right?: number
+    bottom?: number
+    left?: number
+    radius?: number
+  }
+
+  type MessageTargetUser = { userId: SongId; nickname?: unknown; avatarUrl?: unknown }
+
+  const isMobileRuntime = (): boolean => isMobileDevice()
+  // 返回 T | Promise<T>：{#await} 对已缓存的模块直接按值解析
+  function lazyModule<T>(loader: () => Promise<T>): () => Promise<T> | T {
+    let module: T | undefined
+    let promise: Promise<T> | undefined
+    return () => module ?? (promise ??= loader().then((loaded) => { module = loaded; return loaded }))
   }
   const loadMobileApp = lazyModule(() => import('./lib/components/MobileApp.svelte'))
   const loadExplorePage = lazyModule(() => import('./lib/pages/pc/Explore.svelte'))
@@ -54,28 +70,27 @@
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
-  let contentScrollEl = $state(null)
   let showSheet = $state(false)
   let showLogin = $state(false)
   let showFollowDialog = $state(false)
   let showQueuePanel = $state(false)
   let showMobileDrawer = $state(false)
   let mobileTabsHidden = $state(false)
-  let lyricsOrigin = $state(null)
-  let messageTargetUser = $state(null)
+  let lyricsOrigin = $state<LyricsOrigin | null>(null)
+  let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
 
   // ── 主题 ──
   migrateSettings()
-  function normalizeTheme(value) { return value === 'light' || value === 'dark' ? value : 'dark' }
-  let theme = $state(normalizeTheme(getStorage('zheting-theme', 'dark')))
-  let accentTheme = $state(normalizeAccentTheme(getSetting('accent_theme', 'red')))
+  function normalizeTheme(value: string): 'light' | 'dark' { return value === 'light' || value === 'dark' ? value : 'dark' }
+  let theme = $state<string>(normalizeTheme(getStorage('zheting-theme', 'dark')))
+  let accentTheme = $state<AccentThemeName>(normalizeAccentTheme(getSetting('accent_theme', 'red')))
   let accentRequestId = 0
-  let accentTransitionTimer
-  let lastCoverAccent = null
+  let accentTransitionTimer: ReturnType<typeof setTimeout> | undefined
+  let lastCoverAccent: Awaited<ReturnType<typeof extractCoverAccent>> = null
 
-  function syncSystemTheme(value) {
+  function syncSystemTheme(value: string): void {
     const nextTheme = normalizeTheme(value)
     const dark = nextTheme === 'dark'
     document.documentElement.setAttribute('data-theme', nextTheme)
@@ -84,12 +99,12 @@
     document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark light' : 'light dark')
   }
 
-  function commitAccent(properties) {
+  function commitAccent(properties: Record<string, string>): void {
     const root = document.documentElement
     root.classList.add('accent-color-transitioning')
     applyAccentProperties(root, properties)
     const shell = document.querySelector('.app-shell')
-    if (shell) applyAccentProperties(shell, properties)
+    if (shell) applyAccentProperties(shell as HTMLElement, properties)
     clearTimeout(accentTransitionTimer)
     accentTransitionTimer = setTimeout(() => root.classList.remove('accent-color-transitioning'), 480)
   }
@@ -180,16 +195,14 @@
       .then(([res, readState]) => {
         if (cancelled) return
         const messages = extractMessageList(res)
-        notificationUnread = countUnreadMessages(messages, readState)
+        notificationUnread = countUnreadMessages(messages, readState ?? getInitialMessageReadState())
       })
       .catch(() => { if (!cancelled) notificationUnread = 0 })
     return () => { cancelled = true }
   })
 
   // ── UI 函数 ──
-  function resetContentScroll() { tick().then(() => contentScrollEl?.scrollTo({ top: 0, left: 0 })) }
-
-  function openSheet(originEl) {
+  function openSheet(originEl?: Element | null): void {
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.m-avatar-btn') || document.querySelector('.player-bar')
     if (source) {
       const r = source.getBoundingClientRect()
@@ -205,22 +218,25 @@
     } else lyricsOrigin = null
     showSheet = true
   }
-  function closeSheet() { showSheet = false }
-  function toggleQueue() { showQueuePanel = !showQueuePanel }
-  function closeQueue() { showQueuePanel = false }
-  function setTheme(value) { theme = normalizeTheme(value) }
-  function setAccentTheme(value) { accentTheme = normalizeAccentTheme(value) }
+  function closeSheet(): void { showSheet = false }
+  function toggleQueue(): void { showQueuePanel = !showQueuePanel }
+  function closeQueue(): void { showQueuePanel = false }
+  function setTheme(value: string): void { theme = normalizeTheme(value) }
+  function setAccentTheme(value: string): void { accentTheme = normalizeAccentTheme(value) }
 
-  function openFollows() {
-    if (!auth.isLoggedIn) { showLogin = true; return }
-    showFollowDialog = true
+  // 页面组件的导航回调普遍收 unknown/SongId，router.go* 收 number|null，统一在这一层 cast
+  function openPlaylistRef(id: unknown, push = true, preview?: unknown): void {
+    router.goPlaylist(id as number | null, push, preview as Parameters<typeof router.goPlaylist>[2])
   }
-  function openMessageWithUser(user) {
+  function openArtistRef(id: unknown): void { router.goArtist(id as number | null) }
+  function openAlbumRef(id: unknown): void { router.goAlbum(id as number | null) }
+
+  function openMessageWithUser(user: MessageTargetUser): void {
     if (!auth.isLoggedIn) { showLogin = true; return }
     showFollowDialog = false; messageTargetUser = user; router.handleNav('messages')
   }
 
-  function handleAppBack() {
+  function handleAppBack(): boolean {
     const action = getAppBackAction(getBackState())
     if (!action) return false
     if (action === 'mobileDrawer') showMobileDrawer = false
@@ -233,7 +249,7 @@
     return true
   }
 
-  function getBackState() {
+  function getBackState(): AppBackState {
     return {
       showMobileDrawer,
       showSheet,
@@ -246,7 +262,7 @@
     }
   }
 
-  function hasAppBackTarget() {
+  function hasAppBackTarget(): boolean {
     return getAppBackAction(getBackState()) !== null
   }
 
@@ -269,7 +285,7 @@
     {theme}
     notificationUnread={notificationUnread}
     refreshKey={router.refreshKey}
-    onNavigate={(view, extra) => { router.handleNav(view, extra) }}
+    onNavigate={(view: string, extra?: number | null) => { router.handleNav(view, extra) }}
     onToggleTheme={toggleTheme}
     onOpenLogin={() => { showLogin = true }}
   />
@@ -285,35 +301,34 @@
           bind:drawerOpen={showMobileDrawer}
           onNavigate={router.handleNav}
           onOpenPlayer={openSheet}
-          onOpenPlaylist={router.goPlaylist}
-          onOpenAlbum={router.goAlbum}
-          onOpenArtist={router.goArtist}
+          onOpenPlaylist={openPlaylistRef}
+          onOpenAlbum={openAlbumRef}
+          onOpenArtist={openArtistRef}
           onSearch={() => router.handleNav('search')}
           onOpenLogin={() => showLogin = true}
           onSetTheme={setTheme}
           {accentTheme}
           onSetAccentTheme={setAccentTheme}
           onBack={router.goBack}
-          onTabsHiddenChange={(hidden) => mobileTabsHidden = hidden}
+          onTabsHiddenChange={(hidden: boolean) => mobileTabsHidden = hidden}
           targetUser={messageTargetUser}
           {notificationUnread}
-          onUnreadChange={(count) => notificationUnread = count}
+          onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
         />
       {:catch}
         <div class="loading-state" role="alert">移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
-    <div class="content-scroll" bind:this={contentScrollEl} id="main-content">
+    <div class="content-scroll" id="main-content">
       <div class="content-inner">
         <div class="page-enter" transition:fade={{ duration: 150 }}>
           {#if router.activeView === 'home'}
             <HomePage
               onNavigate={router.handleNav}
               onOpenLogin={() => showLogin = true}
-              onOpenPlaylist={router.goPlaylist}
-              onOpenArtist={router.goArtist}
-              onOpenAlbum={router.goAlbum}
-              onOpenFollows={openFollows}
+              onOpenPlaylist={openPlaylistRef}
+              onOpenArtist={openArtistRef}
+              onOpenAlbum={openAlbumRef}
             />
           {:else if router.activeView === 'playlist' || router.activeView === 'album'}
             {#await loadPlaylistPage() then module}
@@ -328,13 +343,13 @@
                 onBack={router.goBack}
                 onPlayAll={router.playAll}
                 onPlayTrack={router.playTrack}
-                onOpenArtist={router.goArtist}
-                onOpenAlbum={router.goAlbum}
+                onOpenArtist={openArtistRef}
+                onOpenAlbum={openAlbumRef}
               />
             {/await}
           {:else if router.activeView === 'search'}
             {#await loadSearchPage() then module}
-              <module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} />
+              <module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} onOpenPlaylist={openPlaylistRef} />
             {/await}
           {:else if router.activeView === 'artist'}
             {#await loadArtistPage() then module}
@@ -347,8 +362,8 @@
                 onBack={router.goBack}
                 onPlayAll={router.playArtistAll}
                 onPlayTrack={router.playArtistTrack}
-                onOpenAlbum={router.goAlbum}
-                onOpenArtist={router.goArtist}
+                onOpenAlbum={openAlbumRef}
+                onOpenArtist={openArtistRef}
                 onToggleFollow={router.toggleArtistFollow}
               />
             {/await}
@@ -357,20 +372,20 @@
               <module.default
                 onSearch={() => router.handleNav('search')}
                 onBannerClick={router.handleBannerClick}
-                onOpenPlaylist={router.goPlaylist}
-                onOpenAlbum={router.goAlbum}
-                onPlaySong={router.playExploreSong}
-                onOpenArtist={router.goArtist}
+                onOpenPlaylist={openPlaylistRef}
+                onOpenAlbum={openAlbumRef}
+                onPlaySong={router.playExploreSong as (track: unknown) => void}
+                onOpenArtist={openArtistRef}
               />
             {/await}
           {:else if router.activeView === 'dailyHistory'}
-            {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
+            {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
           {:else if router.activeView === 'library'}
             {#await loadLibraryPage() then module}
-              <module.default onOpenLogin={() => showLogin = true} onOpenPlaylist={router.goPlaylist} onNavigate={router.handleNav} />
+              <module.default onOpenLogin={() => showLogin = true} onOpenPlaylist={openPlaylistRef} onNavigate={router.handleNav} />
             {/await}
           {:else if router.activeView === 'recent'}
-            {#await loadRecentPage() then module}<module.default onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />{/await}
+            {#await loadRecentPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
           {:else if router.activeView === 'localMusic'}
             {#await loadLocalMusicPage() then module}<module.default />{/await}
           {:else if router.activeView === 'listeningStats'}
@@ -381,7 +396,10 @@
             {/await}
           {:else if router.activeView === 'liked'}
             {#await loadLikedPage() then module}
-              <module.default onPlayAll={router.playAll} onPlayTrack={router.playTrack} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} />
+              <module.default
+                onOpenArtist={openArtistRef}
+                onOpenAlbum={openAlbumRef}
+              />
             {/await}
           {:else if router.activeView === 'settings'}
             {#await loadSettingsPage() then module}<module.default {theme} {accentTheme} onSetTheme={(value) => theme = value} onSetAccentTheme={setAccentTheme} />{/await}
@@ -400,7 +418,7 @@
 
 <!-- PlayerBar: 两端共享，PC 由 app-pc.css 定位，移动端由 app-mobile.css 覆盖 -->
 <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed} class:m-runtime={isMobile} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
-  <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={router.goArtist} />
+  <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
 </div>
 
 <LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />

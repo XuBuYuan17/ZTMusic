@@ -1,12 +1,14 @@
-﻿<script>
+﻿<script lang="ts">
   import { onMount } from 'svelte'
-  import { dbHistory } from '../db/history.js'
-  import { EMPTY_LOCAL_LISTENING_STATS, summarizeLocalListening } from '../services/listening-stats.js'
-  import { coverUrl } from '../utils/image.js'
+  import type { HistoryEntry } from '../db/history.ts'
+  import type { LocalListeningStats } from '../services/listening-stats.ts'
+  import { dbHistory } from '../db/history.ts'
+  import { EMPTY_LOCAL_LISTENING_STATS, summarizeLocalListening } from '../services/listening-stats.ts'
+  import { coverUrl } from '../utils/image.ts'
   import Icon from '../components/ui/Icon.svelte'
 
-  let history = $state([])
-  let stats = $state({ ...EMPTY_LOCAL_LISTENING_STATS })
+  let history = $state<HistoryEntry[]>([])
+  let stats = $state<LocalListeningStats>({ ...EMPTY_LOCAL_LISTENING_STATS })
   let loading = $state(true)
   let error = $state('')
 
@@ -18,14 +20,16 @@
   const coverStack = $derived(history.slice(0, 4).map(track => track.picUrl).filter(Boolean))
   const averageLabel = $derived(stats.playCount ? `${Math.round(stats.totalDuration / stats.playCount / 60_000)} 分钟` : '0 分钟')
 
-  function artistsOf(track) {
-    return (track?.artists || track?.ar || [])
-      .map(artist => typeof artist === 'string' ? artist : artist?.name)
+  function artistsOf(track: HistoryEntry): string {
+    const raw: unknown = track.artists || (track as { ar?: unknown }).ar
+    const list: unknown[] = Array.isArray(raw) ? raw : []
+    return list
+      .map(artist => typeof artist === 'string' ? artist : (artist as { name?: unknown } | null | undefined)?.name)
       .filter(Boolean)
       .join(' / ') || '未知艺术家'
   }
 
-  async function load() {
+  async function load(): Promise<void> {
     loading = true
     error = ''
     try {
@@ -33,7 +37,7 @@
       history = list
       stats = summarizeLocalListening(list)
     } catch (e) {
-      error = e?.message || '加载失败'
+      error = ((e as { message?: unknown } | null | undefined)?.message || '加载失败') as string
       history = []
       stats = { ...EMPTY_LOCAL_LISTENING_STATS }
     } finally {

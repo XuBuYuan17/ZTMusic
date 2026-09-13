@@ -1,17 +1,17 @@
-<script>
-  import { DEFAULT_API_BASE } from '../api/client.js'
+<script lang="ts">
+  import { DEFAULT_API_BASE } from '../api/client.ts'
   import pkg from '../../../package.json'
 
   const appVersion = pkg.version
 
-  const info = [
+  const info: Array<[string, string]> = [
     ['版本', `v${appVersion}`],
     ['前端', 'Svelte / Vite'],
     ['桌面端', 'Tauri'],
     ['API', DEFAULT_API_BASE],
   ]
 
-  const links = [
+  const links: Array<[string, string]> = [
     ['客户端源码', 'https://github.com/xubuyuan18/ZTmusic'],
     ['NeteaseCloudMusicApi Enhanced', 'https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced'],
   ]

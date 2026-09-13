@@ -1,18 +1,27 @@
-<script>
-  let { show = false, title = '确认', message = '', confirmText = '确定', cancelText = '取消', onConfirm, onCancel, danger = false } = $props()
+<script lang="ts">
+  let { show = false, title = '确认', message = '', confirmText = '确定', cancelText = '取消', onConfirm, onCancel, danger = false }: {
+    show?: boolean
+    title?: string
+    message?: string
+    confirmText?: string
+    cancelText?: string
+    onConfirm?: () => void
+    onCancel?: () => void
+    danger?: boolean
+  } = $props()
 
-  function handleConfirm() {
+  function handleConfirm(): void {
     onConfirm?.()
   }
-  function handleCancel() {
+  function handleCancel(): void {
     onCancel?.()
   }
 
-  function focusOnMount(node) {
+  function focusOnMount(node: HTMLElement): void {
     queueMicrotask(() => node.focus())
   }
 
-  function handleOverlayClick(event) {
+  function handleOverlayClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) handleCancel()
   }
 </script>

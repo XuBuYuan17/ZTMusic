@@ -1,40 +1,44 @@
-<script>
-  import { player } from '../stores/player.svelte.js';
+<script lang="ts">
+  import type { PlayMode } from '../types/player.ts';
+  import { player } from '../stores/player.svelte.ts';
   import Spinner from './Spinner.svelte';
 
-  let { onqueue, showQueue = false } = $props();
+  let { onqueue, showQueue = false }: {
+    onqueue?: () => void;
+    showQueue?: boolean;
+  } = $props();
 
   let disabled = $derived(!player.id);
 
-  const modeLabels = {
+  const modeLabels: Record<PlayMode, string> = {
     list: '顺序播放',
     repeat: '单曲循环',
     shuffle: '随机播放'
   }
 
-  function cycleMode() {
-    let nextMode = player.mode;
+  function cycleMode(): void {
+    let nextMode: PlayMode = player.mode;
     if (player.mode === 'list') nextMode = 'repeat';
     else if (player.mode === 'repeat') nextMode = 'shuffle';
     else nextMode = 'list';
     player.setMode(nextMode);
   }
 
-  function handleQueue(event) {
+  function handleQueue(event: MouseEvent | KeyboardEvent): void {
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
     onqueue?.();
   }
 
-  function handleButton(event, action) {
+  function handleButton(event: MouseEvent, action: () => void): void {
     event.preventDefault();
     event.stopPropagation();
     if (disabled) return;
     action();
   }
 
-  function handleQueueKeydown(event) {
+  function handleQueueKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     handleQueue(event);
   }

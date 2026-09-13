@@ -1,10 +1,30 @@
-<script>
-  import { player } from '../stores/player.svelte.js';
-  import { responsive } from '../utils/responsive.js';
+<script lang="ts">
+  import { player } from '../stores/player.svelte.ts';
+  import { responsive } from '../utils/responsive.ts';
   import AppleMusicPlayer from './AppleMusicPlayer.svelte';
   import PCPlayer from './PCPlayer.svelte';
 
-  let { show = false, origin = null, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme } = $props();
+  interface LyricsOrigin {
+    x?: number;
+    y?: number;
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+    radius?: number;
+  }
+
+  type SafeTimer = ReturnType<typeof setTimeout>;
+
+  let { show = false, origin = null, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme }: {
+    show?: boolean;
+    origin?: LyricsOrigin | null;
+    onClose?: () => void;
+    onOpenArtist?: (id: number | null) => void;
+    onOpenAlbum?: (id: number | null) => void;
+    onOpenPlaylist?: (id: number | null) => void;
+    onToggleTheme?: (event?: MouseEvent) => void;
+  } = $props();
 
   let showLocalQueue = $state(false);
   let lyricsMode = $state(false);
@@ -12,11 +32,11 @@
   let mounted = $state(false);
   let entered = $state(false);
   let closing = $state(false);
-  let enterTimer = null;
-  let transitionTimer = null;
+  let enterTimer: SafeTimer | null = null;
+  let transitionTimer: SafeTimer | null = null;
   // ---- 定时器管理器 ----
-  const timers = new Set();
-  function safeTimeout(fn, ms) {
+  const timers = new Set<SafeTimer>();
+  function safeTimeout(fn: () => void, ms: number): SafeTimer {
     const id = setTimeout(() => {
       timers.delete(id);
       fn();
@@ -24,20 +44,20 @@
     timers.add(id);
     return id;
   }
-  function clearSafeTimer(id) {
+  function clearSafeTimer(id: SafeTimer): void {
     clearTimeout(id);
     timers.delete(id);
   }
 
-  let hideTimer = $state(null);
+  let hideTimer = $state<SafeTimer | null>(null);
 
-  function showControls() {
+  function showControls(): void {
     controlsVisible = true;
     if (hideTimer) clearSafeTimer(hideTimer);
     hideTimer = safeTimeout(() => { controlsVisible = false; }, 4000);
   }
 
-  function resetControls() {
+  function resetControls(): void {
     showControls();
   }
 
@@ -50,15 +70,15 @@
     return () => { if (hideTimer) clearSafeTimer(hideTimer) }
   });
 
-  function toggleLocalQueue() {
+  function toggleLocalQueue(): void {
     showLocalQueue = !showLocalQueue;
   }
 
-  function toggleLyricsMode() {
+  function toggleLyricsMode(): void {
     lyricsMode = !lyricsMode;
   }
 
-  let _fullscreenEl = $state(null)
+  let _fullscreenEl = $state<HTMLDivElement | null>(null)
 
   // 开/关动画
   $effect(() => {
@@ -82,15 +102,15 @@
   // focus-trap：全屏打开时锁定焦点在内部
   $effect(() => {
     if (entered && _fullscreenEl) {
-      const prev = document.activeElement
-      const focusable = _fullscreenEl.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])')
+      const prev = document.activeElement as HTMLElement | null
+      const focusable = _fullscreenEl.querySelector<HTMLElement>('button, [href], input, [tabindex]:not([tabindex="-1"])')
       if (focusable) focusable.focus()
       return () => { if (prev && document.contains(prev)) prev.focus() }
     }
   })
 
-  function handleClose(e) {
-    if (e.target.closest('.ly-keep-open')) return;
+  function handleClose(e: MouseEvent): void {
+    if ((e.target as HTMLElement).closest('.ly-keep-open')) return;
     onClose?.();
   }
 </script>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const queuePanel = await readFile(new URL('../components/QueuePanel.svelte', import.meta.url), 'utf8')
-const playerStore = await readFile(new URL('../stores/player.svelte.js', import.meta.url), 'utf8')
+const playerStore = await readFile(new URL('../stores/player.svelte.ts', import.meta.url), 'utf8')
 
 assert.doesNotMatch(queuePanel, /player\.(?:queue|queueIndex)\s*=(?!=)/, 'QueuePanel must not mutate queue state directly')
 assert.match(queuePanel, /player\.moveQueueItem\(/, 'QueuePanel reorder must use the Player API')

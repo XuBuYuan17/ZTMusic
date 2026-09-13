@@ -1,5 +1,5 @@
-<script>
-  import { toast } from '../../stores/toast.svelte.js'
+<script lang="ts">
+  import { toast } from '../../stores/toast.svelte.ts'
 </script>
 
 {#if toast.visible}

@@ -1,48 +1,60 @@
-<script>
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl } from '../utils/image.js'
-  import { extractCover } from '../utils/normalize.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import type { CompactTrack, CompactArtist } from '../player/queue.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { formatDuration } from '../format.ts'
+  import { coverUrl } from '../utils/image.ts'
+  import { extractCover } from '../utils/normalize.ts'
   import ArtistNames from './ArtistNames.svelte'
   import Icon from './ui/Icon.svelte'
 
-  let { show = false, onClose, onOpenArtist, mobileVisible = false } = $props()
+  let { show = false, onClose, onOpenArtist, mobileVisible = false }: {
+    show?: boolean
+    onClose?: () => void
+    onOpenArtist?: (id: number | null) => void
+    mobileVisible?: boolean
+  } = $props()
 
-  function handlePlayTrack(track, index) {
+  // 接缝：下游 ArtistNames 收 SongId，上游 PCPlayer/App 透传的 router 回调收 number|null（在线 id 恒为 number）
+  function handleOpenArtist(id: SongId): void {
+    onOpenArtist?.(id as number | null)
+  }
+
+  function handlePlayTrack(track: CompactTrack, index: number): void {
     player.playTrack(track, index)
   }
 
-  function handleClear() {
+  function handleClear(): void {
     player.clearQueue()
   }
 
-  function handlePlayNext(e, track) {
+  function handlePlayNext(e: MouseEvent, track: CompactTrack): void {
     e.stopPropagation()
     player.playNext(track)
   }
 
-  function handleRemove(e, index) {
+  function handleRemove(e: MouseEvent, index: number): void {
     e.stopPropagation()
     player.removeQueueItem(index)
   }
 
-  function handleItemKeyDown(e, track, index) {
+  function handleItemKeyDown(e: KeyboardEvent, track: CompactTrack, index: number): void {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       handlePlayTrack(track, index)
     }
   }
 
-  function handleBackdropKeyDown(e) {
+  function handleBackdropKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onClose?.()
     }
   }
 
-  function scrollToCurrent(behavior = 'smooth') {
+  function scrollToCurrent(behavior: ScrollBehavior = 'smooth'): void {
     if (!queueListEl) return
-    const item = queueListEl.querySelector('.queue-item.active')
+    const item = queueListEl.querySelector<HTMLElement>('.queue-item.active')
     if (!item) return
     const container = queueListEl
     const itemTop = item.offsetTop - container.offsetTop
@@ -56,26 +68,27 @@
     container.scrollTo({ top: centerTarget, behavior })
   }
 
-  let queueListEl = $state(null)
-  let dragIndex = $state(null)
-  let dragOverIndex = $state(null)
+  let queueListEl = $state<HTMLDivElement | null>(null)
+  let dragIndex = $state<number | null>(null)
+  let dragOverIndex = $state<number | null>(null)
 
-  function handleDragStart(e, index) {
+  function handleDragStart(e: DragEvent, index: number): void {
     dragIndex = index
-    e.dataTransfer.effectAllowed = 'move'
+    // dataTransfer 为 null 时与原 JS 一样直接抛 TypeError，不做防御
+    e.dataTransfer!.effectAllowed = 'move'
   }
 
-  function handleDragOver(e, index) {
+  function handleDragOver(e: DragEvent, index: number): void {
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
+    e.dataTransfer!.dropEffect = 'move'
     if (dragOverIndex !== index) dragOverIndex = index
   }
 
-  function handleDragLeave() {
+  function handleDragLeave(): void {
     dragOverIndex = null
   }
 
-  function handleDrop(e, index) {
+  function handleDrop(e: DragEvent, index: number): void {
     e.preventDefault()
     const from = dragIndex
     if (from === null || from === index) { dragIndex = null; dragOverIndex = null; return }
@@ -84,7 +97,7 @@
     dragOverIndex = null
   }
 
-  function handleDragEnd() {
+  function handleDragEnd(): void {
     dragIndex = null
     dragOverIndex = null
   }
@@ -95,7 +108,7 @@
     }
   })
 
-  function coverOf(track) {
+  function coverOf(track: CompactTrack): string {
     return extractCover(track)
   }
 </script>
@@ -158,11 +171,11 @@
             <div class="queue-item-info">
               <div class="queue-item-title">{track.name}</div>
               <div class="queue-item-artist">
-                <ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />
+                <ArtistNames artists={track.ar || (track as CompactTrack & { artists?: CompactArtist[] }).artists || []} onOpenArtist={handleOpenArtist} />
               </div>
             </div>
             <div class="queue-item-duration">
-              {formatDuration(track.dt || track.duration || 0)}
+              {formatDuration(track.dt || (track as CompactTrack & { duration?: number }).duration || 0)}
             </div>
             <button class="queue-item-playnext" onclick={(e) => handlePlayNext(e, track)} aria-label="下一首播放" title="下一首播放">
               <Icon name="arrow-up" size={14} />

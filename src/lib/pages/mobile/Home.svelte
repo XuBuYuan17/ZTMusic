@@ -1,13 +1,30 @@
-<script>
-  import { auth } from '../../stores/auth.svelte.js'
-  import { player } from '../../stores/player.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { coverUrl } from '../../utils/image.js'
-  import { extractCover } from '../../utils/normalize.js'
-  import { loadHomeData, loadLocalRecentTracks } from '../../services/home.js'
-  import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
+  import type { LocalListeningStats } from '../../services/listening-stats.ts'
+  import type { NormalizedLocalHistorySong, NormalizedPlaylist } from '../../utils/normalize.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { coverUrl } from '../../utils/image.ts'
+  import { extractCover } from '../../utils/normalize.ts'
+  import { loadHomeData, loadLocalRecentTracks } from '../../services/home.ts'
+  import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.ts'
   import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
+
+  type HomeData = Awaited<ReturnType<typeof loadHomeData>>
+  interface TrackArtist { id?: SongId; name: string }
+  interface Subcount { likedCount?: number }
+  interface StationCard {
+    title: string
+    label: string
+    value: string
+    icon: string
+    accent: string
+    action: () => void
+    disabled?: boolean
+  }
 
   let {
     onNavigate,
@@ -16,22 +33,29 @@
     onOpenArtist,
     onOpenAlbum,
     onSearch,
+  }: {
+    onNavigate?: (view: string) => void
+    onOpenLogin?: () => void
+    onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
+    onOpenArtist?: (id: SongId) => void
+    onOpenAlbum?: (id: unknown) => void
+    onSearch?: () => void
   } = $props()
 
   let loading = $state(true)
   let error = $state('')
-  let recentTracks = $state([])
-  let userPlaylists = $state([])
-  let subcount = $state(null)
-  let likedPlaylist = $state(null)
-  let weeklyPlaylist = $state(null)
-  let recommendPlaylists = $state([])
-  let localListeningStats = $state({ ...EMPTY_LOCAL_LISTENING_STATS })
+  let recentTracks = $state<NormalizedLocalHistorySong[]>([])
+  let userPlaylists = $state<NormalizedPlaylist[]>([])
+  let subcount = $state<Subcount | null>(null)
+  let likedPlaylist = $state<HomeData['likedPlaylist']>(null)
+  let weeklyPlaylist = $state<HomeData['weeklyPlaylist']>(null)
+  let recommendPlaylists = $state<NormalizedPlaylist[]>([])
+  let localListeningStats = $state<LocalListeningStats>({ ...EMPTY_LOCAL_LISTENING_STATS })
 
   let _requestId = 0
   let _statsRequestId = 0
 
-  async function refreshLocalListeningStats() {
+  async function refreshLocalListeningStats(): Promise<void> {
     const rid = ++_statsRequestId
     const [stats, localRecentTracks] = await Promise.all([
       loadLocalListeningStats(),
@@ -43,7 +67,7 @@
     }
   }
 
-  async function load() {
+  async function load(): Promise<void> {
     const rid = ++_requestId; loading = true; error = ''
     userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null
     recommendPlaylists = []
@@ -54,13 +78,13 @@
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
       weeklyPlaylist = data.weeklyPlaylist
       recommendPlaylists = data.recommendPlaylists
-      data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v }).catch(() => {})
+      data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v as Subcount | null }).catch(() => {})
       data.weeklyPromise?.then(v => {
         if (rid !== _requestId) return
         weeklyPlaylist = v.weeklyPlaylist
       }).catch(() => {})
       data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
-    } catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    } catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) loading = false }
   }
 
@@ -77,23 +101,23 @@
     }
   })
 
-  function playRecentTrack(track) {
+  function playRecentTrack(track: NormalizedLocalHistorySong): void {
     const idx = recentTracks.findIndex(t => t.id === track.id)
-    if (idx >= 0) player.playQueue(recentTracks, idx)
-    else player.playTrack(track, 0)
+    if (idx >= 0) player.playQueue(recentTracks as unknown as CompactTrackInput[], idx)
+    else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
 
-  function openLiked() {
+  function openLiked(): void {
     if (likedPlaylist) onOpenPlaylist?.(likedPlaylist.id, true, likedPlaylist)
   }
 
-  function coverOf(track) {
+  function coverOf(track: NormalizedLocalHistorySong): string {
     return track?.picUrl || extractCover(track)
   }
 
-  const heroPlaylist = $derived(recommendPlaylists.length ? recommendPlaylists[0] : null)
+  const heroPlaylist = $derived(recommendPlaylists.length ? recommendPlaylists[0]! : null)
   const heroImage = $derived(auth.user?.avatarUrl || heroPlaylist?.picUrl || '')
-  const stationCards = $derived([
+  const stationCards = $derived<StationCard[]>([
     {
       title: '本地听歌统计',
       label: 'ON THIS DEVICE',
@@ -240,7 +264,7 @@
               </div>
               <div class="m-list-info">
                 <strong>{track.name}</strong>
-                <span><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} fallback="未知艺人" /></span>
+                <span><ArtistNames artists={(track.ar || track.artists || []) as TrackArtist[]} {onOpenArtist} fallback="未知艺人" /></span>
               </div>
             </button>
           {/each}

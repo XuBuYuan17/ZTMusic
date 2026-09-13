@@ -1,12 +1,33 @@
-<script>
-  import { ncm } from '../api/client.js'
-  import { coverUrl } from '../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import { ncm } from '../api/client.ts'
+  import { coverUrl } from '../utils/image.ts'
 
-  let { show = false, user = null, onClose, onOpenMessage } = $props()
+  type FollowTab = 'follows' | 'fans'
 
-  let activeTab = $state('follows')
-  let follows = $state([])
-  let fans = $state([])
+  interface FollowUserProps {
+    userId?: SongId
+    id?: SongId
+  }
+
+  interface FollowItem {
+    id: SongId
+    name: unknown
+    avatar: unknown
+    signature: unknown
+    followed: boolean
+  }
+
+  let { show = false, user = null, onClose, onOpenMessage }: {
+    show?: boolean
+    user?: FollowUserProps | null
+    onClose?: () => void
+    onOpenMessage?: (user: { userId: SongId; nickname?: unknown; avatarUrl?: unknown }) => void
+  } = $props()
+
+  let activeTab = $state<FollowTab>('follows')
+  let follows = $state<FollowItem[]>([])
+  let fans = $state<FollowItem[]>([])
   let loading = $state(false)
   let error = $state('')
   let loadedKey = $state('')
@@ -14,17 +35,27 @@
   const title = $derived(activeTab === 'follows' ? '我的关注' : '我的粉丝')
   const currentList = $derived(activeTab === 'follows' ? follows : fans)
 
-  function normalizeUser(item = {}) {
+  function rec(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+  function asArray(value: unknown): unknown[] | null {
+    return Array.isArray(value) ? value : null
+  }
+
+  function normalizeUser(item: unknown = {}): FollowItem {
+    const r = rec(item)
     return {
-      id: item.userId || item.id,
-      name: item.nickname || item.name || '用户',
-      avatar: item.avatarUrl || item.avatar || '',
-      signature: item.signature || item.description || '',
-      followed: Boolean(item.followed),
+      id: (r?.userId || r?.id) as SongId,
+      name: r?.nickname || r?.name || '用户',
+      avatar: r?.avatarUrl || r?.avatar || '',
+      signature: r?.signature || r?.description || '',
+      followed: Boolean(r?.followed),
     }
   }
 
-  async function loadList(force = false) {
+  async function loadList(force = false): Promise<void> {
     const uid = user?.userId || user?.id
     if (!show || !uid) return
     const key = `${activeTab}:${uid}`
@@ -36,25 +67,27 @@
       const res = activeTab === 'follows'
         ? await ncm.userFollows(uid, 50, 0)
         : await ncm.userFolloweds(uid, 50, 0)
+      const r = rec(res)
+      const d = rec(r?.data)
       const list = activeTab === 'follows'
-        ? (res.follow || res.follows || res.data?.follow || res.data?.follows || [])
-        : (res.followeds || res.data?.followeds || [])
+        ? (asArray(r?.follow) || asArray(r?.follows) || asArray(d?.follow) || asArray(d?.follows) || [])
+        : (asArray(r?.followeds) || asArray(d?.followeds) || [])
       if (activeTab === 'follows') follows = list.map(normalizeUser)
       else fans = list.map(normalizeUser)
       loadedKey = key
     } catch (e) {
-      error = e?.message || '加载失败'
+      error = (e as { message?: string } | null | undefined)?.message || '加载失败'
     } finally {
       loading = false
     }
   }
 
-  function switchTab(tab) {
+  function switchTab(tab: FollowTab): void {
     activeTab = tab
     loadList()
   }
 
-  function openMessage(item) {
+  function openMessage(item: FollowItem): void {
     onOpenMessage?.({
       userId: item.id,
       nickname: item.name,
@@ -62,7 +95,7 @@
     })
   }
 
-  function handleBackdropKeydown(e) {
+  function handleBackdropKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onClose?.()

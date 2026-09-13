@@ -1,33 +1,38 @@
-<script>
+<script lang="ts">
   let {
     currentTime = 0,
     duration = 0,
     disabled = false,
     onseek,
+  }: {
+    currentTime?: number
+    duration?: number
+    disabled?: boolean
+    onseek?: (time: number) => void
   } = $props()
 
   let progressPct = $derived(duration > 0 ? Math.max(0, Math.min(100, (currentTime / duration) * 100)) : 0)
   let dragging = $state(false)
   let dragPct = $state(0)
-  let trackEl = $state(null)
-  let pendingSeek = null
-  let seekFrame = null
+  let trackEl = $state<HTMLDivElement | null>(null)
+  let pendingSeek: number | null = null
+  let seekFrame: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null
 
   $effect(() => () => {
     if (seekFrame) {
-      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame)
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame as number)
       else clearTimeout(seekFrame)
     }
   })
 
-  function fmt(sec) {
+  function fmt(sec: number): string {
     if (!sec || isNaN(sec)) return '0:00'
     const m = Math.floor(sec / 60)
     const s = Math.floor(sec % 60)
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function fmtRemaining(sec) {
+  function fmtRemaining(sec: number): string {
     if (!sec || isNaN(sec)) return '0:00'
     const remaining = Math.max(0, duration - currentTime)
     const m = Math.floor(remaining / 60)
@@ -35,28 +40,28 @@
     return `-${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function clientXToPct(clientX) {
+  function clientXToPct(clientX: number): number {
     if (!trackEl) return 0
     const rect = trackEl.getBoundingClientRect()
     return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
   }
 
-  function seekFromPct(pct) {
+  function seekFromPct(pct: number): void {
     if (!duration) return
     pendingSeek = (pct / 100) * duration
     if (seekFrame) return
     const frame = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame
-      : (fn) => setTimeout(fn, 16)
+      : (fn: FrameRequestCallback) => setTimeout(fn, 16)
     seekFrame = frame(() => {
       seekFrame = null
       if (pendingSeek !== null) onseek?.(pendingSeek)
     })
   }
 
-  function flushSeek() {
+  function flushSeek(): void {
     if (seekFrame) {
-      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame)
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame as number)
       else clearTimeout(seekFrame)
       seekFrame = null
     }
@@ -66,7 +71,7 @@
     }
   }
 
-  function onPointerDown(e) {
+  function onPointerDown(e: PointerEvent & { currentTarget: HTMLDivElement }): void {
     if (!duration || disabled) return
     e.preventDefault()
     dragging = true
@@ -76,19 +81,19 @@
     seekFromPct(pct)
   }
 
-  function onPointerMove(e) {
+  function onPointerMove(e: PointerEvent & { currentTarget: HTMLDivElement }): void {
     if (!dragging) return
     const pct = clientXToPct(e.clientX)
     dragPct = pct
     seekFromPct(pct)
   }
 
-  function onPointerUp() {
+  function onPointerUp(): void {
     flushSeek()
     dragging = false
   }
 
-  function onKeydown(e) {
+  function onKeydown(e: KeyboardEvent): void {
     if (!duration) return
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       e.preventDefault()

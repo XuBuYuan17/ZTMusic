@@ -1,47 +1,52 @@
-<script>
-  let { currentTime = 0, duration = 0, disabled = false, onseek } = $props();
+<script lang="ts">
+  let { currentTime = 0, duration = 0, disabled = false, onseek }: {
+    currentTime?: number
+    duration?: number
+    disabled?: boolean
+    onseek?: (time: number) => void
+  } = $props();
 
-  let progressBar = $state(null);
+  let progressBar = $state<HTMLDivElement | null>(null);
   let isDragging = $state(false);
   let dragPercent = $state(0);
-  let pendingSeek = null;
-  let seekFrame = null;
+  let pendingSeek: number | null = null;
+  let seekFrame: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null = null;
   let displayPercent = $derived(isDragging ? dragPercent : duration ? Math.max(0, Math.min(100, currentTime / duration * 100)) : 0);
 
   $effect(() => () => {
     if (seekFrame) {
-      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame);
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame as number);
       else clearTimeout(seekFrame);
     }
   });
 
-  function formatTime(seconds) {
+  function formatTime(seconds: number): string {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
 
-  function clientXToPercent(clientX) {
+  function clientXToPercent(clientX: number): number {
     if (!progressBar) return 0;
     const rect = progressBar.getBoundingClientRect();
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }
 
-  function scheduleSeek(percent) {
+  function scheduleSeek(percent: number): void {
     pendingSeek = percent * duration;
     if (seekFrame) return;
     const frame = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame
-      : (fn) => setTimeout(fn, 16);
+      : (fn: FrameRequestCallback) => setTimeout(fn, 16);
     seekFrame = frame(() => {
       seekFrame = null;
       if (pendingSeek !== null) onseek?.(pendingSeek);
     });
   }
 
-  function flushSeek() {
+  function flushSeek(): void {
     if (seekFrame) {
-      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame);
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(seekFrame as number);
       else clearTimeout(seekFrame);
       seekFrame = null;
     }
@@ -51,7 +56,7 @@
     }
   }
 
-  function handlePointerDown(e) {
+  function handlePointerDown(e: PointerEvent & { currentTarget: HTMLDivElement }): void {
     if (disabled || !duration) return;
     e.preventDefault();
     isDragging = true;
@@ -61,14 +66,14 @@
     scheduleSeek(percent);
   }
 
-  function handlePointerMove(e) {
+  function handlePointerMove(e: PointerEvent & { currentTarget: HTMLDivElement }): void {
     if (!isDragging) return;
     const percent = clientXToPercent(e.clientX);
     dragPercent = percent * 100;
     scheduleSeek(percent);
   }
 
-  function handlePointerUp() {
+  function handlePointerUp(): void {
     flushSeek();
     isDragging = false;
   }

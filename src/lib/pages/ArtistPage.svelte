@@ -1,9 +1,50 @@
-<script>
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
   import { slide } from 'svelte/transition'
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl, coverRectUrl } from '../utils/image.js'
+  import { player } from '../stores/player.svelte.ts'
+  import { formatDuration } from '../format.ts'
+  import { coverUrl, coverRectUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
+
+  // 与 router 的 DetailTrack 结构对齐（只列本组件实际读取的字段），router 传入时结构兼容
+  interface ArtistTrack {
+    id: SongId
+    name?: unknown
+    picUrl?: string
+    ar?: unknown
+    artists?: unknown
+    al?: unknown
+    album?: unknown
+    dt?: number
+    duration?: number
+  }
+
+  interface TrackArtist { id?: SongId; name?: unknown }
+
+  // 对应 router.ArtistInfo（{ id: SongId; followed: boolean; [key:string]: unknown }）里本页读取的字段
+  interface ArtistInfoLike {
+    id: SongId
+    name?: unknown
+    followed?: boolean
+    cover?: unknown
+    avatar?: unknown
+    picUrl?: unknown
+    alias?: unknown
+    musicSize?: unknown
+    albumSize?: unknown
+    identities?: unknown
+    briefDesc?: unknown
+  }
+
+  interface ArtistAlbumCard {
+    id?: SongId
+    name?: unknown
+    picUrl?: unknown
+    size?: unknown
+    publishTime?: unknown
+  }
+
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
   let {
     artist = null,
@@ -17,52 +58,73 @@
     onOpenAlbum,
     onOpenArtist,
     onToggleFollow,
+  }: {
+    artist?: ArtistInfoLike | null
+    songs?: ArtistTrack[]
+    albums?: unknown[]
+    loading?: boolean
+    error?: string
+    onBack?: () => void
+    onPlayAll?: () => void
+    onPlayTrack?: (track: ArtistTrack) => void
+    onOpenAlbum?: (id: unknown) => void
+    onOpenArtist?: (id: unknown) => void
+    onToggleFollow?: () => void
   } = $props()
 
   let showAllSongs = $state(false)
-  let songActions = $state(null)
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
-  function coverOf(track) {
-    return track?.picUrl || track?.al?.picUrl || track?.album?.picUrl || ''
+  function rec(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
   }
 
-  function artistsOf(track) {
-    return track?.ar || track?.artists || []
+  function coverOf(track: ArtistTrack): string {
+    const al = rec(track.al) || rec(track.album)
+    return track.picUrl || (al?.picUrl as string) || ''
   }
 
-  function albumOf(track) {
-    return track?.al || track?.album || {}
+  function artistsOf(track: ArtistTrack): TrackArtist[] {
+    return (track.ar as TrackArtist[] | undefined) || (track.artists as TrackArtist[] | undefined) || []
   }
 
-  function durationOf(track) {
-    return formatDuration(track?.dt || track?.duration || 0)
+  function albumOf(track: ArtistTrack): Record<string, unknown> {
+    return rec(track.al) || rec(track.album) || {}
   }
 
-  function publishYear(album) {
-    if (!album?.publishTime) return ''
-    return new Date(album.publishTime).getFullYear()
+  function durationOf(track: ArtistTrack): string {
+    return formatDuration(track.dt || track.duration || 0)
+  }
+
+  function publishYear(album: ArtistAlbumCard): number | string {
+    if (!album.publishTime) return ''
+    return new Date(album.publishTime as string | number).getFullYear()
   }
 
   const visibleSongs = $derived(showAllSongs ? songs : songs.slice(0, 5))
+  // router.artistAlbums 是 unknown[]，在边界单点 cast 成本页展示接口
+  const albumCards = $derived(albums as unknown as ArtistAlbumCard[])
 
   $effect(() => {
     artist?.id
     showAllSongs = false
   })
 
-  function handleRowKeydown(event, track) {
+  function handleRowKeydown(event: KeyboardEvent, track: ArtistTrack): void {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       onPlayTrack?.(track)
     }
   }
 
-  function handleSongContext(track, event) {
+  function handleSongContext(track: ArtistTrack, event: MouseEvent): void {
     event.preventDefault()
     songActions?.bindRow(track)?.oncontextmenu?.(event)
   }
 
-  function handleCardKeydown(event, action) {
+  function handleCardKeydown(event: KeyboardEvent, action?: () => void): void {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       action?.()
@@ -144,21 +206,21 @@
       </button>
       <div class="artist-avatar-wrap">
         {#if artist.avatar || artist.picUrl || artist.cover}
-          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, 360)} alt={artist.name} loading="lazy" referrerpolicy="no-referrer" />
+          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, 360)} alt={artist.name as string} loading="lazy" referrerpolicy="no-referrer" />
         {:else}
-          <div class="artist-avatar artist-avatar-placeholder">{artist.name?.charAt(0) || '?'}</div>
+          <div class="artist-avatar artist-avatar-placeholder">{(artist.name as string)?.charAt(0) || '?'}</div>
         {/if}
       </div>
       <div class="artist-info">
         <div class="artist-label"><span></span>艺人档案</div>
         <h1>{artist.name}</h1>
-        {#if artist.alias?.length}
-          <div class="artist-alias">{artist.alias.join(' / ')}</div>
+        {#if (artist.alias as unknown[] | undefined)?.length}
+          <div class="artist-alias">{(artist.alias as string[]).join(' / ')}</div>
         {/if}
         <div class="artist-meta">
           {#if artist.musicSize}<span>{artist.musicSize} 首歌曲</span>{/if}
           {#if artist.albumSize}<span>{artist.albumSize} 张专辑</span>{/if}
-          {#if artist.identities?.length}<span>{artist.identities.join(' · ')}</span>{/if}
+          {#if (artist.identities as unknown[] | undefined)?.length}<span>{(artist.identities as string[]).join(' · ')}</span>{/if}
         </div>
         <div class="artist-actions">
           <button class="artist-play-all" onclick={onPlayAll} disabled={!songs.length}>
@@ -224,10 +286,10 @@
                 </td>
                 <td class="col-title">{track.name}</td>
                 <td class="col-artist artist-links">
-                  {#each artistsOf(track) as item, index (item.id || item.name)}
+                  {#each artistsOf(track) as item, index (item.id || (item.name as SongId))}
                     {#if index > 0}<span class="artist-sep">/</span>{/if}
                     {#if item.id}
-                      <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(item.id) }}>{item.name}</button>
+                      <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(item.id!) }}>{item.name}</button>
                     {:else}
                       <span>{item.name}</span>
                     {/if}
@@ -246,11 +308,11 @@
       <section class="artist-section">
         <h2>专辑作品</h2>
         <div class="artist-albums">
-          {#each albums as album (album.id)}
+          {#each albumCards as album (album.id)}
             <div class="artist-album-card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
               <div class="artist-album-cover">
                 {#if album.picUrl}
-                  <img src={coverUrl(album.picUrl, 400)} alt={album.name} loading="lazy" referrerpolicy="no-referrer" />
+                  <img src={coverUrl(album.picUrl, 400)} alt={album.name as string} loading="lazy" referrerpolicy="no-referrer" />
                 {:else}
                   <div class="artist-album-placeholder">
                     <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>

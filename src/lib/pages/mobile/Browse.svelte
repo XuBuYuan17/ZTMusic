@@ -1,25 +1,44 @@
-<script>
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { ExploreData } from '../../services/explore.ts'
+  import type { NormalizedAlbum, NormalizedPlaylist, NormalizedSong, HomepageBlock } from '../../utils/normalize.ts'
   import ArtistNames from '../../components/ArtistNames.svelte'
-  import { ncm } from '../../api/client.js'
-  import { loadExploreData as fetchExploreData } from '../../services/explore.js'
-  import { loadToplistsData } from '../../services/home.js'
-  import { coverUrl, coverRectUrl } from '../../utils/image.js'
+  import { ncm } from '../../api/client.ts'
+  import { loadExploreData as fetchExploreData } from '../../services/explore.ts'
+  import { loadToplistsData } from '../../services/home.ts'
+  import { coverUrl, coverRectUrl } from '../../utils/image.ts'
 
-  let { onOpenPlaylist, onOpenAlbum, onOpenArtist, onPlaySong, onBannerClick, onSearch } = $props()
+  interface TrackArtist { id?: SongId; name: string }
+  interface CoverCard { id: SongId; name?: unknown; picUrl?: string; copywriter?: string; playCountText?: string; trackCount?: number }
+  interface SongCard { id: SongId; name?: unknown; picUrl?: string; ar?: TrackArtist[]; artists?: TrackArtist[] }
+  interface Toplist { id: SongId; name?: unknown; coverImgUrl?: string; updateFrequency?: string }
+
+  let { onOpenPlaylist, onOpenAlbum, onOpenArtist, onPlaySong, onBannerClick, onSearch }: {
+    onOpenPlaylist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onOpenArtist?: (id: SongId) => void
+    onPlaySong?: (track: SongCard) => void
+    onBannerClick?: (banner: ExploreData['banners'][number]) => void
+    onSearch?: () => void
+  } = $props()
 
   let loading = $state(false)
   let loaded = $state(false)
   let toplistsLoading = $state(false)
   let error = $state('')
-  let banners = $state([])
-  let personalized = $state([])
-  let topPlaylists = $state([])
-  let newAlbums = $state([])
-  let recommendSongs = $state([])
-  let blocks = $state([])
-  let toplists = $state([])
+  let banners = $state<ExploreData['banners']>([])
+  let personalized = $state<NormalizedPlaylist[]>([])
+  let topPlaylists = $state<NormalizedPlaylist[]>([])
+  let newAlbums = $state<NormalizedAlbum[]>([])
+  let recommendSongs = $state<NormalizedSong[]>([])
+  let blocks = $state<HomepageBlock[]>([])
+  let toplists = $state<Toplist[]>([])
 
-  async function load() {
+  function errorMessage(e: unknown): string {
+    return (e as { message?: string } | null | undefined)?.message || '加载失败'
+  }
+
+  async function load(): Promise<void> {
     if (loaded) return
     loading = true
     error = ''
@@ -31,16 +50,16 @@
       recommendSongs = d.recommendSongs || []
       newAlbums = d.newAlbums || []
       blocks = d.blocks || []
-    } catch (e) { error = e?.message || '加载失败' }
+    } catch (e) { error = errorMessage(e) }
     loading = false
     loaded = true
   }
 
-  async function loadToplists() {
+  async function loadToplists(): Promise<void> {
     if (toplists.length || toplistsLoading) return
     toplistsLoading = true
-    try { toplists = await loadToplistsData(ncm) }
-    catch (e) { if (!error) error = e?.message || '加载失败' }
+    try { toplists = await loadToplistsData(ncm) as unknown as Toplist[] }
+    catch (e) { if (!error) error = errorMessage(e) }
     finally { toplistsLoading = false }
   }
 
@@ -51,11 +70,18 @@
   const editors = $derived(banners.slice(1, 4))
   const playlistBlocks = $derived(blocks.filter(block => block.kind === 'playlist'))
   const songBlocks = $derived(blocks.filter(block => block.kind === 'song'))
-  const primaryPlaylists = $derived(playlistBlocks[0]?.items?.length ? playlistBlocks[0].items : [...personalized, ...topPlaylists])
+  const primaryPlaylists = $derived<CoverCard[]>((
+    playlistBlocks[0]?.items?.length ? playlistBlocks[0].items : [...personalized, ...topPlaylists]
+  ) as unknown as CoverCard[])
   const secondaryPlaylistBlock = $derived(playlistBlocks[1])
+  const secondaryPlaylists = $derived<CoverCard[]>(
+    secondaryPlaylistBlock ? secondaryPlaylistBlock.items as unknown as CoverCard[] : []
+  )
   const primarySongBlock = $derived(songBlocks[0])
   const songPanelTitle = $derived(primarySongBlock?.title || '新歌精选')
-  const songs = $derived(primarySongBlock?.items?.length ? primarySongBlock.items : recommendSongs)
+  const songs = $derived<SongCard[]>((
+    primarySongBlock?.items?.length ? primarySongBlock.items : recommendSongs
+  ) as unknown as SongCard[])
 </script>
 
 <div class="m-page m-browse">
@@ -129,11 +155,11 @@
       </section>
     {/if}
 
-    {#if secondaryPlaylistBlock?.items?.length}
+    {#if secondaryPlaylists.length}
       <section class="m-section">
-        <div class="m-section-head"><h2>{secondaryPlaylistBlock.title}</h2></div>
+        <div class="m-section-head"><h2>{secondaryPlaylistBlock?.title}</h2></div>
         <div class="m-rail m-cover-rail">
-          {#each secondaryPlaylistBlock.items.slice(0, 10) as pl (pl.id)}
+          {#each secondaryPlaylists as pl (pl.id)}
             <button class="m-cover-card" onclick={() => onOpenPlaylist?.(pl.id)}>
               <div class="m-cover-wrap">
                 {#if pl.picUrl}<img src={coverUrl(pl.picUrl, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}
@@ -151,10 +177,10 @@
       <section class="m-section">
         <div class="m-section-head"><h2>本周新发行</h2></div>
         <div class="m-rail m-cover-rail">
-          {#each newAlbums.slice(0, 10) as album (album.id)}
+          {#each newAlbums.slice(0, 10) as album (album.id as SongId)}
             <button class="m-cover-card" onclick={() => onOpenAlbum?.(album.id)}>
               <div class="m-cover-wrap">
-                {#if album.picUrl || album.coverImgUrl}<img src={coverUrl(album.picUrl || album.coverImgUrl, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}
+                {#if album.picUrl || album.coverImgUrl}<img src={coverUrl((album.picUrl || album.coverImgUrl) as string, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}
               </div>
               <strong class="m-cover-title">{album.name}</strong>
               <span class="m-cover-sub">{album.artistName || '专辑'}</span>

@@ -1,17 +1,19 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte'
-  import { formatDuration } from '../format.js'
-  import { player } from '../stores/player.svelte.js'
-  import { localMusic } from '../stores/local-music.svelte.js'
+  import { formatDuration } from '../format.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { localMusic } from '../stores/local-music.svelte.ts'
   import Icon from '../components/ui/Icon.svelte'
   import ConfirmDialog from '../components/ConfirmDialog.svelte'
 
-  let fileInput = $state(null)
-  let folderInput = $state(null)
+  type LocalTrack = (typeof localMusic.tracks)[number]
+
+  let fileInput = $state<HTMLInputElement | null>(null)
+  let folderInput = $state<HTMLInputElement | null>(null)
   let query = $state('')
-  let deleteTarget = $state(null)
+  let deleteTarget = $state<LocalTrack | null>(null)
   let showClearConfirm = $state(false)
-  let filteredTracks = $derived.by(() => {
+  let filteredTracks = $derived.by<LocalTrack[]>(() => {
     const keyword = query.trim().toLowerCase()
     if (!keyword) return localMusic.tracks
     return localMusic.tracks.filter((track) => [
@@ -23,43 +25,43 @@
     ].some((value) => String(value || '').toLowerCase().includes(keyword)))
   })
 
-  onMount(() => localMusic.init())
+  onMount(() => { localMusic.init() })
 
-  function formatSize(bytes) {
+  function formatSize(bytes?: number): string {
     if (!bytes) return '0 B'
     if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
     return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`
   }
 
-  async function importSelection(event) {
+  async function importSelection(event: Event & { currentTarget: HTMLInputElement }): Promise<void> {
     const input = event.currentTarget
     await localMusic.importFiles(input.files)
     input.value = ''
   }
 
-  function playTrack(track) {
+  function playTrack(track: LocalTrack): void {
     const index = filteredTracks.findIndex((item) => item.id === track.id)
     player.playQueue(filteredTracks, Math.max(index, 0))
   }
 
-  function playAll() {
+  function playAll(): void {
     if (filteredTracks.length) player.playQueue(filteredTracks, 0)
   }
 
-  async function confirmDelete() {
+  async function confirmDelete(): Promise<void> {
     if (!deleteTarget) return
     player.removeTracksById([deleteTarget.id])
     await localMusic.remove(deleteTarget.id)
     deleteTarget = null
   }
 
-  async function confirmClear() {
+  async function confirmClear(): Promise<void> {
     player.removeTracksById(localMusic.localTracks.map((track) => track.id))
     await localMusic.clear()
     showClearConfirm = false
   }
 
-  async function connectWebDav() {
+  async function connectWebDav(): Promise<void> {
     await localMusic.connectWebDav()
   }
 </script>
@@ -73,7 +75,7 @@
     </div>
     <div class="local-header-actions">
       <input bind:this={fileInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple onchange={importSelection} />
-      <input bind:this={folderInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple webkitdirectory="" onchange={importSelection} />
+      <input bind:this={folderInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple webkitdirectory={true} onchange={importSelection} />
       <button class="local-btn local-btn--secondary" disabled={localMusic.importing} onclick={() => fileInput?.click()}>
         <Icon name="add" size={17} /> 导入文件
       </button>

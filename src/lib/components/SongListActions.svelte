@@ -1,15 +1,27 @@
-<script>
+<script lang="ts">
   import SongContextMenu from './SongContextMenu.svelte'
   import { untrack } from 'svelte'
 
-  let { onOpenArtist, onOpenAlbum, onToast, onBindRow } = $props()
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
+
+  let {
+    onOpenArtist,
+    onOpenAlbum,
+    onToast,
+    onBindRow,
+  }: {
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onToast?: (message: unknown) => void
+    onBindRow?: (bindRow: RowBinder) => void
+  } = $props()
 
   let menuShow = $state(false)
-  let menuTrack = $state(null)
+  let menuTrack = $state<unknown>(null)
   let menuX = $state(0)
   let menuY = $state(0)
 
-  function openMenu(track, event) {
+  function openMenu(track: unknown, event?: MouseEvent): void {
     event?.preventDefault?.()
     event?.stopPropagation?.()
     menuTrack = track
@@ -18,11 +30,11 @@
     menuShow = true
   }
 
-  function closeMenu() {
+  function closeMenu(): void {
     menuShow = false
   }
 
-  function bindRow(track) {
+  const bindRow: RowBinder = (track) => {
     return {
       oncontextmenu: (event) => openMenu(track, event),
     }

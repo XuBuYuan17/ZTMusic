@@ -1,24 +1,33 @@
-<script>
-  import { musicService } from '../music/service.js'
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl as imageCoverUrl } from '../utils/image.js'
+<script lang="ts">
+  import type { Song, SearchResult, HotSearchItem, SongId } from '../types/music.ts'
+  import { musicService } from '../music/service.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { formatDuration } from '../format.ts'
+  import { coverUrl as imageCoverUrl } from '../utils/image.ts'
   import ArtistNames from '../components/ArtistNames.svelte'
   import SongListActions from '../components/SongListActions.svelte'
   import Icon from '../components/ui/Icon.svelte'
 
-  let { onOpenArtist, onOpenAlbum, onOpenPlaylist } = $props()
+  type CategoryKey = 'all' | 'songs' | 'artists' | 'playlists'
+  interface ArtistRefish { id?: SongId; name: string }
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
+
+  let { onOpenArtist, onOpenAlbum, onOpenPlaylist }: {
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
+  } = $props()
 
   let keyword = $state('')
   let loading = $state(false)
-  let results = $state({ songs: [], artists: [], playlists: [] })
-  let hotList = $state([])
-  let hotSongs = $state([])
+  let results = $state<SearchResult>({ songs: [], artists: [], playlists: [] })
+  let hotList = $state<HotSearchItem[]>([])
+  let hotSongs = $state<Song[]>([])
   let hotLoading = $state(true)
   let hotSongsLoading = $state(true)
-  let activeCategory = $state('all')
+  let activeCategory = $state<CategoryKey>('all')
   let requestId = 0
-  let songActions = $state(null)
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
   $effect(() => {
     hotLoading = true
@@ -31,7 +40,7 @@
     }).catch(() => {}).finally(() => { hotSongsLoading = false })
   })
 
-  async function doSearch() {
+  async function doSearch(): Promise<void> {
     const kw = keyword.trim()
     if (!kw) return
     const currentRequest = ++requestId
@@ -48,20 +57,20 @@
     if (currentRequest === requestId) loading = false
   }
 
-  function playSong(track) {
+  function playSong(track: Song | null | undefined): void {
     player.playTrack(track, 0)
   }
 
-  function playAllSongs() {
+  function playAllSongs(): void {
     if (results.songs.length) player.playQueue(results.songs, 0)
   }
 
-  function chooseHot(item) {
+  function chooseHot(item: HotSearchItem): void {
     keyword = item.keyword || ''
     doSearch()
   }
 
-  const searchCategories = $derived([
+  const searchCategories = $derived<Array<{ key: CategoryKey; label: string; count: number }>>([
     { key: 'all', label: '综合', count: results.songs.length + results.artists.length + results.playlists.length },
     { key: 'songs', label: '歌曲', count: results.songs.length },
     { key: 'artists', label: '歌手', count: results.artists.length },
@@ -146,7 +155,7 @@
           {#each hotSongs.slice(0, 10) as track, i (track.id)}
             <button class="search-chart-song-row" onclick={() => playSong(track)}>
               <span class="search-chart-rank">{String(i + 1).padStart(2, '0')}</span>
-              <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} /></em></span>
+              <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /></em></span>
               <span class="search-song-dur">{formatDuration(track.dt)}</span>
             </button>
           {/each}
@@ -165,9 +174,9 @@
         {#if results.songs.length > 0}
           <section class="search-top-result">
             <div class="search-section-header"><h2>最佳匹配</h2><button onclick={() => activeCategory = 'songs'}>查看歌曲</button></div>
-            <button class="search-feature-song" onclick={() => playSong(results.songs[0])}>
-              {#if results.songs[0].picUrl}<img src={imageCoverUrl(results.songs[0].picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-feature-cover search-cover-placeholder">♫</span>{/if}
-              <span><small>歌曲</small><strong>{results.songs[0].name}</strong><em><ArtistNames artists={results.songs[0].ar || results.songs[0].artists || []} {onOpenArtist} /></em></span>
+            <button class="search-feature-song" onclick={() => playSong(results.songs[0]!)}>
+              {#if results.songs[0]!.picUrl}<img src={imageCoverUrl(results.songs[0]!.picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-feature-cover search-cover-placeholder">♫</span>{/if}
+              <span><small>歌曲</small><strong>{results.songs[0]!.name}</strong><em><ArtistNames artists={(results.songs[0]!.ar || results.songs[0]!.artists || []) as ArtistRefish[]} {onOpenArtist} /></em></span>
             </button>
           </section>
         {/if}
@@ -179,7 +188,7 @@
               {#each results.songs.slice(0, 8) as track (track.id)}
                 <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                   {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                  <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
+                  <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                   <span class="search-song-dur">{formatDuration(track.dt)}</span>
                 </button>
               {/each}
@@ -222,7 +231,7 @@
             {#each results.songs as track (track.id)}
               <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                 {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
+                <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
                 <span class="search-song-dur">{formatDuration(track.dt)}</span>
               </button>
             {/each}

@@ -1,27 +1,42 @@
-<script>
-  import { player } from '../stores/player.svelte.js';
-  import { coverUrl } from '../utils/image.js';
-  import { useLyrics } from '../composables/useLyrics.svelte.js';
-  import { useLike } from '../composables/useLike.svelte.js';
-  import { scrollLyricIntoView } from '../utils/scroll-lyric.js';
+<script lang="ts">
+  import type { SongId } from '../types/music.ts';
+  import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
+  import { player } from '../stores/player.svelte.ts';
+  import { coverUrl } from '../utils/image.ts';
+  import { useLyrics } from '../composables/useLyrics.svelte.ts';
+  import { useLike } from '../composables/useLike.svelte.ts';
+  import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import PlaybackControls from './PlaybackControls.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
-  import { QUALITY_ORDER } from '../utils/constants.js';
+  import { QUALITY_ORDER } from '../utils/constants.ts';
 
-  let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme, showLocalQueue = false, toggleLocalQueue } = $props();
+  type ContextPanel = 'songs' | 'playlists' | 'comments';
+
+  let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme, showLocalQueue = false, toggleLocalQueue }: {
+    onClose?: () => void
+    onOpenArtist?: (id: number | null) => void
+    onOpenAlbum?: (id: number | null) => void
+    onOpenPlaylist?: (id: number | null, push?: boolean, preview?: unknown) => void
+    onToggleTheme?: (event?: MouseEvent) => void
+    showLocalQueue?: boolean
+    toggleLocalQueue?: () => void
+  } = $props();
 
   const lyricState = useLyrics();
   const like = useLike();
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
-  let album = $derived(player.currentTrack?.al || player.currentTrack?.album || null);
+  // ponytail: CompactTrack 类型无 album 字段，历史 localStorage 队列缓存可能携带，保留原 JS 的运行时回退读取
+  let album = $derived(player.currentTrack?.al
+    || (player.currentTrack as (CompactTrack & { album?: CompactAlbum }) | null)?.album
+    || null);
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
-  let lyricsEl = $state(null);
-  let contextPanelRequest = $state(null);
+  let lyricsEl = $state<HTMLDivElement | null>(null);
+  let contextPanelRequest = $state<ContextPanel | null>(null);
   let showLyricsVolume = $state(false);
   let showLyricTools = $state(false);
   let menuMessage = $state('');
@@ -32,73 +47,84 @@
     scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5);
   });
 
-  function closeLyricTools() {
+  function closeLyricTools(): void {
     showLyricTools = false;
   }
 
-  function openContextPanel(type) {
+  function openContextPanel(type: ContextPanel): void {
     contextPanelRequest = type;
     closeLyricTools();
   }
 
-  function toggleLyricTools() {
+  function toggleLyricTools(): void {
     showLyricTools = !showLyricTools;
   }
 
-  const qualityLabels = {
+  const qualityLabels: Record<string, string> = {
     lossless: '无损',
     exhigh: '极高',
     higher: '较高',
     standard: '标准',
   };
 
-  function showMenuMessage(text) {
+  function showMenuMessage(text: string): void {
     menuMessage = text;
     setTimeout(() => {
       if (menuMessage === text) menuMessage = '';
     }, 1600);
   }
 
-  async function shareTrack() {
+  async function shareTrack(): Promise<void> {
     if (!player.id || actionBusy === 'share') return;
     actionBusy = 'share';
     const url = `https://music.163.com/song?id=${player.id}`;
     const title = player.title || '哲听歌曲';
     const text = player.artist ? `${title} - ${player.artist}` : title;
+    // typeof 守卫：lib.dom 把 navigator.share 声明成必选，但旧 WebView 运行时可能没有
+    const canShare = typeof navigator.share === 'function';
     try {
-      if (navigator.share) await navigator.share({ title, text, url });
+      if (canShare) await navigator.share({ title, text, url });
       else await navigator.clipboard?.writeText(url);
-      showMenuMessage(navigator.share ? '已打开分享' : '链接已复制');
+      showMenuMessage(canShare ? '已打开分享' : '链接已复制');
     } catch (error) {
-      if (error?.name !== 'AbortError') showMenuMessage('分享失败');
+      if ((error as { name?: string } | null | undefined)?.name !== 'AbortError') showMenuMessage('分享失败');
     } finally {
       actionBusy = '';
     }
   }
 
-  function closeAndNavigate(fn, id, preview) {
+  function closeAndNavigate(
+    fn: ((id: number | null, push?: boolean, preview?: unknown) => void) | undefined,
+    id: SongId | null | undefined,
+    preview: unknown,
+  ): void {
     if (!id) return;
     closeLyricTools();
     onClose?.();
-    fn?.(id, true, preview);
+    fn?.(id as number, true, preview);
   }
 
-  function openAlbum() {
+  function openAlbum(): void {
     closeAndNavigate(onOpenAlbum, album?.id, album);
   }
 
-  function openArtist() {
+  function openArtist(): void {
     closeAndNavigate(onOpenArtist, firstArtist?.id, firstArtist);
   }
 
-  function cycleQuality() {
+  // 接缝：下游 ArtistNames/SongContextStrip 收 SongId，上游 LyricsPageV2 透传的 router 回调收 number|null（在线 id 恒为 number）
+  function handleOpenArtist(id: SongId): void {
+    onOpenArtist?.(id as number | null);
+  }
+
+  function cycleQuality(): void {
     const index = QUALITY_ORDER.indexOf(player.preferredLevel);
     const next = QUALITY_ORDER[(index + 1) % QUALITY_ORDER.length] || 'standard';
     player.setPreferredLevel(next);
     showMenuMessage(`音质：${qualityLabels[next] || '标准'}`);
   }
 
-  function toggleQueueFromCover() {
+  function toggleQueueFromCover(): void {
     closeLyricTools();
     toggleLocalQueue?.();
   }
@@ -136,9 +162,9 @@
         </div>
         <div class="ly-track-sub">
           <div class="ly-track-info">
-            <span class="ly-artist"><ArtistNames artists={currentArtists} onOpenArtist={onOpenArtist} fallback={player.artist || ''} /></span>
-            {#if player.artist && player.album}<span class="ly-sep">—</span>{/if}
-            <span class="ly-album">{player.album || player.title || ''}</span>
+            <span class="ly-artist"><ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} /></span>
+            {#if player.artist && album?.name}<span class="ly-sep">—</span>{/if}
+            <span class="ly-album">{album?.name || player.title || ''}</span>
           </div>
           <div class="ly-track-actions">
             <button class="ly-star-btn" class:active={like.liked} onclick={like.toggle} disabled={like.busy} aria-label="喜欢">
@@ -235,7 +261,7 @@
             {#each lyricState.lyrics as line, i}
               <button class="ly-line" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
                 aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
-                onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, line.time))); }}>
+                onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
                 <span class="ly-line-text">{line.text || '...'}</span>
                 {#if line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
               </button>
@@ -245,7 +271,7 @@
           {/if}
         </div>
       </div>
-      <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} {onOpenArtist} {onClose} />
+      <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} {onClose} />
     </div>
   </div>
 

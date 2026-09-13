@@ -1,8 +1,14 @@
-<script>
+<script lang="ts">
   /**
    * ErrorBlock — 通用错误提示块。可选的 retry 回调。
    */
-  let { message = '加载失败', onRetry } = $props()
+  let {
+    message = '加载失败',
+    onRetry,
+  }: {
+    message?: string
+    onRetry?: () => void
+  } = $props()
 </script>
 
 <div class="error-block">

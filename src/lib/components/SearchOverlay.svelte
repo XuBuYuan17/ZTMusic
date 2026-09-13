@@ -1,12 +1,16 @@
-<script>
+<script lang="ts">
+  import type { Song, ProviderArtist, ProviderPlaylist, SearchResult, SongId } from '../types/music.ts'
   import { tick } from 'svelte'
-  import { musicService } from '../music/service.js'
-  import { player } from '../stores/player.svelte.js'
-  import { coverUrl } from '../utils/image.js'
-  import { formatDuration } from '../format.js'
+  import { musicService } from '../music/service.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { coverUrl } from '../utils/image.ts'
+  import { formatDuration } from '../format.ts'
   import ArtistNames from './ArtistNames.svelte'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
+
+  type TabId = 'all' | 'songs' | 'artists' | 'playlists'
+  interface ArtistRefish { id?: SongId; name: string }
 
   let {
     show = false,
@@ -14,20 +18,26 @@
     onOpenArtist,
     onOpenAlbum,
     onOpenPlaylist,
+  }: {
+    show?: boolean
+    onClose?: () => void
+    onOpenArtist?: (id: SongId) => void
+    onOpenAlbum?: (id: SongId) => void
+    onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
   } = $props()
 
   let keyword = $state('')
   let loading = $state(false)
-  let results = $state({ songs: [], artists: [], playlists: [] })
-  let activeType = $state('all')
+  let results = $state<SearchResult>({ songs: [], artists: [], playlists: [] })
+  let activeType = $state<TabId>('all')
   let error = $state('')
-  let inputEl = $state(null)
+  let inputEl = $state<HTMLInputElement | null>(null)
   let requestId = 0
-  let _debounceTimer = null
+  let _debounceTimer: ReturnType<typeof setTimeout> | null = null
 
   // ---- 定时器管理器 ----
-  const timers = new Set()
-  function safeTimeout(fn, ms) {
+  const timers = new Set<ReturnType<typeof setTimeout>>()
+  function safeTimeout(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
     const id = setTimeout(() => {
       timers.delete(id)
       fn()
@@ -38,7 +48,7 @@
 
   let total = $derived(results.songs.length + results.artists.length + results.playlists.length)
 
-  const categories = $derived([
+  const categories = $derived<Array<{ id: TabId; label: string; count: number }>>([
     { id: 'all', label: '综合', count: total },
     { id: 'songs', label: '歌曲', count: results.songs.length },
     { id: 'artists', label: '歌手', count: results.artists.length },
@@ -48,10 +58,10 @@
   /** 最佳匹配：Apple Music 的「Top Result」——取第一首歌 */
   let topResult = $derived(results.songs[0] || null)
 
-  function withTimeout(promise, fallback, timeout = 4500) {
+  function withTimeout<T>(promise: Promise<T>, fallback: T, timeout = 4500): Promise<T> {
     return Promise.race([
       promise.catch(() => fallback),
-      new Promise(resolve => safeTimeout(() => resolve(fallback), timeout)),
+      new Promise<T>(resolve => safeTimeout(() => resolve(fallback), timeout)),
     ])
   }
 
@@ -59,24 +69,17 @@
     if (show) {
       tick().then(() => inputEl?.focus())
     } else {
+      // 关闭时清理定时器、防抖和结果
       timers.forEach(id => clearTimeout(id))
-    }
-    return () => timers.forEach(id => clearTimeout(id))
-  })
-
-  $effect(() => {
-    if (show) {
-      tick().then(() => inputEl?.focus())
-    } else {
-      // 关闭时清理防抖和结果
       if (_debounceTimer) clearTimeout(_debounceTimer)
       keyword = ''
       results = { songs: [], artists: [], playlists: [] }
       error = ''
     }
+    return () => timers.forEach(id => clearTimeout(id))
   })
 
-  function handleInput() {
+  function handleInput(): void {
     if (_debounceTimer) {
       clearTimeout(_debounceTimer)
       timers.delete(_debounceTimer)
@@ -84,7 +87,7 @@
     _debounceTimer = safeTimeout(() => doSearch(), 250)
   }
 
-  async function doSearch() {
+  async function doSearch(): Promise<void> {
     const query = keyword.trim()
     if (!query) { results = { songs: [], artists: [], playlists: [] }; return }
     const currentRequest = ++requestId
@@ -100,13 +103,13 @@
       results = searchResults
       activeType = 'all'
     } catch (err) {
-      if (currentRequest === requestId) error = err?.message || '搜索失败'
+      if (currentRequest === requestId) error = (err as { message?: string } | null | undefined)?.message || '搜索失败'
     } finally {
       if (currentRequest === requestId) loading = false
     }
   }
 
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter') {
       if (_debounceTimer) clearTimeout(_debounceTimer)
       doSearch()
@@ -114,25 +117,25 @@
     if (event.key === 'Escape') onClose?.()
   }
 
-  function playTrack(track) {
+  function playTrack(track: Song): void {
     player.playTrack(track, 0)
     onClose?.()
   }
 
-  function openArtist(artist) {
+  function openArtist(artist: ProviderArtist): void {
     if (!artist?.id) return
     onOpenArtist?.(artist.id)
     onClose?.()
   }
 
-  function openPlaylist(playlist) {
+  function openPlaylist(playlist: ProviderPlaylist): void {
     if (!playlist?.id) return
     onOpenPlaylist?.(playlist.id, true, playlist)
     onClose?.()
   }
 </script>
 
-{#snippet songRow(track)}
+{#snippet songRow(track: Song)}
   <button type="button" class="so-row" class:active={player.id === track.id} onclick={() => playTrack(track)}>
     {#if track.picUrl}
       <img class="so-art" src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -141,13 +144,13 @@
     {/if}
     <span class="so-copy">
       <strong>{track.name}</strong>
-      <em><ArtistNames artists={track.ar || []} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em>
+      <em><ArtistNames artists={(track.ar || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em>
     </span>
     {#if track.dt}<span class="so-dur">{formatDuration(track.dt)}</span>{/if}
   </button>
 {/snippet}
 
-{#snippet artistRow(artist)}
+{#snippet artistRow(artist: ProviderArtist)}
   <button type="button" class="so-row" onclick={() => openArtist(artist)}>
     {#if artist.picUrl}
       <img class="so-art so-art--round" src={coverUrl(artist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -161,7 +164,7 @@
   </button>
 {/snippet}
 
-{#snippet playlistRow(playlist)}
+{#snippet playlistRow(playlist: ProviderPlaylist)}
   <button type="button" class="so-row" onclick={() => openPlaylist(playlist)}>
     {#if playlist.picUrl}
       <img class="so-art" src={coverUrl(playlist.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -223,7 +226,7 @@
                   <span class="so-top__copy">
                     <small>歌曲</small>
                     <strong>{topResult.name}</strong>
-                    <em><ArtistNames artists={topResult.ar || []} {onOpenArtist} /></em>
+                    <em><ArtistNames artists={(topResult.ar || []) as ArtistRefish[]} {onOpenArtist} /></em>
                   </span>
                 </button>
               </section>

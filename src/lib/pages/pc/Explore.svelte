@@ -1,10 +1,18 @@
-<script>
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { ExploreData } from '../../services/explore.ts'
+  import type { NormalizedAlbum, NormalizedPlaylist, NormalizedSong, HomepageBlock } from '../../utils/normalize.ts'
   import ArtistNames from '../../components/ArtistNames.svelte'
-  import { coverUrl, coverRectUrl } from '../../utils/image.js'
+  import { coverUrl, coverRectUrl } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
-  import { ncm } from '../../api/client.js'
-  import { loadExploreData as fetchExploreData } from '../../services/explore.js'
-  import { loadToplistsData } from '../../services/home.js'
+  import { ncm } from '../../api/client.ts'
+  import { loadExploreData as fetchExploreData } from '../../services/explore.ts'
+  import { loadToplistsData } from '../../services/home.ts'
+
+  interface TrackArtist { id?: SongId; name: string }
+  interface CoverCard { id: SongId; name?: unknown; picUrl?: string; copywriter?: string; trackCount?: number }
+  interface SongCard { id: SongId; name?: unknown; picUrl?: string; ar?: TrackArtist[]; artists?: TrackArtist[] }
+  interface Toplist { id: SongId; name?: unknown; coverImgUrl?: string; updateFrequency?: string }
 
   let {
     onSearch,
@@ -13,31 +21,42 @@
     onOpenAlbum,
     onPlaySong,
     onOpenArtist,
+  }: {
+    onSearch?: () => void
+    onBannerClick?: (banner: ExploreData['banners'][number]) => void
+    onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onPlaySong?: (track: unknown) => void
+    onOpenArtist?: (id: SongId) => void
   } = $props()
 
   let exploreLoading = $state(false)
-  let exploreBanners = $state([])
-  let explorePersonalized = $state([])
-  let exploreTopPlaylists = $state([])
-  let exploreRecommendSongs = $state([])
-  let exploreNewAlbums = $state([])
-  let exploreBlocks = $state([])
-  let toplists = $state([])
+  let exploreBanners = $state<ExploreData['banners']>([])
+  let explorePersonalized = $state<NormalizedPlaylist[]>([])
+  let exploreTopPlaylists = $state<NormalizedPlaylist[]>([])
+  let exploreRecommendSongs = $state<NormalizedSong[]>([])
+  let exploreNewAlbums = $state<NormalizedAlbum[]>([])
+  let exploreBlocks = $state<HomepageBlock[]>([])
+  let toplists = $state<Toplist[]>([])
   let exploreLoaded = $state(false)
   let toplistsLoading = $state(false)
   let error = $state('')
 
-  async function loadExplore() {
+  function errorMessage(e: unknown): string {
+    return (e as { message?: string } | null | undefined)?.message || '加载失败'
+  }
+
+  async function loadExplore(): Promise<void> {
     exploreLoading = true; error = ''
     try { const d = await fetchExploreData(ncm); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks }
-    catch (e) { error = e?.message || '加载失败' }
+    catch (e) { error = errorMessage(e) }
     exploreLoading = false; exploreLoaded = true
   }
 
-  async function loadToplists() {
+  async function loadToplists(): Promise<void> {
     toplistsLoading = true
-    try { toplists = await loadToplistsData(ncm) }
-    catch (e) { if (!error) error = e?.message || '加载失败' }
+    try { toplists = await loadToplistsData(ncm) as unknown as Toplist[] }
+    catch (e) { if (!error) error = errorMessage(e) }
     finally { toplistsLoading = false }
   }
 
@@ -48,11 +67,18 @@
   const editorials = $derived(exploreBanners.slice(1, 4))
   const playlistBlocks = $derived(exploreBlocks.filter(block => block.kind === 'playlist'))
   const songBlocks = $derived(exploreBlocks.filter(block => block.kind === 'song'))
-  const primaryPlaylists = $derived(playlistBlocks[0]?.items?.length ? playlistBlocks[0].items : [...explorePersonalized, ...exploreTopPlaylists])
+  const primaryPlaylists = $derived<CoverCard[]>((
+    playlistBlocks[0]?.items?.length ? playlistBlocks[0].items : [...explorePersonalized, ...exploreTopPlaylists]
+  ) as unknown as CoverCard[])
   const secondaryPlaylistBlock = $derived(playlistBlocks[1])
+  const secondaryPlaylists = $derived<CoverCard[]>(
+    secondaryPlaylistBlock ? secondaryPlaylistBlock.items as unknown as CoverCard[] : []
+  )
   const primarySongBlock = $derived(songBlocks[0])
   const songPanelTitle = $derived(primarySongBlock?.title || '新歌精选')
-  const songs = $derived(primarySongBlock?.items?.length ? primarySongBlock.items : exploreRecommendSongs)
+  const songs = $derived<SongCard[]>((
+    primarySongBlock?.items?.length ? primarySongBlock.items : exploreRecommendSongs
+  ) as unknown as SongCard[])
 </script>
 
 <div class="music-discovery fade-in">
@@ -68,7 +94,7 @@
   </header>
 
   {#if error}
-    <ErrorBlock {error} onRetry={loadExplore} />
+    <ErrorBlock message={error} onRetry={loadExplore} />
   {/if}
 
   <section class="music-discovery-feature">
@@ -121,7 +147,7 @@
             </div>
           {/each}
         {:else}
-        {#each exploreNewAlbums.slice(0, 10) as album (album.id)}
+        {#each exploreNewAlbums.slice(0, 10) as album (album.id as SongId)}
           <button class="music-cover-card" onclick={() => onOpenAlbum?.(album.id)}>
             {#if album.picUrl}<img src={coverUrl(album.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <strong>{album.name}</strong>
@@ -158,13 +184,13 @@
         </div>
       </section>
 
-    {#if secondaryPlaylistBlock?.items?.length}
+    {#if secondaryPlaylists.length}
       <section class="music-discovery-section">
         <div class="music-section-head">
-          <h2>{secondaryPlaylistBlock.title}</h2>
+          <h2>{secondaryPlaylistBlock?.title}</h2>
         </div>
         <div class="music-card-rail">
-          {#each secondaryPlaylistBlock.items.slice(0, 12) as playlist (playlist.id)}
+          {#each secondaryPlaylists.slice(0, 12) as playlist (playlist.id)}
             <button class="music-cover-card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
               {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <strong>{playlist.name}</strong>

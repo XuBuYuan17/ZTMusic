@@ -1,69 +1,82 @@
-<script>
-  import { player } from '../../stores/player.svelte.js'
-  import { auth } from '../../stores/auth.svelte.js'
-  import { ncm } from '../../api/client.js'
-  import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.js'
-  import { formatDuration } from '../../format.js'
-  import { coverUrl } from '../../utils/image.js'
-  import { extractCover } from '../../utils/normalize.js'
+<script lang="ts">
+  import type { SongId } from '../../types/music.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
+  import type { DailyDateItem } from '../../services/dailyHistory.ts'
+  import type { NormalizedSong } from '../../utils/normalize.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { ncm } from '../../api/client.ts'
+  import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
+  import { formatDuration } from '../../format.ts'
+  import { coverUrl } from '../../utils/image.ts'
+  import { extractCover } from '../../utils/normalize.ts'
   import SongListActions from '../../components/SongListActions.svelte'
 
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
 
-  let { onOpenArtist, onOpenAlbum } = $props()
+  interface TrackArtist { id?: SongId; name?: unknown }
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
+  type ChipDate = string | DailyDateItem
 
-  let dailyHistoryDates = $state([])
-  let dailyHistorySongs = $state([])
+  let { onOpenArtist, onOpenAlbum }: {
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+  } = $props()
+
+  let dailyHistoryDates = $state<DailyDateItem[]>([])
+  let dailyHistorySongs = $state<NormalizedSong[]>([])
   let dailyHistoryLoading = $state(false)
   let error = $state('')
   let selectedDailyDate = $state('')
   let _requestId = 0
-  let songActions = $state(null)
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
-  async function load() {
+  async function load(): Promise<void> {
     const rid = ++_requestId; dailyHistoryLoading = true; error = ''
     try { const d = await loadDailyHistoryData(ncm); if (rid !== _requestId) return; dailyHistoryDates = d.dates; selectedDailyDate = d.selectedDate; dailyHistorySongs = d.songs }
-    catch (e) { if (rid === _requestId) error = e?.message || '加载失败' }
+    catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) dailyHistoryLoading = false }
   }
 
-  async function loadDetail(date) {
-    if (!date) return; const rid = ++_requestId; selectedDailyDate = date; dailyHistoryLoading = true
-    try { const s = await loadDailyHistoryDetailData(ncm, date); if (rid === _requestId) dailyHistorySongs = s }
+  async function loadDetail(date: ChipDate): Promise<void> {
+    if (!date) return; const rid = ++_requestId; selectedDailyDate = date as string; dailyHistoryLoading = true
+    // ponytail: date 正常是 string；item.date 为空串时 {item.date || item} 会传入整个日期对象，
+    // 原 JS 行为原样保留（service 内部 String 化），这里只做类型层 cast。
+    try { const s = await loadDailyHistoryDetailData(ncm, date as string | number); if (rid === _requestId) dailyHistorySongs = s }
     finally { if (rid === _requestId) dailyHistoryLoading = false }
   }
 
-  function playAll() { if (dailyHistorySongs.length) player.playQueue(dailyHistorySongs, 0) }
-  function playTrack(track) {
+  function playAll(): void { if (dailyHistorySongs.length) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], 0) }
+  function playTrack(track: NormalizedSong): void {
     const idx = dailyHistorySongs.findIndex(t => t.id === track.id)
-    if (idx >= 0) player.playQueue(dailyHistorySongs, idx); else player.playTrack(track, 0)
+    if (idx >= 0) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], idx); else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
 
   $effect(() => { if (auth.isLoggedIn) load() })
 
-  function artistsOf(track) {
-    return track.artists || track.ar || []
+  function artistsOf(track: NormalizedSong): TrackArtist[] {
+    return (track.artists || track.ar || []) as TrackArtist[]
   }
 
-  function coverOf(track) {
+  function coverOf(track: NormalizedSong | null): string {
     return track?.picUrl || extractCover(track)
   }
 
-  function albumOf(track) {
-    return track.album?.name || track.al?.name || ''
+  function albumOf(track: NormalizedSong): string {
+    return ((track.album as { name?: unknown } | null | undefined)?.name as string) || (track.al?.name as string) || ''
   }
 
-  function handleSongKeydown(event, track) {
+  function handleSongKeydown(event: KeyboardEvent, track: NormalizedSong): void {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       playTrack(track)
     }
   }
 
-  function formatDateLabel(date) {
+  function formatDateLabel(date: ChipDate | null | undefined): string {
     if (!date) return '选择日期'
     const parts = String(date).split('-')
-    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : date
+    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : String(date)
   }
 
   const selectedDateMeta = $derived(dailyHistoryDates.find(item => (item.date || item) === selectedDailyDate) || null)
@@ -158,10 +171,10 @@
                 <span class="daily-song-main">
                   <strong>{track.name}</strong>
                   <em>
-                    {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                    {#each artistsOf(track) as artist, index (artist.id || (artist.name as SongId))}
                       {#if index > 0}<span class="artist-sep">/</span>{/if}
                       {#if artist.id}
-                          <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
+                          <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id!) }}>{artist.name}</button>
                       {:else}
                         <span>{artist.name}</span>
                       {/if}
@@ -169,7 +182,7 @@
                   </em>
                 </span>
                 <span class="daily-song-album">{albumOf(track)}</span>
-                <span class="daily-song-dur">{formatDuration(track.duration || track.dt || 0)}</span>
+                <span class="daily-song-dur">{formatDuration((track.duration as number) || track.dt || 0)}</span>
               </div>
             {/each}
           </div>
@@ -183,10 +196,10 @@
       </div>
     {/if}
   {#if error}
-    <ErrorBlock {error} onRetry={load} />
+    <ErrorBlock message={error} onRetry={load} />
   {/if}
 
-  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
+  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn: RowBinder) => { songActions = { bindRow: fn } }} />
 </div>
 
 <style>

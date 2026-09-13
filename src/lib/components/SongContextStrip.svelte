@@ -1,49 +1,110 @@
-<script>
-  import { player } from '../stores/player.svelte.js'
-  import { ncm } from '../api/client.js'
-  import { coverUrl } from '../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { ncm } from '../api/client.ts'
+  import { coverUrl } from '../utils/image.ts'
   import ArtistNames from './ArtistNames.svelte'
 
-  let { variant = 'desktop', activePanel = null, showCards = true, onActivePanelChange, onOpenArtist, onClose } = $props()
+  type ContextPanel = 'songs' | 'playlists' | 'comments'
+
+  interface TrackArtist { id?: SongId; name: string }
+
+  interface NormalizedTrack {
+    id: SongId
+    name?: unknown
+    ar: TrackArtist[]
+    al: Record<string, unknown>
+    dt: number
+    picUrl: string
+  }
+
+  interface SongComment {
+    commentId?: SongId
+    user?: { nickname?: string | null } | null
+    content?: string
+  }
+
+  interface SimilarPlaylist {
+    id: SongId
+    name?: string
+    coverImgUrl?: string
+  }
+
+  let { variant = 'desktop', activePanel = null, showCards = true, onActivePanelChange, onOpenArtist, onClose }: {
+    variant?: 'desktop' | 'mobile'
+    activePanel?: ContextPanel | null
+    showCards?: boolean
+    onActivePanelChange?: (panel: ContextPanel | null) => void
+    onOpenArtist?: (id: SongId) => void
+    onClose?: () => void
+  } = $props()
 
   let loading = $state(false)
-  let songComments = $state([])
-  let similarSongs = $state([])
-  let similarPlaylists = $state([])
+  let songComments = $state<SongComment[]>([])
+  let similarSongs = $state<NormalizedTrack[]>([])
+  let similarPlaylists = $state<SimilarPlaylist[]>([])
 
   let showContextStrip = $state(false)
-  let contextPanel = $state(null)
-  let selectedSimilarPlaylist = $state(null)
-  let selectedPlaylistTracks = $state([])
+  let contextPanel = $state<ContextPanel | null>(null)
+  let selectedSimilarPlaylist = $state<SimilarPlaylist | null>(null)
+  let selectedPlaylistTracks = $state<NormalizedTrack[]>([])
   let selectedPlaylistLoading = $state(false)
 
   const hasExtras = $derived(loading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)
 
-  function normalizeTrack(track) {
+  function rec(value: unknown): Record<string, unknown> | null {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+  function arr(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : []
+  }
+
+  function normalizeTrack(track: unknown): NormalizedTrack | null {
     if (!track) return null
+    const t = track as {
+      id?: SongId
+      name?: unknown
+      ar?: unknown
+      artists?: unknown
+      al?: { picUrl?: unknown } | null
+      album?: { picUrl?: unknown } | null
+      dt?: unknown
+      duration?: unknown
+      picUrl?: unknown
+      coverImgUrl?: unknown
+    }
     return {
-      ...track,
-      id: track.id,
-      name: track.name,
-      ar: track.ar || track.artists || [],
-      al: track.al || track.album || {},
-      dt: track.dt || track.duration || 0,
-      picUrl: track.al?.picUrl || track.album?.picUrl || track.picUrl || track.coverImgUrl || '',
+      ...(track as Record<string, unknown>),
+      id: t.id as SongId,
+      name: t.name,
+      ar: (t.ar || t.artists || []) as TrackArtist[],
+      al: (t.al || t.album || {}) as Record<string, unknown>,
+      dt: (t.dt || t.duration || 0) as number,
+      picUrl: (t.al?.picUrl || t.album?.picUrl || t.picUrl || t.coverImgUrl || '') as string,
     }
   }
 
-  async function fetchExtras() {
+  async function fetchExtras(): Promise<void> {
     if (!player.id) return
     loading = true
     try {
       const [cr, sr, pr] = await Promise.all([
-        ncm.commentMusic(player.id, 8).catch(() => ({ hotComments: [], comments: [] })),
-        ncm.simiSong(player.id).catch(() => ({ songs: [] })),
-        ncm.simiPlaylist(player.id).catch(() => ({ playlists: [] })),
+        ncm.commentMusic(player.id, 8).catch(() => ({ hotComments: [] as unknown[], comments: [] as unknown[] })),
+        ncm.simiSong(player.id).catch(() => ({ songs: [] as unknown[] })),
+        ncm.simiPlaylist(player.id).catch(() => ({ playlists: [] as unknown[] })),
       ])
-      songComments = (cr?.hotComments?.length ? cr.hotComments : cr?.comments || []).slice(0, 6)
-      similarSongs = (sr?.songs || []).map(normalizeTrack).filter(Boolean).slice(0, 6)
-      similarPlaylists = (pr?.playlists || []).slice(0, 6)
+      const crRec = rec(cr)
+      const hotComments = crRec?.hotComments
+      songComments = ((Array.isArray(hotComments) && hotComments.length
+        ? hotComments
+        : crRec?.comments || []) as unknown[]).slice(0, 6) as unknown as SongComment[]
+      similarSongs = arr(rec(sr)?.songs)
+        .map(normalizeTrack)
+        .filter((t): t is NormalizedTrack => t !== null)
+        .slice(0, 6)
+      similarPlaylists = arr(rec(pr)?.playlists).slice(0, 6) as unknown as SimilarPlaylist[]
     } catch {
       songComments = []
       similarSongs = []
@@ -52,57 +113,60 @@
     loading = false
   }
 
-  function playSimilarSong(track) {
+  function playSimilarSong(track: NormalizedTrack): void {
     const idx = similarSongs.findIndex(t => t.id === track.id)
     if (idx >= 0) player.playQueue(similarSongs, idx)
     else player.playTrack(track, 0)
   }
 
-  async function loadSimilarPlaylist(pl) {
+  async function loadSimilarPlaylist(pl: SimilarPlaylist): Promise<void> {
     if (!pl?.id) return
     selectedSimilarPlaylist = pl
     selectedPlaylistTracks = []
     selectedPlaylistLoading = true
     try {
-      const res = await ncm.playlistTracks(pl.id, 20)
-      const tracks = res?.songs || res?.playlist?.tracks || []
-      selectedPlaylistTracks = tracks.map(normalizeTrack).filter(Boolean)
+      const resRec = rec(await ncm.playlistTracks(pl.id, 20))
+      const playlistRec = rec(resRec?.playlist)
+      const tracks = (resRec?.songs || playlistRec?.tracks || []) as unknown[]
+      selectedPlaylistTracks = tracks
+        .map(normalizeTrack)
+        .filter((t): t is NormalizedTrack => t !== null)
     } catch {
       selectedPlaylistTracks = []
     }
     selectedPlaylistLoading = false
   }
 
-  function playSelectedPlaylistTrack(track) {
+  function playSelectedPlaylistTrack(track: NormalizedTrack): void {
     const idx = selectedPlaylistTracks.findIndex(t => t.id === track.id)
     if (idx >= 0) player.playQueue(selectedPlaylistTracks, idx)
     else player.playTrack(track, 0)
   }
 
-  function openArtist(id) {
+  function openArtist(id: SongId): void {
     if (!id) return
     onOpenArtist?.(id)
     onClose?.()
   }
 
-  function toggleContextStrip() {
+  function toggleContextStrip(): void {
     showContextStrip = !showContextStrip
     if (!showContextStrip) closeContextPanel()
   }
 
-  function closeContextStrip() {
+  function closeContextStrip(): void {
     showContextStrip = false
     closeContextPanel()
   }
 
-  function closeContextPanel() {
+  function closeContextPanel(): void {
     contextPanel = null
     selectedSimilarPlaylist = null
     selectedPlaylistTracks = []
     selectedPlaylistLoading = false
   }
 
-  function openContextPanel(type) {
+  function openContextPanel(type: ContextPanel): void {
     contextPanel = contextPanel === type ? null : type
     if (type !== 'playlists') {
       selectedSimilarPlaylist = null
@@ -110,7 +174,7 @@
     }
   }
 
-  function contextPanelTitle() {
+  function contextPanelTitle(): string {
     if (contextPanel === 'songs') return '相似歌曲'
     if (contextPanel === 'playlists') return '相似歌单'
     if (contextPanel === 'comments') return '热评'

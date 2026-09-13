@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte'
-  import { wallpaper } from '../stores/wallpaper.svelte.js'
+  import { wallpaper } from '../stores/wallpaper.svelte.ts'
 
-  let video = $state(null)
+  let video = $state<HTMLVideoElement | null>(null)
   let documentVisible = $state(true)
 
   onMount(() => {

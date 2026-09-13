@@ -1,6 +1,6 @@
-<script>
-  import { auth } from '../stores/auth.svelte.js'
-  import { coverUrl } from '../utils/image.js'
+<script lang="ts">
+  import { auth } from '../stores/auth.svelte.ts'
+  import { coverUrl } from '../utils/image.ts'
   import ConfirmDialog from './ConfirmDialog.svelte'
   import Icon from './ui/Icon.svelte'
 
@@ -14,15 +14,25 @@
     onNavigate,
     onToggleTheme,
     onOpenLogin
+  }: {
+    activeView?: string
+    collapsed?: boolean
+    theme?: string
+    notificationUnread?: number
+    refreshKey?: number
+    inDrawer?: boolean
+    onNavigate?: (id: string) => void
+    onToggleTheme?: (event?: MouseEvent) => void
+    onOpenLogin?: () => void
   } = $props()
 
   let showLogoutConfirm = $state(false)
 
-  function nav(id) {
+  function nav(id: string): void {
     onNavigate?.(id)
   }
 
-  function toggleCollapsed() {
+  function toggleCollapsed(): void {
     collapsed = !collapsed
   }
 </script>

@@ -1,12 +1,27 @@
-<script>
-  let { artists = [], onOpenArtist, fallback = '未知歌手' } = $props()
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
 
-  function openArtist(event, artist) {
+  interface ArtistRef {
+    id?: SongId
+    name: string
+  }
+
+  let {
+    artists = [],
+    onOpenArtist,
+    fallback = '未知歌手',
+  }: {
+    artists?: ArtistRef[]
+    onOpenArtist?: (id: SongId) => void
+    fallback?: string
+  } = $props()
+
+  function openArtist(event: Event, artist: ArtistRef): void {
     event.stopPropagation()
     if (artist?.id) onOpenArtist?.(artist.id)
   }
 
-  function handleKeydown(event, artist) {
+  function handleKeydown(event: KeyboardEvent, artist: ArtistRef): void {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       openArtist(event, artist)

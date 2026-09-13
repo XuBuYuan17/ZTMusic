@@ -1,7 +1,26 @@
-<script>
-  let { name = '', size = 22, strokeWidth = 2, class: className = '', fill = 'currentColor', ...rest } = $props()
+<script lang="ts">
+  import type { SVGAttributes } from 'svelte/elements'
 
-  const ICONS = {
+  type IconPathEl = { type: 'path'; d: string; fill?: string; stroke?: string; strokeWidth?: number; strokeLinecap?: 'inherit' | 'round' | 'butt' | 'square'; strokeLinejoin?: 'inherit' | 'round' | 'arcs' | 'miter-clip' | 'miter' | 'bevel'; opacity?: number }
+  type IconCircleEl = { type: 'circle'; cx: number; cy: number; r: number; fill?: string; stroke?: string; strokeWidth?: number; opacity?: number }
+  type IconLineEl = { type: 'line'; x1: number; y1: number; x2: number; y2: number }
+  type IconPolygonEl = { type: 'polygon'; points: string; fill?: string; stroke?: string; strokeWidth?: number; opacity?: number }
+  type IconPolylineEl = { type: 'polyline'; points: string }
+  type IconTextEl = { type: 'text'; x: number; y: number; 'text-anchor'?: string; fontSize?: number; fontWeight?: string; content?: string }
+  type IconElement = IconPathEl | IconCircleEl | IconLineEl | IconPolygonEl | IconPolylineEl | IconTextEl
+  type IconExtraEl = { t: 'path'; d: string; f?: string }
+  type IconShorthand = { v?: string; d: string; s?: boolean; strokeWidth?: number; extra?: IconExtraEl[] }
+  type IconValue = string | IconElement[] | IconShorthand
+
+  let { name = '', size = 22, strokeWidth = 2, class: className = '', fill = 'currentColor', ...rest }: {
+    name?: string
+    size?: number
+    strokeWidth?: number
+    class?: string
+    fill?: string
+  } & SVGAttributes<SVGSVGElement> = $props()
+
+  const ICONS: Record<string, IconValue> = {
     // navigation
     home: 'M12.7 1.1a1 1 0 0 0-1.4 0l-10 8.8A1 1 0 0 0 2 11.6h1v10a1 1 0 0 0 1 1h7v-7h2v7h7a1 1 0 0 0 1-1v-10h1a1 1 0 0 0 .7-1.7z',
     explore: [{type:'circle',cx:12,cy:12,r:10},{type:'polygon',points:'16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88',fill:'currentColor',opacity:.2},{type:'polygon',points:'16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88'}],

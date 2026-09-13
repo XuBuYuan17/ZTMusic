@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 const app = await readFile(new URL('../../App.svelte', import.meta.url), 'utf8')
 const mobileApp = await readFile(new URL('../components/MobileApp.svelte', import.meta.url), 'utf8')
 const loginOverlay = await readFile(new URL('../components/LoginOverlay.svelte', import.meta.url), 'utf8')
-const authStore = await readFile(new URL('../stores/auth.svelte.js', import.meta.url), 'utf8')
+const authStore = await readFile(new URL('../stores/auth.svelte.ts', import.meta.url), 'utf8')
 const lazyRoutes = [
   'PlaylistPage', 'SearchPage', 'ArtistPage', 'ExplorePage', 'DailyHistoryPage',
   'LibraryPage', 'RecentPage', 'MessagesPage', 'LikedPage', 'SettingsPage', 'AboutPage',

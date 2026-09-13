@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
   import { tick } from 'svelte'
-  import { player } from '../stores/player.svelte.js'
-  import { auth } from '../stores/auth.svelte.js'
-  import { coverUrl } from '../utils/image.js'
+  import type { SongId } from '../types/music.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { auth } from '../stores/auth.svelte.ts'
+  import { coverUrl } from '../utils/image.ts'
   import Icon from './ui/Icon.svelte'
   import Sidebar from './Sidebar.svelte'
-  import { hapticTap, shouldHapticTarget } from '../utils/haptics.js'
+  import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
 
   import MobileHome from '../pages/mobile/Home.svelte'
   import MobileBrowse from '../pages/mobile/Browse.svelte'
@@ -20,7 +21,7 @@
   import MessagesPage from '../pages/pc/Messages.svelte'
   import LocalMusicPage from '../pages/LocalMusicPage.svelte'
   import ListeningStatsPage from '../pages/ListeningStatsPage.svelte'
-  import { router } from '../stores/router.svelte.js'
+  import { router } from '../stores/router.svelte.ts'
 
   let {
     activeView = 'explore',
@@ -41,6 +42,25 @@
     targetUser = null,
     onUnreadChange,
     notificationUnread = 0,
+  }: {
+    activeView?: string
+    theme?: string
+    drawerOpen?: boolean
+    onNavigate?: (view: string, extra?: number | null) => void
+    onOpenPlayer?: () => void
+    onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
+    onOpenArtist?: (id: unknown) => void
+    onSearch?: () => void
+    onOpenLogin?: () => void
+    onSetTheme?: (theme: string) => void
+    accentTheme?: string
+    onSetAccentTheme?: (theme: string) => void
+    onBack?: () => void
+    onTabsHiddenChange?: (hidden: boolean) => void
+    targetUser?: unknown
+    onUnreadChange?: (count: unknown) => void
+    notificationUnread?: number
   } = $props()
 
   const tabViews = ['home', 'explore', 'library', 'search']
@@ -48,12 +68,12 @@
   const isDetailView = $derived(['playlist', 'album', 'artist', 'messages', 'localMusic', 'listeningStats'].includes(activeView))
 
   let tabsHidden = $state(false)
-  let mountedTabs = $state([])
+  let mountedTabs = $state<string[]>([])
   let lastScrollTop = $state(0)
-  let contentEl = $state(null)
-  let rootEl = $state(null)
-  let previousView = $state(null)
-  const tabScrollPositions = new Map()
+  let contentEl = $state<HTMLElement | null>(null)
+  let rootEl = $state<HTMLElement | null>(null)
+  let previousView = $state<string | null>(null)
+  const tabScrollPositions = new Map<string, number>()
 
   $effect(() => {
     if (isTabView && !mountedTabs.includes(activeView)) {
@@ -81,14 +101,14 @@
     })
   })
 
-  function setTabsHidden(hidden) {
+  function setTabsHidden(hidden: boolean): void {
     if (tabsHidden === hidden) return
     tabsHidden = hidden
     onTabsHiddenChange?.(tabsHidden)
   }
 
   $effect(() => {
-    const el = contentEl ?? document.querySelector('.m-content')
+    const el = contentEl ?? document.querySelector<HTMLElement>('.m-content')
     if (!el) return
     const onScroll = () => {
       const st = el.scrollTop
@@ -98,31 +118,31 @@
     return () => el.removeEventListener('scroll', onScroll)
   })
 
-  function toggleDrawer() { drawerOpen = !drawerOpen }
-  function closeDrawer() { drawerOpen = false }
+  function toggleDrawer(): void { drawerOpen = !drawerOpen }
+  function closeDrawer(): void { drawerOpen = false }
 
-  function rememberCurrentTabScroll() {
+  function rememberCurrentTabScroll(): void {
     if (contentEl && tabViews.includes(activeView)) {
       tabScrollPositions.set(activeView, contentEl.scrollTop)
     }
   }
 
-  function openFromCurrentTab(callback, ...args) {
+  function openFromCurrentTab<A extends unknown[]>(callback: ((...args: A) => void) | undefined, ...args: A): void {
     rememberCurrentTabScroll()
     callback?.(...args)
   }
 
-  function handleNav(view, extra) {
+  function handleNav(view: string, extra?: number | null): void {
     rememberCurrentTabScroll()
     closeDrawer()
     onNavigate?.(view, extra)
   }
 
-  function handleToggleTheme() {
+  function handleToggleTheme(): void {
     onSetTheme?.(theme === 'dark' ? 'light' : 'dark')
   }
 
-  function handleHapticPointerDown(e) {
+  function handleHapticPointerDown(e: PointerEvent): void {
     if (e.pointerType === 'mouse') return
     if (shouldHapticTarget(e.target)) hapticTap()
   }
@@ -134,7 +154,7 @@
   })
 
   // 点击遮罩关闭
-  function onBackdropClick(e) {
+  function onBackdropClick(e: MouseEvent): void {
     if (e.target === e.currentTarget) closeDrawer()
   }
 
@@ -142,7 +162,7 @@
   $effect(() => {
     if (typeof window === 'undefined') return
     if (!drawerOpen) return
-    const onKey = (e) => { if (e.key === 'Escape') closeDrawer() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDrawer() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
@@ -152,7 +172,7 @@
   <!-- 左上角头像按钮 -->
   <button class="m-avatar-btn" type="button" onclick={toggleDrawer} aria-label="打开侧栏">
     {#if auth.isLoggedIn && auth.user?.avatarUrl}
-      <img src={`${coverUrl(auth.user.avatarUrl, 96)}&_=${router.refreshKey}`} alt="" referrerpolicy="no-referrer" />
+      <img src={`${coverUrl(auth.user?.avatarUrl ?? '', 96)}&_=${router.refreshKey}`} alt="" referrerpolicy="no-referrer" />
     {:else}
       <Icon name="user" size={22} strokeWidth={1.8} />
     {/if}
@@ -171,7 +191,7 @@
       {#if activeView === 'home' || mountedTabs.includes('home')}
         <div style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'} aria-hidden={activeView !== 'home'}>
           <MobileHome
-            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
+            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id as SongId)}
             onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
             onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
             onOpenLogin={() => onOpenLogin?.()}
@@ -184,7 +204,7 @@
       {#if activeView === 'explore' || mountedTabs.includes('explore')}
         <div style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
           <MobileBrowse
-            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
+            onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id as SongId)}
             onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
             onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
             onPlaySong={router.playExploreSong}
@@ -200,8 +220,6 @@
             onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id)}
             onOpenLogin={() => onOpenLogin?.()}
             onNavigate={handleNav}
-            onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
-            onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
           />
         </div>
       {/if}
@@ -216,7 +234,7 @@
         <MobileSettings {theme} {accentTheme} onSetTheme={onSetTheme} {onSetAccentTheme} />
       {:else if activeView === 'liked'}
         <div class="m-subpage m-subpage-enter">
-          <LikedPage {onOpenArtist} {onOpenAlbum} onPlayAll={router.playAll} onPlayTrack={router.playTrack} />
+          <LikedPage {onOpenArtist} {onOpenAlbum} />
         </div>
       {:else if activeView === 'recent'}
         <div class="m-subpage m-subpage-enter">
@@ -236,7 +254,7 @@
         </div>
       {:else if activeView === 'messages'}
         <div class="m-subpage m-subpage-enter">
-          <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count) => onUnreadChange?.(count)} />
+          <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
         </div>
       {:else if activeView === 'playlist' || activeView === 'album'}
         <PlaylistPage

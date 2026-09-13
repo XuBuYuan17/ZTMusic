@@ -1,4 +1,5 @@
-<script>
+<script lang="ts">
+  import type { PlayMode } from '../types/player.ts'
   import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
 
@@ -18,34 +19,49 @@
     onqueue,
     showQueue = false,
     showQueueButton = true,
+  }: {
+    variant?: 'compact' | 'lyrics'
+    size?: 'sm' | 'md' | 'lg'
+    mode?: PlayMode
+    playing?: boolean
+    loading?: boolean
+    disabled?: boolean
+    onshuffle?: () => void
+    onprev?: () => void
+    onplaypause?: () => void
+    onnext?: () => void
+    onrepeat?: () => void
+    onqueue?: () => void
+    showQueue?: boolean
+    showQueueButton?: boolean
   } = $props()
 
+  let isLyrics = $derived(variant === 'lyrics')
   let sz = $derived(isLyrics ? 32 : size === 'sm' ? 22 : 24)
   let playSize = $derived(isLyrics ? 36 : size === 'lg' ? 28 : 26)
   let gap = $derived(size === 'lg' ? '1rem' : '0.5rem')
 
-  let isLyrics = $derived(variant === 'lyrics')
   let btnClass = $derived(isLyrics ? 'ly-ctrl-btn' : 'pc-btn')
   let playClass = $derived(isLyrics ? 'ly-play-btn' : 'pc-btn pc-btn--play')
 
-  const modeLabels = {
+  const modeLabels: Record<PlayMode, string> = {
     list: '顺序播放',
     repeat: '单曲循环',
     shuffle: '随机播放'
   }
 
   // 组件级 toast 清理：收集所有 toast timer id，组件销毁时统一清理
-  const toastTimers = new Set()
+  const toastTimers = new Set<ReturnType<typeof setTimeout>>()
 
   // Mode cycle: list -> repeat -> shuffle -> list
-  function handleClick(event, action) {
+  function handleClick(event: MouseEvent, action?: () => void): void {
     event.preventDefault()
     event.stopPropagation()
     action?.()
   }
 
-  function cycleMode() {
-    let nextMode = mode
+  function cycleMode(): void {
+    let nextMode: PlayMode = mode
     if (mode === 'list') nextMode = 'repeat'
     else if (mode === 'repeat') nextMode = 'shuffle'
     else nextMode = 'list'
@@ -65,7 +81,7 @@
     showToast(modeLabels[nextMode])
   }
 
-  function showToast(text) {
+  function showToast(text: string): void {
     // Remove existing toast
     const existing = document.querySelector('.play-mode-toast')
     if (existing) existing.remove()
@@ -102,7 +118,7 @@
   $effect(() => () => { toastTimers.forEach(clearTimeout); toastTimers.clear() })
 
   // Add toast keyframes if not present
-  function ensureKeyframes() {
+  function ensureKeyframes(): void {
     if (typeof document === 'undefined') return
     if (document.getElementById('play-mode-toast-styles')) return
     const style = document.createElement('style')

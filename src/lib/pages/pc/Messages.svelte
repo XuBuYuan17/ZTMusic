@@ -1,10 +1,13 @@
-<script>
+<script lang="ts">
   import { untrack } from 'svelte'
-  import { auth } from '../../stores/auth.svelte.js'
-  import { player } from '../../stores/player.svelte.js'
-  import { ncm } from '../../api/client.js'
+  import type { SongId } from '../../types/music.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import { ncm } from '../../api/client.ts'
   import Spinner from '../../components/Spinner.svelte'
-  import { coverUrl } from '../../utils/image.js'
+  import { coverUrl } from '../../utils/image.ts'
+  import type { MessageReadState } from '../../services/message-read-state.ts'
   import {
     applyMessageReadState,
     getInitialMessageReadState,
@@ -12,7 +15,7 @@
     getMessageUnreadCount,
     loadMessageReadState,
     saveMessageReadState,
-  } from '../../services/message-read-state.js'
+  } from '../../services/message-read-state.ts'
   import {
     extractMessageList,
     getMessageKind,
@@ -23,25 +26,39 @@
     loadPrivateMessageResponse,
     mergeMessageGroups,
     parseNoticePayload,
-  } from '../../services/message-data.js'
+  } from '../../services/message-data.ts'
 
-  let { onNavigate = () => {}, targetUser = null, onUnreadChange = () => {} } = $props()
+  type Msg = Record<string, unknown>
 
-  let messages = $state([])
+  function rec(value: unknown): Msg | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Msg : null
+  }
+
+  let {
+    onNavigate = () => {},
+    targetUser = null,
+    onUnreadChange = () => {},
+  }: {
+    onNavigate?: (view: string, extra?: number | null) => void
+    targetUser?: unknown
+    onUnreadChange?: (count: number) => void
+  } = $props()
+
+  let messages = $state<Msg[]>([])
   let loading = $state(false)
   let refreshing = $state(false)
   let error = $state('')
   let activeFilter = $state('all')
-  let selectedMsg = $state(null)
-  let chatMessages = $state([])
+  let selectedMsg = $state<Msg | null>(null)
+  let chatMessages = $state<Msg[]>([])
   let chatLoading = $state(false)
   let chatError = $state('')
-  let chatScrollEl = $state(null)
+  let chatScrollEl = $state<HTMLElement | null>(null)
   let shouldScrollToBottom = $state(false)
-  let originMsgId = $state(null)
-  let handledTargetUserId = $state(null)
+  let originMsgId = $state<SongId | null>(null)
+  let handledTargetUserId = $state<unknown>(null)
   let messagesLoaded = $state(false)
-  let readState = $state(getInitialMessageReadState())
+  let readState = $state<MessageReadState>(getInitialMessageReadState())
   let loadRequestId = 0
 
   let unreadTotal = $derived(messages.reduce((total, msg) => total + getMessageUnreadCount(msg), 0))
@@ -55,8 +72,14 @@
     notice: messages.filter(msg => getMessageKind(msg) === 'notice').length,
     mention: messages.filter(msg => getMessageKind(msg) === 'mention').length,
   })
+  let filterTabs = $derived<Array<[string, string, number]>>([
+    ['all', '全部', messages.length],
+    ['private', '私信', filterCounts.private],
+    ['notice', '通知', filterCounts.notice],
+    ['mention', '提及', filterCounts.mention],
+  ])
 
-  async function loadMessages(force = false) {
+  async function loadMessages(force = false): Promise<void> {
     if (!auth.isLoggedIn) return
     const requestId = ++loadRequestId
     const hasContent = messagesLoaded && messages.length > 0
@@ -70,29 +93,31 @@
         loadPrivateMessageResponse({ force }),
       ])
       if (requestId !== loadRequestId) return
-      if (privateResponse?.code === 301 || privateResponse?.code === 302) {
-        const loginError = new Error('登录已失效，请重新登录')
-        loginError.code = privateResponse.code
+      const privateCode = rec(privateResponse)?.code
+      if (privateCode === 301 || privateCode === 302) {
+        const loginError = new Error('登录已失效，请重新登录') as Error & { code?: unknown }
+        loginError.code = privateCode
         throw loginError
       }
-      readState = nextReadState
+      readState = nextReadState ?? getInitialMessageReadState()
       const privateGroup = { kind: 'private', response: privateResponse }
-      messages = mergeMessageGroups([privateGroup]).map(msg => applyMessageReadState(msg, readState))
+      messages = mergeMessageGroups([privateGroup]).map(msg => applyMessageReadState(msg, readState)) as Msg[]
       messagesLoaded = true
       loading = false
       refreshing = false
 
       const auxiliaryGroups = await auxiliaryPromise
       if (requestId !== loadRequestId) return
-      messages = mergeMessageGroups([privateGroup, ...auxiliaryGroups]).map(msg => applyMessageReadState(msg, readState))
+      messages = mergeMessageGroups([privateGroup, ...auxiliaryGroups]).map(msg => applyMessageReadState(msg, readState)) as Msg[]
     } catch (e) {
       if (requestId !== loadRequestId) return
       // 登录已失效（网易云返回 301/302）：校验并清理过期登录态，避免反复报错
-      if (e?.code === 301 || e?.code === 302) {
+      const err = e as { code?: unknown; message?: unknown } | null | undefined
+      if (err?.code === 301 || err?.code === 302) {
         auth.checkLoginStatus()
         if (messages.length === 0) error = '登录已失效，请重新登录'
       } else {
-        const detail = e?.message || (typeof e === 'string' ? e : '')
+        const detail = (typeof err?.message === 'string' ? err.message : '') || (typeof e === 'string' ? e : '')
         if (messages.length === 0) error = detail ? `加载提醒失败：${detail}` : '加载提醒失败'
       }
       console.error(e)
@@ -103,64 +128,79 @@
     }
   }
 
-  function formatTime(ts) {
+  function formatTime(ts: unknown): string {
     if (!ts) return ''
-    const d = new Date(ts)
-    const dateOptions = d.getFullYear() === new Date().getFullYear()
+    const d = new Date(ts as string | number | Date)
+    const dateOptions: Intl.DateTimeFormatOptions = d.getFullYear() === new Date().getFullYear()
       ? { month: '2-digit', day: '2-digit' }
       : { year: 'numeric', month: '2-digit', day: '2-digit' }
     return d.toLocaleDateString('zh-CN', dateOptions) + ' ' +
            d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   }
 
-  function getAvatar(msg) {
-    const user = msg.fromUser || msg.toUser || msg.user || parseNoticePayload(msg)?.user || {}
-    return user.avatarUrl || user.avatar || ''
+  function messageUser(msg: unknown): Msg {
+    const m = rec(msg)
+    const notice = rec(parseNoticePayload(msg))
+    return rec(m?.fromUser) || rec(m?.toUser) || rec(m?.user) || rec(notice?.user) || {}
   }
 
-  function getNickname(msg) {
-    const user = msg.fromUser || msg.toUser || msg.user || parseNoticePayload(msg)?.user || {}
-    return user.nickname || user.name || '未知用户'
+  function getAvatar(msg: unknown): string {
+    const user = messageUser(msg)
+    const avatar = user.avatarUrl || user.avatar
+    return typeof avatar === 'string' ? avatar : ''
   }
 
-  function getUserId(msg) {
-    const user = msg.fromUser || msg.toUser || msg.user || {}
-    return user.userId || user.id || msg.fromUserId || msg.toUserId || msg.userId
+  function getNickname(msg: unknown): string {
+    const user = messageUser(msg)
+    const nickname = user.nickname || user.name
+    return typeof nickname === 'string' ? nickname : '未知用户'
   }
 
-  function saveReadState(nextState) {
+  function getUserId(msg: unknown): SongId | undefined {
+    const m = rec(msg)
+    const user = rec(m?.fromUser) || rec(m?.toUser) || rec(m?.user)
+    const id = user?.userId || user?.id || m?.fromUserId || m?.toUserId || m?.userId
+    return typeof id === 'string' || typeof id === 'number' ? id : undefined
+  }
+
+  function saveReadState(nextState: MessageReadState): void {
     readState = nextState
     saveMessageReadState(nextState)
   }
 
-  function clearUnread(msg) {
+  function clearUnread(msg: Msg): void {
     const messageId = getMessageIdentity(msg)
     if (messageId) saveReadState({ ...readState, [messageId]: Date.now() })
     messages = messages.map(item => getMessageIdentity(item) === messageId ? { ...item, newMsgCount: 0, unreadCount: 0, unread: 0 } : item)
   }
 
-  function markAllRead() {
-    saveReadState(Object.fromEntries(messages.map(item => [getMessageIdentity(item), Date.now()]).filter(([id]) => id)))
+  function markAllRead(): void {
+    saveReadState(Object.fromEntries(
+      messages.map(item => [getMessageIdentity(item), Date.now()] as const)
+        .filter((entry): entry is readonly [SongId, number] => Boolean(entry[0])),
+    ))
     messages = messages.map(item => ({ ...item, newMsgCount: 0, unreadCount: 0, unread: 0 }))
   }
 
-  function createMessageFromUser(user) {
+  function createMessageFromUser(user: unknown): Msg {
+    const u = rec(user)
     return {
-      userId: user.userId || user.id,
+      userId: u?.userId || u?.id,
       user: {
-        userId: user.userId || user.id,
-        nickname: user.nickname || user.name || '用户',
-        avatarUrl: user.avatarUrl || user.avatar || '',
+        userId: u?.userId || u?.id,
+        nickname: u?.nickname || u?.name || '用户',
+        avatarUrl: u?.avatarUrl || u?.avatar || '',
       },
       lastMsgTime: Date.now(),
       lastMsg: JSON.stringify({ msg: '从关注列表打开会话' }),
     }
   }
 
-  async function openChat(msg) {
+  async function openChat(msg: Msg): Promise<void> {
     clearUnread(msg)
     selectedMsg = msg
-    originMsgId = msg.userId || msg.fromUserId || msg.id
+    const origin = msg.userId || msg.fromUserId || msg.id
+    originMsgId = typeof origin === 'string' || typeof origin === 'number' ? origin : null
     chatMessages = []
     chatError = ''
     const uid = getUserId(msg)
@@ -171,7 +211,7 @@
     chatLoading = true
     try {
       const res = await ncm.msgPrivateHistory(uid, 50)
-      chatMessages = extractMessageList(res)
+      chatMessages = extractMessageList(res) as Msg[]
     } catch (e) {
       chatError = '加载聊天记录失败'
       console.error(e)
@@ -180,81 +220,111 @@
     shouldScrollToBottom = true
   }
 
-  function closeChat() {
+  function closeChat(): void {
     selectedMsg = null
     chatMessages = []
     chatError = ''
     originMsgId = null
   }
 
-  function stopEvent(e) {
+  function stopEvent(e: Event): void {
     e.stopPropagation()
   }
 
-  function parseMsg(raw) {
+  type ParsedMsg =
+    | { type: 'text'; text: string }
+    | { type: 'song' | 'album' | 'playlist'; data: Msg; text: string }
+
+  function parseMsg(raw: unknown): ParsedMsg {
     if (!raw) return { type: 'text', text: '' }
     try {
-      let msg = raw
+      let msg: unknown = raw
       if (typeof raw === 'string') msg = JSON.parse(raw)
-      if (msg.song) return { type: 'song', data: msg.song, text: msg.msg || '' }
-      if (msg.album) return { type: 'album', data: msg.album, text: msg.msg || '' }
-      if (msg.playlist) return { type: 'playlist', data: msg.playlist, text: msg.msg || '' }
-      if (msg.msg) return { type: 'text', text: msg.msg }
+      const m = rec(msg)
+      const text = typeof m?.msg === 'string' ? m.msg : ''
+      if (m?.song) return { type: 'song', data: rec(m.song) || {}, text }
+      if (m?.album) return { type: 'album', data: rec(m.album) || {}, text }
+      if (m?.playlist) return { type: 'playlist', data: rec(m.playlist) || {}, text }
+      if (m?.msg) return { type: 'text', text }
       return { type: 'text', text: typeof raw === 'string' ? raw : JSON.stringify(raw).slice(0, 80) }
-    } catch (e) {
+    } catch {
       return { type: 'text', text: typeof raw === 'string' ? raw.slice(0, 80) : JSON.stringify(raw).slice(0, 80) }
     }
   }
 
-  function getSongCover(song) {
-    const album = song?.al || song?.album || {}
-    return album.picUrl || song?.coverImgUrl || song?.picUrl || ''
+  function getSongCover(song: unknown): string {
+    const s = rec(song)
+    const album = rec(s?.al) || rec(s?.album) || {}
+    const cover = album.picUrl || s?.coverImgUrl || s?.picUrl
+    return typeof cover === 'string' ? cover : ''
   }
 
-  function getShareCover(data) {
-    const album = data?.al || data?.album || {}
-    return album.picUrl || data?.picUrl || data?.coverImgUrl || ''
+  function getShareCover(data: unknown): string {
+    const d = rec(data)
+    const album = rec(d?.al) || rec(d?.album) || {}
+    const cover = album.picUrl || d?.picUrl || d?.coverImgUrl
+    return typeof cover === 'string' ? cover : ''
   }
 
-  function getSongArtists(song) {
-    return (song?.ar || song?.artists || []).map(a => a.name).filter(Boolean).join(' / ')
+  function getSongArtists(song: unknown): string {
+    const s = rec(song)
+    const list = s?.ar || s?.artists
+    const artists = Array.isArray(list) ? list : []
+    return artists
+      .map(a => rec(a)?.name)
+      .filter((name): name is string => typeof name === 'string' && Boolean(name))
+      .join(' / ')
   }
 
-  function playSongFromMessage(song) {
-    if (!song?.id) return
-    player.playTrack(song, -1)
+  function playSongFromMessage(song: unknown): void {
+    const s = rec(song)
+    if (!s?.id) return
+    player.playTrack(s as CompactTrackInput, -1)
   }
 
-  function openAlbumFromMessage(album) {
-    if (!album?.id) return
+  function openAlbumFromMessage(album: unknown): void {
+    const a = rec(album)
+    if (!a?.id) return
     closeChat()
-    onNavigate?.('album', album.id)
+    onNavigate?.('album', a.id as number)
   }
 
-  function openPlaylistFromMessage(playlist) {
-    if (!playlist?.id) return
+  function openPlaylistFromMessage(playlist: unknown): void {
+    const p = rec(playlist)
+    if (!p?.id) return
     closeChat()
-    onNavigate?.('playlist', playlist.id)
+    onNavigate?.('playlist', p.id as number)
   }
 
-  function getMsgPreview(raw) {
+  function getMsgPreview(raw: unknown): string {
     const parsed = parseMsg(raw)
-    if (parsed.type === 'song') return `🎵 ${parsed.data.name || ''}${getSongArtists(parsed.data) ? ' - ' + getSongArtists(parsed.data) : ''}`.trim()
-    if (parsed.type === 'album') return `💿 ${parsed.data.name || ''} - ${parsed.text || ''}`.trim()
-    if (parsed.type === 'playlist') return `📋 ${parsed.data.name || ''} - ${parsed.text || ''}`.trim()
+    if (parsed.type === 'song') {
+      const name = typeof parsed.data.name === 'string' ? parsed.data.name : ''
+      const artists = getSongArtists(parsed.data)
+      return `🎵 ${name}${artists ? ' - ' + artists : ''}`.trim()
+    }
+    if (parsed.type === 'album') {
+      const name = typeof parsed.data.name === 'string' ? parsed.data.name : ''
+      return `💿 ${name} - ${parsed.text || ''}`.trim()
+    }
+    if (parsed.type === 'playlist') {
+      const name = typeof parsed.data.name === 'string' ? parsed.data.name : ''
+      return `📋 ${name} - ${parsed.text || ''}`.trim()
+    }
     return parsed.text
   }
 
-  function getListPreview(msg) {
+  function getListPreview(msg: unknown): string {
     if (getMessageKind(msg) === 'notice') return getNoticeSummary(msg)
     if (getMessageKind(msg) === 'mention') return '有人在动态中提到了你'
-    const raw = msg.lastMsg ?? msg.msg ?? msg.content ?? msg.notice ?? msg.json
+    const m = rec(msg)
+    const raw = m?.lastMsg ?? m?.msg ?? m?.content ?? m?.notice ?? m?.json
     const preview = getMsgPreview(raw)
     if (preview) return preview
     return '暂无消息内容'
   }
 
-  function getListName(msg) {
+  function getListName(msg: unknown): string {
     const nickname = getNickname(msg)
     if (nickname !== '未知用户') return nickname
     if (getMessageKind(msg) === 'notice') return '系统通知'
@@ -262,7 +332,7 @@
     return nickname
   }
 
-  function handleMessageClick(msg) {
+  function handleMessageClick(msg: Msg): void {
     if (isConversationMessage(msg)) openChat(msg)
     else clearUnread(msg)
   }
@@ -274,7 +344,8 @@
   })
 
   $effect(() => {
-    const targetId = targetUser?.userId || targetUser?.id
+    const target = rec(targetUser)
+    const targetId = target?.userId || target?.id
     if (auth.isLoggedIn && targetUser && targetId !== handledTargetUserId) {
       handledTargetUserId = targetId
       openChat(createMessageFromUser(targetUser))
@@ -282,10 +353,11 @@
   })
 
   $effect(() => {
-    if (shouldScrollToBottom && chatScrollEl && chatMessages.length > 0) {
+    const el = chatScrollEl
+    if (shouldScrollToBottom && el && chatMessages.length > 0) {
       shouldScrollToBottom = false
       requestAnimationFrame(() => {
-        chatScrollEl.scrollTop = chatScrollEl.scrollHeight
+        el.scrollTop = el.scrollHeight
       })
     }
   })
@@ -317,12 +389,7 @@
     {#if auth.isLoggedIn && (messagesLoaded || loading)}
       <div class="messages-toolbar">
         <div class="filter-tabs" role="tablist" aria-label="提醒分类">
-          {#each [
-            ['all', '全部', messages.length],
-            ['private', '私信', filterCounts.private],
-            ['notice', '通知', filterCounts.notice],
-            ['mention', '提及', filterCounts.mention],
-          ] as filter}
+          {#each filterTabs as filter}
             <button
               type="button"
               role="tab"
@@ -439,7 +506,7 @@
                   <div class="chat-message-content">
                     {#if parsed.type === 'song'}
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
-                      <button type="button" class="shared-card song-card" onclick={() => playSongFromMessage(parsed.data)} aria-label="播放歌曲 {parsed.data.name || ''}">
+                      <button type="button" class="shared-card song-card" onclick={() => playSongFromMessage(parsed.data)} aria-label="播放歌曲 {(parsed.data.name as string) || ''}">
                         {#if getSongCover(parsed.data)}
                           <img class="shared-card-cover" src={coverUrl(getSongCover(parsed.data), 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
@@ -450,7 +517,7 @@
                           </div>
                         {/if}
                         <div class="shared-card-info">
-                          <div class="shared-card-title">{parsed.data.name || '未知歌曲'}</div>
+                          <div class="shared-card-title">{(parsed.data.name as string) || '未知歌曲'}</div>
                           <div class="shared-card-subtitle">{getSongArtists(parsed.data) || '未知歌手'}</div>
                         </div>
                         <div class="shared-card-play">
@@ -461,15 +528,15 @@
                       </button>
                     {:else if parsed.type === 'album'}
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
-                      <button type="button" class="shared-card album-card" onclick={() => openAlbumFromMessage(parsed.data)} aria-label="打开专辑 {parsed.data.name || ''}">
+                      <button type="button" class="shared-card album-card" onclick={() => openAlbumFromMessage(parsed.data)} aria-label="打开专辑 {(parsed.data.name as string) || ''}">
                         {#if getShareCover(parsed.data)}
                           <img class="shared-card-cover" src={coverUrl(getShareCover(parsed.data), 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <div class="shared-card-cover shared-card-cover-placeholder">💿</div>
                         {/if}
                         <div class="shared-card-info">
-                          <div class="shared-card-title">{parsed.data.name || '未知专辑'}</div>
-                          <div class="shared-card-subtitle">{parsed.data.artist?.name || '点击打开专辑'}</div>
+                          <div class="shared-card-title">{(parsed.data.name as string) || '未知专辑'}</div>
+                          <div class="shared-card-subtitle">{((parsed.data.artist as { name?: string } | null | undefined)?.name) || '点击打开专辑'}</div>
                         </div>
                         <div class="shared-card-play">
                           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
@@ -479,15 +546,15 @@
                       </button>
                     {:else if parsed.type === 'playlist'}
                       {#if parsed.text}<div class="chat-bubble"><div class="chat-text">{parsed.text}</div></div>{/if}
-                      <button type="button" class="shared-card playlist-card" onclick={() => openPlaylistFromMessage(parsed.data)} aria-label="打开歌单 {parsed.data.name || ''}">
+                      <button type="button" class="shared-card playlist-card" onclick={() => openPlaylistFromMessage(parsed.data)} aria-label="打开歌单 {(parsed.data.name as string) || ''}">
                         {#if getShareCover(parsed.data)}
                           <img class="shared-card-cover" src={coverUrl(getShareCover(parsed.data), 240)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                         {:else}
                           <div class="shared-card-cover shared-card-cover-placeholder">♪</div>
                         {/if}
                         <div class="shared-card-info">
-                          <div class="shared-card-title">{parsed.data.name || '未知歌单'}</div>
-                          <div class="shared-card-subtitle">{parsed.data.trackCount ? parsed.data.trackCount + ' 首' : '点击打开歌单'}</div>
+                          <div class="shared-card-title">{(parsed.data.name as string) || '未知歌单'}</div>
+                          <div class="shared-card-subtitle">{parsed.data.trackCount ? (parsed.data.trackCount as number) + ' 首' : '点击打开歌单'}</div>
                         </div>
                       </button>
                     {:else}

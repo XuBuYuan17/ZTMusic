@@ -1,9 +1,42 @@
-<script>
-  import { player } from '../stores/player.svelte.js'
-  import { formatDuration } from '../format.js'
-  import { coverUrl } from '../utils/image.js'
+<script lang="ts">
+  import type { SongId } from '../types/music.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { formatDuration } from '../format.ts'
+  import { coverUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
   import Icon from '../components/ui/Icon.svelte'
+
+  // 与 router 的 DetailTrack / PlaylistDetail 结构对齐（只列本组件实际读取的字段），router 传入时结构兼容
+  interface DetailTrackLike {
+    id: SongId
+    name?: unknown
+    ar?: unknown
+    artists?: unknown
+    al?: unknown
+    album?: unknown
+    dt?: number
+    duration?: number
+    addTime?: number
+    addedAt?: number
+    playlistIndex?: number
+    picUrl?: string
+  }
+  interface PlaylistDetailLike {
+    id: SongId
+    name: string
+    coverImgUrl: string
+    picUrl: string
+    creator?: unknown
+    trackCount: number
+    description: string
+    tracks: DetailTrackLike[]
+    trackIds?: unknown[]
+    tracksPartial?: boolean
+  }
+  interface TrackArtist { id?: SongId; name?: unknown }
+  type SortKey = 'added' | 'alpha'
+  type SortDir = 'asc' | 'desc'
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
   let {
     playlistDetail = null,
@@ -18,17 +51,34 @@
     onPlayTrack,
     onOpenArtist,
     onOpenAlbum,
+  }: {
+    playlistDetail?: PlaylistDetailLike | null
+    loading?: boolean
+    loadingMore?: boolean
+    error?: string
+    selectedId?: SongId | null
+    heroColor?: string
+    detailType?: string
+    onBack?: () => void
+    onPlayAll?: (tracks?: DetailTrackLike[] | null) => void
+    onPlayTrack?: (id: SongId, tracks?: DetailTrackLike[] | null) => void
+    onOpenArtist?: (id: unknown) => void
+    onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let songActions = $state(null)
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
   let trackSearch = $state('')
-  let trackSort = $state('added')
-  let trackSortDir = $state('desc')
-  let lastSelectedId = $state(null)
+  let trackSort = $state<SortKey>('added')
+  let trackSortDir = $state<SortDir>('desc')
+  let lastSelectedId = $state<SongId | null>(null)
 
   let visibleTracks = $derived(filterAndSortTracks(playlistDetail?.tracks || [], trackSearch, trackSort, trackSortDir))
   let totalTrackCount = $derived(playlistDetail?.trackCount || playlistDetail?.trackIds?.length || playlistDetail?.tracks?.length || 0)
   let isWaitingForTracks = $derived(Boolean(loading && playlistDetail && (!playlistDetail.tracks || playlistDetail.tracks.length === 0)))
+
+  function rec(v: unknown): Record<string, unknown> | null {
+    return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
+  }
 
   $effect(() => {
     if (lastSelectedId !== selectedId) {
@@ -39,7 +89,7 @@
     }
   })
 
-  function setSort(sort) {
+  function setSort(sort: SortKey): void {
     if (trackSort === sort) {
       trackSortDir = trackSortDir === 'asc' ? 'desc' : 'asc'
       return
@@ -48,31 +98,32 @@
     trackSortDir = sort === 'alpha' ? 'asc' : 'desc'
   }
 
-  function artistsOf(track) {
-    return track.artists || track.ar || []
+  function artistsOf(track: DetailTrackLike): TrackArtist[] {
+    const list = track.artists || track.ar || []
+    return Array.isArray(list) ? list as TrackArtist[] : []
   }
 
-  function artistText(track) {
+  function artistText(track: DetailTrackLike): string {
     return artistsOf(track).map(artist => artist.name).join(' / ')
   }
 
-  function albumName(track) {
-    return track.album?.name || track.al?.name || ''
+  function albumName(track: DetailTrackLike): unknown {
+    return rec(track.album)?.name || rec(track.al)?.name || ''
   }
 
-  function searchText(track) {
+  function searchText(track: DetailTrackLike): string {
     return [track.name, artistText(track), albumName(track)].filter(Boolean).join(' ').toLowerCase()
   }
 
-  function firstLetter(track) {
-    return (track.name || '').trim()
+  function firstLetter(track: DetailTrackLike): string {
+    return ((track.name || '') as string).trim()
   }
 
-  function addedTime(track) {
+  function addedTime(track: DetailTrackLike): number {
     return track.addTime || track.addedAt || 0
   }
 
-  function filterAndSortTracks(tracks, search, sort, direction) {
+  function filterAndSortTracks(tracks: DetailTrackLike[], search: string, sort: SortKey, direction: SortDir): DetailTrackLike[] {
     const keyword = search.trim().toLowerCase()
     const filtered = keyword ? tracks.filter(track => searchText(track).includes(keyword)) : [...tracks]
     const dir = direction === 'asc' ? 1 : -1
@@ -89,11 +140,15 @@
     })
   }
 
-  function duration(track) {
+  function coverOf(track: DetailTrackLike): unknown {
+    return rec(track.al)?.picUrl || rec(track.album)?.picUrl
+  }
+
+  function duration(track: DetailTrackLike): string {
     return formatDuration(track.duration || track.dt || 0)
   }
 
-  function handleRowKeydown(event, track) {
+  function handleRowKeydown(event: KeyboardEvent, track: DetailTrackLike): void {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       onPlayTrack?.(track.id, visibleTracks)
@@ -160,7 +215,7 @@
         <div class="playlist-hero-copy">
           <div class="playlist-kicker">{detailType}</div>
           <h1>{playlistDetail.name}</h1>
-          <div class="playlist-meta">{playlistDetail.creator?.nickname ?? ''}{#if totalTrackCount} · {totalTrackCount} 首{:else if loading} · 正在加载歌曲{/if}{#if loadingMore} · 正在补全{/if}</div>
+          <div class="playlist-meta">{rec(playlistDetail.creator)?.nickname ?? ''}{#if totalTrackCount} · {totalTrackCount} 首{:else if loading} · 正在加载歌曲{/if}{#if loadingMore} · 正在补全{/if}</div>
           {#if playlistDetail.description}
             <div class="playlist-desc">{playlistDetail.description}</div>
           {/if}
@@ -224,8 +279,8 @@
               >
                 <td class="col-num">{i + 1}</td>
                 <td class="col-cover">
-                  {#if track.al?.picUrl || track.album?.picUrl}
-                    <img class="track-cover-img" src={coverUrl(track.al?.picUrl || track.album?.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                  {#if coverOf(track)}
+                    <img class="track-cover-img" src={coverUrl(coverOf(track), 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
                   {:else}
                     <div class="track-cover-placeholder">
                       <Icon name="music-note" size={16} strokeWidth={1.5} />
@@ -234,7 +289,7 @@
                 </td>
                 <td class="col-title">{track.name}</td>
                 <td class="col-artist artist-links">
-                  {#each artistsOf(track) as artist, index (artist.id || artist.name)}
+                  {#each artistsOf(track) as artist, index ((artist.id || artist.name) as SongId)}
                     {#if index > 0}<span class="artist-sep">/</span>{/if}
                     {#if artist.id}
                       <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
