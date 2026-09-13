@@ -35,7 +35,7 @@ App
 
 - `src/App.svelte`：运行时布局、页面切换、播放器和全局浮层。
 - `src/lib/components/MobileApp.svelte`：移动端主导航、内容缓存、抽屉和详情页。
-- `src/lib/stores/router.svelte.js`：基于 `activeView` 的视图切换；项目不使用客户端路由库。
+- `src/lib/stores/router.svelte.ts`：基于 `activeView` 的视图切换；项目不使用客户端路由库。
 
 ### 2.2 PC 布局
 

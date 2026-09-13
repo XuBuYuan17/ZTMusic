@@ -62,7 +62,7 @@ ZTmusic 跑在两种环境下，请求链路不同：
 | 浏览器开发 | `pnpm dev` | `/ncm-api` → Vite proxy → `https://music.xubuyuan.top` |
 | Tauri 桌面 / 移动 | `pnpm tauri:dev` | `musicService` → Provider → `invoke('api_request')` → reqwest |
 
-网易云端点由 `src/lib/api/client.js` 的 `ncm` 对象封装；页面级通用音乐能力从 `src/lib/music/service.js` 的 `musicService` 发出。`isBrowserDevRuntime()` 和 `isTauriRuntime()` 判断底层请求走浏览器还是 Tauri。
+网易云端点由 `src/lib/api/client.ts` 的 `ncm` 对象封装；页面级通用音乐能力从 `src/lib/music/service.ts` 的 `musicService` 发出。`isBrowserDevRuntime()` 和 `isTauriRuntime()` 判断底层请求走浏览器还是 Tauri。
 
 浏览器开发时，`vite.config.js` 把 `/ncm-api` 代理到后端，规避跨域。Tauri 端走 IPC，由 Rust 用 reqwest 转发，**SSRF 白名单校验在 Rust 端做**（只允许 `music.xubuyuan.top` 等精确匹配的 host，且禁用自动重定向）。
 
@@ -86,10 +86,11 @@ ZTmusic 跑在两种环境下，请求链路不同：
 
 | 文件 | 职责 |
 |---|---|
-| `src/lib/music/provider.js` | Provider 定义、注册、切换和能力检查 |
-| `src/lib/music/service.js` | 页面使用的稳定门面；默认注册网易云 Provider |
-| `src/lib/music/providers/netease.js` | 调用 `ncm` 并把网易云字段映射为统一模型 |
-| `src/lib/api/client.js` | 网易云端点客户端、缓存、Cookie 和运行时传输 |
+| `src/lib/music/provider.ts` | Provider 定义、注册、切换和能力检查 |
+| `src/lib/music/service.ts` | 页面使用的稳定门面；默认注册网易云 Provider |
+| `src/lib/music/providers/netease.ts` | 调用 `ncm` 并把网易云字段映射为统一模型 |
+| `src/lib/types/music.ts` | 音乐领域中立模型（Song / PlayStream / SearchResult 等） |
+| `src/lib/api/client.ts` | 网易云端点客户端、缓存、Cookie 和运行时传输 |
 | `src-tauri/src/api.rs` | 通用 IPC HTTP 代理及每个 Provider 的安全策略 |
 
 Provider 是**能力型契约**，不要求每个服务一次实现全部功能。当前稳定能力为：
@@ -117,23 +118,23 @@ Provider 是**能力型契约**，不要求每个服务一次实现全部功能�
 
 登录、收藏、歌单写操作、关注、评论和消息仍直接使用 `ncm`：这些是带账号状态或明显具有平台特色的能力，不能为了“统一接口”强迫所有 Provider 实现。迁移时应先定义可选 capability，再移动调用点。
 
-`src/lib/music/provider-boundary.test.js` 会检查已迁移模块，防止它们重新引用 `ncm` 或 `api/client.js`。
+`src/lib/music/provider-boundary.test.js` 会检查已迁移模块，防止它们重新引用 `ncm` 或 `api/client.ts`。
 
 ---
 
 ## API 缓存
 
-`src/lib/api/cache-policy.js` 管理 GET 响应缓存：
+`src/lib/api/cache-policy.ts` 管理 GET 响应缓存：
 
 - `CACHE_TTL` 表定义各端点的 TTL（歌词 7 天、歌单详情 30 分钟、歌曲 URL 不缓存）
 - 缓存 key 由 `base + endpoint + params + body + 完整 cookie` 生成（cookie 参与 hash，避免跨账号串数据）
-- 存储走 `src/lib/db/cache.js`，优先 SQLite（SQLocal），不可用时降级到 IndexedDB（`utils/dbcache.js`）
+- 存储走 `src/lib/db/cache.ts`，优先 SQLite（SQLocal），不可用时降级到 IndexedDB（`utils/dbcache.ts`）
 
 ---
 
 ## 登录链路
 
-`src/lib/stores/auth.svelte.js`，Svelte 5 rune（`$state` / `$effect`）。
+`src/lib/stores/auth.svelte.ts`，Svelte 5 rune（`$state` / `$effect`）。
 
 **登录方式**：手机号 / 邮箱 / 二维码。成功后 `ncm.setCookie(cookie)`，cookie 持久化到 `api_cookie`。
 
@@ -149,14 +150,14 @@ Provider 是**能力型契约**，不要求每个服务一次实现全部功能�
 
 ### 核心文件
 
-- `src/lib/stores/player.svelte.js` — 播放状态 store
-- `src/lib/player/engine.js` — 双 Audio 元素引擎
-- `src/lib/player/fallback.js` — URL 遍历状态机
-- `src/lib/player/url-resolver.js` — 音质 fallback 链
-- `src/lib/player/prefetch.js` — 下一首预取
-- `src/lib/player/queue.js` — 播放队列
+- `src/lib/stores/player.svelte.ts` — 播放状态 store
+- `src/lib/player/engine.ts` — 双 Audio 元素引擎（实现 `types/player.ts` 的 `PlayerEngine` 契约）
+- `src/lib/player/fallback.ts` — URL 遍历状态机
+- `src/lib/player/url-resolver.ts` — 音质 fallback 链
+- `src/lib/player/prefetch.ts` — 下一首预取
+- `src/lib/player/queue.ts` — 播放队列
 
-### 音频引擎（engine.js）
+### 音频引擎（engine.ts）
 
 `AudioEngine` 类用**两个 HTMLAudio 元素**：
 
@@ -171,7 +172,7 @@ engine.load(url)           // 加载新 URL（入口去重：同 URL 直接返�
 
 `load()` 入口加了同 URL 去重，避免 store 重复下发同一 track 时打断播放。`swapToPreloaded()` 在 swap 前检查 `preloadAudio.error` 和 `readyState`，预加载失败时降级到普通 load。
 
-### 音质 fallback 链（url-resolver.js）
+### 音质 fallback 链（url-resolver.ts）
 
 ```
 Phase 1（3.5s 超时）: [standard, higher, 用户偏好] → 首条可用 URL 即播放
@@ -185,14 +186,14 @@ Phase 2（5s 超时）:
 
 `withTimeout` 用 `Promise.race` + `AbortController`，`.finally(cleanup)` 释放 timer 和 abort listener。所有 `fetchSongUrl` 调用都传 signal，切歌时能中断飞行中的请求。
 
-### 预加载（prefetch.js）
+### 预加载（prefetch.ts）
 
 `createPrefetchManager()` 返回 `prefetchNextTrackUrl(options)`：
 
 - 用 `prefetchId` 去重，`songUrl` 返回后复检 `prefetchId === activePrefetchId && !isStale()` 才调 `preload()`
 - 避免 await 期间用户切歌，把过期的下一首预加载到 engine
 
-### fallback 控制器（fallback.js）
+### fallback 控制器（fallback.ts）
 
 纯同步状态机，caller 通过 `next()` 返回值决定下一步：
 
@@ -217,11 +218,12 @@ Svelte 5 rune 模式（`$state` / `$effect` / `$derived`），集中在 `src/lib
 
 | Store | 职责 |
 |---|---|
-| `auth.svelte.js` | 登录态、cookie、VIP 信息 |
-| `player.svelte.js` | 播放状态、队列、fallback |
-| `router.svelte.js` | 视图切换（非客户端路由，基于 `activeView` 状态） |
-| `wallpaper.svelte.js` | 自定义壁纸元数据、Blob URL 和动态壁纸播放偏好 |
-| `local-music.svelte.js` | 本地曲库、导入进度和文件管理 |
+| `auth.svelte.ts` | 登录态、cookie、VIP 信息 |
+| `player.svelte.ts` | 播放状态、队列、fallback |
+| `router.svelte.ts` | 视图切换（非客户端路由，基于 `activeView` 状态） |
+| `wallpaper.svelte.ts` | 自定义壁纸元数据、Blob URL 和动态壁纸播放偏好 |
+| `local-music.svelte.ts` | 本地曲库、导入进度和文件管理 |
+| `toast.svelte.ts` | 全局轻量通知 |
 
 **注意**：`$effect` 的依赖是自动追踪的。写 rune 时注意：
 - 纯写 `$state` 不会让 effect 依赖它，只有读才会
@@ -236,11 +238,11 @@ Svelte 5 rune 模式（`$state` / `$effect` / `$derived`），集中在 `src/lib
 
 | 层 | 文件 | 用途 |
 |---|---|---|
-| SQLite（SQLocal） | `db/cache.js` | API 缓存、歌曲 URL 缓存、设置 |
-| IndexedDB | `utils/dbcache.js` | SQLite 不可用时的 fallback |
-| 独立 IndexedDB | `services/wallpaper-storage.js` | 自定义图片/视频壁纸 Blob |
-| 独立 IndexedDB | `local-music/storage.js` | 本地音乐元数据与音频 Blob（两个 object store） |
-| localStorage | `utils/storage.js` | 简单键值（主题、登录态等） |
+| SQLite（SQLocal） | `db/`（`init.ts` / `cache.ts` / `history.ts` / `settings.ts` / `migration.ts`） | API 缓存、歌曲 URL 缓存、播放历史、设置与旧数据迁移 |
+| IndexedDB | `utils/dbcache.ts` | SQLite 不可用时的 fallback |
+| 独立 IndexedDB | `services/wallpaper-storage.ts` | 自定义图片/视频壁纸 Blob |
+| 独立 IndexedDB | `local-music/storage.ts` | 本地音乐元数据与音频 Blob（两个 object store） |
+| localStorage | `utils/storage.ts` | 简单键值（主题、登录态等） |
 
 **IndexedDB 事务注意**：
 - `trimUrlCache` 全程用回调链在同一事务内排队，**不能 await**（否则事务提前 auto-commit，删除来不及执行）
@@ -253,11 +255,11 @@ Svelte 5 rune 模式（`$state` / `$effect` / `$derived`），集中在 `src/lib
 
 ```text
 文件/文件夹选择
-  → metadata.js 校验格式并解析 ID3v2 标题/歌手/专辑
-  → local-music.svelte.js 读取时长和导入进度
-  → storage.js 写入 IndexedDB tracks + files
+  → metadata.ts 校验格式并解析 ID3v2 标题/歌手/专辑
+  → local-music.svelte.ts 读取时长和导入进度
+  → storage.ts 写入 IndexedDB tracks + files
   → LocalMusicPage 生成 source: local 队列
-  → player.svelte.js 读取 Blob URL → engine.js 播放
+  → player.svelte.ts 读取 Blob URL → engine.ts 播放
 ```
 
 - 支持 MP3、FLAC、WAV、OGG、Opus、M4A、AAC；最终能否解码由 WebView2/系统媒体能力决定。
@@ -423,7 +425,7 @@ App
 
 **收藏页**：资料库按“高频入口 → 收藏歌单 → 创建歌单”排列。PC 使用紧凑页头、快捷入口与封面网格；移动端使用一张主收藏入口和原生分组行，歌单仍采用双列封面网格。不要用多个同权重渐变大卡片表达导航。
 
-**自定义壁纸**：`WallpaperLayer.svelte` 只负责渲染，`wallpaper.svelte.js` 负责状态，`wallpaper-storage.js` 负责 IndexedDB 边界。图片上限 30 MB，视频上限 300 MB；视频必须静音循环，窗口进入后台时暂停，恢复可见后按用户偏好继续。格式支持以 WebView2/浏览器实际解码能力为准，优先推荐 MP4（H.264）和 WebM。设置页不得展示本机绝对路径，也不要将 Blob 转成 base64 放入 localStorage。
+**自定义壁纸**：`WallpaperLayer.svelte` 只负责渲染，`wallpaper.svelte.ts` 负责状态，`wallpaper-storage.ts` 负责 IndexedDB 边界。图片上限 30 MB，视频上限 300 MB；视频必须静音循环，窗口进入后台时暂停，恢复可见后按用户偏好继续。格式支持以 WebView2/浏览器实际解码能力为准，优先推荐 MP4（H.264）和 WebM。设置页不得展示本机绝对路径，也不要将 Blob 转成 base64 放入 localStorage。
 
 **系统媒体控制**：Linux 通过 Rust MPRIS，Windows 通过绑定 Tauri 主窗口 HWND 的 Rust SMTC；Web/macOS 使用 `navigator.mediaSession`。Windows WebView2 必须保持 `HardwareMediaKeyHandling` 禁用，否则会和原生 SMTC 同时注册两条媒体会话。SMTC 在首次媒体消息时延迟创建，进程 AUMID 固定为 `com.zheting.music`；不要重新引入独立 `MediaPlayer::new()`，否则 Windows 快捷设置会出现“未知应用”的空白会话。
 

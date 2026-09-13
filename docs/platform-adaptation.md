@@ -60,7 +60,7 @@
 | `src-tauri/src/linux_mpris.rs` | Linux MPRIS |
 | `src-tauri/Cargo.toml` | Rust 依赖 + 编译优化 |
 | `src-tauri/tauri.conf.json` | Tauri 配置 + 版本号 |
-| `src/lib/player/native-media.js` | 前端 ↔ 原生桥接；Android 使用 Web Media Session |
+| `src/lib/player/native-media.ts` | 前端 ↔ 原生桥接；Android 使用 Web Media Session |
 | `.github/workflows/build.yml` | CI/CD 构建流程 |
 
 ---

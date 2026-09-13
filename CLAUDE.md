@@ -23,10 +23,10 @@ pnpm verify               # = check:versions + test + build ← CI 的门禁，�
 **跑单个测试**：测试就是可直接执行的 node 脚本，没有框架：
 
 ```bash
-node src/lib/player/fallback.test.js   # 退出码 0 = 过，1 = 挂
+node src/lib/player/fallback.test.ts   # Node 自动类型擦除；Node 22 早期版本需加 --experimental-strip-types
 ```
 
-`pnpm test` 递归收集 `src/` 和 `scripts/` 下所有 `*.test.{js,mjs}`，**每个文件用独立子进程跑**（它们会装浏览器全局变量、patch 模块单例，同进程会互相污染）。测试不依赖 `node_modules`，未装依赖也能跑。
+`pnpm test` 递归收集 `src/` 和 `scripts/` 下所有 `*.test.{js,mjs,ts}`，**每个文件用独立子进程跑**（它们会装浏览器全局变量、patch 模块单例，同进程会互相污染）。`.ts` 测试由 runner 自动加 `--experimental-strip-types`，不引入测试框架。测试不依赖 `node_modules`，未装依赖也能跑。
 
 **构建安装包**：
 
@@ -47,7 +47,7 @@ pnpm tauri:build:android    # arm64-v8a release APK（需本机 SDK/NDK + 签名
 | 浏览器开发 | `/ncm-api` → Vite proxy → `https://music.xubuyuan.top` |
 | Tauri 桌面 / 移动 | `invoke('api_request')` → `src-tauri/src/api.rs` → reqwest |
 
-`client.js` 里的 `isBrowserDevRuntime()` / `isTauriRuntime()` 决定走哪条。**SSRF 白名单、Referer、重定向策略都在 Rust 端** (`api.rs`)，只允许精确匹配的 host。IPC 命令名是 `api_request`（不是 `ncm_request`）。
+`client.ts` 里的 `isBrowserDevRuntime()` / `isTauriRuntime()` 决定走哪条。**SSRF 白名单、Referer、重定向策略都在 Rust 端** (`api.rs`)，只允许精确匹配的 host。IPC 命令名是 `api_request`（不是 `ncm_request`）。
 
 ### 数据访问的分层（重要）
 
@@ -55,25 +55,26 @@ pnpm tauri:build:android    # arm64-v8a release APK（需本机 SDK/NDK + 签名
 页面/组件 → musicService（稳定门面）→ MusicProvider（服务适配器）→ ncm 端点客户端 → API
 ```
 
-- `lib/music/service.js` —— 页面该用的入口，已注册网易云 Provider
-- `lib/music/providers/netease.js` —— 把网易云字段映射成中立模型（`providerId/sourceId/artists/album/durationMs/coverUrl`；兼容字段 `ar/al/dt/picUrl` 播放器还在用，别删）
-- `lib/api/client.js` 的 `ncm` 对象 —— 网易云端点、缓存、cookie
+- `lib/music/service.ts` —— 页面该用的入口，已注册网易云 Provider
+- `lib/music/providers/netease.ts` —— 把网易云字段映射成中立模型
+- `lib/types/` —— 领域中立类型（music / player / api），TS 类型检查走 `pnpm check`（svelte-check）（`providerId/sourceId/artists/album/durationMs/coverUrl`；兼容字段 `ar/al/dt/picUrl` 播放器还在用，别删）
+- `lib/api/client.ts` 的 `ncm` 对象 —— 网易云端点、缓存、cookie
 
 Provider 是**能力型契约**，不要求实现全部方法。登录、收藏、歌单写操作、关注、评论、消息**仍直接用 `ncm`**（带账号态或平台特色能力，不强行统一）。
 
-⚠️ `lib/music/provider-boundary.test.js` 会检查已迁移的模块没有重新引用 `ncm` / `api/client.js` —— 在已迁移模块里直接调 `ncm` 会让测试挂。
+⚠️ `lib/music/provider-boundary.test.js` 会检查已迁移的模块没有重新引用 `ncm` / `api/client.ts` —— 在已迁移模块里直接调 `ncm` 会让测试挂。
 
 ### 播放链路
 
-- `stores/player.svelte.js`（约 1000 行，播放状态机）+ `player/engine.js`
-- `engine.js` 用**双 Audio 元素**做预加载：`preload()` 在隐藏元素上加载 → `swapToPreloaded()` 零延迟换位
-- `player/url-resolver.js` —— URL 获取顺序：预取内存缓存 → IndexedDB → Phase 1 快速出声（standard/higher/用户偏好）→ Phase 2 unblock → 官方 fallback → 后台填充更多音质
-- `player/fallback.js` —— 纯同步状态机，只管 URL 列表遍历/重试，不碰引擎和 UI
-- 超时/容量等魔数集中在 `utils/constants.js`（`PLAYBACK`、`LIMITS`、`QUALITY_ORDER`）
+- `stores/player.svelte.ts`（约 1000 行，播放状态机）+ `player/engine.ts`
+- `engine.ts` 用**双 Audio 元素**做预加载：`preload()` 在隐藏元素上加载 → `swapToPreloaded()` 零延迟换位
+- `player/url-resolver.ts` —— URL 获取顺序：预取内存缓存 → IndexedDB → Phase 1 快速出声（standard/higher/用户偏好）→ Phase 2 unblock → 官方 fallback → 后台填充更多音质
+- `player/fallback.ts` —— 纯同步状态机，只管 URL 列表遍历/重试，不碰引擎和 UI
+- 超时/容量等魔数集中在 `utils/constants.ts`（`PLAYBACK`、`LIMITS`、`QUALITY_ORDER`）
 
 ### 布局与响应式
 
-`utils/layout-mode.js` 是**唯一真相源**。`main.js` 订阅它切换 `<html>` 上的 `mobile-runtime` class，CSS 全部靠 `html:not(.mobile-runtime)` / `html.mobile-runtime` 前缀门控。`utils/responsive.js` 只是委托给它的兼容层。
+`utils/layout-mode.ts` 是**唯一真相源**。`main.js` 订阅它切换 `<html>` 上的 `mobile-runtime` class，CSS 全部靠 `html:not(.mobile-runtime)` / `html.mobile-runtime` 前缀门控。`utils/responsive.ts` 只是委托给它的兼容层。
 
 `App.svelte` 是根组件，按 `router.activeView` 做 `{#if}/{:else if}` 条件渲染（**不是客户端路由**），页面都用 `lazyModule(() => import(...))` 懒加载。调试时 URL 加 `?mobile` 强制移动端布局。
 
@@ -83,7 +84,7 @@ Provider 是**能力型契约**，不要求实现全部方法。登录、收藏�
 
 ### 存储
 
-`lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.js`，缓存 key 把**完整 cookie 也 hash 进去**（避免跨账号串数据）。失败响应不写缓存。
+`lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.ts`，缓存 key 把**完整 cookie 也 hash 进去**（避免跨账号串数据）。失败响应不写缓存。
 
 ### 桌面/移动原生（`src-tauri/src/`）
 

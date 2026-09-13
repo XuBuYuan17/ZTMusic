@@ -95,7 +95,7 @@ ZTmusic/
 ├── index.html
 ├── vite.config.js        # Vite + /ncm-api 代理
 ├── svelte.config.js
-├── jsconfig.json
+├── tsconfig.json
 ├── package.json          # 包名 zheting，版本以此文件为准
 └── pnpm-lock.yaml
 ```
