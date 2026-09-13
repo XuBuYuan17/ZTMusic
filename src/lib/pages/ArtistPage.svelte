@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { SongId } from '../types/music.ts'
-  import { slide } from 'svelte/transition'
   import { player } from '../stores/player.svelte.ts'
   import { formatDuration } from '../format.ts'
   import { coverUrl, coverRectUrl } from '../utils/image.ts'
@@ -132,7 +131,7 @@
   }
 </script>
 
-<div class="artist-page" transition:slide={{ duration: 280, axis: 'x' }}>
+<div class="artist-page">
   {#if loading}
     <div class="artist-hero">
       <div class="artist-hero-bg"></div>

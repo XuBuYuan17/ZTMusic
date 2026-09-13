@@ -9,6 +9,11 @@
   transition: background 0.55s var(--ease-in-out);
 }
 
+.app-shell.desktop-titlebar {
+  height: calc(100vh - 38px);
+  margin-top: 38px;
+}
+
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;

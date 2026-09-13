@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { fade } from 'svelte/transition'
   import { tick, untrack } from 'svelte'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
@@ -33,6 +32,8 @@
   import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
   import HomePage from './lib/pages/pc/Home.svelte'
   import Toast from './lib/components/ui/Toast.svelte'
+  import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
+  import { isTauriDesktop } from './lib/utils/runtime.ts'
 
   interface LyricsOrigin {
     x?: number
@@ -47,6 +48,7 @@
   type MessageTargetUser = { userId: SongId; nickname?: unknown; avatarUrl?: unknown }
 
   const isMobileRuntime = (): boolean => isMobileDevice()
+  const hasCustomTitlebar = isTauriDesktop()
   // 返回 T | Promise<T>：{#await} 对已缓存的模块直接按值解析
   function lazyModule<T>(loader: () => Promise<T>): () => Promise<T> | T {
     let module: T | undefined
@@ -276,7 +278,11 @@
   else { router.handleNav('home') }
 </script>
 
-<main class="app-shell" class:has-wallpaper={wallpaper.active} data-theme={theme}>
+{#if hasCustomTitlebar}
+  <WindowTitleBar />
+{/if}
+
+<main class="app-shell" class:has-wallpaper={wallpaper.active} class:desktop-titlebar={hasCustomTitlebar} data-theme={theme}>
   <WallpaperLayer />
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
@@ -321,7 +327,7 @@
     {:else}
     <div class="content-scroll" id="main-content">
       <div class="content-inner">
-        <div class="page-enter" transition:fade={{ duration: 150 }}>
+        <div class="page-enter">
           {#if router.activeView === 'home'}
             <HomePage
               onNavigate={router.handleNav}

@@ -1,9 +1,31 @@
-<script lang="ts">
+<script module lang="ts">
   import type { SongId } from '../../types/music.ts'
-  import type { CompactTrackInput } from '../../player/queue.ts'
   import type { LocalListeningStats } from '../../services/listening-stats.ts'
   import type { NormalizedLocalHistorySong, NormalizedPlaylist } from '../../utils/normalize.ts'
-  import { slide } from 'svelte/transition'
+
+  interface HomeSnapshot {
+    userId: SongId
+    recentTracks: NormalizedLocalHistorySong[]
+    userPlaylists: NormalizedPlaylist[]
+    subcount: { likedCount?: number } | null
+    likedPlaylist: NormalizedPlaylist | null
+    weeklyPlaylist: {
+      id: number
+      name: string
+      picUrl: string
+      trackCount: number
+      playCount: number
+      topSongName: string
+    } | null
+    recommendPlaylists: NormalizedPlaylist[]
+    localListeningStats: LocalListeningStats
+  }
+
+  let homeSnapshot: HomeSnapshot | null = null
+</script>
+
+<script lang="ts">
+  import type { CompactTrackInput } from '../../player/queue.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { player } from '../../stores/player.svelte.ts'
   import { ncm } from '../../api/client.ts'
@@ -40,19 +62,36 @@
     onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let loading = $state(true)
+  const initialUserId = auth.user?.userId
+  const initialSnapshot = homeSnapshot?.userId === initialUserId ? homeSnapshot : null
+
+  let loading = $state(!initialSnapshot)
   let error = $state('')
-  let recentTracks = $state<NormalizedLocalHistorySong[]>([])
-  let userPlaylists = $state<NormalizedPlaylist[]>([])
-  let subcount = $state<Subcount | null>(null)
-  let likedPlaylist = $state<HomeData['likedPlaylist']>(null)
-  let weeklyPlaylist = $state<HomeData['weeklyPlaylist']>(null)
-  let recommendPlaylists = $state<NormalizedPlaylist[]>([])
-  let localListeningStats = $state<LocalListeningStats>({ ...EMPTY_LOCAL_LISTENING_STATS })
+  let recentTracks = $state<NormalizedLocalHistorySong[]>(initialSnapshot?.recentTracks ?? [])
+  let userPlaylists = $state<NormalizedPlaylist[]>(initialSnapshot?.userPlaylists ?? [])
+  let subcount = $state<Subcount | null>(initialSnapshot?.subcount ?? null)
+  let likedPlaylist = $state<HomeData['likedPlaylist']>(initialSnapshot?.likedPlaylist ?? null)
+  let weeklyPlaylist = $state<HomeData['weeklyPlaylist']>(initialSnapshot?.weeklyPlaylist ?? null)
+  let recommendPlaylists = $state<NormalizedPlaylist[]>(initialSnapshot?.recommendPlaylists ?? [])
+  let localListeningStats = $state<LocalListeningStats>(initialSnapshot?.localListeningStats ?? { ...EMPTY_LOCAL_LISTENING_STATS })
 
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
   let _requestId = 0
   let _statsRequestId = 0
+
+  function saveSnapshot(userId: SongId | undefined = auth.user?.userId): void {
+    if (!userId) return
+    homeSnapshot = {
+      userId,
+      recentTracks: [...recentTracks],
+      userPlaylists: [...userPlaylists],
+      subcount,
+      likedPlaylist,
+      weeklyPlaylist,
+      recommendPlaylists: [...recommendPlaylists],
+      localListeningStats: { ...localListeningStats },
+    }
+  }
 
   async function refreshLocalListeningStats(): Promise<void> {
     const rid = ++_statsRequestId
@@ -63,22 +102,38 @@
     if (rid === _statsRequestId) {
       localListeningStats = stats
       recentTracks = localRecentTracks
+      saveSnapshot()
     }
   }
 
   async function load(): Promise<void> {
-    const rid = ++_requestId; loading = true; error = ''
-    userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
+    const rid = ++_requestId
+    const userId = auth.user?.userId
+    const cached = homeSnapshot?.userId === userId ? homeSnapshot : null
+    loading = !cached
+    error = ''
+    if (cached) {
+      recentTracks = cached.recentTracks
+      userPlaylists = cached.userPlaylists
+      subcount = cached.subcount
+      likedPlaylist = cached.likedPlaylist
+      weeklyPlaylist = cached.weeklyPlaylist
+      recommendPlaylists = cached.recommendPlaylists
+      localListeningStats = cached.localListeningStats
+    } else {
+      userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
+    }
     try {
       if (!auth.isLoggedIn) return
       const data = await loadHomeData(ncm, auth.user)
       if (rid !== _requestId) return
       userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
       weeklyPlaylist = data.weeklyPlaylist; recommendPlaylists = data.recommendPlaylists
-      data.subcountPromise?.then(v => { if (rid === _requestId) subcount = v as Subcount | null }).catch(() => {})
-      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist }).catch(() => {})
-      data.recommendPromise?.then(v => { if (rid === _requestId) recommendPlaylists = v }).catch(() => {})
-    } catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
+      saveSnapshot(userId)
+      data.subcountPromise?.then(v => { if (rid === _requestId) { subcount = v as Subcount | null; saveSnapshot(userId) } }).catch(() => {})
+      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; saveSnapshot(userId) }).catch(() => {})
+      data.recommendPromise?.then(v => { if (rid === _requestId) { recommendPlaylists = v; saveSnapshot(userId) } }).catch(() => {})
+    } catch (e) { if (rid === _requestId && !cached) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) loading = false }
   }
 
@@ -150,7 +205,7 @@
   ])
 </script>
 
-<div class="home-page" transition:slide={{ duration: 280, axis: 'x' }}>
+<div class="home-page">
   {#if auth.isLoggedIn}
     <section class="home-listen-hero">
       <div class="home-listen-copy">

@@ -1,7 +1,18 @@
-<script lang="ts">
+<script module lang="ts">
   import type { SongId } from '../../types/music.ts'
   import type { ExploreData } from '../../services/explore.ts'
   import type { NormalizedAlbum, NormalizedPlaylist, NormalizedSong, HomepageBlock } from '../../utils/normalize.ts'
+
+  interface Toplist { id: SongId; name?: unknown; coverImgUrl?: string; updateFrequency?: string }
+
+  let exploreSnapshot: ExploreData | null = null
+  let exploreSnapshotAt = 0
+  let toplistsSnapshot: Toplist[] = []
+  let toplistsSnapshotAt = 0
+  const SNAPSHOT_TTL = 5 * 60 * 1000
+</script>
+
+<script lang="ts">
   import ArtistNames from '../../components/ArtistNames.svelte'
   import { coverUrl, coverRectUrl } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
@@ -12,8 +23,6 @@
   interface TrackArtist { id?: SongId; name: string }
   interface CoverCard { id: SongId; name?: unknown; picUrl?: string; copywriter?: string; trackCount?: number }
   interface SongCard { id: SongId; name?: unknown; picUrl?: string; ar?: TrackArtist[]; artists?: TrackArtist[] }
-  interface Toplist { id: SongId; name?: unknown; coverImgUrl?: string; updateFrequency?: string }
-
   let {
     onSearch,
     onBannerClick,
@@ -30,16 +39,21 @@
     onOpenArtist?: (id: SongId) => void
   } = $props()
 
-  let exploreLoading = $state(false)
-  let exploreBanners = $state<ExploreData['banners']>([])
-  let explorePersonalized = $state<NormalizedPlaylist[]>([])
-  let exploreTopPlaylists = $state<NormalizedPlaylist[]>([])
-  let exploreRecommendSongs = $state<NormalizedSong[]>([])
-  let exploreNewAlbums = $state<NormalizedAlbum[]>([])
-  let exploreBlocks = $state<HomepageBlock[]>([])
-  let toplists = $state<Toplist[]>([])
-  let exploreLoaded = $state(false)
+  const initialExplore = exploreSnapshot
+  const exploreIsFresh = !!initialExplore && Date.now() - exploreSnapshotAt < SNAPSHOT_TTL
+  const toplistsAreFresh = toplistsSnapshot.length > 0 && Date.now() - toplistsSnapshotAt < SNAPSHOT_TTL
+
+  let exploreLoading = $state(!initialExplore)
+  let exploreBanners = $state<ExploreData['banners']>(initialExplore?.banners ?? [])
+  let explorePersonalized = $state<NormalizedPlaylist[]>(initialExplore?.personalized ?? [])
+  let exploreTopPlaylists = $state<NormalizedPlaylist[]>(initialExplore?.topPlaylists ?? [])
+  let exploreRecommendSongs = $state<NormalizedSong[]>(initialExplore?.recommendSongs ?? [])
+  let exploreNewAlbums = $state<NormalizedAlbum[]>(initialExplore?.newAlbums ?? [])
+  let exploreBlocks = $state<HomepageBlock[]>(initialExplore?.blocks ?? [])
+  let toplists = $state<Toplist[]>(toplistsSnapshot)
+  let exploreLoaded = $state(exploreIsFresh)
   let toplistsLoading = $state(false)
+  let toplistsLoaded = $state(toplistsAreFresh)
   let error = $state('')
 
   function errorMessage(e: unknown): string {
@@ -47,21 +61,21 @@
   }
 
   async function loadExplore(): Promise<void> {
-    exploreLoading = true; error = ''
-    try { const d = await fetchExploreData(ncm); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks }
-    catch (e) { error = errorMessage(e) }
+    exploreLoading = !exploreSnapshot; error = ''
+    try { const d = await fetchExploreData(ncm); exploreSnapshot = d; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks }
+    catch (e) { if (!exploreSnapshot) error = errorMessage(e) }
     exploreLoading = false; exploreLoaded = true
   }
 
   async function loadToplists(): Promise<void> {
-    toplistsLoading = true
-    try { toplists = await loadToplistsData(ncm) as unknown as Toplist[] }
-    catch (e) { if (!error) error = errorMessage(e) }
-    finally { toplistsLoading = false }
+    toplistsLoading = toplistsSnapshot.length === 0
+    try { toplists = await loadToplistsData(ncm) as unknown as Toplist[]; toplistsSnapshot = toplists; toplistsSnapshotAt = Date.now() }
+    catch (e) { if (!toplistsSnapshot.length && !error) error = errorMessage(e) }
+    finally { toplistsLoading = false; toplistsLoaded = true }
   }
 
   $effect(() => { if (!exploreLoaded) loadExplore() })
-  $effect(() => { if (toplists.length === 0 && !toplistsLoading) loadToplists() })
+  $effect(() => { if (!toplistsLoaded && !toplistsLoading) loadToplists() })
 
   const hero = $derived(exploreBanners[0])
   const editorials = $derived(exploreBanners.slice(1, 4))
@@ -81,7 +95,7 @@
   ) as unknown as SongCard[])
 </script>
 
-<div class="music-discovery fade-in">
+<div class="music-discovery">
   <header class="music-discovery-header">
     <div>
       <span>ZTmusic</span>
