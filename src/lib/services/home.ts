@@ -247,10 +247,14 @@ export async function loadRecentData(ncm: HomeApi, user: unknown): Promise<Array
   let recentTracks: Array<NormalizedRecordSong | NormalizedLocalHistorySong> = []
   if (uid) {
     try {
-      const res = await ncm.userRecord(uid, 1)
+      // type=0 全部时间记录（allData）；type=1 仅本周（weekData）
+      const res = await ncm.userRecord(uid, 0)
       const r = rec(res)
       const rd = r ? rec(r.data) : null
-      const list = asArray(r?.weekData || (rd ? (rd.weekData ?? rd.list) : undefined) || r?.list)
+      // 部分账号关闭了全部时间统计时 allData 为空，退回本周数据
+      const allList = asArray(r?.allData ?? rd?.allData)
+      const weekList = asArray(r?.weekData ?? rd?.weekData ?? rd?.list ?? r?.list)
+      const list = allList.length ? allList : weekList
       recentTracks = list.map(normalizeRecordSong).filter((t): t is NormalizedRecordSong => t !== null)
     } catch {
       recentTracks = []
