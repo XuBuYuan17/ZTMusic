@@ -15,6 +15,8 @@
   import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.ts'
   import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.ts'
   import { createThemeTransition } from './lib/app/theme-transition.ts'
+  import { lazyModule } from './lib/app/lazy-module.ts'
+  import { openAlbumRef, openArtistRef, openPlaylistRef } from './lib/app/nav-refs.ts'
   import {
     applyAccentProperties,
     extractCoverAccent,
@@ -29,8 +31,8 @@
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
+  import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
   import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
-  import HomePage from './lib/pages/pc/Home.svelte'
   import Toast from './lib/components/ui/Toast.svelte'
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
@@ -49,26 +51,7 @@
 
   const isMobileRuntime = (): boolean => isMobileDevice()
   const hasCustomTitlebar = isTauriDesktop()
-  // 返回 T | Promise<T>：{#await} 对已缓存的模块直接按值解析
-  function lazyModule<T>(loader: () => Promise<T>): () => Promise<T> | T {
-    let module: T | undefined
-    let promise: Promise<T> | undefined
-    return () => module ?? (promise ??= loader().then((loaded) => { module = loaded; return loaded }))
-  }
   const loadMobileApp = lazyModule(() => import('./lib/components/MobileApp.svelte'))
-  const loadExplorePage = lazyModule(() => import('./lib/pages/pc/Explore.svelte'))
-  const loadDailyHistoryPage = lazyModule(() => import('./lib/pages/pc/DailyHistory.svelte'))
-  const loadSearchPage = lazyModule(() => import('./lib/pages/SearchPage.svelte'))
-  const loadArtistPage = lazyModule(() => import('./lib/pages/ArtistPage.svelte'))
-  const loadMessagesPage = lazyModule(() => import('./lib/pages/pc/Messages.svelte'))
-  const loadLibraryPage = lazyModule(() => import('./lib/pages/pc/Library.svelte'))
-  const loadRecentPage = lazyModule(() => import('./lib/pages/pc/Recent.svelte'))
-  const loadLocalMusicPage = lazyModule(() => import('./lib/pages/LocalMusicPage.svelte'))
-  const loadListeningStatsPage = lazyModule(() => import('./lib/pages/ListeningStatsPage.svelte'))
-  const loadSettingsPage = lazyModule(() => import('./lib/pages/pc/Settings.svelte'))
-  const loadLikedPage = lazyModule(() => import('./lib/pages/pc/Liked.svelte'))
-  const loadPlaylistPage = lazyModule(() => import('./lib/pages/PlaylistPage.svelte'))
-  const loadAboutPage = lazyModule(() => import('./lib/pages/AboutPage.svelte'))
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
@@ -226,13 +209,6 @@
   function setTheme(value: string): void { theme = normalizeTheme(value) }
   function setAccentTheme(value: string): void { accentTheme = normalizeAccentTheme(value) }
 
-  // 页面组件的导航回调普遍收 unknown/SongId，router.go* 收 number|null，统一在这一层 cast
-  function openPlaylistRef(id: unknown, push = true, preview?: unknown): void {
-    router.goPlaylist(id as number | null, push, preview as Parameters<typeof router.goPlaylist>[2])
-  }
-  function openArtistRef(id: unknown): void { router.goArtist(id as number | null) }
-  function openAlbumRef(id: unknown): void { router.goAlbum(id as number | null) }
-
   function openMessageWithUser(user: MessageTargetUser): void {
     if (!auth.isLoggedIn) { showLogin = true; return }
     showFollowDialog = false; messageTargetUser = user; router.handleNav('messages')
@@ -325,100 +301,16 @@
         <div class="loading-state" role="alert">移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
-    <div class="content-scroll" id="main-content">
-      <div class="content-inner">
-        <div class="page-enter">
-          {#if router.activeView === 'home'}
-            <HomePage
-              onNavigate={router.handleNav}
-              onOpenLogin={() => showLogin = true}
-              onOpenPlaylist={openPlaylistRef}
-              onOpenArtist={openArtistRef}
-              onOpenAlbum={openAlbumRef}
-            />
-          {:else if router.activeView === 'playlist' || router.activeView === 'album'}
-            {#await loadPlaylistPage() then module}
-              <module.default
-                playlistDetail={router.playlistDetail}
-                loading={router.playlistDetailLoading}
-                loadingMore={router.playlistLoadingMore}
-                error={router.playlistDetailError}
-                selectedId={router.selectedId}
-                heroColor={router.heroColor}
-                detailType={router.activeView === 'album' ? '专辑' : '歌单'}
-                onBack={router.goBack}
-                onPlayAll={router.playAll}
-                onPlayTrack={router.playTrack}
-                onOpenArtist={openArtistRef}
-                onOpenAlbum={openAlbumRef}
-              />
-            {/await}
-          {:else if router.activeView === 'search'}
-            {#await loadSearchPage() then module}
-              <module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} onOpenPlaylist={openPlaylistRef} />
-            {/await}
-          {:else if router.activeView === 'artist'}
-            {#await loadArtistPage() then module}
-              <module.default
-                artist={router.artistDetail}
-                songs={router.artistSongs}
-                albums={router.artistAlbums}
-                loading={router.artistLoading}
-                error={router.artistError}
-                onBack={router.goBack}
-                onPlayAll={router.playArtistAll}
-                onPlayTrack={router.playArtistTrack}
-                onOpenAlbum={openAlbumRef}
-                onOpenArtist={openArtistRef}
-                onToggleFollow={router.toggleArtistFollow}
-              />
-            {/await}
-          {:else if router.activeView === 'explore'}
-            {#await loadExplorePage() then module}
-              <module.default
-                onSearch={() => router.handleNav('search')}
-                onBannerClick={router.handleBannerClick}
-                onOpenPlaylist={openPlaylistRef}
-                onOpenAlbum={openAlbumRef}
-                onPlaySong={router.playExploreSong as (track: unknown) => void}
-                onOpenArtist={openArtistRef}
-              />
-            {/await}
-          {:else if router.activeView === 'dailyHistory'}
-            {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
-          {:else if router.activeView === 'library'}
-            {#await loadLibraryPage() then module}
-              <module.default onOpenLogin={() => showLogin = true} onOpenPlaylist={openPlaylistRef} onNavigate={router.handleNav} />
-            {/await}
-          {:else if router.activeView === 'recent'}
-            {#await loadRecentPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
-          {:else if router.activeView === 'localMusic'}
-            {#await loadLocalMusicPage() then module}<module.default />{/await}
-          {:else if router.activeView === 'listeningStats'}
-            {#await loadListeningStatsPage() then module}<module.default />{/await}
-          {:else if router.activeView === 'messages'}
-            {#await loadMessagesPage() then module}
-              <module.default onNavigate={router.handleNav} targetUser={messageTargetUser} onUnreadChange={(count) => notificationUnread = count} />
-            {/await}
-          {:else if router.activeView === 'liked'}
-            {#await loadLikedPage() then module}
-              <module.default
-                onOpenArtist={openArtistRef}
-                onOpenAlbum={openAlbumRef}
-              />
-            {/await}
-          {:else if router.activeView === 'settings'}
-            {#await loadSettingsPage() then module}<module.default {theme} {accentTheme} onSetTheme={(value) => theme = value} onSetAccentTheme={setAccentTheme} />{/await}
-          {:else if router.activeView === 'about'}
-            {#await loadAboutPage() then module}
-              <module.default />
-            {/await}
-          {/if}
-        </div>
-      </div>
-    </div>
-
-  {/if}
+      <DesktopPageHost
+        {theme}
+        {accentTheme}
+        onOpenLogin={() => showLogin = true}
+        onSetTheme={setTheme}
+        onSetAccentTheme={setAccentTheme}
+        targetUser={messageTargetUser}
+        onUnreadChange={(count: number) => { notificationUnread = count }}
+      />
+    {/if}
   </div>
 </main>
 

@@ -7,6 +7,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const app = await readFile(new URL('../../App.svelte', import.meta.url), 'utf8')
+const desktopHost = await readFile(new URL('../components/layout/DesktopPageHost.svelte', import.meta.url), 'utf8')
+const lazyModule = await readFile(new URL('./lazy-module.ts', import.meta.url), 'utf8')
 const mobileApp = await readFile(new URL('../components/MobileApp.svelte', import.meta.url), 'utf8')
 const loginOverlay = await readFile(new URL('../components/LoginOverlay.svelte', import.meta.url), 'utf8')
 const authStore = await readFile(new URL('../stores/auth.svelte.ts', import.meta.url), 'utf8')
@@ -19,11 +21,11 @@ const lazyRoutes = [
   'LocalMusicPage',
 ]
 
-assert.ok(app.includes("{#if router.activeView === 'home'}"), 'desktop routes should use conditional rendering')
-assert.ok(!app.includes('<div style:display={router.activeView'), 'inactive desktop pages must not remain mounted')
-assert.ok(!app.includes('{#key router.activeView}'), 'desktop route changes should not add a second forced remount boundary')
+assert.ok(desktopHost.includes("{#if router.activeView === 'home'}"), 'desktop routes should use conditional rendering')
+assert.ok(!desktopHost.includes('<div style:display={router.activeView'), 'inactive desktop pages must not remain mounted')
+assert.ok(!desktopHost.includes('{#key router.activeView}'), 'desktop route changes should not add a second forced remount boundary')
 assert.ok(app.includes("const loadMobileApp = lazyModule(() => import("), 'mobile application should not be in the desktop startup bundle')
-assert.ok(app.includes('return () => module ?? (promise ??= loader().then'), 'loaded route modules should render synchronously on repeat visits')
+assert.ok(lazyModule.includes('return () => module ?? (promise ??= loader().then'), 'loaded route modules should render synchronously on repeat visits')
 assert.ok(mobileApp.includes("mountedTabs.includes('explore')"), 'mobile tab pages should mount on first visit')
 assert.ok(mobileApp.includes("{:else if activeView === 'messages'}"), 'mobile secondary pages should mount only while active')
 assert.ok(mobileApp.includes('tabScrollPositions'), 'mobile tabs should preserve independent scroll positions')
@@ -37,14 +39,14 @@ assert.ok(windowTitleBar.includes('data-tauri-drag-region="deep"'), 'desktop tit
 assert.ok(windowTitleBar.includes('appWindow.minimize()'), 'desktop titlebar should minimize the window')
 assert.ok(windowTitleBar.includes('appWindow.toggleMaximize()'), 'desktop titlebar should maximize or restore the window')
 assert.ok(windowTitleBar.includes('appWindow.close()'), 'desktop titlebar should close the window')
-assert.ok(!app.includes('transition:fade'), 'desktop route changes should keep the content surface stable')
-assert.ok(app.includes('class="page-enter"'), 'desktop routes should retain one stable content container')
+assert.ok(!desktopHost.includes('transition:fade'), 'desktop route changes should keep the content surface stable')
+assert.ok(desktopHost.includes('class="page-enter"'), 'desktop routes should retain one stable content container')
 assert.ok(homePage.includes('homeSnapshot?.userId === userId'), 'home should reuse the current user snapshot before refreshing')
 assert.ok(explorePage.includes('exploreSnapshotAt'), 'explore should retain a freshness-bounded snapshot across mounts')
 assert.ok(!homePage.includes('transition:slide'), 'home should not stack a page slide over route changes')
 
 for (const component of lazyRoutes) {
-  assert.ok(app.includes(`const load${component} = lazyModule(() => import(`), `${component} should be loaded on demand`)
+  assert.ok(desktopHost.includes(`const load${component} = lazyModule(() => import(`), `${component} should be loaded on demand`)
 }
 
 console.log(`application rendering self-check: ${lazyRoutes.length + 23} assertions passed`)

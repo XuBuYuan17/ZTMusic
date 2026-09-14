@@ -81,11 +81,69 @@ export function getNoticeSummary(msg: unknown): string {
   return resource ? `与你的${asString(resource)}产生了互动` : '新的互动通知'
 }
 
-function getUserId(msg: unknown): SongId | undefined {
+export function getMessageUserId(msg: unknown): SongId | undefined {
   const m = asRecord(msg)
   const user = asRecord(m.fromUser || m.toUser || m.user)
   const id = user.userId || user.id || m.userId || m.fromUserId || m.toUserId
   return typeof id === 'string' || typeof id === 'number' ? id : undefined
+}
+
+export function getMessageUser(msg: unknown): Loose {
+  const m = asRecord(msg)
+  const notice = asRecord(parseNoticePayload(msg))
+  return asRecord(m.fromUser || m.toUser || m.user || notice.user)
+}
+
+export function getMessageAvatar(msg: unknown): string {
+  const user = getMessageUser(msg)
+  const avatar = user.avatarUrl || user.avatar
+  return typeof avatar === 'string' ? avatar : ''
+}
+
+export function getMessageNickname(msg: unknown): string {
+  const user = getMessageUser(msg)
+  const nickname = user.nickname || user.name
+  return typeof nickname === 'string' ? nickname : '未知用户'
+}
+
+export function formatMessageTime(ts: unknown): string {
+  if (!ts) return ''
+  const d = new Date(ts as string | number | Date)
+  const dateOptions: Intl.DateTimeFormatOptions = d.getFullYear() === new Date().getFullYear()
+    ? { month: '2-digit', day: '2-digit' }
+    : { year: 'numeric', month: '2-digit', day: '2-digit' }
+  return d.toLocaleDateString('zh-CN', dateOptions) + ' ' +
+         d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+export type ParsedChatMessage =
+  | { type: 'text'; text: string }
+  | { type: 'song' | 'album' | 'playlist'; data: Loose; text: string }
+
+export function parseChatMessage(raw: unknown): ParsedChatMessage {
+  if (!raw) return { type: 'text', text: '' }
+  try {
+    let msg: unknown = raw
+    if (typeof raw === 'string') msg = JSON.parse(raw)
+    const m = asRecord(msg)
+    const text = typeof m.msg === 'string' ? m.msg : ''
+    if (m.song) return { type: 'song', data: asRecord(m.song), text }
+    if (m.album) return { type: 'album', data: asRecord(m.album), text }
+    if (m.playlist) return { type: 'playlist', data: asRecord(m.playlist), text }
+    if (m.msg) return { type: 'text', text }
+    return { type: 'text', text: typeof raw === 'string' ? raw : JSON.stringify(raw).slice(0, 80) }
+  } catch {
+    return { type: 'text', text: typeof raw === 'string' ? raw.slice(0, 80) : JSON.stringify(raw).slice(0, 80) }
+  }
+}
+
+export function getMessageSongArtists(song: unknown): string {
+  const list = asRecord(song).ar || asRecord(song).artists
+  const artists = Array.isArray(list) ? list : []
+  return artists
+    .map(a => asRecord(a).name)
+    .filter((name): name is string => typeof name === 'string' && Boolean(name))
+    .join(' / ')
 }
 
 function getRawContent(msg: unknown): unknown {
@@ -94,12 +152,12 @@ function getRawContent(msg: unknown): unknown {
 }
 
 function hasUsefulContent(msg: Loose): boolean {
-  return Boolean(getUserId(msg) || getMessageIdentity(msg) || getRawContent(msg))
+  return Boolean(getMessageUserId(msg) || getMessageIdentity(msg) || getRawContent(msg))
 }
 
 function getMergeKey(msg: Loose, index: number): string {
   const kind = getMessageKind(msg)
-  const userId = getUserId(msg)
+  const userId = getMessageUserId(msg)
   if ((kind === 'private' || kind === 'contact') && userId) return `conversation:${userId}`
   const id = getMessageIdentity(msg)
   if (id) return `${kind}:${id}`

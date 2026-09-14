@@ -4,9 +4,10 @@
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
   import { normalizePlaylist } from '../../utils/normalize.ts'
-  import { coverUrl } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
+  import CreatePlaylistModal from '../../components/CreatePlaylistModal.svelte'
+  import LibraryPlaylistCard from '../../components/LibraryPlaylistCard.svelte'
 
   interface LibraryData {
     stats: { follow: number; fans: number; playlist: number }
@@ -33,8 +34,6 @@
 
   // 创建歌单
   let showCreateModal = $state(false)
-  let createName = $state('')
-  let creating = $state(false)
 
   // 取消收藏确认
   let unsubscribeTarget = $state<NormalizedPlaylist | null>(null)
@@ -121,51 +120,6 @@
     safeTimeout(() => { if (notice === text) notice = '' }, 1800)
   }
 
-  function openCreateModal(): void {
-    createName = ''
-    showCreateModal = true
-  }
-
-  function focusOnMount(node: HTMLInputElement) {
-    queueMicrotask(() => node.focus())
-  }
-
-  function handleCreateModalKeydown(event: KeyboardEvent): void {
-    if (showCreateModal && event.key === 'Escape') {
-      event.preventDefault()
-      closeCreateModal()
-    }
-  }
-
-  function handleCreateModalBackdrop(event: MouseEvent): void {
-    if (event.target === event.currentTarget) closeCreateModal()
-  }
-
-  function closeCreateModal(): void {
-    if (creating) return
-    showCreateModal = false
-    createName = ''
-  }
-
-  async function submitCreate(): Promise<void> {
-    if (creating) return
-    const name = createName.trim()
-    if (!name) return
-    creating = true
-    try {
-      const res = await ncm.playlistCreate(name)
-      const r = rec(res)
-      if (r && r.code !== 200) throw new Error((r.message || r.msg || '创建失败') as string)
-      closeCreateModal()
-      showNotice('已创建歌单')
-      await load()
-    } catch (e) {
-      showNotice(((e as { message?: unknown } | null | undefined)?.message || '创建失败') as string)
-    } finally {
-      creating = false
-    }
-  }
-
   function confirmUnsubscribe(pl: NormalizedPlaylist): void {
     unsubscribeTarget = pl
   }
@@ -198,8 +152,6 @@
     return () => timers.forEach(id => clearTimeout(id))
   })
 </script>
-
-<svelte:window onkeydown={handleCreateModalKeydown} />
 
 <div class="library-page fade-in">
   {#if !auth.isLoggedIn}
@@ -263,7 +215,7 @@
           <span class="library-quick-name">历史日推</span>
           <span class="library-quick-meta">每日推荐</span>
         </button>
-        <button class="library-quick-card library-quick-add" type="button" onclick={openCreateModal}>
+        <button class="library-quick-card library-quick-add" type="button" onclick={() => showCreateModal = true}>
           <span class="library-quick-icon">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </span>
@@ -297,26 +249,7 @@
         {#if createdPlaylists.length > 0}
           <div class="library-grid">
             {#each createdPlaylists as pl, i (pl.id as SongId)}
-              <div class="library-card" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id as SongId, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id as SongId, true, pl) } }}>
-                <div class="library-card-cover">
-                  {#if pl.picUrl}
-                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <div class="library-card-placeholder">
-                      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                    </div>
-                  {/if}
-                  <div class="library-card-play-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  </div>
-                </div>
-                <div class="library-card-info">
-                  <div class="library-card-name">{pl.name}</div>
-                  <div class="library-card-meta">
-                    {#if pl.trackCount}<span>{pl.trackCount} 首</span>{/if}
-                  </div>
-                </div>
-              </div>
+              <LibraryPlaylistCard {pl} index={i} onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)} />
             {/each}
           </div>
         {:else}
@@ -333,30 +266,13 @@
         {#if savedPlaylists.length > 0}
           <div class="library-grid">
             {#each savedPlaylists as pl, i (pl.id as SongId)}
-              <div class="library-card library-card-managed" style={`--card-i:${i}`} role="button" tabindex="0" onclick={() => onOpenPlaylist?.(pl.id as SongId, true, pl)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenPlaylist?.(pl.id as SongId, true, pl) } }}>
-                <div class="library-card-cover">
-                  {#if pl.picUrl}
-                    <img src={coverUrl(pl.picUrl, 400)} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <div class="library-card-placeholder">
-                      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                    </div>
-                  {/if}
-                  <div class="library-card-play-btn">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  </div>
-                </div>
-                <div class="library-card-info">
-                  <div class="library-card-name">{pl.name}</div>
-                  <div class="library-card-meta">
-                    {#if pl.trackCount}<span>{pl.trackCount} 首</span>{/if}
-                    {#if pl.creator}<span class="library-card-creator">· {pl.creator}</span>{/if}
-                  </div>
-                </div>
-                <button class="library-card-unsubscribe" type="button" onclick={(e) => { e.stopPropagation(); confirmUnsubscribe(pl) }} aria-label={`取消收藏 ${pl.name}`}>
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
+              <LibraryPlaylistCard
+                {pl}
+                index={i}
+                managed={true}
+                onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
+                onUnsubscribe={confirmUnsubscribe}
+              />
             {/each}
           </div>
         {:else}
@@ -368,24 +284,11 @@
 
   <!-- 创建歌单弹窗 -->
   {#if showCreateModal}
-    <div class="library-modal-backdrop" role="presentation" onclick={handleCreateModalBackdrop}>
-      <div class="library-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="create-playlist-title">
-        <h3 class="library-modal-title" id="create-playlist-title">新建歌单</h3>
-        <input
-          class="library-modal-input"
-          type="text"
-          placeholder="请输入歌单名称"
-          bind:value={createName}
-          maxlength="30"
-          use:focusOnMount
-          onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCreate() } }}
-        />
-        <div class="library-modal-actions">
-          <button class="library-modal-btn library-modal-btn-cancel" type="button" onclick={closeCreateModal} disabled={creating}>取消</button>
-          <button class="library-modal-btn library-modal-btn-confirm" type="button" onclick={submitCreate} disabled={creating}>{creating ? '创建中…' : '创建'}</button>
-        </div>
-      </div>
-    </div>
+    <CreatePlaylistModal
+      onClose={() => showCreateModal = false}
+      onCreated={load}
+      onNotice={showNotice}
+    />
   {/if}
 
   <!-- 取消收藏确认 -->

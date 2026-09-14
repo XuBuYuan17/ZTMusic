@@ -1,24 +1,18 @@
 <script lang="ts">
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
-  import type { DisplayLyricLine } from '../services/lyrics-loader.ts';
   import { player } from '../stores/player.svelte.ts';
   import { ncm } from '../api/client.ts';
   import { coverUrl } from '../utils/image.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
-  import { useLyrics } from '../composables/useLyrics.svelte.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
-  import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
-  import SongContextStrip from './SongContextStrip.svelte';
-  import Icon from './ui/Icon.svelte';
-
-  type Panel = 'quality' | 'comments' | 'playlists' | 'theme';
-  // 与 SongContextStrip 本地 ContextPanel 同型（该类型未导出）
-  type StripPanel = 'songs' | 'playlists' | 'comments';
+  import PlayerMoreMenu from './PlayerMoreMenu.svelte';
+  import PlayerSecondarySheet, { type Panel, type StripPanel } from './PlayerSecondarySheet.svelte';
+  import PlayerLyrics from './PlayerLyrics.svelte';
 
   interface MenuItem {
     label: string;
@@ -56,13 +50,11 @@
   let playerTheme = $state('card');
   let entered = $state(false);
   let closing = $state(false);
-  let lyricsEl = $state<HTMLElement | null>(null);
   let swipeStartX = 0;
   let swipeStartY = 0;
   let swipeActive = false;
   let suppressCoverClick = false;
 
-  const lyricState = useLyrics();
   const like = useLike(showMenuMessage);
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
@@ -78,11 +70,6 @@
     higher: '较高',
     standard: '标准',
   };
-  const playerThemeOptions: Array<{ value: string; label: string; icon: string }> = [
-    { value: 'card', label: '卡片封面', icon: 'music' },
-    { value: 'vinyl', label: '黑胶唱片', icon: 'disc' },
-  ];
-
   let moreMenuItems = $derived<MenuItem[]>([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
     { label: '播放队列', icon: 'list', action: handleToggleLocalQueue, disabled: !player.id },
@@ -95,14 +82,6 @@
     { label: '播放器主题', icon: 'sun', action: () => openSecondaryPanel('theme') },
     { label: '切换应用外观', icon: 'moon', action: toggleTheme },
   ]);
-
-  let secondaryTitle = $derived.by(() => {
-    if (secondaryPanel === 'quality') return '音质';
-    if (secondaryPanel === 'comments') return '热评';
-    if (secondaryPanel === 'playlists') return '相似歌单';
-    if (secondaryPanel === 'theme') return '播放器主题';
-    return '';
-  });
 
   // ---- 定时器管理器 ----
   const timers = new Set<SafeTimer>();
@@ -125,12 +104,6 @@
     closing = true;
     safeTimeout(() => { onClose?.(); }, 220);
   }
-
-  // ---- Auto-scroll lyrics ----
-  $effect(() => {
-    if (!lyricsMode || !lyricsEl) return;
-    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.am-lyric-line', 0.25);
-  });
 
   function toggleLyricsMode(): void {
     lyricsMode = !lyricsMode;
@@ -284,28 +257,7 @@
     playerTheme = theme;
   }
 
-  function handleMenuItem(item: MenuItem): void {
-    showMoreMenu = false;
-    item.action?.();
-  }
-
-  function secondaryContextPanel(): StripPanel | null {
-    if (secondaryPanel === 'comments') return contextPanelRequest || 'comments';
-    if (secondaryPanel === 'playlists') return contextPanelRequest || 'playlists';
-    return null;
-  }
 </script>
-
-{#snippet lyricLine(line: DisplayLyricLine, i: number)}
-  <button class="am-lyric-line" class:active={i === lyricState.highlightIndex} class:before={i < lyricState.highlightIndex}
-    aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
-    onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
-    <span class="am-lyric-text">{line.text || '...'}</span>
-    {#if line.translation}
-      <span class="am-lyric-trans">{line.translation}</span>
-    {/if}
-  </button>
-{/snippet}
 
 <div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
@@ -315,29 +267,16 @@
     <div class="am-bg-overlay"></div>
   </div>
 
-  <div class="am-more-shell">
-    <button class="am-more-btn" class:active={showMoreMenu} type="button" aria-label="更多操作" aria-expanded={showMoreMenu} onclick={toggleMoreMenu}>
-      <span class="am-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-    </button>
-    {#if showMoreMenu}
-      <div class="am-more-backdrop" role="presentation" onclick={closeMoreMenu}></div>
-      <div class="am-more-menu" role="menu" aria-label="更多操作菜单">
-        <div class="am-more-track" aria-hidden="true">
-          {#if player.cover}<img src={coverUrl(player.cover, 96)} alt="" referrerpolicy="no-referrer" />{/if}
-          <span><strong>{player.title || '未在播放'}</strong><small>{player.artist || ''}</small></span>
-        </div>
-        {#each moreMenuItems as item}
-          <button class="am-more-item" type="button" role="menuitem" onclick={() => handleMenuItem(item)} disabled={item.disabled}>
-            <Icon name={item.icon} size={18} strokeWidth={1.8} />
-            <span>{item.label}</span>
-          </button>
-        {/each}
-        {#if menuMessage}
-          <div class="am-more-message" aria-live="polite">{menuMessage}</div>
-        {/if}
-      </div>
-    {/if}
-  </div>
+  <PlayerMoreMenu
+    open={showMoreMenu}
+    onToggle={toggleMoreMenu}
+    onClose={closeMoreMenu}
+    items={moreMenuItems}
+    message={menuMessage}
+    cover={player.cover ? coverUrl(player.cover, 96) : ''}
+    title={player.title || '未在播放'}
+    artist={player.artist || ''}
+  />
 
   <!-- Flying cover -->
   <div class="am-flying-cover" role="button" tabindex="0"
@@ -371,63 +310,19 @@
     <AppleMusicControls onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
   </div>
 
-  {#if secondaryPanel}
-    <div class="am-secondary-backdrop" role="presentation" onclick={closeSecondaryPanel}></div>
-    <section class="am-secondary-sheet" class:compact={secondaryPanel === 'quality' || secondaryPanel === 'theme'} class:detail={secondaryPanel === 'comments' || secondaryPanel === 'playlists'} aria-label={secondaryTitle}>
-      <div class="am-secondary-header">
-        <div class="am-secondary-title">{secondaryTitle}</div>
-        <button class="am-secondary-close" type="button" aria-label="关闭" onclick={closeSecondaryPanel}>
-          <Icon name="close" size={18} />
-        </button>
-      </div>
+  <PlayerSecondarySheet
+    panel={secondaryPanel}
+    onClose={closeSecondaryPanel}
+    {playerTheme}
+    onSetPlayerTheme={setPlayerTheme}
+    onToggleTheme={toggleTheme}
+    onSetQuality={setQuality}
+    contextPanel={contextPanelRequest}
+    onContextPanelChange={(value) => { contextPanelRequest = value }}
+    onOpenArtist={handleOpenArtist}
+  />
 
-      {#if secondaryPanel === 'quality'}
-        <div class="am-secondary-list">
-          {#each QUALITY_ORDER as level}
-            <button class="am-secondary-row" class:active={player.preferredLevel === level} type="button" onclick={() => setQuality(level)}>
-              <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={18} strokeWidth={1.8} />
-              <span>{qualityLabels[level] || level}</span>
-            </button>
-          {/each}
-        </div>
-      {:else if secondaryPanel === 'theme'}
-        <div class="am-secondary-list">
-          {#each playerThemeOptions as option}
-            <button class="am-secondary-row" class:active={playerTheme === option.value} type="button" onclick={() => setPlayerTheme(option.value)}>
-              <Icon name={playerTheme === option.value ? 'check' : option.icon} size={18} strokeWidth={1.8} />
-              <span>{option.label}</span>
-            </button>
-          {/each}
-          <button class="am-secondary-row" type="button" onclick={toggleTheme}>
-            <Icon name="sun" size={18} strokeWidth={1.8} />
-            <span>切换明暗色</span>
-          </button>
-        </div>
-      {:else}
-        <div class="am-secondary-context">
-          <SongContextStrip variant="mobile" activePanel={secondaryContextPanel()} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} />
-        </div>
-      {/if}
-    </section>
-  {/if}
-
-  <!-- Lyrics area -->
-  <div class="am-lyrics-area" bind:this={lyricsEl} aria-live="polite" aria-atomic="false">
-    <div class="am-lyrics-inner">
-      {#if lyricState.loading}
-        <div class="am-no-lyric" aria-busy="true">歌词加载中…</div>
-      {:else if lyricState.lyrics.length > 0}
-        {#each lyricState.lyrics as line, i}
-          {@render lyricLine(line, i)}
-        {/each}
-      {:else}
-        <div class="am-no-lyric">暂无歌词</div>
-      {/if}
-    </div>
-  </div>
-  <!-- Gradient overlays replace mask-image for better mobile performance -->
-  <div class="am-lyrics-fade-top"></div>
-  <div class="am-lyrics-fade-bottom"></div>
+  <PlayerLyrics active={lyricsMode} />
 
   <!-- Queue Panel -->
   {#if showLocalQueue}
@@ -476,416 +371,6 @@
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.85) 100%);
-  }
-
-  /* ---- More Menu ---- */
-  .am-more-shell {
-    position: absolute;
-    top: calc(36px + env(safe-area-inset-top));
-    right: 14px;
-    z-index: 40;
-  }
-
-  .am-more-btn {
-    position: relative;
-    z-index: 42;
-    width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    opacity: 0.9;
-    color: rgba(255,255,255,0.92);
-    background: rgba(20,20,20,0.28);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-    backdrop-filter: blur(16px) saturate(140%);
-    -webkit-backdrop-filter: blur(16px) saturate(140%);
-    transition: transform 0.16s var(--ease-out), background 0.16s var(--ease-out), color 0.16s var(--ease-out), opacity 0.16s var(--ease-out);
-  }
-
-  .am-more-btn:hover,
-  .am-more-btn:focus-visible {
-    opacity: 0.88;
-    background: rgba(255,255,255,0.1);
-  }
-
-  .am-more-btn:active {
-    transform: scale(0.94);
-  }
-
-  .am-more-btn.active {
-    opacity: 1;
-    color: #fff;
-    background: rgba(255,255,255,0.16);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.16), 0 8px 24px rgba(0,0,0,0.18);
-  }
-
-  .am-more-dots {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-  }
-
-  .am-more-dots span {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px rgba(255,255,255,0.14);
-  }
-
-  .am-more-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 41;
-    background: transparent;
-  }
-
-  .am-more-menu {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 43;
-    width: 100%;
-    padding: 10px 0 calc(12px + env(safe-area-inset-bottom));
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
-    background: var(--bg-surface);
-    box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    max-height: min(82dvh, 620px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    animation: queue-slide-up 0.32s var(--ease-out);
-  }
-
-  .am-more-track {
-    min-height: 70px;
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    margin: 0 16px 8px;
-    padding: 0 4px 10px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .am-more-track img { width: 48px; height: 48px; border-radius: var(--radius-xs); object-fit: cover; }
-  .am-more-track span { min-width: 0; display: grid; gap: 2px; }
-  .am-more-track strong,
-  .am-more-track small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .am-more-track strong { font-size: 15px; font-weight: 700; }
-  .am-more-track small { color: var(--text-secondary); font-size: 12px; }
-
-  .am-more-item {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    color: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: left;
-    background: transparent;
-    transition: background 0.1s;
-  }
-
-  .am-more-item :global(svg) {
-    flex: 0 0 20px;
-    color: var(--text-secondary);
-  }
-
-  .am-more-item span {
-    min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  .am-more-item:hover {
-    background: var(--bg-hover);
-  }
-
-  .am-more-item:active {
-    background: var(--accent-bg);
-  }
-
-  .am-more-item:disabled {
-    opacity: 0.38;
-    transform: none;
-  }
-
-  .am-more-message {
-    min-height: 24px;
-    padding: 2px 20px 0;
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 700;
-  }
-
-  @keyframes queue-slide-up {
-    from { opacity: 0; transform: translateY(24px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .am-secondary-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 44;
-    background: transparent;
-  }
-
-  .am-secondary-sheet {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 45;
-    width: 100%;
-    max-height: min(68vh, 520px);
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--border);
-    border-bottom: none;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    background: var(--bg-surface);
-    box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    overflow: hidden;
-    animation: queue-slide-up 0.32s var(--ease-out);
-  }
-
-  .am-secondary-sheet.compact {
-    height: auto;
-  }
-
-  .am-secondary-sheet.detail {
-    height: min(68vh, 520px);
-  }
-
-  .am-secondary-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 18px 20px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .am-secondary-title {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: 0;
-  }
-
-  .am-secondary-close {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-tertiary);
-    border-radius: 50%;
-    transition: all 0.15s;
-  }
-
-  .am-secondary-close:active {
-    background: rgba(255,255,255,0.1);
-    color: #fff;
-  }
-
-  .am-secondary-list {
-    flex: 0 1 auto;
-    overflow-y: auto;
-    padding: 8px 0 calc(12px + env(safe-area-inset-bottom));
-  }
-
-  .am-secondary-sheet.compact .am-secondary-list {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  }
-
-  .am-secondary-row {
-    min-height: 44px;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    color: inherit;
-    font-size: 14px;
-    font-weight: 500;
-    text-align: left;
-    transition: background 0.1s;
-  }
-
-  .am-secondary-row:hover {
-    background: var(--bg-hover);
-  }
-
-  .am-secondary-row.active {
-    color: var(--accent);
-    background: var(--accent-bg);
-  }
-
-  .am-secondary-row.active span {
-    font-weight: 700;
-  }
-
-  .am-secondary-context {
-    flex: 1;
-    min-height: 0;
-    overflow: hidden;
-    padding: 0 0 calc(12px + env(safe-area-inset-bottom));
-  }
-
-  .am-secondary-context :global(.ly-context-detail) {
-    position: static;
-    width: 100%;
-    height: 100%;
-    max-height: none;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-head) {
-    display: none;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-list),
-  .am-secondary-context :global(.ly-context-comment-list),
-  .am-secondary-context :global(.ly-context-detail-grid) {
-    max-height: none;
-    height: 100%;
-    overflow-y: auto;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-grid) {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 8px 0 18px;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-playlist) {
-    width: 100%;
-    min-height: 64px;
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    border-radius: 0;
-    color: inherit;
-    background: transparent;
-    transition: background 0.1s;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-playlist:hover),
-  .am-secondary-context :global(.ly-context-detail-playlist:active) {
-    background: var(--bg-hover);
-  }
-
-  .am-secondary-context :global(.ly-context-detail-playlist img),
-  .am-secondary-context :global(.ly-context-detail-playlist .ly-context-cover-ph) {
-    width: 48px;
-    height: 48px;
-    aspect-ratio: auto;
-    margin: 0;
-    border-radius: var(--radius-xs);
-    object-fit: cover;
-    background: var(--bg-layer);
-    flex-shrink: 0;
-  }
-
-  .am-secondary-context :global(.ly-context-detail-playlist strong) {
-    display: block;
-    min-width: 0;
-    color: rgba(255,255,255,0.9);
-    font-size: 14px;
-    line-height: 1.35;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .am-secondary-context :global(.ly-context-subhead) {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 48px;
-    padding: 6px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-
-  .am-secondary-context :global(.ly-context-subhead button) {
-    flex-shrink: 0;
-    color: var(--accent);
-    font-size: 14px;
-    font-weight: 500;
-  }
-
-  .am-secondary-context :global(.ly-context-subhead span) {
-    min-width: 0;
-    color: rgba(255,255,255,0.9);
-    font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .am-secondary-context :global(.ly-context-comment-list) {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    padding: 18px 16px 22px;
-    scroll-padding-top: 18px;
-  }
-
-  .am-secondary-context :global(.ly-context-comment-row) {
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    padding: 16px 0 18px;
-    border-radius: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    background: transparent;
-  }
-
-  .am-secondary-context :global(.ly-context-comment-row:last-child) {
-    border-bottom: 0;
-  }
-
-  .am-secondary-context :global(.ly-context-comment-row strong) {
-    display: block;
-    margin-bottom: 9px;
-    color: rgba(255,255,255,0.9);
-    font-size: 14px;
-    line-height: 1.35;
-    font-weight: 700;
-  }
-
-  .am-secondary-context :global(.ly-context-comment-row p) {
-    margin: 0;
-    color: rgba(255,255,255,0.68);
-    font-size: 14px;
-    line-height: 1.7;
-    overflow-wrap: anywhere;
   }
 
   /* ---- Flying Cover ---- */
@@ -1135,109 +620,8 @@
     width: 100%;
   }
 
-  /* ---- Lyrics Area ---- */
-  .am-lyrics-area {
-    position: absolute;
-    top: calc(134px + env(safe-area-inset-top));
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 5;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    /* Removed mask-image for performance — using padding + overflow instead */
-    padding-top: 26px;
-    padding-bottom: 96px;
-  }
-  .lyrics-mode .am-lyrics-area {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .am-lyrics-area::-webkit-scrollbar { display: none; }
-
-  /* Gradient fade overlays — GPU-friendly alternative to mask-image */
-  .am-lyrics-fade-top,
-  .am-lyrics-fade-bottom {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 96px;
-    z-index: 6;
-    pointer-events: none;
-  }
-  .am-lyrics-fade-top {
-    top: -48px;
-    display: none;
-  }
-  .am-lyrics-fade-bottom {
-    bottom: -40px;
-    background: linear-gradient(to top, rgba(0,0,0,0.38) 0%, transparent 100%);
-  }
-
-  .am-lyrics-inner {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    min-height: 100%;
-    padding: 20px 28px;
-  }
-
-  .am-lyric-line {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 10px 0;
-    cursor: pointer;
-    transition: transform 0.25s ease, opacity 0.25s ease;
-    outline: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .am-lyric-text {
-    display: block;
-    font-size: 20px;
-    font-weight: 500;
-    color: rgba(255,255,255,0.3);
-    line-height: 1.6;
-    transition: color 0.3s ease;
-  }
-  .am-lyric-line.before .am-lyric-text {
-    color: rgba(255,255,255,0.6);
-  }
-  .am-lyric-line.active .am-lyric-text {
-    font-weight: 700;
-    color: #fff;
-    font-size: 20px;
-  }
-  .am-lyric-trans {
-    display: block;
-    font-size: 13px;
-    font-weight: 400;
-    color: rgba(255,255,255,0.25);
-    margin-top: 4px;
-    transition: color 0.3s ease;
-  }
-  .am-lyric-line.active .am-lyric-trans {
-    color: rgba(255,255,255,0.5);
-  }
-  .am-no-lyric {
-    font-size: 15px;
-    color: rgba(255,255,255,0.3);
-    text-align: center;
-    padding: 40px 0;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .am-flying-cover,
-    .am-lyrics-area,
-    .am-lyric-line,
-    .am-lyric-text {
+    .am-flying-cover {
       transition-duration: 0.01ms;
     }
 
