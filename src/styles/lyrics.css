@@ -100,6 +100,12 @@
   padding: clamp(28px, 3vw, 48px) clamp(32px, 4.4vw, 76px);
   overflow: hidden;
 }
+
+/* 桌面自定义标题栏：外层全屏不动（展开动画以视口为原点），只把内容容器下移 */
+html.desktop-titlebar:not(.mobile-runtime) .ly-container {
+  height: calc(100vh - var(--titlebar-h));
+  margin-top: var(--titlebar-h);
+}
 /* --- Back button --- */
 .ly-top-bar {
   position: absolute;

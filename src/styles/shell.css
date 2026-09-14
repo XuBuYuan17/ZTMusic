@@ -9,9 +9,14 @@
   transition: background 0.55s var(--ease-in-out);
 }
 
-.app-shell.desktop-titlebar {
-  height: calc(100vh - 38px);
-  margin-top: 38px;
+/* 自定义标题栏（仅 Tauri 桌面）：高度变量供 fixed overlay 避让 */
+html.desktop-titlebar {
+  --titlebar-h: 38px;
+}
+
+html.desktop-titlebar .app-shell {
+  height: calc(100vh - var(--titlebar-h));
+  margin-top: var(--titlebar-h);
 }
 
 .sidebar {

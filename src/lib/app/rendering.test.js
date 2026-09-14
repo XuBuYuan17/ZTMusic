@@ -13,6 +13,10 @@ const mobileApp = await readFile(new URL('../components/MobileApp.svelte', impor
 const loginOverlay = await readFile(new URL('../components/LoginOverlay.svelte', import.meta.url), 'utf8')
 const authStore = await readFile(new URL('../stores/auth.svelte.ts', import.meta.url), 'utf8')
 const windowTitleBar = await readFile(new URL('../components/WindowTitleBar.svelte', import.meta.url), 'utf8')
+const shellCss = await readFile(new URL('../../styles/shell.css', import.meta.url), 'utf8')
+const lyricsCss = await readFile(new URL('../../styles/lyrics.css', import.meta.url), 'utf8')
+const searchOverlayCss = await readFile(new URL('../../styles/search-overlay.css', import.meta.url), 'utf8')
+const queuePanel = await readFile(new URL('../components/QueuePanel.svelte', import.meta.url), 'utf8')
 const homePage = await readFile(new URL('../pages/pc/Home.svelte', import.meta.url), 'utf8')
 const explorePage = await readFile(new URL('../pages/pc/Explore.svelte', import.meta.url), 'utf8')
 const lazyRoutes = [
@@ -39,6 +43,12 @@ assert.ok(windowTitleBar.includes('data-tauri-drag-region="deep"'), 'desktop tit
 assert.ok(windowTitleBar.includes('appWindow.minimize()'), 'desktop titlebar should minimize the window')
 assert.ok(windowTitleBar.includes('appWindow.toggleMaximize()'), 'desktop titlebar should maximize or restore the window')
 assert.ok(windowTitleBar.includes('appWindow.close()'), 'desktop titlebar should close the window')
+assert.ok(app.includes("document.documentElement.classList.add('desktop-titlebar')"), 'titlebar flag must be set synchronously on <html> so overlays offset on first frame')
+assert.ok(shellCss.includes('--titlebar-h: 38px'), 'titlebar height must be one shared variable')
+assert.ok(shellCss.includes('html.desktop-titlebar .app-shell'), 'app shell must offset only with the desktop titlebar')
+assert.ok(lyricsCss.includes('html.desktop-titlebar:not(.mobile-runtime) .ly-container'), 'fullscreen lyrics top buttons must clear the titlebar')
+assert.ok(searchOverlayCss.includes('html.desktop-titlebar:not(.mobile-runtime) .search-overlay'), 'search overlay input must clear the titlebar')
+assert.ok(queuePanel.includes(':global(html.desktop-titlebar) .queue-panel'), 'desktop queue panel must start below the titlebar')
 assert.ok(!desktopHost.includes('transition:fade'), 'desktop route changes should keep the content surface stable')
 assert.ok(desktopHost.includes('class="page-enter"'), 'desktop routes should retain one stable content container')
 assert.ok(homePage.includes('homeSnapshot?.userId === userId'), 'home should reuse the current user snapshot before refreshing')
@@ -49,4 +59,4 @@ for (const component of lazyRoutes) {
   assert.ok(desktopHost.includes(`const load${component} = lazyModule(() => import(`), `${component} should be loaded on demand`)
 }
 
-console.log(`application rendering self-check: ${lazyRoutes.length + 23} assertions passed`)
+console.log(`application rendering self-check: ${lazyRoutes.length + 29} assertions passed`)

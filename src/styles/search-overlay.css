@@ -11,6 +11,11 @@
   animation: searchOverlayIn 0.18s var(--ease-out) both;
 }
 
+/* 桌面自定义标题栏：38+10 与原 48px 视觉位置一致，且搜索条不被标题栏遮挡 */
+html.desktop-titlebar:not(.mobile-runtime) .search-overlay {
+  padding-top: calc(var(--titlebar-h) + 10px);
+}
+
 .search-overlay__scrim {
   position: absolute;
   inset: 0;

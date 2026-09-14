@@ -80,7 +80,9 @@
   const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 292 : 448)
 
   let menuLeft = $derived(Math.max(MENU_MARGIN, Math.min(x || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerWidth : 1200) - MENU_WIDTH - MENU_MARGIN)))
-  let menuTop = $derived(Math.max(MENU_MARGIN, Math.min(y || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerHeight : 800) - MENU_HEIGHT - MENU_MARGIN)))
+  // 桌面自定义标题栏时菜单不得进入顶部 38px 区域（标题栏 z-index 更高会盖住）
+  let menuMinTop = $derived(typeof document !== 'undefined' && document.documentElement.classList.contains('desktop-titlebar') ? 50 : MENU_MARGIN)
+  let menuTop = $derived(Math.max(menuMinTop, Math.min(y || menuMinTop, (typeof window !== 'undefined' ? window.innerHeight : 800) - MENU_HEIGHT - MENU_MARGIN)))
 
   function portal(node: HTMLElement) {
     document.body.appendChild(node)

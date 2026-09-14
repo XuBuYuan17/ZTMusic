@@ -2,10 +2,24 @@
   import { getCurrentWindow } from '@tauri-apps/api/window'
 
   const appWindow = getCurrentWindow()
+  let maximized = $state(false)
 
   function runWindowAction(action: () => Promise<void>, name: string): void {
     action().catch((error) => console.error(`[window:${name}]`, error))
   }
+
+  // 同步窗口最大化状态，切换“最大化/还原”图标与标签
+  $effect(() => {
+    let unlisten: (() => void) | undefined
+    const syncMaximized = () => appWindow.isMaximized()
+      .then(value => { maximized = value })
+      .catch(() => {})
+    syncMaximized()
+    appWindow.onResized(syncMaximized)
+      .then(unsubscribe => { unlisten = unsubscribe })
+      .catch(() => {})
+    return () => unlisten?.()
+  })
 </script>
 
 <header class="window-titlebar" aria-label="窗口标题栏">
@@ -18,8 +32,17 @@
     <button type="button" aria-label="最小化" title="最小化" onclick={() => runWindowAction(() => appWindow.minimize(), 'minimize')}>
       <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5h8" /></svg>
     </button>
-    <button type="button" aria-label="最大化或还原" title="最大化或还原" onclick={() => runWindowAction(() => appWindow.toggleMaximize(), 'toggle-maximize')}>
-      <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" /></svg>
+    <button
+      type="button"
+      aria-label={maximized ? '还原' : '最大化'}
+      title={maximized ? '还原' : '最大化'}
+      onclick={() => runWindowAction(() => appWindow.toggleMaximize(), 'toggle-maximize')}
+    >
+      {#if maximized}
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4 2.5h5.5V8" /><rect x="2.5" y="4" width="5.5" height="5.5" /></svg>
+      {:else}
+        <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2.5" y="2.5" width="7" height="7" /></svg>
+      {/if}
     </button>
     <button class="window-titlebar__close" type="button" aria-label="关闭" title="关闭" onclick={() => runWindowAction(() => appWindow.close(), 'close')}>
       <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 2.5 7 7m0-7-7 7" /></svg>

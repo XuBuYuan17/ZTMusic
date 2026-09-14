@@ -216,6 +216,13 @@
     animation: slideIn var(--dur-slow) var(--ease-out);
   }
 
+  /* 桌面自定义标题栏：面板从标题栏下方 12px 开始；≤760px 是移动底部 sheet，不避让 */
+  @media (min-width: 761px) {
+    :global(html.desktop-titlebar) .queue-panel {
+      top: calc(var(--titlebar-h) + 12px);
+    }
+  }
+
   @keyframes slideIn {
     from {
       opacity: 0;

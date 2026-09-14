@@ -51,6 +51,8 @@
 
   const isMobileRuntime = (): boolean => isMobileDevice()
   const hasCustomTitlebar = isTauriDesktop()
+  // 同步打标（不能等 $effect，否则首帧内容会顶到标题栏下）；供 fixed overlay 避让
+  if (hasCustomTitlebar) document.documentElement.classList.add('desktop-titlebar')
   const loadMobileApp = lazyModule(() => import('./lib/components/MobileApp.svelte'))
 
   // ── UI 状态 ──
@@ -258,7 +260,7 @@
   <WindowTitleBar />
 {/if}
 
-<main class="app-shell" class:has-wallpaper={wallpaper.active} class:desktop-titlebar={hasCustomTitlebar} data-theme={theme}>
+<main class="app-shell" class:has-wallpaper={wallpaper.active} data-theme={theme}>
   <WallpaperLayer />
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
