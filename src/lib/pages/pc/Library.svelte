@@ -3,6 +3,9 @@
   import type { NormalizedPlaylist } from '../../utils/normalize.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
+  import { musicService } from '../../music/service.ts'
+  import { player } from '../../stores/player.svelte.ts'
+  import type { CompactTrackInput } from '../../player/queue.ts'
   import { normalizePlaylist } from '../../utils/normalize.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
@@ -52,6 +55,50 @@
   let data = $derived(library || emptyLibrary)
   let savedPlaylists = $derived(data.savedPlaylists || [])
   let createdPlaylists = $derived(data.createdPlaylists || [])
+  let likedPlaylist = $derived(data.likedPlaylist)
+  // “我喜欢的音乐”同时出现在 savedPlaylists 里，网格首位单独渲染后排除
+  let otherSavedPlaylists = $derived(
+    likedPlaylist ? savedPlaylists.filter(p => p.id !== likedPlaylist.id) : savedPlaylists,
+  )
+
+  // 我喜欢的音乐：直接拉取歌单曲目播放
+  let playingLiked = $state(false)
+  // 喜爱歌曲卡封面瀑布流：只取前 8 首的封面
+  let likedCovers = $state<string[]>([])
+
+  async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
+    const id = liked?.id
+    if (!id) { likedCovers = []; return }
+    try {
+      const res = await ncm.playlistTracks(id as SongId, 8, 0)
+      if (rid !== _requestId) return
+      const r = rec(res)
+      const songs = Array.isArray(r?.songs) ? r.songs : []
+      likedCovers = songs.map((s) => {
+        const x = rec(s)
+        const pic = rec(x?.al)?.picUrl ?? rec(x?.album)?.picUrl
+        return typeof pic === 'string' ? pic : ''
+      }).filter(Boolean)
+    } catch {
+      // 拉不到就回退灰底红星
+    }
+  }
+
+
+  async function playLiked(): Promise<void> {
+    if (!likedPlaylist?.id || playingLiked) return
+    playingLiked = true
+    try {
+      const detail = await musicService.getPlaylist(likedPlaylist.id as SongId)
+      const tracks = detail?.tracks ?? []
+      if (!tracks.length) { showNotice('歌单为空'); return }
+      player.playQueue(tracks as unknown as CompactTrackInput[], 0)
+    } catch (e) {
+      showNotice(((e as { message?: unknown } | null | undefined)?.message || '播放失败') as string)
+    } finally {
+      playingLiked = false
+    }
+  }
 
   function rec(v: unknown): Record<string, unknown> | null {
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
@@ -101,6 +148,7 @@
         savedPlaylists: saved,
         likedPlaylist: liked,
       }
+      void loadLikedCovers(liked, rid)
     } catch (e) {
       if (rid === _requestId) error = ((e as { message?: unknown } | null | undefined)?.message || '加载失败') as string
     } finally {
@@ -167,11 +215,7 @@
     {#if notice}<div class="library-notice">{notice}</div>{/if}
 
     <div class="library-header">
-      <div class="library-header-info">
-        <span class="library-eyebrow">资料库</span>
-        <h1>我的收藏</h1>
-        <p>管理喜欢的音乐、创建的歌单和收藏内容。</p>
-      </div>
+      <h1 class="library-title">我的播放列表</h1>
       <div class="library-stats">
         <div class="library-stat">
           <span class="library-stat-value">{data.stats.follow}</span>
@@ -188,42 +232,21 @@
       </div>
     </div>
 
-    <!-- 快速入口 -->
-    <section class="library-section">
-      <h2 class="library-section-title">快速入口</h2>
-      <div class="library-quick-grid">
-        <button class="library-quick-card library-quick-liked" type="button"
-          onclick={() => { const pl = data.likedPlaylist; if (pl?.id) onOpenPlaylist?.(pl.id as SongId, true, pl) }}
-          disabled={!data.likedPlaylist?.id}>
-          <span class="library-quick-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </span>
-          <span class="library-quick-name">我喜欢的音乐</span>
-          <span class="library-quick-meta">{data.likedPlaylist?.trackCount || 0} 首</span>
-        </button>
-        <button class="library-quick-card" type="button" onclick={() => onNavigate?.('recent')}>
-          <span class="library-quick-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-          </span>
-          <span class="library-quick-name">最近播放</span>
-          <span class="library-quick-meta">历史记录</span>
-        </button>
-        <button class="library-quick-card" type="button" onclick={() => onNavigate?.('dailyHistory')}>
-          <span class="library-quick-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </span>
-          <span class="library-quick-name">历史日推</span>
-          <span class="library-quick-meta">每日推荐</span>
-        </button>
-        <button class="library-quick-card library-quick-add" type="button" onclick={() => showCreateModal = true}>
-          <span class="library-quick-icon">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </span>
-          <span class="library-quick-name">创建歌单</span>
-          <span class="library-quick-meta">新歌单</span>
-        </button>
-      </div>
-    </section>
+    <!-- 快速入口：弱化的胶囊行，不抢封面网格的视觉 -->
+    <div class="library-quick-row">
+      <button class="library-quick-chip" type="button" onclick={() => onNavigate?.('recent')}>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        最近播放
+      </button>
+      <button class="library-quick-chip" type="button" onclick={() => onNavigate?.('dailyHistory')}>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        历史日推
+      </button>
+      <button class="library-quick-chip" type="button" onclick={() => showCreateModal = true}>
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        创建歌单
+      </button>
+    </div>
 
     {#if error}
       <ErrorBlock message={error} onRetry={load} />
@@ -239,46 +262,34 @@
           </div>
         {/each}
       </div>
+    {:else if likedPlaylist || createdPlaylists.length || savedPlaylists.length}
+      <div class="library-grid">
+        {#if likedPlaylist}
+          <LibraryPlaylistCard
+            pl={likedPlaylist}
+            index={0}
+            liked={true}
+            covers={likedCovers}
+            busy={playingLiked}
+            onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
+            onPlay={() => playLiked()}
+          />
+        {/if}
+        {#each createdPlaylists as pl, i (pl.id as SongId)}
+          <LibraryPlaylistCard {pl} index={i + (likedPlaylist ? 1 : 0)} onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)} />
+        {/each}
+        {#each otherSavedPlaylists as pl, i (pl.id as SongId)}
+          <LibraryPlaylistCard
+            {pl}
+            index={i + createdPlaylists.length + (likedPlaylist ? 1 : 0)}
+            managed={true}
+            onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
+            onUnsubscribe={confirmUnsubscribe}
+          />
+        {/each}
+      </div>
     {:else}
-      <!-- 创建的歌单 -->
-      <section class="library-section">
-        <div class="library-section-head">
-          <h2 class="library-section-title">创建的歌单</h2>
-          <span class="library-section-count">{createdPlaylists.length}</span>
-        </div>
-        {#if createdPlaylists.length > 0}
-          <div class="library-grid">
-            {#each createdPlaylists as pl, i (pl.id as SongId)}
-              <LibraryPlaylistCard {pl} index={i} onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)} />
-            {/each}
-          </div>
-        {:else}
-          <div class="library-section-empty">还没有创建歌单</div>
-        {/if}
-      </section>
-
-      <!-- 收藏的歌单 -->
-      <section class="library-section">
-        <div class="library-section-head">
-          <h2 class="library-section-title">收藏的歌单</h2>
-          <span class="library-section-count">{savedPlaylists.length}</span>
-        </div>
-        {#if savedPlaylists.length > 0}
-          <div class="library-grid">
-            {#each savedPlaylists as pl, i (pl.id as SongId)}
-              <LibraryPlaylistCard
-                {pl}
-                index={i}
-                managed={true}
-                onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
-                onUnsubscribe={confirmUnsubscribe}
-              />
-            {/each}
-          </div>
-        {:else}
-          <div class="library-section-empty">还没有收藏的歌单</div>
-        {/if}
-      </section>
+      <div class="library-section-empty">还没有收藏的歌单</div>
     {/if}
   {/if}
 

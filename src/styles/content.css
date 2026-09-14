@@ -982,7 +982,7 @@ html.mobile-runtime .mobile-tabs {
 
   html.mobile-runtime .page-header h1,
 
-  html.mobile-runtime .library-header-info h1 {
+  html.mobile-runtime .library-title {
     font-size: 24px;
     letter-spacing: 0;
   }
