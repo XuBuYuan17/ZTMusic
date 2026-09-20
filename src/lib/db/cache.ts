@@ -30,6 +30,10 @@ import type { SongId } from '../types/music.ts'
 // ==== 降级前缀 ====
 const URL_CACHE_PREFIX = 'db_fallback_url_'  // localStorage fallback for song URLs
 
+// 离线保留窗口：过期但仍在窗口内的 API 缓存行会留着，供断网兜底（allowExpired）读取；
+// 超过该窗口才算真正弃用，由读取路径和会话清扫统一回收。
+export const OFFLINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000
+
 export interface ApiCacheReadOptions {
   allowExpired?: boolean
 }
@@ -77,18 +81,20 @@ export const dbCache = {
     try {
       const db = getDB()
       if (!db) return null
+      const now = Date.now()
       const rows = await db.sql(
         allowExpired
-          ? `SELECT value FROM api_cache WHERE key = ?`
+          ? `SELECT value FROM api_cache WHERE key = ? AND expires_at + ? > ?`
           : `SELECT value FROM api_cache WHERE key = ? AND expires_at > ?`,
-        allowExpired ? [key] : [key, Date.now()]
+        allowExpired ? [key, OFFLINE_RETENTION_MS, now] : [key, now]
       )
       const raw = rows[0]?.value
       if (typeof raw === 'string' && raw) {
         return JSON.parse(raw)
       }
       if (!allowExpired) {
-        await db.sql(`DELETE FROM api_cache WHERE key = ?`, [key]).catch(() => {})
+        // 只删超过保留窗口的旧行；窗口内的过期行留着供断网兜底读取，统一交给清扫回收
+        await db.sql(`DELETE FROM api_cache WHERE key = ? AND expires_at + ? <= ?`, [key, OFFLINE_RETENTION_MS, now]).catch(() => {})
       }
       return null
     } catch (error) {
@@ -130,7 +136,7 @@ export const dbCache = {
       return
     }
     try {
-      await db.sql(`DELETE FROM api_cache WHERE expires_at <= ?`, [Date.now()])
+      await db.sql(`DELETE FROM api_cache WHERE expires_at + ? <= ?`, [OFFLINE_RETENTION_MS, Date.now()])
     } catch { /* ignore */ }
   },
 

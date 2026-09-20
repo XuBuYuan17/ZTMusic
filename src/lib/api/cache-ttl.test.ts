@@ -33,6 +33,11 @@ check('未配置的端点不缓存', () => {
   assert.equal(getApiCacheTtl('/not/configured', 'GET'), 0)
 })
 
+check('搜索端点已配置 TTL（断网可兜底）', () => {
+  assert.ok(getApiCacheTtl('/search', 'GET') > 0)
+  assert.ok(getApiCacheTtl('/cloudsearch', 'GET') > 0)
+})
+
 // 这条是本文件存在的理由：失败响应曾被当成成功结果缓存，
 // /lyric 的 TTL 是 7 天，一次 502 会造成一周看不到歌词。
 check('code 200 可缓存', () => {

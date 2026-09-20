@@ -273,6 +273,8 @@
         <div class="lcd-meta__title">{player.title || '未在播放'}</div>
         {#if player.error}
           <div class="lcd-meta__artist">{player.error}</div>
+        {:else if player.webdavDownloading}
+          <div class="lcd-meta__artist">正在下载 {player.webdavDownloading.name}{#if player.webdavDownloading.percent >= 0} {player.webdavDownloading.percent}%{/if}</div>
         {:else if player.artist && !player.loading && !lyricLoading}
           <div class="lcd-meta__artist"><ArtistNames artists={currentArtists} onOpenArtist={artistNavigation} fallback={player.artist} /></div>
         {:else}

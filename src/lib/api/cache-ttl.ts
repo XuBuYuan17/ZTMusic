@@ -26,6 +26,8 @@ const CACHE_TTL: Record<string, number> = {
   '/album/newest': 2 * 60 * MINUTE,
   '/homepage/block/page': 20 * MINUTE,
   '/recommend/resource': 15 * MINUTE,
+  '/cloudsearch': 10 * MINUTE,
+  '/search': 10 * MINUTE,
   '/user/playlist': 5 * MINUTE,
   '/user/record': 5 * MINUTE,
   '/user/subcount': 5 * MINUTE,

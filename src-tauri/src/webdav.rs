@@ -12,7 +12,7 @@ use reqwest::{
     Method, Url,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{AppState, APP_USER_AGENT};
 
@@ -31,6 +31,8 @@ const AUDIO_EXTENSIONS: &[&str] = &["aac", "flac", "m4a", "mp3", "oga", "ogg", "
 const MAX_TRACKS: usize = 500;
 const MAX_AUDIO_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_CACHE_BYTES: u64 = 3 * 1024 * 1024 * 1024;
+// 音频下载的按请求总超时：共享 client 的 15s 是给 API 信号的，大文件必须放宽（覆盖 body 读取全程）
+const WEBDAV_DOWNLOAD_TIMEOUT_SECS: u64 = 600;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -138,6 +140,7 @@ pub async fn webdav_cache_audio(
     let mut builder = state
         .client
         .get(url.clone())
+        .timeout(std::time::Duration::from_secs(WEBDAV_DOWNLOAD_TIMEOUT_SECS))
         .header(USER_AGENT, APP_USER_AGENT);
 
     if let Some(username) = request
@@ -193,8 +196,22 @@ pub async fn webdav_cache_audio(
         .write(true)
         .open(&temp_path)
         .map_err(|error| format!("Cannot create WebDAV cache file: {error}"))?;
+
+    let emit_progress = |downloaded: u64| {
+        let _ = app.emit(
+            "webdav-audio-progress",
+            serde_json::json!({
+                "key": cache_file_name(url.as_str(), extension),
+                "downloaded": downloaded,
+                "total": content_length,
+            }),
+        );
+    };
+
     let download_result: Result<(), String> = async {
         let mut downloaded = 0_u64;
+        let mut last_emitted = 0_u64;
+        let mut last_emit_at = SystemTime::now();
         while let Some(chunk) = response
             .chunk()
             .await
@@ -208,10 +225,22 @@ pub async fn webdav_cache_audio(
             }
             file.write_all(&chunk)
                 .map_err(|error| format!("Cannot write WebDAV cache: {error}"))?;
+            // 按 250ms 或 1MB 节流，避免小文件下载时刷爆事件通道
+            let now = SystemTime::now();
+            let elapsed_ms = now
+                .duration_since(last_emit_at)
+                .unwrap_or_default()
+                .as_millis();
+            if downloaded - last_emitted >= 1024 * 1024 || elapsed_ms >= 250 {
+                emit_progress(downloaded);
+                last_emitted = downloaded;
+                last_emit_at = now;
+            }
         }
         if downloaded == 0 {
             return Err("WebDAV audio response is empty".to_string());
         }
+        emit_progress(downloaded);
         file.sync_all()
             .map_err(|error| format!("Cannot flush WebDAV cache: {error}"))?;
         Ok(())

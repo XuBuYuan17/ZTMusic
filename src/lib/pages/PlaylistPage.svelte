@@ -43,6 +43,7 @@
     playlistDetail = null,
     loading = false,
     loadingMore = false,
+    hasMore = false,
     error = '',
     selectedId = null,
     heroColor = '#141414',
@@ -52,10 +53,12 @@
     onPlayTrack,
     onOpenArtist,
     onOpenAlbum,
+    onLoadMore,
   }: {
     playlistDetail?: PlaylistDetailLike | null
     loading?: boolean
     loadingMore?: boolean
+    hasMore?: boolean
     error?: string
     selectedId?: SongId | null
     heroColor?: string
@@ -65,6 +68,7 @@
     onPlayTrack?: (id: SongId, tracks?: DetailTrackLike[] | null) => void
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
+    onLoadMore?: () => void
   } = $props()
 
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
@@ -74,6 +78,21 @@
   let lastSelectedId = $state<SongId | null>(null)
 
   let visibleTracks = $derived(filterAndSortTracks(playlistDetail?.tracks || [], trackSearch, trackSort, trackSortDir))
+
+  // 滚动触底自动加载更多：底部哨兵行进入视口即触发；hasMore/loadingMore 用 getter 读取，
+  // action 只挂一次，回调时取的是最新值
+  function loadMoreSentinel(
+    node: Element,
+    control: { hasMore: () => boolean; loadingMore: () => boolean },
+  ): { destroy: () => void } {
+    if (typeof IntersectionObserver === 'undefined') return { destroy: () => {} }
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0]
+      if (entry?.isIntersecting && control.hasMore() && !control.loadingMore()) onLoadMore?.()
+    }, { rootMargin: '240px 0px' })
+    observer.observe(node)
+    return { destroy: () => observer.disconnect() }
+  }
   let totalTrackCount = $derived(playlistDetail?.trackCount || playlistDetail?.trackIds?.length || playlistDetail?.tracks?.length || 0)
   let isWaitingForTracks = $derived(Boolean(loading && playlistDetail && (!playlistDetail.tracks || playlistDetail.tracks.length === 0)))
 
@@ -279,11 +298,13 @@
                 <td class="col-dur">{duration(track)}</td>
               </tr>
             {/each}
-            {#if loadingMore && playlistDetail?.tracks?.length}
-              <tr class="loading-more-row">
+            {#if (loadingMore || hasMore) && playlistDetail?.tracks?.length}
+              <tr class="loading-more-row" use:loadMoreSentinel={{ hasMore: () => hasMore, loadingMore: () => loadingMore }}>
                 <td colspan="6">
-                  <span class="loading-more-spinner"></span>
-                  正在加载更多歌曲…
+                  {#if loadingMore}
+                    <span class="loading-more-spinner"></span>
+                  {/if}
+                  {loadingMore ? '正在加载更多歌曲…' : '下滑加载更多'}
                 </td>
               </tr>
             {/if}

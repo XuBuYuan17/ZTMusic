@@ -261,6 +261,7 @@
           playlistDetail={router.playlistDetail}
           loading={router.playlistDetailLoading}
           loadingMore={router.playlistLoadingMore}
+          hasMore={router.playlistHasMore}
           error={router.playlistDetailError}
           selectedId={router.selectedId}
           heroColor={router.heroColor}
@@ -270,6 +271,7 @@
           onPlayTrack={router.playTrack}
           onOpenArtist={onOpenArtist}
           onOpenAlbum={onOpenAlbum}
+          onLoadMore={router.loadMorePlaylist}
         />
       {:else if activeView === 'artist'}
         <ArtistPage

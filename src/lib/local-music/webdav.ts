@@ -4,7 +4,6 @@ import { isTauriRuntime } from '../utils/runtime.ts'
 const AUDIO_EXTENSIONS = new Set(['aac', 'flac', 'm4a', 'mp3', 'oga', 'ogg', 'opus', 'wav'])
 const SETTINGS_KEY = 'zheting.webdav.settings'
 const PASSWORD_KEY = 'zheting.webdav.password'
-const playableUrlCache = new Map<unknown, string>()
 
 type TauriCoreModule = typeof import('@tauri-apps/api/core')
 let tauriApiPromise: Promise<Pick<TauriCoreModule, 'invoke' | 'convertFileSrc'>> | null = null
@@ -163,31 +162,80 @@ interface CachedAudio {
   path: string
 }
 
+// ==== 下载进度订阅（播放器底部小提示用）====
+export interface WebDavDownloadProgress {
+  name: string
+  downloaded: number
+  total: number
+}
+
+const webdavProgressSubs = new Set<(progress: WebDavDownloadProgress | null) => void>()
+let webdavListenPromise: Promise<void> | null = null
+let webDavDownloadGeneration = 0
+/** 当前在途的下载（把后端进度事件归位到正在播放的曲目） */
+let activeWebDavDownload: { name: string } | null = null
+
+function notifyWebDavProgress(progress: WebDavDownloadProgress | null): void {
+  for (const subscriber of webdavProgressSubs) subscriber(progress)
+}
+
+async function ensureWebDavProgressListen(): Promise<void> {
+  if (webdavListenPromise) return
+  webdavListenPromise = (async () => {
+    try {
+      const { listen } = await import('@tauri-apps/api/event')
+      await listen<{ downloaded?: number; total?: number }>('webdav-audio-progress', (event) => {
+        const active = activeWebDavDownload
+        if (!active) return
+        const downloaded = Number(event.payload?.downloaded) || 0
+        const total = Number(event.payload?.total) || 0
+        if (downloaded <= 0) return
+        notifyWebDavProgress({ name: active.name, downloaded, total })
+      })
+    } catch {
+      // 浏览器（非 Tauri）没有事件系统，静默即可
+    }
+  })()
+  await webdavListenPromise
+}
+
+/** 订阅 WebDAV 下载进度；回调收到 null 表示本次下载结束（命中缓存不发事件时也会收到） */
+export function subscribeWebDavDownloadProgress(
+  callback: (progress: WebDavDownloadProgress | null) => void,
+): () => void {
+  webdavProgressSubs.add(callback)
+  void ensureWebDavProgressListen()
+  return () => webdavProgressSubs.delete(callback)
+}
+
 export async function getWebDavPlayableUrl(track: unknown): Promise<string> {
   const t = asRecord(track)
   const id = t.webdavId || t.id
   if (!id) throw new Error('WebDAV 曲目缺少 ID')
-  const cachedPlayable = playableUrlCache.get(id)
-  if (cachedPlayable !== undefined) return cachedPlayable
   const remoteUrl = normalizeWebDavUrl(t.remoteUrl)
   if (!remoteUrl) throw new Error('WebDAV 曲目地址无效，请重新扫描')
   const storedSettings = getStoredWebDavSettings()
   const baseUrl = normalizeWebDavUrl(t.webdavBaseUrl || storedSettings.url)
   if (!baseUrl) throw new Error('WebDAV 服务器地址无效，请重新扫描')
   const { invoke, convertFileSrc } = await getTauriApi()
-  const cached = await invoke('webdav_cache_audio', {
-    request: {
-      url: remoteUrl,
-      baseUrl,
-      username: String(t.webdavUsername || storedSettings.username || ''),
-      password: getWebDavPassword(),
-    },
-  }) as CachedAudio
-  const playableUrl = convertFileSrc(cached.path)
-  playableUrlCache.set(id, playableUrl)
-  return playableUrl
-}
-
-export function revokeWebDavPlayableUrl(id: unknown): void {
-  playableUrlCache.delete(id)
+  const generation = ++webDavDownloadGeneration
+  activeWebDavDownload = { name: String(t.name || t.fileName || '音乐文件') }
+  void ensureWebDavProgressListen()
+  try {
+    const cached = await invoke('webdav_cache_audio', {
+      request: {
+        url: remoteUrl,
+        baseUrl,
+        username: String(t.webdavUsername || storedSettings.username || ''),
+        password: getWebDavPassword(),
+      },
+    }) as CachedAudio
+    return convertFileSrc(cached.path)
+  } finally {
+    // 结束本次下载；若已有新下载接管（generation 已变），别错清
+    if (generation === webDavDownloadGeneration) {
+      activeWebDavDownload = null
+      notifyWebDavProgress(null)
+    }
+  }
 }

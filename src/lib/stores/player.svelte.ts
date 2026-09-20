@@ -39,7 +39,7 @@ import { createFallbackController } from '../player/fallback.ts'
 import { abortAllRequests } from '../utils/request.ts'
 import { toast } from './toast.svelte.js'
 import { getLocalPlayableUrl } from '../local-music/storage.ts'
-import { getWebDavPlayableUrl } from '../local-music/webdav.ts'
+import { getWebDavPlayableUrl, subscribeWebDavDownloadProgress } from '../local-music/webdav.ts'
 import type { SongId } from '../types/music.ts'
 import type { PlayMode, QualityLevel, PlayerEngineState } from '../types/player.ts'
 
@@ -83,6 +83,8 @@ class PlayerState {
   loading = $state(false)
   currentTime = $state(0)
   error = $state('')
+  /** WebDAV 音频下载进度（用于底部播放条小提示）；percent 为 -1 表示总大小未知 */
+  webdavDownloading = $state<{ name: string; percent: number } | null>(null)
 
   // ===== 设置 =====
   volume = $state(0.8)
@@ -136,12 +138,26 @@ class PlayerState {
   }
   /** 当前播放请求的中止控制器 */
   _abortController = new AbortController()
+  /** WebDAV 下载进度订阅的清理函数 */
+  _unsubscribeWebDavProgress: (() => void) | null = null
   /** 洗牌状态：保存当前队列的 Fisher-Yates 顺序 */
   shuffleState = createShuffleState()
 
   constructor() {
     // 从 localStorage 恢复初始状态
     this._restoreInitialState()
+
+    // 订阅 WebDAV 下载进度，供底部播放条显示小提示
+    this._unsubscribeWebDavProgress = subscribeWebDavDownloadProgress((progress) => {
+      if (!progress) {
+        this.webdavDownloading = null
+        return
+      }
+      const percent = progress.total > 0
+        ? Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
+        : -1
+      this.webdavDownloading = { name: progress.name, percent }
+    })
 
     // 设置 engine 事件监听
     this._setupEngineListeners()
@@ -1037,6 +1053,7 @@ class PlayerState {
 
   /** 销毁，释放资源 */
   destroy(): void {
+    this._unsubscribeWebDavProgress?.()
     this._clearLoadingTimer()
     if (this._advanceTimer) {
       clearTimeout(this._advanceTimer)
