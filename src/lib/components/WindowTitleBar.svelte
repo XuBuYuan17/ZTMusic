@@ -85,9 +85,9 @@
 
   .window-titlebar__title {
     overflow: hidden;
-    font-size: 12px;
+    font-size: 18px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.04em;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
