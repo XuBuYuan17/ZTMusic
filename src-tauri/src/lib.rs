@@ -106,7 +106,6 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
     if let Err(error) = windows_smtc::set_process_app_id() {

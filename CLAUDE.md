@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目简介
 
-**ZTmusic（哲听）** —— 网易云音乐第三方跨平台客户端，Svelte 5 + Tauri 2，支持 Windows / Linux / Android / Web。包名是 `zheting`（拼音），仓库名是 `ZTmusic`（"哲听"缩写），历史遗留不一致。
+**ZTmusic（哲听）** —— 网易云音乐第三方跨平台客户端，Svelte 5 + Tauri 2，支持 Windows / Linux / Web。包名是 `zheting`（拼音），仓库名是 `ZTmusic`（"哲听"缩写），历史遗留不一致。
 
 > 仅供个人学习与技术交流，音乐数据来自第三方 API。
 
@@ -33,7 +33,6 @@ node src/lib/player/fallback.test.ts   # Node 自动类型擦除；Node 22 早�
 ```bash
 pnpm tauri:build            # Windows NSIS（已内置 --target x86_64-pc-windows-gnu）
 pnpm tauri:build:linux      # deb + rpm
-pnpm tauri:build:android    # arm64-v8a release APK（需本机 SDK/NDK + 签名）
 ```
 
 ⚠️ **Windows 打包不要裸跑 `tauri build`**：用户级 `~/.cargo/config.toml` 设了 `[build] target`，cargo 输出到 `target/x86_64-pc-windows-gnu/release/` 而 tauri CLI 默认找 `target/release/` → `os error 2`。`package.json` 里已内置 `--target`。
@@ -45,7 +44,7 @@ pnpm tauri:build:android    # arm64-v8a release APK（需本机 SDK/NDK + 签名
 | 环境 | 请求路径 |
 |---|---|
 | 浏览器开发 | `/ncm-api` → Vite proxy → `https://music.xubuyuan.top` |
-| Tauri 桌面 / 移动 | `invoke('api_request')` → `src-tauri/src/api.rs` → reqwest |
+| Tauri 桌面 | `invoke('api_request')` → `src-tauri/src/api.rs` → reqwest |
 
 `client.ts` 里的 `isBrowserDevRuntime()` / `isTauriRuntime()` 决定走哪条。**SSRF 白名单、Referer、重定向策略都在 Rust 端** (`api.rs`)，只允许精确匹配的 host。IPC 命令名是 `api_request`（不是 `ncm_request`）。
 
@@ -86,13 +85,13 @@ Provider 是**能力型契约**，不要求实现全部方法。登录、收藏�
 
 `lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.ts`，缓存 key 把**完整 cookie 也 hash 进去**（避免跨账号串数据）。失败响应不写缓存。
 
-### 桌面/移动原生（`src-tauri/src/`）
+### 桌面原生（`src-tauri/src/`）
 
 `api.rs`（IPC HTTP 代理）、`windows_smtc.rs`（Windows SMTC）、`linux_mpris.rs`（Linux MPRIS）、`media_playback.rs` / `media_metadata.rs`、`pending_action.rs`、`webdav.rs`。
 
-`player/native-media-platform.js` 的 `selectMediaBackend()` 决定用原生还是 web media session —— **Android 走 `'web'`**，只有 Linux/Windows 走 `'native'`。
+`player/native-media-platform.ts` 的 `selectMediaBackend()` 决定用原生还是 Web Media Session；Linux / Windows 走原生媒体控制。
 
-Cargo `crate-type` 含 `staticlib`/`cdylib` 是给移动端生成原生库用的，桌面端 `main.rs` 用 `rlib` 调 `app_lib::run()`。
+Cargo `crate-type` 仅保留 `rlib`，由桌面端 `main.rs` 调用 `app_lib::run()`。
 
 ## CSS 的硬约束
 

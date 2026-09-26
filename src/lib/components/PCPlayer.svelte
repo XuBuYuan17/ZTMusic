@@ -149,7 +149,7 @@
   </div>
 
   <!-- LEFT COLUMN: Cover + Controls -->
-  <div class="ly-left">
+  <div class="ly-left" class:tools-open={showLyricTools}>
     <div class="ly-left-cover" class:tools-open={showLyricTools}>
       <div class="ly-cover-wrap">
         <button class="ly-cover-button" type="button" onclick={toggleLyricTools} aria-label="展开歌曲操作" aria-expanded={showLyricTools}>

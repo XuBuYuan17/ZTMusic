@@ -4,7 +4,7 @@
  * 退出码：0 = 过，1 = 挂。
  */
 import assert from 'node:assert/strict'
-import { isTauriAndroid, isTauriDesktop, isTauriRuntime, runtimePlatform } from './runtime.ts'
+import { isTauriDesktop, isTauriRuntime, runtimePlatform } from './runtime.ts'
 
 type RuntimeWindow = (Window & typeof globalThis) & { __TAURI_INTERNALS__?: unknown }
 
@@ -33,7 +33,6 @@ function restore(): void {
   setRuntime({ hasTauri: false, platform: 'Linux x86_64', userAgent: 'Mozilla/5.0' })
   assert.equal(isTauriRuntime(), false, 'browser: not Tauri')
   assert.equal(isTauriDesktop(), false, 'browser: not Tauri desktop')
-  assert.equal(isTauriAndroid(), false, 'browser: not Tauri Android')
   assert.equal(runtimePlatform(), 'Linux x86_64 Mozilla/5.0')
 }
 
@@ -42,7 +41,6 @@ function restore(): void {
   setRuntime({ hasTauri: true, platform: 'Linux x86_64', userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' })
   assert.equal(isTauriRuntime(), true, 'Tauri Linux: is Tauri')
   assert.equal(isTauriDesktop(), true, 'Tauri Linux: is desktop')
-  assert.equal(isTauriAndroid(), false, 'Tauri Linux: not Android')
 }
 
 // ── Tauri Windows 桌面 ──
@@ -50,7 +48,6 @@ function restore(): void {
   setRuntime({ hasTauri: true, platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows)' })
   assert.equal(isTauriRuntime(), true)
   assert.equal(isTauriDesktop(), true, 'Tauri Win: is desktop')
-  assert.equal(isTauriAndroid(), false)
 }
 
 // ── Tauri macOS 桌面 ──
@@ -58,22 +55,6 @@ function restore(): void {
   setRuntime({ hasTauri: true, platform: 'MacIntel', userAgent: 'Mozilla/5.0 (Macintosh)' })
   assert.equal(isTauriRuntime(), true)
   assert.equal(isTauriDesktop(), true, 'Tauri macOS: is desktop')
-}
-
-// ── Tauri Android ──
-{
-  setRuntime({ hasTauri: true, platform: 'Linux armv8l', userAgent: 'Mozilla/5.0 (Linux; Android 13)' })
-  assert.equal(isTauriRuntime(), true)
-  assert.equal(isTauriDesktop(), false, 'Tauri Android: NOT desktop')
-  assert.equal(isTauriAndroid(), true, 'Tauri Android: is Android')
-}
-
-// ── 浏览器在 Android UA 上（不是 Tauri） ──
-{
-  setRuntime({ hasTauri: false, platform: 'Linux armv8l', userAgent: 'Mozilla/5.0 (Linux; Android 13)' })
-  assert.equal(isTauriRuntime(), false, 'browser Android: not Tauri')
-  assert.equal(isTauriDesktop(), false, 'browser Android: not Tauri desktop')
-  assert.equal(isTauriAndroid(), false, 'browser Android: not Tauri Android')
 }
 
 // ── navigator 缺失（SSR / node 环境） ──
@@ -90,4 +71,4 @@ function restore(): void {
 }
 
 restore()
-console.log('runtime detection: 18 assertions passed')
+console.log('runtime detection: 12 assertions passed')

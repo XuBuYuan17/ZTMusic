@@ -20,15 +20,9 @@ export function runtimePlatform(): string {
   ].filter(Boolean).join(' ')
 }
 
-/** 区分 Tauri 桌面（Linux/Windows/macOS）和 Tauri Android。
- *  Android 的 WebView 行为更接近移动浏览器，OPFS/cookie 等特性较弱。 */
+/** 当前项目只提供 Tauri 桌面构建。 */
 export function isTauriDesktop(): boolean {
   if (!isTauriRuntime()) return false
   const p = runtimePlatform()
-  return /Linux|Win|Mac/i.test(p) && !/Android/i.test(p)
-}
-
-/** Tauri Android 专用。 */
-export function isTauriAndroid(): boolean {
-  return isTauriRuntime() && /Android/i.test(runtimePlatform())
+  return /Linux|Win|Mac/i.test(p)
 }

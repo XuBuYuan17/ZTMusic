@@ -1,6 +1,6 @@
 # ZTmusic 平台适配现状
 
-本文对齐当前 Tauri 2 多平台构建状态。桌面端以 Windows / Linux 安装包为主，Android CI 产出 arm64-v8a release APK。
+本文对齐当前 Tauri 2 桌面端与 Web 构建状态。桌面端提供 Windows / Linux 安装包，Web 端提供 Vite 静态产物。
 
 ---
 
@@ -21,22 +21,11 @@
 | MPRIS 媒体控制 | ✅ `src-tauri/src/linux_mpris.rs` + `mpris-server` crate |
 | `.deb` / `.rpm` 打包 | ✅ `pnpm tauri:build:linux` |
 
-### Android
-
-| 项 | 状态 |
-|---|---|
-| release APK 打包 | ✅ `pnpm tauri:build:android`，仅 arm64-v8a |
-| CI 依赖 | ✅ Java 17 + Android SDK / Build Tools / NDK + `aarch64-linux-android` |
-| Android 工程 | ⚠️ CI 会在 `src-tauri/gen/android` 不存在时执行 `tauri android init` |
-| release 签名 | ✅ 通过 GitHub Secrets 临时生成 `keystore.properties` |
-| 签名初始化 | ✅ `pnpm setup:android-signing` |
-| AAB | ⏳ 未配置，当前只产出 APK |
-
 ### Web
 
 - Vite 纯前端构建（`pnpm build` → `dist/`），API 走 `/ncm-api` 代理
 - 未部署；如需公网访问，建议 Cloudflare Pages / GitHub Pages 单独部署
-- 手机浏览器访问走移动端布局（`pages/mobile/`），与 Android APK 共用前端适配逻辑
+- 手机浏览器访问走响应式移动布局（`pages/mobile/`）
 
 ---
 
@@ -45,7 +34,6 @@
 | 优先级 | 项 | 说明 |
 |---|---|---|
 | P1 | WebView2 `downloadBootstrapper` | 减小安装包体积，缺 WebView2 的旧机器自动下载 |
-| P1 | Android AAB | 如果要上架 Google Play，再增加 `.aab` 构建 |
 | P2 | tauri updater | 桌面端自动更新，需要签名密钥与更新服务器 |
 
 版本号三处一致（`package.json` / `Cargo.toml` / `tauri.conf.json`）由 `pnpm check:versions` 校验，已并入 `pnpm verify`。
@@ -60,7 +48,7 @@
 | `src-tauri/src/linux_mpris.rs` | Linux MPRIS |
 | `src-tauri/Cargo.toml` | Rust 依赖 + 编译优化 |
 | `src-tauri/tauri.conf.json` | Tauri 配置 + 版本号 |
-| `src/lib/player/native-media.ts` | 前端 ↔ 原生桥接；Android 使用 Web Media Session |
+| `src/lib/player/native-media.ts` | 前端 ↔ 桌面原生媒体控制桥接；Web 使用 Media Session |
 | `.github/workflows/build.yml` | CI/CD 构建流程 |
 
 ---
@@ -70,8 +58,6 @@
 | 资源 | 链接 |
 |---|---|
 | Tauri 2 官方文档 | https://v2.tauri.app/ |
-| Tauri Android 前置依赖 | https://v2.tauri.app/start/prerequisites/#android |
-| Tauri Android / Google Play 构建 | https://v2.tauri.app/distribute/google-play/ |
 | Tauri IPC 通信 | https://v2.tauri.app/concept/inter-process-communication/ |
 | Tauri Updater | https://v2.tauri.app/distribute/updater/ |
 | Tauri WebView2 分发 | https://v2.tauri.app/distribute/windows-installer/ |

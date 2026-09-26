@@ -16,16 +16,16 @@ dist-ssr
 local.settings.json
 local.override.css
 
-# Signing secrets
+# Local signing material must never be committed, even though this repository no longer builds mobile packages.
 *.jks
 *.keystore
 .android-signing/
-src-tauri/gen/android/keystore.properties
+
+# Generated Tauri platform projects.
+src-tauri/gen/
 
 # Tauri build outputs
 src-tauri/target
-# Tauri 移动端脚手架：CI 每次按需重新 init，属可再生产物
-src-tauri/gen/
 
 # Editor directories and files
 .vscode/*

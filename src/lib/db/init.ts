@@ -5,12 +5,11 @@
  *
  * 兼容性策略（重要）：
  *   - 纯浏览器环境：OPFS 正常工作，数据持久化
- *   - Tauri Android：WebView 行为更接近移动浏览器，OPFS 不可靠，跳过 SQLite
  *   - Tauri 桌面（Linux/Windows）：尝试 SQLite，失败时静默降级到 IndexedDB
  *   - 任一失败：降级到 localStorage/IndexedDB
  */
 
-import { isTauriAndroid, isTauriRuntime } from '../utils/runtime.ts'
+import { isTauriRuntime } from '../utils/runtime.ts'
 import { debugLog, describeError } from '../utils/logging.ts'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.ts'
 import { STORAGE_KEYS } from '../utils/constants.ts'
@@ -67,16 +66,6 @@ export async function initDB(): Promise<boolean> {
     _errored = true
     _backend = 'fallback'
     try { setStorage('db_fallback_reason', 'non_browser_runtime') } catch { /* ignore */ }
-    return false
-  }
-
-  // Tauri Android: WebView 行为更接近移动浏览器，OPFS 不可靠，直接降级。
-  // 桌面端（Linux/Windows WebView2/WebKitGTK）尝试走 SQLite 路径。
-  if (isTauriAndroid()) {
-    debugLog('db', 'skip SQLite on Tauri Android')
-    _errored = true
-    _backend = 'fallback'
-    try { setStorage('db_fallback_reason', 'android_tauri') } catch { /* ignore */ }
     return false
   }
 

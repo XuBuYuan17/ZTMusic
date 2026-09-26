@@ -31,6 +31,12 @@ html:not(.mobile-runtime) .ly-left {
   min-height: 0;
 }
 
+html:not(.mobile-runtime) .ly-left.tools-open {
+  padding-top: clamp(24px, 3vh, 50px);
+  justify-content: safe center;
+  overflow-y: auto;
+}
+
 html:not(.mobile-runtime) .ly-left-cover {
   display: flex;
   flex-direction: column;
@@ -45,6 +51,20 @@ html:not(.mobile-runtime) .ly-cover-wrap {
   width: min(100%, clamp(280px, 25vw, 460px));
   aspect-ratio: 1;
   flex-shrink: 0;
+}
+
+html:not(.mobile-runtime) .ly-left-cover.tools-open .ly-cover-wrap {
+  width: min(100%, clamp(240px, 20vw, 340px));
+}
+
+@media (max-height: 850px) {
+  html:not(.mobile-runtime) .ly-left.tools-open {
+    padding-top: 12px;
+  }
+
+  html:not(.mobile-runtime) .ly-left-cover.tools-open .ly-cover-wrap {
+    width: min(100%, clamp(200px, 31vh, 280px));
+  }
 }
 
 html:not(.mobile-runtime) .ly-cover {

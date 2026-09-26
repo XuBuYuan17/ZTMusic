@@ -47,9 +47,8 @@ export default defineConfig({
   build: {
     // 禁用 CSS 动态注入和 modulepreload：动态注入的 <link>/<script> 会自带 crossorigin，
     // 在 Tauri 自定义协议下被 CORS 拦截（与上面的 stripCrossorigin 配套）。
-    // ponytail: target 'chrome100' 原是为兼容 Android WebView（minSdk 24）而压低的。
-    // 安卓端已放弃，桌面端 WebView2 是 evergreen、能吃更高的 target；但 Linux 的
-    // WebKitGTK 不是 Chromium，抬高 target 需要 Windows + Linux 两端实机验证，暂不动。
+    // ponytail: 继续保留 chrome100 基线。桌面端 WebView2 能吃更高的 target，但 Linux 的
+    // WebKitGTK 不是 Chromium，抬高 target 需要 Windows + Linux 两端实机验证。
     target: 'chrome100',
     cssCodeSplit: false,
     modulePreload: false,

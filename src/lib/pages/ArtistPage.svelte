@@ -370,7 +370,7 @@
   .artist-bio-section { padding: 22px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--bg-surface), var(--bg-layer)); border: 1px solid var(--border); }
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: 0; }
-  .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+  .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; line-clamp: 6; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
   .artist-links { display: flex; align-items: center; gap: 5px; min-width: 0; }
   .artist-link { border: none; background: transparent; color: inherit; padding: 0; font: inherit; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .artist-link:hover { color: var(--accent); text-decoration: underline; }

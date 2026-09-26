@@ -10,9 +10,6 @@
   import { countUnreadMessages, getInitialMessageReadState, loadMessageReadState } from './lib/services/message-read-state.ts'
   import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.ts'
   import { coverUrl } from './lib/utils/image.ts'
-  import { getAppBackAction } from './lib/app/back.ts'
-  import type { AppBackState } from './lib/app/back.ts'
-  import { installAndroidEdgeBack, installAndroidHistoryBack } from './lib/app/mobile-back.ts'
   import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.ts'
   import { createThemeTransition } from './lib/app/theme-transition.ts'
   import { lazyModule } from './lib/app/lazy-module.ts'
@@ -146,12 +143,6 @@
     _prevCookieOk = auth.cookieOk
   })
 
-  // Android 返回键
-  $effect(() => installAndroidHistoryBack(handleAppBack))
-
-  // Android 侧滑手势
-  $effect(() => installAndroidEdgeBack({ hasBackTarget: hasAppBackTarget, onBack: handleAppBack }))
-
   // PC 端全局键盘快捷键（移动布局自动忽略）
   $effect(() => installKeyboardShortcuts({ player, isMobile: () => isMobile }))
 
@@ -214,36 +205,6 @@
   function openMessageWithUser(user: MessageTargetUser): void {
     if (!auth.isLoggedIn) { showLogin = true; return }
     showFollowDialog = false; messageTargetUser = user; router.handleNav('messages')
-  }
-
-  function handleAppBack(): boolean {
-    const action = getAppBackAction(getBackState())
-    if (!action) return false
-    if (action === 'mobileDrawer') showMobileDrawer = false
-    else if (action === 'sheet') closeSheet()
-    else if (action === 'queue') closeQueue()
-    else if (action === 'login') showLogin = false
-    else if (action === 'followDialog') showFollowDialog = false
-    else if (action === 'routeBack') router.goBack()
-    else if (action === 'homeView') router.handleNav(isMobile ? 'explore' : 'home')
-    return true
-  }
-
-  function getBackState(): AppBackState {
-    return {
-      showMobileDrawer,
-      showSheet,
-      showQueuePanel,
-      showLogin,
-      showFollowDialog,
-      routeStackLength: router.routeStack.length,
-      activeView: router.activeView,
-      isMobile,
-    }
-  }
-
-  function hasAppBackTarget(): boolean {
-    return getAppBackAction(getBackState()) !== null
   }
 
   const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
