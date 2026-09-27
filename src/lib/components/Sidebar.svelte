@@ -74,7 +74,7 @@
   <nav class="sidebar-nav">
     <div class="nav-group-label">资料库</div>
 
-    <button class="nav-item" class:active={activeView === 'home'} onclick={() => nav('home')}>
+    <button class="nav-item" class:active={activeView === 'home'} aria-current={activeView === 'home' ? 'page' : undefined} title="主页" onclick={() => nav('home')}>
       <span class="nav-icon">
         <Icon name="home" size={22} strokeWidth={1.5}/>
       </span>
@@ -83,42 +83,42 @@
       </span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'explore'} onclick={() => nav('explore')}>
+    <button class="nav-item" class:active={activeView === 'explore'} aria-current={activeView === 'explore' ? 'page' : undefined} title="发现" onclick={() => nav('explore')}>
       <span class="nav-icon">
         <Icon name="compass" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">发现</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'search'} onclick={() => nav('search')}>
+    <button class="nav-item" class:active={activeView === 'search'} aria-current={activeView === 'search' ? 'page' : undefined} title="搜索" onclick={() => nav('search')}>
       <span class="nav-icon">
         <Icon name="search" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">搜索</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'library'} onclick={() => nav('library')}>
+    <button class="nav-item" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} title="我的收藏" onclick={() => nav('library')}>
       <span class="nav-icon">
         <Icon name="liked" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">我的收藏</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'recent'} onclick={() => nav('recent')}>
+    <button class="nav-item" class:active={activeView === 'recent'} aria-current={activeView === 'recent' ? 'page' : undefined} title="最近播放" onclick={() => nav('recent')}>
       <span class="nav-icon">
         <Icon name="clock" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">最近播放</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'localMusic'} onclick={() => nav('localMusic')}>
+    <button class="nav-item" class:active={activeView === 'localMusic'} aria-current={activeView === 'localMusic' ? 'page' : undefined} title="本地音乐" onclick={() => nav('localMusic')}>
       <span class="nav-icon">
         <Icon name="music" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">本地音乐</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'messages'} onclick={() => nav('messages')}>
+    <button class="nav-item" class:active={activeView === 'messages'} aria-current={activeView === 'messages' ? 'page' : undefined} title="提醒" onclick={() => nav('messages')}>
       <span class="nav-icon">
         <Icon name="messages" size={22} strokeWidth={1.5}/>
         {#if notificationUnread > 0}<span class="nav-badge" aria-label={`${notificationUnread} 条未读提醒`}>{notificationUnread > 99 ? '99+' : notificationUnread}</span>{/if}

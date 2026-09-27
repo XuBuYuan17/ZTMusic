@@ -6,3 +6,7 @@ export function openPlaylistRef(id: unknown, push = true, preview?: unknown): vo
 }
 export function openArtistRef(id: unknown): void { router.goArtist(id as number | null) }
 export function openAlbumRef(id: unknown): void { router.goAlbum(id as number | null) }
+export function openUserRef(id: unknown): void {
+  const userId = Number(id)
+  if (Number.isFinite(userId) && userId > 0) router.goUser(userId)
+}

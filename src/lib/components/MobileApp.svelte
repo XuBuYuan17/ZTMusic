@@ -21,6 +21,7 @@
   import MessagesPage from '../pages/pc/Messages.svelte'
   import LocalMusicPage from '../pages/LocalMusicPage.svelte'
   import ListeningStatsPage from '../pages/ListeningStatsPage.svelte'
+  import UserProfilePage from '../pages/UserProfilePage.svelte'
   import { router } from '../stores/router.svelte.ts'
 
   let {
@@ -32,6 +33,8 @@
     onOpenPlaylist,
     onOpenAlbum,
     onOpenArtist,
+    onOpenUser,
+    onOpenMessage,
     onSearch,
     onOpenLogin,
     onSetTheme,
@@ -51,6 +54,8 @@
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
     onOpenAlbum?: (id: unknown) => void
     onOpenArtist?: (id: unknown) => void
+    onOpenUser?: (id: unknown) => void
+    onOpenMessage?: (user: { userId: SongId; nickname?: unknown; avatarUrl?: unknown }) => void
     onSearch?: () => void
     onOpenLogin?: () => void
     onSetTheme?: (theme: string) => void
@@ -65,7 +70,7 @@
 
   const tabViews = ['home', 'explore', 'library', 'search']
   const isTabView = $derived(tabViews.includes(activeView))
-  const isDetailView = $derived(['playlist', 'album', 'artist', 'messages', 'localMusic', 'listeningStats'].includes(activeView))
+  const isDetailView = $derived(['playlist', 'album', 'artist', 'user', 'messages', 'localMusic', 'listeningStats'].includes(activeView))
 
   let tabsHidden = $state(false)
   let mountedTabs = $state<string[]>([])
@@ -93,7 +98,7 @@
     if (tabViews.includes(previousView)) tabScrollPositions.set(previousView, el.scrollTop)
     const nextScrollTop = tabViews.includes(nextView) ? (tabScrollPositions.get(nextView) || 0) : 0
     previousView = nextView
-    setTabsHidden(false)
+    setTabsHidden(isDetailView)
     tick().then(() => {
       if (!contentEl || activeView !== nextView) return
       contentEl.scrollTop = nextScrollTop
@@ -194,6 +199,7 @@
             onOpenPlaylist={(id) => openFromCurrentTab(onOpenPlaylist, id as SongId)}
             onOpenAlbum={(id) => openFromCurrentTab(onOpenAlbum, id)}
             onOpenArtist={(id) => openFromCurrentTab(onOpenArtist, id)}
+            onOpenUser={(id) => openFromCurrentTab(onOpenUser, id)}
             onOpenLogin={() => onOpenLogin?.()}
             onNavigate={handleNav}
             onSearch={() => onSearch?.()}
@@ -285,7 +291,17 @@
           onPlayTrack={router.playArtistTrack}
           onOpenAlbum={onOpenAlbum}
           onOpenArtist={onOpenArtist}
+          onOpenUser={onOpenUser}
           onToggleFollow={router.toggleArtistFollow}
+        />
+      {:else if activeView === 'user'}
+        <UserProfilePage
+          userId={router.selectedId}
+          onBack={onBack}
+          {onOpenUser}
+          onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)}
+          {onOpenArtist}
+          {onOpenMessage}
         />
       {/if}
     </div>

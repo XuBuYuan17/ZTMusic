@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { dialogFocus } from '../app/desktop-motion.ts';
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
   import { ncm } from '../api/client.ts'
   import { coverUrl } from '../utils/image.ts'
   import ArtistNames from './ArtistNames.svelte'
+  import Icon from './ui/Icon.svelte'
 
   type ContextPanel = 'songs' | 'playlists' | 'comments'
 
@@ -20,14 +22,18 @@
 
   interface SongComment {
     commentId?: SongId
-    user?: { nickname?: string | null } | null
+    user?: { nickname?: string | null; avatarUrl?: string | null } | null
     content?: string
+    likedCount?: number
+    timeStr?: string
   }
 
   interface SimilarPlaylist {
     id: SongId
     name?: string
     coverImgUrl?: string
+    trackCount?: number
+    creator?: { nickname?: string | null } | null
   }
 
   let { variant = 'desktop', activePanel = null, showCards = true, onActivePanelChange, onOpenArtist, onClose }: {
@@ -181,6 +187,16 @@
     return '相关内容'
   }
 
+  function formatCount(value?: number): string {
+    if (!value) return ''
+    if (value >= 10000) return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}万`
+    return String(value)
+  }
+
+  function commentInitial(comment: SongComment): string {
+    return (comment.user?.nickname || '听众').trim().slice(0, 1) || '听'
+  }
+
   // Fetch when track changes while the player is open
   $effect(() => {
     const id = player.id
@@ -236,46 +252,93 @@
     {/if}
 
     {#if contextPanel}
-      <section class="ly-context-detail">
-        <div class="ly-context-detail-head"><span>{contextPanelTitle()}</span><button onclick={closeContextPanel} aria-label="关闭">×</button></div>
-        {#if contextPanel === 'songs'}
-          <div class="ly-context-detail-list">
-            {#each similarSongs as track (track.id)}
-              <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
-                {#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
-                <span><strong>{track.name}</strong><em><ArtistNames artists={track.ar || []} onOpenArtist={openArtist}/></em></span>
-              </button>
-            {/each}
+      <div class="ly-context-detail" use:dialogFocus={closeContextStrip} tabindex="-1" class:ly-context-detail--mobile={variant === 'mobile'} role="dialog" aria-modal={variant === 'desktop'} aria-labelledby="ly-context-title">
+        <header class="ly-context-detail-head">
+          <div class="ly-context-heading">
+            <small>SONG DISCOVERY</small>
+            <strong id="ly-context-title">歌曲灵感</strong>
+            <span>从「{player.title || '正在播放'}」继续发现</span>
           </div>
-        {:else if contextPanel === 'playlists'}
-          {#if selectedSimilarPlaylist}
-            <div class="ly-context-subhead"><button onclick={() => { selectedSimilarPlaylist = null; selectedPlaylistTracks = [] }}>‹ 歌单</button><span>{selectedSimilarPlaylist.name}</span></div>
-            {#if selectedPlaylistLoading}<div class="ly-context-empty">加载歌单歌曲…</div>
-            {:else if selectedPlaylistTracks.length > 0}<div class="ly-context-detail-list">
-              {#each selectedPlaylistTracks as track (track.id)}
-                <button class="ly-context-detail-row" onclick={() => playSelectedPlaylistTrack(track)}>
-                  {#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
-                  <span><strong>{track.name}</strong><em><ArtistNames artists={track.ar || []} onOpenArtist={openArtist}/></em></span>
+          <button onclick={closeContextStrip} aria-label="关闭"><Icon name="close" size={18} strokeWidth={2}/></button>
+        </header>
+
+        <nav class="ly-context-tabs" aria-label="歌曲相关内容">
+          <button class:active={contextPanel === 'songs'} onclick={() => openContextPanel('songs')}>
+            <Icon name="music" size={16} strokeWidth={1.8}/><span>相似歌曲</span><em>{similarSongs.length}</em>
+          </button>
+          <button class:active={contextPanel === 'playlists'} onclick={() => openContextPanel('playlists')}>
+            <Icon name="list" size={16} strokeWidth={1.8}/><span>相似歌单</span><em>{similarPlaylists.length}</em>
+          </button>
+          <button class:active={contextPanel === 'comments'} onclick={() => openContextPanel('comments')}>
+            <Icon name="messages" size={16} strokeWidth={1.8}/><span>热评</span><em>{songComments.length}</em>
+          </button>
+        </nav>
+
+        <div class="ly-context-detail-body">
+          {#if contextPanel === 'songs'}
+            {#if similarSongs.length > 0}
+              <div class="ly-context-detail-list">
+                {#each similarSongs as track, i (track.id)}
+                  <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
+                    <span class="ly-context-index">{String(i + 1).padStart(2, '0')}</span>
+                    <span class="ly-context-art">
+                      {#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
+                      <span class="ly-context-play"><Icon name="play" size={12}/></span>
+                    </span>
+                    <span class="ly-context-track-copy"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || []} onOpenArtist={openArtist}/></em></span>
+                    <span class="ly-context-row-action"><Icon name="play" size={13}/></span>
+                  </button>
+                {/each}
+              </div>
+            {:else}<div class="ly-context-empty">暂时没有找到相似歌曲</div>{/if}
+          {:else if contextPanel === 'playlists'}
+            {#if selectedSimilarPlaylist}
+              <div class="ly-context-subhead">
+                <button onclick={() => { selectedSimilarPlaylist = null; selectedPlaylistTracks = [] }}><Icon name="chevron-left" size={16}/> 返回</button>
+                <span>{selectedSimilarPlaylist.name}</span>
+              </div>
+              {#if selectedPlaylistLoading}<div class="ly-context-empty">正在载入歌单…</div>
+              {:else if selectedPlaylistTracks.length > 0}<div class="ly-context-detail-list">
+                {#each selectedPlaylistTracks as track, i (track.id)}
+                  <button class="ly-context-detail-row" onclick={() => playSelectedPlaylistTrack(track)}>
+                    <span class="ly-context-index">{String(i + 1).padStart(2, '0')}</span>
+                    <span class="ly-context-art">{#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}<span class="ly-context-play"><Icon name="play" size={12}/></span></span>
+                    <span class="ly-context-track-copy"><strong>{track.name}</strong><em><ArtistNames artists={track.ar || []} onOpenArtist={openArtist}/></em></span>
+                    <span class="ly-context-row-action"><Icon name="play" size={13}/></span>
+                  </button>
+                {/each}
+              </div>
+              {:else}<div class="ly-context-empty">这个歌单暂时没有可预览的歌曲</div>{/if}
+            {:else if similarPlaylists.length > 0}<div class="ly-context-detail-grid">
+              {#each similarPlaylists as pl (pl.id)}
+                <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
+                  <span class="ly-context-playlist-art">
+                    {#if pl.coverImgUrl}<img src={coverUrl(pl.coverImgUrl, 240)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
+                    <span><Icon name="chevron-right" size={15}/></span>
+                  </span>
+                  <strong>{pl.name}</strong>
+                  <em>{pl.creator?.nickname || (pl.trackCount ? `${pl.trackCount} 首歌曲` : '为你推荐')}</em>
                 </button>
               {/each}
             </div>
-            {:else}<div class="ly-context-empty">这个歌单暂时没有可预览的歌曲</div>{/if}
-          {:else}<div class="ly-context-detail-grid">
-            {#each similarPlaylists as pl (pl.id)}
-              <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
-                {#if pl.coverImgUrl}<img src={coverUrl(pl.coverImgUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
-                <strong>{pl.name}</strong>
-              </button>
-            {/each}
-          </div>{/if}
-        {:else if contextPanel === 'comments'}
-          <div class="ly-context-comment-list">
-            {#each songComments as c, i (c.commentId || i)}
-              <article class="ly-context-comment-row"><strong>{c.user?.nickname || '听众'}</strong><p>{c.content}</p></article>
-            {/each}
-          </div>
-        {/if}
-      </section>
+            {:else}<div class="ly-context-empty">暂时没有找到相似歌单</div>{/if}
+          {:else if contextPanel === 'comments'}
+            {#if songComments.length > 0}<div class="ly-context-comment-list">
+              {#each songComments as c, i (c.commentId || i)}
+                <article class="ly-context-comment-row">
+                  <div class="ly-context-comment-author">
+                    {#if c.user?.avatarUrl}<img src={coverUrl(c.user.avatarUrl, 72)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span>{commentInitial(c)}</span>{/if}
+                    <div><strong>{c.user?.nickname || '听众'}</strong><small>{c.timeStr || '网易云音乐热评'}</small></div>
+                    {#if c.likedCount}<em>♥ {formatCount(c.likedCount)}</em>{/if}
+                  </div>
+                  <p>{c.content}</p>
+                </article>
+              {/each}
+            </div>
+            {:else}<div class="ly-context-empty">暂时没有热门评论</div>{/if}
+          {/if}
+        </div>
+      </div>
     {/if}
   {/if}
 {/if}

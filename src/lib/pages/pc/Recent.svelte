@@ -41,6 +41,10 @@
   }
   function playAll(): void { if (recentTracks.length) player.playQueue(recentTracks as unknown as CompactTrackInput[], 0) }
 
+  function handleRowKeydown(event: KeyboardEvent, track: RecentTrack): void {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(track) }
+  }
+
   $effect(() => {
     load()
     const refresh = () => load()
@@ -107,7 +111,7 @@
       </thead>
       <tbody>
         {#each recentTracks as track, i (track.id)}
-          <tr class:active={player.id === track.id} onclick={() => playTrack(track)} {...songActions?.bindRow(track)}>
+          <tr class:active={player.id === track.id} tabindex="0" onclick={() => playTrack(track)} onkeydown={(e) => handleRowKeydown(e, track)} {...songActions?.bindRow(track)}>
             <td class="col-num">{i + 1}</td>
             <td class="col-cover">
               {#if track.picUrl}

@@ -1,363 +1,207 @@
 <script module lang="ts">
-  import type { SongId } from '../../types/music.ts'
-  import type { LocalListeningStats } from '../../services/listening-stats.ts'
+  import type { UserProfileData } from '../../services/user-profile.ts'
   import type { NormalizedLocalHistorySong, NormalizedPlaylist } from '../../utils/normalize.ts'
-
-  interface HomeSnapshot {
-    userId: SongId
-    recentTracks: NormalizedLocalHistorySong[]
-    userPlaylists: NormalizedPlaylist[]
-    subcount: { likedCount?: number } | null
-    likedPlaylist: NormalizedPlaylist | null
-    weeklyPlaylist: {
-      id: number
-      name: string
-      picUrl: string
-      trackCount: number
-      playCount: number
-      topSongName: string
-    } | null
-    recommendPlaylists: NormalizedPlaylist[]
-    localListeningStats: LocalListeningStats
-  }
-
+  import type { LocalListeningStats } from '../../services/listening-stats.ts'
+  interface HomeSnapshot { userId: string | number; profile: UserProfileData | null; recentTracks: NormalizedLocalHistorySong[]; recommendPlaylists: NormalizedPlaylist[]; localStats: LocalListeningStats }
   let homeSnapshot: HomeSnapshot | null = null
 </script>
 
 <script lang="ts">
+  import { onMount, untrack } from 'svelte'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { player } from '../../stores/player.svelte.ts'
   import { ncm } from '../../api/client.ts'
   import { loadHomeData, loadLocalRecentTracks } from '../../services/home.ts'
+  import { loadUserProfileData } from '../../services/user-profile.ts'
   import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.ts'
+  import type { NormalizedRecordSong } from '../../utils/normalize.ts'
   import { coverUrl } from '../../utils/image.ts'
   import { extractCover } from '../../utils/normalize.ts'
-  import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
-  import SongListActions from '../../components/SongListActions.svelte'
+  import { formatPlayCount } from '../../format.ts'
+  import UserProfileHero from '../../components/UserProfileHero.svelte'
+  import SocialPreview from '../../components/SocialPreview.svelte'
+  import Icon from '../../components/ui/Icon.svelte'
 
-  type HomeData = Awaited<ReturnType<typeof loadHomeData>>
-  interface TrackArtist { id?: SongId; name?: unknown }
-  interface Subcount { likedCount?: number }
-  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
-  interface StationCard {
-    title: string
-    label: string
-    value: string
-    accent: string
-    action: (() => void) | undefined
-  }
-
-  let {
-    onNavigate,
-    onOpenLogin,
-    onOpenPlaylist,
-    onOpenArtist,
-    onOpenAlbum,
-  }: {
+  let { onNavigate, onOpenLogin, onOpenPlaylist, onOpenUser }: {
     onNavigate?: (view: string) => void
     onOpenLogin?: () => void
     onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
+    onOpenUser?: (id: unknown) => void
   } = $props()
 
-  const initialUserId = auth.user?.userId
-  const initialSnapshot = homeSnapshot?.userId === initialUserId ? homeSnapshot : null
-
-  let loading = $state(!initialSnapshot)
+  const userId = auth.user?.userId
+  const initial = homeSnapshot?.userId === userId ? homeSnapshot : null
+  let profile = $state<UserProfileData | null>(initial?.profile ?? null)
+  let recentTracks = $state<NormalizedLocalHistorySong[]>(initial?.recentTracks ?? [])
+  let recommendPlaylists = $state<NormalizedPlaylist[]>(initial?.recommendPlaylists ?? [])
+  let localStats = $state<LocalListeningStats>(initial?.localStats ?? { ...EMPTY_LOCAL_LISTENING_STATS })
+  let loading = $state(!initial)
   let error = $state('')
-  let recentTracks = $state<NormalizedLocalHistorySong[]>(initialSnapshot?.recentTracks ?? [])
-  let userPlaylists = $state<NormalizedPlaylist[]>(initialSnapshot?.userPlaylists ?? [])
-  let subcount = $state<Subcount | null>(initialSnapshot?.subcount ?? null)
-  let likedPlaylist = $state<HomeData['likedPlaylist']>(initialSnapshot?.likedPlaylist ?? null)
-  let weeklyPlaylist = $state<HomeData['weeklyPlaylist']>(initialSnapshot?.weeklyPlaylist ?? null)
-  let recommendPlaylists = $state<NormalizedPlaylist[]>(initialSnapshot?.recommendPlaylists ?? [])
-  let localListeningStats = $state<LocalListeningStats>(initialSnapshot?.localListeningStats ?? { ...EMPTY_LOCAL_LISTENING_STATS })
+  let requestId = 0
+  let statsRequestId = 0
 
-  let songActions = $state<{ bindRow: RowBinder } | null>(null)
-  let _requestId = 0
-  let _statsRequestId = 0
-
-  function saveSnapshot(userId: SongId | undefined = auth.user?.userId): void {
-    if (!userId) return
-    homeSnapshot = {
-      userId,
-      recentTracks: [...recentTracks],
-      userPlaylists: [...userPlaylists],
-      subcount,
-      likedPlaylist,
-      weeklyPlaylist,
-      recommendPlaylists: [...recommendPlaylists],
-      localListeningStats: { ...localListeningStats },
-    }
-  }
-
-  async function refreshLocalListeningStats(): Promise<void> {
-    const rid = ++_statsRequestId
-    const [stats, localRecentTracks] = await Promise.all([
-      loadLocalListeningStats(),
-      loadLocalRecentTracks(8),
-    ])
-    if (rid === _statsRequestId) {
-      localListeningStats = stats
-      recentTracks = localRecentTracks
-      saveSnapshot()
-    }
+  function save(): void {
+    if (!auth.user?.userId) return
+    homeSnapshot = { userId: auth.user.userId, profile, recentTracks: [...recentTracks], recommendPlaylists: [...recommendPlaylists], localStats: { ...localStats } }
   }
 
   async function load(): Promise<void> {
-    const rid = ++_requestId
-    const userId = auth.user?.userId
-    const cached = homeSnapshot?.userId === userId ? homeSnapshot : null
-    loading = !cached
+    const uid = auth.user?.userId
+    if (!uid) return
+    const rid = ++requestId
+    loading = !profile
     error = ''
-    if (cached) {
-      recentTracks = cached.recentTracks
-      userPlaylists = cached.userPlaylists
-      subcount = cached.subcount
-      likedPlaylist = cached.likedPlaylist
-      weeklyPlaylist = cached.weeklyPlaylist
-      recommendPlaylists = cached.recommendPlaylists
-      localListeningStats = cached.localListeningStats
-    } else {
-      userPlaylists = []; subcount = null; likedPlaylist = null; weeklyPlaylist = null; recommendPlaylists = []
-    }
     try {
-      if (!auth.isLoggedIn) return
-      const data = await loadHomeData(ncm, auth.user)
-      if (rid !== _requestId) return
-      userPlaylists = data.userPlaylists; likedPlaylist = data.likedPlaylist
-      weeklyPlaylist = data.weeklyPlaylist; recommendPlaylists = data.recommendPlaylists
-      saveSnapshot(userId)
-      data.subcountPromise?.then(v => { if (rid === _requestId) { subcount = v as Subcount | null; saveSnapshot(userId) } }).catch(() => {})
-      data.weeklyPromise?.then(v => { if (rid !== _requestId) return; weeklyPlaylist = v.weeklyPlaylist; saveSnapshot(userId) }).catch(() => {})
-      data.recommendPromise?.then(v => { if (rid === _requestId) { recommendPlaylists = v; saveSnapshot(userId) } }).catch(() => {})
-    } catch (e) { if (rid === _requestId && !cached) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
-    finally { if (rid === _requestId) loading = false }
+      const [profileData, homeData] = await Promise.all([
+        loadUserProfileData(ncm, uid, { isOwn: true, fallbackUser: auth.user }),
+        loadHomeData(ncm, auth.user),
+      ])
+      if (rid !== requestId) return
+      profile = profileData
+      save()
+      homeData.recommendPromise?.then((items) => { if (rid === requestId) { recommendPlaylists = items; save() } }).catch(() => {})
+    } catch (e) {
+      if (rid === requestId && !profile) error = (e as { message?: string })?.message || '主页加载失败'
+    } finally { if (rid === requestId) loading = false }
   }
 
-  function playRecentTrack(track: NormalizedLocalHistorySong): void {
-    const idx = recentTracks.findIndex(t => t.id === track.id)
-    if (idx >= 0) player.playQueue(recentTracks as unknown as CompactTrackInput[], idx)
-    else player.playTrack(track as unknown as CompactTrackInput, 0)
+  async function refreshLocal(): Promise<void> {
+    const rid = ++statsRequestId
+    const [stats, recent] = await Promise.all([loadLocalListeningStats(), loadLocalRecentTracks(8)])
+    if (rid === statsRequestId) { localStats = stats; recentTracks = recent.slice(0, 8); save() }
   }
 
-  $effect(() => { if (auth.isLoggedIn) load() })
+  function playRecent(index: number): void { if (recentTracks.length) player.playQueue(recentTracks as unknown as CompactTrackInput[], index) }
+  function playWeekly(index: number): void { if (profile?.weeklyTracks.length) player.playQueue(profile.weeklyTracks as unknown as CompactTrackInput[], index) }
+  function coverOf(track: NormalizedLocalHistorySong | NormalizedRecordSong): string { return track.picUrl || extractCover(track) }
 
+  const quickCards = $derived([
+    { label: 'FAVORITES', title: '喜欢的音乐', value: `${profile?.likedPlaylist?.trackCount ?? 0} 首`, icon: 'heart-filled', action: () => profile?.likedPlaylist && onOpenPlaylist?.(profile.likedPlaylist.id, true, profile.likedPlaylist) },
+    { label: 'ON THIS DEVICE', title: '本地听歌统计', value: localStats.playCount ? `${localStats.playCount} 次 · ${localStats.durationLabel}` : '开始记录你的聆听', icon: 'music', action: () => onNavigate?.('listeningStats') },
+    { label: 'CONTINUE', title: '最近播放', value: `${recentTracks.length} 首记录`, icon: 'clock', action: () => onNavigate?.('recent') },
+    { label: 'WEEKLY', title: '听歌排行', value: profile?.weeklyTracks[0]?.name ? `最近常听 · ${profile.weeklyTracks[0].name}` : '等待你的播放记录', icon: 'list', action: () => onNavigate?.('dailyHistory') },
+  ])
+
+  $effect(() => { if (auth.isLoggedIn) untrack(load) })
   $effect(() => {
-    refreshLocalListeningStats()
-    const refresh = () => refreshLocalListeningStats()
+    refreshLocal()
+    const refresh = () => refreshLocal()
     window.addEventListener('local-listening-history-change', refresh)
     return () => window.removeEventListener('local-listening-history-change', refresh)
   })
-
-  $effect(() => {
-    if (!auth.isLoggedIn) { loading = false; userPlaylists = []; recentTracks = [] }
-  })
-
-  function handleCardKeydown(event: KeyboardEvent, action?: () => void): void {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      action?.()
-    }
-  }
-
-  function openLiked(): void {
-    if (likedPlaylist) onOpenPlaylist?.(likedPlaylist.id, true, likedPlaylist)
-  }
-
-  function artistsOf(track: NormalizedLocalHistorySong): TrackArtist[] {
-    return (track.ar || track.artists || []) as TrackArtist[]
-  }
-
-  function coverOf(track: NormalizedLocalHistorySong): string {
-    return track?.picUrl || extractCover(track)
-  }
-
-  const heroReady = $derived(recommendPlaylists.length > 0)
-  const heroPlaylist = $derived(heroReady ? recommendPlaylists[0]! : null)
-  const heroImage = $derived(auth.user?.avatarUrl || '')
-  const stationCards = $derived<StationCard[]>([
-    {
-      title: '本地听歌统计',
-      label: 'On This Device',
-      value: localListeningStats.playCount
-        ? `${localListeningStats.playCount} 次 · ${localListeningStats.durationLabel}`
-        : '从第一次播放开始记录',
-      accent: 'stats',
-      action: () => onNavigate?.('listeningStats'),
-    },
-    {
-      title: '喜欢的音乐',
-      label: 'Favorites',
-      value: `${likedPlaylist?.trackCount ?? subcount?.likedCount ?? 0} 首歌曲`,
-      accent: 'liked',
-      action: openLiked,
-    },
-    {
-      title: '最近播放',
-      label: 'Continue',
-      value: `${recentTracks.length} 首记录`,
-      accent: 'recent',
-      action: () => onNavigate?.('recent'),
-    },
-  ])
+  $effect(() => { if (!auth.isLoggedIn) { loading = false; profile = null; recentTracks = [] } })
+  onMount(() => document.querySelector<HTMLElement>('.content-scroll')?.scrollTo({ top: 0 }))
 </script>
 
-<div class="home-page">
-  {#if auth.isLoggedIn}
-    <section class="home-listen-hero">
-      <div class="home-listen-copy">
-        <div class="home-kicker">现在就听</div>
-        <h1><span>为 {auth.user?.nickname || '你'}</span><span>准备的声音</span></h1>
-        <p>继续你的播放习惯，或者从今天的推荐里挑一张开始。</p>
-        <div class="home-hero-actions">
-          {#if heroReady && heroPlaylist}
-            <button class="home-primary-btn" onclick={() => onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)}>打开今日推荐</button>
-          {/if}
-          <button class="home-secondary-btn" onclick={() => onNavigate?.('explore')}>浏览发现</button>
-        </div>
-      </div>
+<div class="profile-home">
+  {#if !auth.isLoggedIn}
+    <div class="profile-home__logged-out"><Icon name="user" size={54} /><h1>登录后打开你的音乐主页</h1><p>查看个人资料、听歌排行、歌单与音乐社交。</p><button onclick={onOpenLogin}>立即登录</button></div>
+  {:else if loading && !profile}
+    <div class="profile-home__hero-skeleton skeleton-block"></div>
+    <div class="profile-home__quick-skeleton">{#each Array(4) as _}<span class="skeleton-block"></span>{/each}</div>
+  {:else if error && !profile}
+    <div class="profile-home__logged-out"><h1>主页加载失败</h1><p>{error}</p><button onclick={load}>重试</button></div>
+  {:else if profile}
+    <UserProfileHero {profile} isOwn />
 
-      <button class="home-editorial-card" onclick={() => heroPlaylist && onOpenPlaylist?.(heroPlaylist.id, true, heroPlaylist)} disabled={!heroPlaylist}>
-        <div class="home-editorial-bg" style={heroImage ? `background-image:url(${coverUrl(heroImage, 900)})` : ''}></div>
-        <div class="home-editorial-shade"></div>
-        <div class="home-editorial-content">
-          <span>今日精选</span>
-          <strong>{heroPlaylist?.name || '你的私人首页'}</strong>
-          <em>{heroPlaylist?.copywriter || (heroPlaylist?.trackCount ? `${heroPlaylist.trackCount} 首歌曲` : 'Apple Music 风格推荐流')}</em>
-        </div>
-      </button>
-    </section>
-
-    <section class="home-quick-grid">
-      {#each stationCards as card}
-        <button class="home-station-card {card.accent}" onclick={() => card.action?.()} disabled={!card.action}>
-          <span>{card.label}</span>
-          <strong>{card.title}</strong>
-          <em>{card.value}</em>
-        </button>
+    <section class="profile-home__quick">
+      {#each quickCards as card}
+        <button onclick={card.action}><span class="profile-home__quick-icon"><Icon name={card.icon} size={21} /></span><span class="profile-home__quick-label">{card.label}</span><strong>{card.title}</strong><em>{card.value}</em></button>
       {/each}
     </section>
 
-    <section class="home-dashboard">
-        <div class="home-panel home-library-panel">
-          <div class="home-section-header compact">
-            <div>
-              <div class="home-section-eyebrow">Library</div>
-              <h2 class="home-section-title">你的资料库</h2>
-            </div>
+    <div class="profile-home__dashboard">
+      <section class="profile-home__panel">
+        <header><div><span>CONTINUE</span><h2>最近播放</h2></div><button onclick={() => onNavigate?.('recent')}>查看全部</button></header>
+        {#if recentTracks.length}
+          <div class="profile-home__track-list">
+            {#each recentTracks as track, index (track.id)}
+              <button onclick={() => playRecent(index)}>
+                {#if coverOf(track)}<img src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="profile-home__track-empty">♫</span>{/if}
+                <span><strong>{track.name}</strong><em>{(track.ar as Array<{ name?: string }> | undefined)?.map(a => a.name).filter(Boolean).join(' / ') || '未知歌手'}</em></span><Icon name="play" size={15} fill="currentColor" />
+              </button>
+            {/each}
           </div>
-          {#if loading && userPlaylists.length === 0}
-            <div class="home-track-list" aria-label="加载资料库">
-              {#each Array(8) as _, i}
-                <div class="home-track-row skeleton-row" style={`--skeleton-delay:${i * 90}ms`}>
-                  <span class="home-track-index skeleton-line short"></span>
-                  <span class="home-track-cover-ph skeleton-block"></span>
-                  <span class="home-track-copy">
-                    <strong class="skeleton-line"></strong>
-                    <em class="skeleton-line narrow"></em>
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {:else if userPlaylists.length > 0}
-            <div class="home-track-list">
-              {#each userPlaylists.slice(0, 8) as pl, i (pl.id)}
-                <button class="home-track-row" onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
-                  <span class="home-track-index">{String(i + 1).padStart(2, '0')}</span>
-                  {#if pl.picUrl}
-                    <img src={coverUrl(pl.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <span class="home-track-cover-ph">♫</span>
-                  {/if}
-                  <span class="home-track-copy">
-                    <strong>{pl.name}</strong>
-                    <em>{pl.trackCount} 首</em>
-                  </span>
-                </button>
-              {/each}
-            </div>
-          {:else}
-            <div class="home-panel-empty">收藏的歌单会显示在这里</div>
-          {/if}
-        </div>
-
-        <div class="home-panel home-recent-panel">
-          <div class="home-section-header compact">
-            <div>
-              <div class="home-section-eyebrow">Recently Played</div>
-              <h2 class="home-section-title">历史播放</h2>
-            </div>
-            <button class="home-section-more" onclick={() => onNavigate?.('recent')}>查看全部</button>
-          </div>
-
-          {#if loading && recentTracks.length === 0}
-            <div class="home-library-grid" aria-label="加载最近播放">
-              {#each Array(6) as _, i}
-                <div class="home-library-item skeleton-row" style={`--skeleton-delay:${i * 90}ms`}>
-                  <span class="home-track-cover-ph skeleton-block"></span>
-                  <span>
-                    <strong class="skeleton-line"></strong>
-                    <em class="skeleton-line narrow"></em>
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {:else if recentTracks.length > 0}
-            <div class="home-library-grid">
-              {#each recentTracks.slice(0, 8) as track, i (track.id)}
-                <button class="home-library-item" onclick={() => playRecentTrack(track)} {...songActions?.bindRow(track)}>
-                  {#if coverOf(track)}
-                    <img src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <span class="home-track-cover-ph">♫</span>
-                  {/if}
-                  <span>
-                    <strong>{track.name}</strong>
-                    <em>
-                      {#each artistsOf(track) as artist, index (artist.id || (artist.name as SongId))}
-                        {#if index > 0}<span class="artist-sep">/</span>{/if}
-                        {#if artist.id}
-                          <span class="artist-link" role="button" tabindex="0" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id) }} onkeydown={(event) => handleCardKeydown(event, () => onOpenArtist?.(artist.id))}>{artist.name}</span>
-                        {:else}
-                          <span>{artist.name}</span>
-                        {/if}
-                      {/each}
-                    </em>
-                  </span>
-                </button>
-              {/each}
-            </div>
-          {:else}
-            <div class="home-panel-empty">还没有最近播放</div>
-          {/if}
-        </div>
+        {:else}<div class="profile-home__empty">播放一首歌后会显示在这里</div>{/if}
       </section>
 
-      {#if !loading && userPlaylists.length === 0 && recentTracks.length === 0 && localListeningStats.trackCount === 0}
-        <div class="home-empty">
-          <div class="home-empty-icon">
-            <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <section class="profile-home__panel">
+        <header><div><span>WEEKLY</span><h2>本周常听</h2></div></header>
+        {#if profile.weeklyTracks.length}
+          <div class="profile-home__track-list profile-home__track-list--rank">
+            {#each profile.weeklyTracks.slice(0, 8) as track, index (track.id)}
+              <button onclick={() => playWeekly(index)}><span class="profile-home__rank">{String(index + 1).padStart(2, '0')}</span><span><strong>{track.name}</strong><em>{formatPlayCount(track.playCount)} 次播放</em></span><Icon name="play" size={15} fill="currentColor" /></button>
+            {/each}
           </div>
-          <p class="home-empty-text">开始探索音乐吧</p>
-          <button class="home-empty-btn" onclick={() => onNavigate?.('explore')}>去发现</button>
-        </div>
-          {/if}
-  {:else}
-    <div class="home-logged-out">
-      <div class="home-logged-out-icon">
-        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      </div>
-      <h2 class="home-logged-out-title">登录后开启音乐之旅</h2>
-      <p class="home-logged-out-sub">查看你的听歌排行、喜欢的音乐和收藏的歌单</p>
-      <button class="home-logged-out-btn" onclick={onOpenLogin}>立即登录</button>
+        {:else}<div class="profile-home__empty">本周还没有公开的听歌排行</div>{/if}
+      </section>
     </div>
-  {/if}
-  {#if error}
-    <ErrorBlock message={error} onRetry={load} />
-  {/if}
 
-  <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn: RowBinder) => { songActions = { bindRow: fn } }} />
+    {#if profile.createdPlaylists.length}
+      <section class="profile-home__section">
+        <header><div><span>CREATED BY YOU</span><h2>创建的歌单</h2></div><button onclick={() => onNavigate?.('library')}>全部歌单</button></header>
+        <div class="profile-home__cover-grid">
+          {#each profile.createdPlaylists.slice(0, 6) as playlist (playlist.id)}
+            <button onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span>♫</span>{/if}<strong>{playlist.name}</strong><em>{playlist.trackCount} 首歌曲</em></button>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
+    {#if recommendPlaylists.length}
+      <section class="profile-home__section">
+        <header><div><span>FOR YOU</span><h2>为你推荐</h2></div><button onclick={() => onNavigate?.('explore')}>更多推荐</button></header>
+        <div class="profile-home__cover-grid">
+          {#each recommendPlaylists.slice(0, 6) as playlist (playlist.id)}
+            <button onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span>♫</span>{/if}<strong>{playlist.name}</strong><em>{playlist.copywriter || `${playlist.trackCount} 首歌曲`}</em></button>
+          {/each}
+        </div>
+      </section>
+    {/if}
+
+    <div class="profile-home__social"><SocialPreview title="我的关注" count={profile.follows} users={profile.followsPreview} {onOpenUser} /><SocialPreview title="我的粉丝" count={profile.followeds} users={profile.followersPreview} {onOpenUser} /></div>
+  {/if}
 </div>
+
+<style>
+  .profile-home { display: grid; gap: 28px; }
+  .profile-home__hero-skeleton { min-height: 316px; border-radius: var(--radius-xl); }
+  .profile-home__quick-skeleton, .profile-home__quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .profile-home__quick-skeleton span { min-height: 112px; border-radius: var(--radius-xl); }
+  .profile-home__quick > button { min-width: 0; min-height: 118px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; align-content: center; gap: 3px 10px; padding: 17px; border: 1px solid var(--border); border-radius: var(--radius-xl); color: var(--text); background: color-mix(in srgb, var(--bg-layer) 86%, transparent); text-align: left; transition: border-color .2s; }
+  .profile-home__quick > button:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .profile-home__quick-icon { grid-row: 1 / 4; width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--accent); background: var(--accent-bg); }
+  .profile-home__quick-label, .profile-home__panel header span, .profile-home__section header span { color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+  .profile-home__quick strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-home__quick em { overflow: hidden; color: var(--text-tertiary); font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-home__dashboard, .profile-home__social { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .profile-home__panel, .profile-home__section { min-width: 0; padding: 21px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 84%, transparent); }
+  .profile-home__panel > header, .profile-home__section > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+  .profile-home__panel h2, .profile-home__section h2 { margin-top: 3px; font-size: 20px; }
+  .profile-home__panel header button, .profile-home__section header button { color: var(--accent); font-size: 12px; }
+  .profile-home__track-list { display: grid; gap: 3px; }
+  .profile-home__track-list > button { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) 20px; align-items: center; gap: 11px; padding: 7px 9px; border-radius: var(--radius-md); color: var(--text); text-align: left; }
+  .profile-home__track-list--rank > button { grid-template-columns: 34px minmax(0, 1fr) 20px; }
+  .profile-home__track-list > button:hover { background: var(--bg-hover); }
+  .profile-home__track-list img, .profile-home__track-empty { width: 42px; height: 42px; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-sm); background: var(--bg-elevated); }
+  .profile-home__track-list > button > span:not(.profile-home__rank):not(.profile-home__track-empty) { min-width: 0; display: grid; }
+  .profile-home__track-list strong, .profile-home__track-list em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-home__track-list strong { font-size: 13px; }
+  .profile-home__track-list em { color: var(--text-tertiary); font-size: 10px; font-style: normal; }
+  .profile-home__rank { color: var(--text-tertiary); font-size: 10px; text-align: center; }
+  .profile-home__empty { min-height: 170px; display: grid; place-items: center; color: var(--text-tertiary); font-size: 12px; }
+  .profile-home__cover-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+  .profile-home__cover-grid button { min-width: 0; display: grid; gap: 6px; color: var(--text); text-align: left; }
+  .profile-home__cover-grid img, .profile-home__cover-grid button > span { width: 100%; aspect-ratio: 1; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-md); background: var(--bg-elevated); transition: transform .22s var(--ease-out); }
+  .profile-home__cover-grid button:hover img { transform: translateY(-2px); }
+  .profile-home__cover-grid strong, .profile-home__cover-grid em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-home__cover-grid strong { font-size: 13px; }
+  .profile-home__cover-grid em { color: var(--text-tertiary); font-size: 11px; font-style: normal; }
+  .profile-home__logged-out { min-height: 520px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-tertiary); text-align: center; }
+  .profile-home__logged-out h1 { color: var(--text); font-size: 28px; }
+  .profile-home__logged-out button { margin-top: 8px; padding: 10px 20px; border-radius: 999px; color: white; background: var(--accent); font-weight: 700; }
+  @media (max-width: 1100px) { .profile-home__quick { grid-template-columns: repeat(2, 1fr); } .profile-home__cover-grid { grid-template-columns: repeat(3, 1fr); } }
+</style>

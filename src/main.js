@@ -22,6 +22,7 @@ import './styles/mobile/library.css'
 import './styles/mobile/settings.css'
 import './styles/mobile/responsive.css'
 import './styles/product-polish.css'
+import './styles/desktop-system.css'
 import { layoutMode } from './lib/utils/layout-mode.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 

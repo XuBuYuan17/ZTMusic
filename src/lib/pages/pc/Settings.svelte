@@ -48,13 +48,15 @@
         <div class="settings-label">主题模式</div>
         <div class="settings-desc">切换明暗主题</div>
       </div>
-      <div class="segmented-control">
+      <div class="segmented-control" role="group" aria-label="主题模式">
         <button
           class:active={theme === 'light'}
+          aria-pressed={theme === 'light'}
           onclick={() => onSetTheme?.('light')}
         >浅色</button>
         <button
           class:active={theme === 'dark'}
+          aria-pressed={theme === 'dark'}
           onclick={() => onSetTheme?.('dark')}
         >深色</button>
       </div>
@@ -337,10 +339,8 @@
   .settings-panel {
     overflow: hidden;
     border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border-radius: var(--radius-xl);
+    background: var(--bg-elevated);
   }
 
   .settings-row {
@@ -447,7 +447,7 @@
     font-size: 11px;
     padding: 2px 6px;
     background: var(--bg-layer);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     color: var(--accent);
   }
 
@@ -461,7 +461,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 150ms var(--ease-out);
   }
 
   .settings-input:focus {
@@ -474,22 +474,21 @@
 
   .segmented-control {
     display: inline-flex;
-    gap: 3px;
-    padding: 3px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--bg-layer);
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--radius-md);
+    background: var(--bg-hover);
   }
 
   .segmented-control button {
     min-width: 64px;
-    min-height: 32px;
+    min-height: 36px;
     padding: 0 14px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     color: var(--text-secondary);
     font-size: 13px;
     font-weight: 700;
-    transition: background 0.16s, color 0.16s, box-shadow 0.16s;
+    transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
   }
 
   .segmented-control button.active {
@@ -501,11 +500,11 @@
   .settings-secondary-btn {
     min-height: 36px;
     padding: 0 16px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 700;
     white-space: nowrap;
-    transition: background 0.15s, transform 0.15s;
+    transition: background 150ms var(--ease-out);
   }
 
   .settings-secondary-btn {
@@ -515,10 +514,6 @@
 
   .settings-secondary-btn:hover {
     background: var(--accent-bg-hover);
-  }
-
-  .settings-secondary-btn:active {
-    transform: scale(0.96);
   }
 
   .settings-row--palette {
@@ -534,7 +529,7 @@
 
   .accent-picker button {
     min-width: 0;
-    min-height: 34px;
+    min-height: 36px;
     padding: 0 9px;
     display: flex;
     align-items: center;
@@ -546,11 +541,10 @@
     font-size: 11.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast), transform var(--dur-fast);
+    transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out);
   }
 
   .accent-picker button:hover { background: var(--bg-hover); }
-  .accent-picker button:active { transform: scale(0.97); }
 
   .accent-picker button.active {
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
@@ -597,7 +591,7 @@
     min-width: 138px;
     min-height: 36px;
     padding: 0 34px 0 12px;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     font-size: 13px;
     font-weight: 700;
     background: var(--bg-surface);

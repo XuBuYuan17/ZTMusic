@@ -303,6 +303,9 @@ export const ncm = {
   userFolloweds(uid: SongId, limit = 30, offset = 0) {
     return request('/user/followeds', { uid, limit, offset })
   },
+  userFollow(id: SongId, follow = true) {
+    return request('/follow', { id, t: follow ? 1 : 0, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
 
   personalized(limit = 10) {
     return request('/personalized', { limit })

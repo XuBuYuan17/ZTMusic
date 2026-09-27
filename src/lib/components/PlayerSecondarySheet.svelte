@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus } from '../app/desktop-motion.ts';
   import type { SongId } from '../types/music.ts';
   import { player } from '../stores/player.svelte.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
@@ -55,7 +56,7 @@
 
 {#if panel}
   <div class="am-secondary-backdrop" role="presentation" onclick={() => onClose?.()}></div>
-  <section class="am-secondary-sheet" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
+  <div class="am-secondary-sheet" use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
     <div class="am-secondary-header">
       <div class="am-secondary-title">{title}</div>
       <button class="am-secondary-close" type="button" aria-label="关闭" onclick={() => onClose?.()}>
@@ -90,7 +91,7 @@
         <SongContextStrip variant="mobile" activePanel={activeContextPanel} showCards={false} onActivePanelChange={onContextPanelChange} onOpenArtist={onOpenArtist} />
       </div>
     {/if}
-  </section>
+  </div>
 {/if}
 
 <style>
@@ -221,6 +222,16 @@
 
   .am-secondary-context :global(.ly-context-detail-head) {
     display: none;
+  }
+
+  .am-secondary-context :global(.ly-context-tabs) {
+    display: none;
+  }
+
+  .am-secondary-context :global(.ly-context-detail-body) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .am-secondary-context :global(.ly-context-detail-list),

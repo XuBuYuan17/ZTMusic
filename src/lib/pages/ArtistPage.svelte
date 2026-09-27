@@ -33,6 +33,8 @@
     albumSize?: unknown
     identities?: unknown
     briefDesc?: unknown
+    accountUserId?: SongId
+    identityLabel?: unknown
   }
 
   interface ArtistAlbumCard {
@@ -56,6 +58,7 @@
     onPlayTrack,
     onOpenAlbum,
     onOpenArtist,
+    onOpenUser,
     onToggleFollow,
   }: {
     artist?: ArtistInfoLike | null
@@ -68,6 +71,7 @@
     onPlayTrack?: (track: ArtistTrack) => void
     onOpenAlbum?: (id: unknown) => void
     onOpenArtist?: (id: unknown) => void
+    onOpenUser?: (id: unknown) => void
     onToggleFollow?: () => void
   } = $props()
 
@@ -211,7 +215,7 @@
         {/if}
       </div>
       <div class="artist-info">
-        <div class="artist-label"><span></span>艺人档案</div>
+        <div class="artist-label"><span></span>{artist.identityLabel || '艺人档案'}</div>
         <h1>{artist.name}</h1>
         {#if (artist.alias as unknown[] | undefined)?.length}
           <div class="artist-alias">{(artist.alias as string[]).join(' / ')}</div>
@@ -229,6 +233,9 @@
           <button class="artist-follow-btn" class:active={artist.followed} onclick={onToggleFollow}>
             {artist.followed ? '已关注' : '关注'}
           </button>
+          {#if artist.accountUserId}
+            <button class="artist-profile-btn" onclick={() => onOpenUser?.(artist.accountUserId)}>个人主页</button>
+          {/if}
           {#if albums.length}<span class="artist-work-count">{albums.length} 张作品已收录</span>{/if}
         </div>
       </div>
@@ -308,7 +315,7 @@
         <h2>专辑作品</h2>
         <div class="artist-albums">
           {#each albumCards as album (album.id)}
-            <div class="artist-album-card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
+            <div class="artist-album-card" data-motion="card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
               <div class="artist-album-cover">
                 {#if album.picUrl}
                   <img src={coverUrl(album.picUrl, 400)} alt={album.name as string} loading="lazy" referrerpolicy="no-referrer" />
@@ -339,7 +346,7 @@
   .artist-empty p { margin: 0; }
   .artist-empty button { min-height: 36px; padding: 0 16px; border-radius: var(--radius-lg); background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 700; }
   .artist-empty button:hover { background: var(--accent-bg-hover); }
-  .artist-hero { position: relative; display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); align-items: end; gap: 34px; min-height: 390px; margin: -24px -32px 22px; padding: 78px 40px 40px; overflow: hidden; isolation: isolate; }
+  .artist-hero { position: relative; display: grid; grid-template-columns: minmax(160px, 220px) minmax(0, 1fr); align-items: end; gap: 34px; min-height: 390px; margin: 0 0 22px; padding: 78px 40px 40px; overflow: hidden; isolation: isolate; border: 1px solid color-mix(in srgb, var(--border) 55%, rgba(255,255,255,.2)); border-radius: var(--radius-xl); box-shadow: 0 24px 64px rgba(0,0,0,.18); }
   .artist-hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 30%; filter: blur(10px) saturate(1.2); transform: scale(1.04); opacity: 0.58; }
   .artist-hero-grain { position: absolute; inset: 0; background: radial-gradient(circle at 18% 18%, rgba(255,255,255,0.18), transparent 24%), linear-gradient(135deg, rgba(0,0,0,0.12), transparent 48%); mix-blend-mode: overlay; opacity: 0.75; }
   .artist-hero-mask { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.14), rgba(0,0,0,0.38) 54%, var(--bg) 100%), linear-gradient(90deg, rgba(0,0,0,0.38), transparent 64%); }
@@ -357,12 +364,14 @@
   .artist-meta span { padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(16px); }
   .artist-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
   .artist-work-count { color: rgba(255,255,255,0.68); font-size: 12px; font-weight: 700; }
-  .artist-play-all, .artist-section-action, .artist-follow-btn { display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 999px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 18px; cursor: pointer; transition: transform .15s, background .15s, color .15s; }
-  .artist-play-all:hover, .artist-section-action:hover { background: var(--accent-hover); transform: scale(1.03); }
-  .artist-play-all:disabled { opacity: .5; cursor: default; transform: none; }
+  .artist-play-all, .artist-section-action, .artist-follow-btn, .artist-profile-btn { display: inline-flex; align-items: center; gap: 7px; border: none; border-radius: 999px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; padding: 9px 18px; cursor: pointer; transition: background .15s, color .15s; }
+  .artist-play-all:hover, .artist-section-action:hover { background: var(--accent-hover); }
+  .artist-play-all:disabled { opacity: .5; cursor: default; }
   .artist-follow-btn { background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.16); backdrop-filter: blur(16px); }
-  .artist-follow-btn:hover { background: rgba(255,255,255,0.22); transform: scale(1.03); }
+  .artist-follow-btn:hover { background: rgba(255,255,255,0.22); }
   .artist-follow-btn.active { background: #fff; color: #111; }
+  .artist-profile-btn { color: #fff; background: rgba(17,18,22,.42); border: 1px solid rgba(255,255,255,.24); backdrop-filter: blur(16px); }
+  .artist-profile-btn:hover { background: rgba(17,18,22,.62); }
   .artist-section-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .artist-section-action.secondary { background: var(--accent-bg); color: var(--accent); }
   .artist-section-action.secondary:hover { background: var(--accent-bg-hover); }
@@ -376,8 +385,8 @@
   .artist-link:hover { color: var(--accent); text-decoration: underline; }
   .artist-sep { color: var(--text-tertiary); }
   .artist-albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; }
-  .artist-album-card { cursor: pointer; transition: transform .18s; min-width: 0; padding: 8px; border-radius: var(--radius-lg); }
-  .artist-album-card:hover { transform: translateY(-3px); background: var(--bg-hover); }
+  .artist-album-card { cursor: pointer; transition: transform .18s, background-color .18s; min-width: 0; padding: 8px; border-radius: var(--radius-lg); }
+  .artist-album-card:hover { transform: translateY(-2px); background: var(--bg-hover); }
   .artist-album-cover { width: 100%; aspect-ratio: 1; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); background: var(--bg-surface); margin-bottom: 10px; }
   .artist-album-cover img { width: 100%; height: 100%; object-fit: cover; }
   .artist-album-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--text-tertiary); }
@@ -389,7 +398,7 @@
   :global([data-theme='light']) .artist-avatar { box-shadow: 18px 24px 56px rgba(0,0,0,0.24), 0 0 0 1px rgba(0,0,0,0.06); }
 
   @media (max-width: 720px) {
-    .artist-hero { grid-template-columns: 1fr; align-items: end; min-height: 520px; padding: 78px 24px 32px; margin-left: -24px; margin-right: -24px; }
+    .artist-hero { grid-template-columns: 1fr; align-items: end; min-height: 520px; padding: 78px 24px 32px; margin: 0 0 22px; border-radius: var(--radius-xl); }
     .artist-avatar { width: 142px; height: 142px; border-radius: var(--radius-xl); }
     .artist-info h1 { font-size: 42px; letter-spacing: 0; }
     .artist-albums { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }

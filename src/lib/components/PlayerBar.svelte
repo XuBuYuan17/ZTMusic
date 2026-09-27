@@ -3,6 +3,8 @@
   import type { CompactTrack, CompactArtist } from '../player/queue.ts'
   import type { DisplayLyricLine } from '../services/lyrics-loader.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { playerMorph } from '../stores/player-morph.svelte.ts'
+  import { SLOP, AXIS_RATIO } from '../app/morph-geometry.ts'
   import { getCachedLyrics, loadLyrics } from '../services/lyrics-loader.ts'
   import { coverUrl } from '../utils/image.ts'
   import { hapticTap } from '../utils/haptics.ts'
@@ -25,6 +27,7 @@
   let lyricLoading = $state(false)
   let currentLyric = $state<DisplayLyricLine | null>(null)
   let gestureStart: { x: number; y: number; pointerId: number } | null = null
+  let gestureAxis: 'none' | 'horizontal' | 'vertical' = 'none'
   let swipeDirection = $state('')
   let swipeTimer: SafeTimer | null = null
   let lyricRequestId = 0
@@ -56,7 +59,28 @@
     if ((e.target as Element).closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
     isPressing = true
     gestureStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId }
+    gestureAxis = 'none'
     try { (e.currentTarget as Element | null)?.setPointerCapture?.(e.pointerId) } catch {}
+  }
+
+  function handleBarPointerMove(e: PointerEvent): void {
+    if (!gestureStart || gestureStart.pointerId !== e.pointerId) return
+    if (gestureAxis === 'horizontal') return
+    const dx = e.clientX - gestureStart.x
+    const dy = e.clientY - gestureStart.y
+    if (gestureAxis === 'vertical') {
+      playerMorph.dragTo(e.clientY)
+      return
+    }
+    if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return
+    if (Math.abs(dx) > AXIS_RATIO * Math.abs(dy)) { gestureAxis = 'horizontal'; return }
+    if (dy < 0 && Math.abs(dy) > AXIS_RATIO * Math.abs(dx)) {
+      gestureAxis = 'vertical'
+      isPressing = false
+      playerMorph.beginDrag(gestureStart.y)
+      playerMorph.dragTo(e.clientY)
+      if (e.pointerType !== 'mouse') e.preventDefault()
+    }
   }
 
   function handleBarPointerUp(e: PointerEvent): void {
@@ -65,6 +89,11 @@
     const dy = e.clientY - gestureStart.y
     gestureStart = null
     isPressing = false
+
+    if (gestureAxis === 'vertical') {
+      playerMorph.endDrag()
+      return
+    }
 
     if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
       e.preventDefault()
@@ -81,8 +110,11 @@
   }
 
   function handleBarPointerCancel(): void {
+    const wasVertical = gestureAxis === 'vertical'
     gestureStart = null
     isPressing = false
+    gestureAxis = 'none'
+    if (wasVertical) playerMorph.endDrag()
   }
 
   // ---- 定时器管理器 ----
@@ -110,12 +142,28 @@
     })
   }
 
-  function onVolBarClick(e: MouseEvent): void {
-    e.stopPropagation()
-    const bar = e.currentTarget as HTMLDivElement
+  // 音量轨道：按下即定位并捕获指针，拖动实时跟随（单击与拖拽统一）
+  let draggingVolume = $state(false)
+  function volumeFromX(clientX: number, bar: HTMLElement): number {
     const rect = bar.getBoundingClientRect()
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    player.setVolume(pct)
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+  }
+  function onVolPointerDown(e: PointerEvent): void {
+    e.stopPropagation()
+    const bar = e.currentTarget as HTMLElement
+    draggingVolume = true
+    bar.setPointerCapture(e.pointerId)
+    player.setVolume(volumeFromX(e.clientX, bar))
+  }
+  function onVolPointerMove(e: PointerEvent): void {
+    if (!draggingVolume) return
+    e.stopPropagation()
+    player.setVolume(volumeFromX(e.clientX, e.currentTarget as HTMLElement))
+  }
+  function onVolPointerUp(e: PointerEvent): void {
+    if (!draggingVolume) return
+    draggingVolume = false
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId) } catch { /* 已自动释放 */ }
   }
 
   function toggleMute(e: MouseEvent): void {
@@ -241,7 +289,9 @@
   class:playing={player.playing && !player.loading}
   class:compact={compactMode}
   class:with-lyrics={showLyric}
+  class:morph-hidden={playerMorph.active}
   onpointerdown={handleBarPointerDown}
+  onpointermove={handleBarPointerMove}
   onpointerup={handleBarPointerUp}
   onpointercancel={handleBarPointerCancel}
   role="group"
@@ -330,7 +380,9 @@
           {/if}
         </div>
         {#if showVolume}
-          <div class="volume-slider-inline__track" role="slider" aria-valuenow={player.volume * 100} aria-valuemin="0" aria-valuemax="100" tabindex="0" onclick={onVolBarClick} onkeydown={handleVolumeTrackKeyDown}>
+          <div class="volume-slider-inline__track" class:dragging={draggingVolume} role="slider" aria-valuenow={player.volume * 100} aria-valuemin="0" aria-valuemax="100" tabindex="0"
+            onpointerdown={onVolPointerDown} onpointermove={onVolPointerMove} onpointerup={onVolPointerUp} onpointercancel={onVolPointerUp}
+            onclick={(e) => e.stopPropagation()} onkeydown={handleVolumeTrackKeyDown}>
             <div class="volume-slider-inline__fill" style="width:{(player.volume * 100)}%"></div>
             <div class="volume-slider-inline__thumb" style="left:{(player.volume * 100)}%"></div>
           </div>

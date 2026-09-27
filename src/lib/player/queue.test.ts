@@ -10,9 +10,12 @@ import {
   moveQueueItemState,
   removeQueueItemState,
   replaceQueueState,
+  resolveQueueSelection,
+  restoreShuffleState,
   getNextIndex,
   getPrevIndex,
   commitNextIndex,
+  commitPrevIndex,
   type ShuffleState,
 } from './queue.ts'
 
@@ -35,6 +38,17 @@ function tracks(count: number) {
   return Array.from({ length: count }, (_, id) => ({ id, name: `Track ${id}` }))
 }
 
+// ── 持久化的随机顺序只接受完整合法的排列 ──
+{
+  const restored = restoreShuffleState({ order: [2, 0, 1], position: 1 }, 3, 0)
+  assertEqual(restored.order.join(','), '2,0,1', 'restore keeps valid shuffle order')
+  assertEqual(restored.position, 1, 'restore keeps valid shuffle position')
+  assertEqual(restoreShuffleState({ order: [0, 0, 2], position: 1 }, 3).order.length, 0, 'duplicate shuffle index resets state')
+  assertEqual(restoreShuffleState({ order: [0, 1], position: 0 }, 3).order.length, 0, 'queue length mismatch resets state')
+  assertEqual(restoreShuffleState({ order: [0, 1, 3], position: 0 }, 3).order.length, 0, 'out-of-range shuffle index resets state')
+  assertEqual(restoreShuffleState({ order: [2, 0, 1], position: 1 }, 3, 2).order.length, 0, 'current queue index mismatch resets state')
+}
+
 // ── 本地歌曲字段必须穿过队列压缩，否则重启后会误走远程 URL 解析 ──
 {
   const track = compactTrack({
@@ -52,6 +66,25 @@ function tracks(count: number) {
 {
   assertEqual(getNextIndex({ currentIndex: 0, queueLength: 0, mode: 'list' }), -1, 'empty queue next = -1')
   assertEqual(getPrevIndex({ currentIndex: 0, queueLength: 0 }), -1, 'empty queue prev = -1')
+}
+
+// ── 直接点播与队列选择必须保持当前歌曲和队列一致 ──
+{
+  const queue = compactQueue(tracks(3))
+  const standalone = resolveQueueSelection(queue, freshState(), compactTrack({ id: 9, name: 'Standalone' })!, 0, 'list')
+  assertEqual(standalone.index, 0, 'standalone track starts at queue index zero')
+  assertEqual(standalone.state?.queue.length, 1, 'standalone track replaces stale queue')
+  assertEqual(standalone.state?.queue[0]?.id, 9, 'standalone queue contains selected track')
+
+  const matching = resolveQueueSelection(queue, freshState(), queue[1]!, 1, 'list')
+  assertEqual(matching.state, null, 'matching queue selection preserves queue')
+
+  const staleShuffle = resolveQueueSelection(queue, { order: [2, 0, 1], position: 0 }, queue[1]!, 1, 'shuffle')
+  assertEqual(staleShuffle.state?.queue.length, 3, 'stale shuffle selection preserves queue tracks')
+  assertEqual(staleShuffle.state?.shuffleState.order.length, 0, 'stale shuffle selection resets order')
+
+  const alignedShuffle = resolveQueueSelection(queue, { order: [2, 0, 1], position: 2 }, queue[1]!, 1, 'shuffle')
+  assertEqual(alignedShuffle.state, null, 'aligned shuffle selection keeps history')
 }
 
 // ── 所有队列入口都遵守最大容量 ──
@@ -120,6 +153,38 @@ function tracks(count: number) {
   assertEqual(shuffleState.position, 0, 'commit 推进 position')
   const second = getNextIndex({ currentIndex: first, queueLength: 6, mode: 'shuffle', shuffleState })
   assert(second !== first, 'commit 后 peek 前进到下一首')
+}
+
+// ── shuffle 上一首按实际播放历史回退，下一首可以原路返回 ──
+{
+  const shuffleState = freshState()
+  let currentIndex = getNextIndex({ currentIndex: 0, queueLength: 6, mode: 'shuffle', shuffleState })
+  commitNextIndex({ mode: 'shuffle', shuffleState })
+  const secondIndex = getNextIndex({ currentIndex, queueLength: 6, mode: 'shuffle', shuffleState })
+  commitNextIndex({ mode: 'shuffle', shuffleState })
+  currentIndex = secondIndex
+
+  const previousIndex = getPrevIndex({ currentIndex, queueLength: 6, mode: 'shuffle', shuffleState })
+  assertEqual(previousIndex, shuffleState.order[0], 'shuffle previous follows played order')
+  commitPrevIndex({ mode: 'shuffle', shuffleState })
+  assertEqual(shuffleState.position, 0, 'shuffle previous rewinds cursor')
+  assertEqual(
+    getNextIndex({ currentIndex: previousIndex, queueLength: 6, mode: 'shuffle', shuffleState }),
+    secondIndex,
+    'shuffle next returns along history after going back',
+  )
+}
+
+// ── shuffle 尚无历史时上一首停在当前歌曲 ──
+{
+  const shuffleState = freshState()
+  const first = getNextIndex({ currentIndex: 0, queueLength: 4, mode: 'shuffle', shuffleState })
+  commitNextIndex({ mode: 'shuffle', shuffleState })
+  assertEqual(
+    getPrevIndex({ currentIndex: first, queueLength: 4, mode: 'shuffle', shuffleState }),
+    first,
+    'shuffle previous stays when history is exhausted',
+  )
 }
 
 // ── 一轮洗牌覆盖全部索引，不重不漏 ──

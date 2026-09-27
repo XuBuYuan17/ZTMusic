@@ -157,6 +157,8 @@ export interface ArtistDetail {
     identities?: string[]
     briefDesc?: string
     followed?: boolean
+    accountUserId?: SongId
+    identityLabel?: string
   }
   songs: Song[]
   albums: ProviderAlbum[]

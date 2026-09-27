@@ -10,7 +10,10 @@
   import { coverUrl } from '../../utils/image.ts'
   import { normalizeSong } from '../../utils/normalize.ts'
   import Spinner from '../../components/Spinner.svelte'
+  import SongListActions from '../../components/SongListActions.svelte'
   import Icon from '../../components/ui/Icon.svelte'
+
+  type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
   interface RefArtist { id?: SongId; name?: unknown }
 
@@ -25,6 +28,7 @@
   let songs = $state<NormalizedSong[]>([])
   let loading = $state(true)
   let error = $state('')
+  let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
   function rec(v: unknown): Record<string, unknown> | null {
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
@@ -92,7 +96,7 @@
   {#if loading}
     <div class="liked-skeleton">
       {#each Array(10) as _, i}
-        <div class="liked-skeleton-row" style="animation-delay:{i * 30}ms">
+        <div class="liked-skeleton-row">
           <span class="skeleton-line" style="width:32px;height:32px;border-radius:var(--radius-sm)"></span>
           <span class="skeleton-line" style="width:48px;height:48px;border-radius:var(--radius-md)"></span>
           <span style="flex:1;display:grid;gap:4px">
@@ -115,13 +119,13 @@
       <p style="font-size:13px;color:var(--text-tertiary)">在播放时点击 ♥ 按钮添加</p>
     </div>
   {:else}
-    {#key songs.length}
       <div class="liked-song-list">
         {#each songs as track, i (track.id as SongId)}
           <div class="liked-song-row" role="button" tabindex="0"
             class:active={player.id === track.id}
             onclick={() => playTrack(track)}
-            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrack(track) } }}>
+            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrack(track) } }}
+            oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
             <span class="liked-song-index">{i + 1}</span>
             <img class="liked-song-cover" src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
             <span class="liked-song-main">
@@ -141,7 +145,6 @@
           </div>
         {/each}
       </div>
-    {/key}
   {/if}
 </div>
 
@@ -161,7 +164,6 @@
     gap: 28px;
     padding: 20px 0 28px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
-    animation: likedFadeIn 0.32s var(--ease-out) both;
   }
 
   .liked-hero-art {
@@ -220,7 +222,7 @@
 
   .liked-hero-play {
     min-width: 112px;
-    height: 42px;
+    height: 40px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -233,17 +235,10 @@
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 12px 26px rgba(230, 0, 18, 0.22);
-    transition: background 0.18s var(--ease-out), transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
   }
 
   .liked-hero-play:hover {
     background: var(--accent-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 16px 32px rgba(230, 0, 18, 0.28);
-  }
-
-  .liked-hero-play:active {
-    transform: translateY(0) scale(0.97);
   }
 
   .liked-skeleton {
@@ -257,7 +252,6 @@
     gap: 12px;
     padding: 9px 8px;
     border-radius: var(--radius-sm);
-    animation: likedFadeIn 0.3s both;
   }
 
   .liked-song-list {
@@ -271,20 +265,15 @@
     grid-template-columns: 38px 48px minmax(0, 1fr) 70px;
     gap: 12px;
     align-items: center;
-    min-height: 64px;
+    min-height: 56px;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    animation: likedFadeIn 0.28s var(--ease-out) both;
-    transition: background 0.15s var(--ease-out), transform 0.15s var(--ease-out);
+    transition: background-color 150ms var(--ease-out);
   }
 
   .liked-song-row:hover {
     background: var(--bg-hover);
-  }
-
-  .liked-song-row:active {
-    transform: scale(0.995);
   }
 
   .liked-song-row.active {
@@ -305,7 +294,7 @@
     border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     border-radius: var(--radius-xs);
     object-fit: cover;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-sm);
   }
 
   .liked-song-main {
@@ -454,15 +443,6 @@
       font-size: 11px;
     }
   }
-
-  @keyframes likedFadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
 </style>
+
+<SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn: RowBinder) => { songActions = { bindRow: fn } }} />

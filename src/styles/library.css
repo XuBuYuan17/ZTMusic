@@ -46,7 +46,7 @@
   color: #fff;
   font-size: 14px;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: background-color 150ms var(--ease-out);
 }
 
 .library-login-btn:hover {
@@ -132,10 +132,6 @@
   border-color: var(--border-strong);
 }
 
-.library-quick-chip:active {
-  transform: scale(0.97);
-}
-
 .library-section-empty {
   padding: 28px 0;
   border: 1px solid var(--border);
@@ -156,17 +152,6 @@
 .library-card {
   min-width: 0;
   cursor: pointer;
-  animation: libraryCardIn 0.34s var(--ease-out) both;
-  animation-delay: calc(min(var(--card-i, 0), 12) * 26ms);
-}
-
-.library-card:focus,
-.library-card:focus-visible {
-  outline: none;
-}
-
-.library-card:focus-visible .library-card-cover {
-  box-shadow: 0 0 0 3px var(--accent-alpha, rgba(255, 59, 48, 0.18)), 0 14px 30px rgba(0, 0, 0, 0.12);
 }
 
 .library-card-cover {
@@ -176,14 +161,13 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--bg-layer);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
   contain: paint;
-  transition: box-shadow 0.22s var(--ease-out);
+  transition: box-shadow 200ms var(--ease-out);
 }
 
-.library-card:hover .library-card-cover,
-.library-card:focus-visible .library-card-cover {
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.14);
+.library-card:hover .library-card-cover {
+  box-shadow: var(--shadow-lg);
 }
 
 .library-card:hover .liked-falls-track {
@@ -381,8 +365,8 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(20, 20, 20, 0.58);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -429,8 +413,7 @@
   padding: 28px 32px;
   width: 90%;
   max-width: 360px;
-  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.32);
-  animation: scaleIn var(--dur-base) var(--ease-emphasized);
+  box-shadow: var(--shadow-xl);
 }
 
 .library-modal-title {
@@ -477,11 +460,7 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
-  transition: background var(--dur-fast), transform var(--dur-fast);
-}
-
-.library-modal-btn:active {
-  transform: scale(0.96);
+  transition: background var(--dur-fast);
 }
 
 .library-modal-btn:disabled {
@@ -568,15 +547,4 @@
 @keyframes likedFallsScroll {
   from { transform: translateY(0); }
   to { transform: translateY(-50%); }
-}
-
-@keyframes libraryCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }

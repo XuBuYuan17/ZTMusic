@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus } from '../../app/desktop-motion.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import { player } from '../../stores/player.svelte.ts'
   import { ncm } from '../../api/client.ts'
@@ -117,7 +118,7 @@
 </script>
 
 <div class="chat-modal-backdrop" onclick={() => onClose?.()} role="presentation" class:from-item={fromItem}>
-  <div class="chat-dialog" role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getMessageNickname(msg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
+  <div class="chat-dialog" use:dialogFocus={() => onClose?.()} role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getMessageNickname(msg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
     <div class="chat-titlebar">
       <div class="dialog-user">
         {#if getMessageAvatar(msg)}

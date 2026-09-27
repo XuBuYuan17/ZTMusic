@@ -212,7 +212,7 @@
       <button class="library-login-btn" onclick={onOpenLogin}>立即登录</button>
     </div>
   {:else}
-    {#if notice}<div class="library-notice">{notice}</div>{/if}
+    {#if notice}<div class="library-notice" role="status">{notice}</div>{/if}
 
     <div class="library-header">
       <h1 class="library-title">我的播放列表</h1>

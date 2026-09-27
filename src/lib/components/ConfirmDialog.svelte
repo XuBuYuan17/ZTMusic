@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts'
   let { show = false, title = '确认', message = '', confirmText = '确定', cancelText = '取消', onConfirm, onCancel, danger = false }: {
     show?: boolean
     title?: string
@@ -26,11 +27,12 @@
   }
 </script>
 
-<svelte:window onkeydown={(event) => { if (show && event.key === 'Escape') handleCancel() }} />
+<!-- 桌面 Escape 由 dialogFocus 按弹层栈处理；移动保留窗口级关闭 -->
+<svelte:window onkeydown={(event) => { if (show && document.documentElement.classList.contains('mobile-runtime') && event.key === 'Escape') handleCancel() }} />
 
 {#if show}
   <div class="confirm-overlay" role="presentation" onclick={handleOverlayClick}>
-    <div class="confirm-card" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="confirm-card" transition:desktopPanel use:dialogFocus={handleCancel} role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
       <div class="confirm-title" id="confirm-title">{title}</div>
       <p class="confirm-message" id="confirm-message">{message}</p>
       <div class="confirm-actions">

@@ -142,7 +142,7 @@ function createPlaylistPreview(p: PlaylistPreviewInput | null, id: number): Play
 
 async function goPlaylist(id: number | null, shouldPushRoute = true, preview: PlaylistPreviewInput | null = null): Promise<void> {
   if (!id || id <= 0) return
-  if (shouldPushRoute) pushRoute(); const rid = ++_detailRequestId; _routeTransition = 'book-turn'; _previousView = _activeView
+  if (shouldPushRoute) pushRoute(); const rid = ++_detailRequestId; _routeTransition = shouldPushRoute ? 'forward' : 'back'; _previousView = _activeView
   _activeView = 'playlist'; _selectedId = id; _heroColor = '#141414'; _playlistDetail = createPlaylistPreview(preview, id)
   _playlistDetailError = ''; _playlistDetailLoading = true; _playlistLoadingMore = false
 
@@ -172,7 +172,7 @@ async function goPlaylist(id: number | null, shouldPushRoute = true, preview: Pl
 
 async function goAlbum(id: number | null, shouldPushRoute = true): Promise<void> {
   if (!id || id <= 0) return; if (shouldPushRoute) pushRoute(); const rid = ++_detailRequestId
-  _routeTransition = 'book-turn'; _previousView = _activeView; _activeView = 'album'; _selectedId = id
+  _routeTransition = shouldPushRoute ? 'forward' : 'back'; _previousView = _activeView; _activeView = 'album'; _selectedId = id
   _heroColor = '#141414'; _playlistDetail = null; _playlistDetailError = ''; _playlistDetailLoading = true
 
   const cacheKey = 'album:' + id
@@ -194,7 +194,7 @@ async function goAlbum(id: number | null, shouldPushRoute = true): Promise<void>
 
 async function goArtist(id: number | null, shouldPushRoute = true): Promise<void> {
   if (!id || id <= 0) return; if (shouldPushRoute) pushRoute(); const rid = ++_artistRequestId
-  _routeTransition = 'book-turn'; _previousView = _activeView; _activeView = 'artist'; _selectedId = id
+  _routeTransition = shouldPushRoute ? 'forward' : 'back'; _previousView = _activeView; _activeView = 'artist'; _selectedId = id
   _heroColor = '#141414'; _artistLoading = true; _artistError = ''; _artistDetail = null; _artistSongs = []; _artistAlbums = []
 
   const cacheKey = 'artist:' + id
@@ -212,6 +212,16 @@ async function goArtist(id: number | null, shouldPushRoute = true): Promise<void
   if (rid !== _artistRequestId) return
   _artistDetail = data.artist; _artistSongs = data.songs; _artistAlbums = data.albums; _artistLoading = false
   if (data.artist) detailCache.set(cacheKey, data)
+}
+
+function goUser(id: number | null, shouldPushRoute = true): void {
+  if (!id || id <= 0) return
+  if (shouldPushRoute) pushRoute()
+  _routeTransition = shouldPushRoute ? 'forward' : 'back'
+  _previousView = _activeView
+  _activeView = 'user'
+  _selectedId = id
+  _heroColor = '#141414'
 }
 
 function handleBannerClick(banner: BannerTarget): void {
@@ -297,6 +307,7 @@ function handleNav(view: string, extra?: number | null): void {
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
+  if (view === 'user' && extra) { goUser(extra); return }
   _routeTransition = 'soft'; _routeStack = []; _previousView = _activeView; _activeView = view; _selectedId = null
   _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
   _playlistDetailError = ''; _playlistDetailLoading = false; _artistError = ''; _artistLoading = false
@@ -308,7 +319,8 @@ function goBack(): void {
   if (prev.view === 'playlist') { goPlaylist(prev.id, false); return }
   if (prev.view === 'album') { goAlbum(prev.id, false); return }
   if (prev.view === 'artist') { goArtist(prev.id, false); return }
-  const bv = prev.view || 'home'; _routeTransition = 'soft'; _previousView = _activeView; _activeView = bv
+  if (prev.view === 'user') { goUser(prev.id, false); return }
+  const bv = prev.view || 'home'; _routeTransition = 'back'; _previousView = _activeView; _activeView = bv
   _selectedId = null; _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
 }
 
@@ -328,7 +340,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, goPlaylist, goAlbum, goArtist, handleBannerClick,
+  handleNav, goBack, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

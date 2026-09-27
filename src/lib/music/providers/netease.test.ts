@@ -41,7 +41,7 @@ const provider = createNeteaseProvider({
     return { album: { id: 8, name: 'Album', picUrl: 'album' }, songs: [{ id: 6, name: 'Detail' }] }
   },
   async artistDetail() {
-    return { data: { artist: { id: 9, name: 'Artist', cover: 'artist-cover' } } }
+    return { data: { artist: { id: 9, name: 'Artist', cover: 'artist-cover' }, user: { userId: 19 }, identify: { imageDesc: '原创音乐人' } } }
   },
   async artistSongs() {
     return { songs: [{ id: 6, name: 'Detail' }] }
@@ -71,7 +71,9 @@ assert.equal((await provider.getPlaylist(7))!.tracks[0]!.providerId, 'netease')
 assert.equal((await provider.getAlbum(8)).album!.coverUrl, 'album')
 const artistDetail = await provider.getArtist(9)
 assert.equal(artistDetail.artist.imageUrl, 'artist-cover')
+assert.equal(artistDetail.artist.accountUserId, 19)
+assert.equal(artistDetail.artist.identityLabel, '原创音乐人')
 assert.equal(artistDetail.songs[0]!.providerId, 'netease')
 assert.equal(artistDetail.albums[0]!.coverUrl, 'album')
 
-console.log('netease provider adapter: 20 assertions passed')
+console.log('netease provider adapter: 22 assertions passed')

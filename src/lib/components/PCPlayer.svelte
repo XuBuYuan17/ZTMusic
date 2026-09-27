@@ -12,6 +12,8 @@
   import QueuePanel from './QueuePanel.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
+  import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts';
+  import { closeDrag } from '../app/close-drag.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
 
   type ContextPanel = 'songs' | 'playlists' | 'comments';
@@ -132,10 +134,10 @@
 
 <!-- PC Layout: Two Columns -->
 <div class="ly-pc-player">
-  <div class="ly-system-actions" aria-label="歌词页工具">
-    <div class="ly-volume-control" class:open={showLyricsVolume} role="button" tabindex="0" aria-label="音量" onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showLyricsVolume = !showLyricsVolume } }}>
+  <div class="ly-system-actions morph-in" style="--s:0.56;--d:0.18" aria-label="歌词页工具">
+    <div class="ly-volume-control" class:open={showLyricsVolume} role="button" tabindex="0" aria-label="音量" aria-expanded={showLyricsVolume} onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showLyricsVolume = !showLyricsVolume } }}>
       <span class="ly-volume-shell">
-        <button class="ly-glass-icon-btn" type="button" onclick={(event) => { event.stopPropagation(); if (showLyricsVolume) player.setVolume(player.volume === 0 ? 0.8 : 0); else showLyricsVolume = true }} aria-label={player.volume === 0 ? '取消静音' : '音量'}>
+        <button class="ly-glass-icon-btn" type="button" onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} aria-label={showLyricsVolume ? '收起音量调节' : '展开音量调节'}>
           <Icon name={player.volume > 0 ? 'volume-full' : 'volume-off'} size={19} strokeWidth={2.2} />
         </button>
         {#if showLyricsVolume}
@@ -149,7 +151,7 @@
   </div>
 
   <!-- LEFT COLUMN: Cover + Controls -->
-  <div class="ly-left" class:tools-open={showLyricTools}>
+  <div class="ly-left" class:tools-open={showLyricTools} use:closeDrag>
     <div class="ly-left-cover">
       <div class="ly-cover-wrap">
         <button class="ly-cover-button" type="button" onclick={toggleLyricTools} aria-label="展开歌曲操作" aria-expanded={showLyricTools}>
@@ -180,7 +182,8 @@
           </div>
         </div>
       </div>
-      <div class="ly-cover-tool-panel" class:open={showLyricTools} role="menu" aria-label="歌曲更多操作" aria-hidden={!showLyricTools}>
+      {#if showLyricTools}
+        <div class="ly-cover-tool-panel" transition:desktopPanel use:dialogFocus={closeLyricTools} tabindex="-1" role="menu" aria-label="歌曲更多操作">
           <div class="ly-cover-tool-heading">
             <div class="ly-cover-tool-heading-text">
               <span>正在播放</span>
@@ -236,24 +239,29 @@
             <div class="ly-cover-menu-message" aria-live="polite">{menuMessage}</div>
           {/if}
         </div>
+      {/if}
     </div>
 
     <div class="ly-left-controls">
-      <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
-      <PlaybackControls
-        variant="lyrics"
-        mode={player.mode}
-        playing={player.playing}
-        loading={player.loading}
-        disabled={!player.id}
-        onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
-        onprev={() => player.prev()}
-        onplaypause={() => player.togglePlay()}
-        onnext={() => player.next()}
-        onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')}
-        onqueue={toggleLocalQueue}
-        showQueue={showLocalQueue}
-      />
+      <div class="morph-in" style="--s:0.42;--d:0.18">
+        <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
+      </div>
+      <div class="morph-in" style="--s:0.5;--d:0.2">
+        <PlaybackControls
+          variant="lyrics"
+          mode={player.mode}
+          playing={player.playing}
+          loading={player.loading}
+          disabled={!player.id}
+          onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
+          onprev={() => player.prev()}
+          onplaypause={() => player.togglePlay()}
+          onnext={() => player.next()}
+          onrepeat={() => player.setMode(player.mode === 'repeat' ? 'list' : 'repeat')}
+          onqueue={toggleLocalQueue}
+          showQueue={showLocalQueue}
+        />
+      </div>
     </div>
   </div>
 
@@ -266,7 +274,7 @@
             <div class="ly-no-lyric" aria-busy="true">歌词加载中…</div>
           {:else if lyricState.lyrics.length > 0}
             {#each lyricState.lyrics as line, i}
-              <button class="ly-line" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
+              <button class="ly-line" style="--li:{i}" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
                 aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
                 onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
                 <span class="ly-line-text">{line.text || '...'}</span>
@@ -278,7 +286,9 @@
           {/if}
         </div>
       </div>
-      <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} {onClose} />
+      <div class="morph-in" style="--s:0.62;--d:0.2">
+        <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} {onClose} />
+      </div>
     </div>
   </div>
 

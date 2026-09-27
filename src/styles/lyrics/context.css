@@ -694,3 +694,403 @@ button.ly-context-card.active {
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 }
+
+/* 歌曲灵感浮层 */
+@media (min-width: 769px) {
+  .ly-context-detail {
+    right: clamp(18px, 2.4vw, 42px);
+    bottom: clamp(28px, 4vh, 56px);
+    width: min(590px, calc(100% - 36px));
+    height: min(660px, calc(100% - clamp(56px, 8vh, 112px)));
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(circle at 88% -12%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 38%),
+      linear-gradient(145deg, rgba(34,35,39,0.93), rgba(16,17,20,0.91));
+    box-shadow: inset 0 1px rgba(255,255,255,0.1), 0 32px 90px rgba(0,0,0,0.38);
+    backdrop-filter: blur(46px) saturate(165%);
+    -webkit-backdrop-filter: blur(46px) saturate(165%);
+  }
+
+  .ly-context-detail-head {
+    min-height: 0;
+    margin: 0;
+    padding: 22px 24px 17px;
+    border: 0;
+  }
+
+  .ly-context-heading {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 10px;
+  }
+
+  .ly-context-heading small {
+    grid-column: 1 / -1;
+    margin-bottom: 4px;
+    color: color-mix(in srgb, var(--accent) 76%, white);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+  }
+
+  .ly-context-heading strong {
+    color: rgba(255,255,255,0.96);
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  .ly-context-heading > span {
+    min-width: 0;
+    color: rgba(255,255,255,0.42);
+    font-size: 11px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ly-context-detail-head > button {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    background: rgba(255,255,255,0.07);
+  }
+
+  .ly-context-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin: 0 18px;
+    padding: 5px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: var(--radius-md);
+    background: rgba(0,0,0,0.15);
+  }
+
+  .ly-context-tabs button {
+    min-width: 0;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 9px;
+    border-radius: var(--radius-sm);
+    color: rgba(255,255,255,0.48);
+    font-size: 12px;
+    font-weight: 500;
+    transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .ly-context-tabs button:hover {
+    color: rgba(255,255,255,0.78);
+  }
+
+  .ly-context-tabs button.active {
+    color: rgba(255,255,255,0.96);
+    background: rgba(255,255,255,0.105);
+    box-shadow: inset 0 1px rgba(255,255,255,0.08), 0 5px 16px rgba(0,0,0,0.12);
+  }
+
+  .ly-context-tabs button em {
+    min-width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.38);
+    font-size: 9px;
+    font-style: normal;
+  }
+
+  .ly-context-tabs button.active em {
+    background: color-mix(in srgb, var(--accent) 24%, transparent);
+    color: color-mix(in srgb, var(--accent) 62%, white);
+  }
+
+  .ly-context-detail-body {
+    flex: 1;
+    min-height: 0;
+    margin-top: 12px;
+    padding: 0 12px 14px;
+    overflow: hidden;
+  }
+
+  .ly-context-detail-list,
+  .ly-context-comment-list,
+  .ly-context-detail-grid {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    padding: 2px 4px 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .ly-context-detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .ly-context-detail-row {
+    grid-template-columns: 26px 50px minmax(0, 1fr) 32px;
+    gap: 11px;
+    min-height: 64px;
+    padding: 7px 9px 7px 5px;
+    border-radius: var(--radius-md);
+  }
+
+  .ly-context-index {
+    color: rgba(255,255,255,0.25);
+    font-variant-numeric: tabular-nums;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .ly-context-art {
+    position: relative;
+    width: 50px;
+    height: 50px;
+  }
+
+  .ly-context-detail-row .ly-context-art > img,
+  .ly-context-detail-row .ly-context-art > .ly-context-cover-ph {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+  }
+
+  .ly-context-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-md);
+    color: white;
+    background: rgba(0,0,0,0.44);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+  }
+
+  .ly-context-detail-row:hover .ly-context-play,
+  .ly-context-detail-row:focus-visible .ly-context-play {
+    opacity: 1;
+  }
+
+  .ly-context-track-copy {
+    min-width: 0;
+  }
+
+  .ly-context-row-action {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: rgba(255,255,255,0.42);
+    background: rgba(255,255,255,0.055);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.18s ease, transform 0.18s ease, color 0.18s ease, background 0.18s ease;
+  }
+
+  .ly-context-detail-row:hover .ly-context-row-action,
+  .ly-context-detail-row:focus-visible .ly-context-row-action {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .ly-context-row-action:hover {
+    color: white;
+    background: color-mix(in srgb, var(--accent) 70%, transparent);
+  }
+
+  .ly-context-detail-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px 10px;
+  }
+
+  .ly-context-detail-playlist {
+    padding: 7px;
+    background: transparent;
+    border-radius: var(--radius-md);
+  }
+
+  .ly-context-playlist-art {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    margin-bottom: 9px;
+  }
+
+  .ly-context-detail-playlist .ly-context-playlist-art > img,
+  .ly-context-detail-playlist .ly-context-playlist-art > .ly-context-cover-ph {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.24);
+  }
+
+  .ly-context-playlist-art > span:last-child {
+    position: absolute;
+    right: 9px;
+    bottom: 9px;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    background: rgba(14,15,17,0.72);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .ly-context-detail-playlist:hover .ly-context-playlist-art > span:last-child,
+  .ly-context-detail-playlist:focus-visible .ly-context-playlist-art > span:last-child {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .ly-context-detail-playlist strong {
+    min-height: 30px;
+    color: rgba(255,255,255,0.9);
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .ly-context-detail-playlist > em {
+    display: block;
+    margin-top: 4px;
+    color: rgba(255,255,255,0.35);
+    font-size: 10px;
+    font-style: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ly-context-subhead {
+    min-height: 40px;
+    margin: -2px 4px 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .ly-context-subhead button {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .ly-context-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .ly-context-comment-row {
+    padding: 15px 16px 16px;
+    border: 1px solid rgba(255,255,255,0.055);
+    border-radius: var(--radius-lg);
+    background: rgba(255,255,255,0.035);
+  }
+
+  .ly-context-comment-row:hover {
+    border-color: rgba(255,255,255,0.09);
+    background: rgba(255,255,255,0.06);
+  }
+
+  .ly-context-comment-author {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 11px;
+  }
+
+  .ly-context-comment-author > img,
+  .ly-context-comment-author > span {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    object-fit: cover;
+    color: rgba(255,255,255,0.75);
+    background: color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .ly-context-comment-author div {
+    min-width: 0;
+  }
+
+  .ly-context-comment-author strong,
+  .ly-context-comment-author small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ly-context-comment-author strong {
+    margin: 0;
+    color: rgba(255,255,255,0.82);
+    font-size: 11px;
+  }
+
+  .ly-context-comment-author small {
+    margin-top: 3px;
+    color: rgba(255,255,255,0.3);
+    font-size: 9px;
+  }
+
+  .ly-context-comment-author > em {
+    color: rgba(255,255,255,0.32);
+    font-size: 10px;
+    font-style: normal;
+  }
+
+  .ly-context-comment-row p {
+    padding-left: 44px;
+    color: rgba(255,255,255,0.68);
+    font-size: 12px;
+    line-height: 1.68;
+  }
+
+  .ly-context-empty {
+    height: 100%;
+    min-height: 180px;
+    background: transparent;
+    color: rgba(255,255,255,0.36);
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ly-context-detail,
+  .ly-context-detail-row,
+  .ly-context-detail-playlist,
+  .ly-context-comment-row {
+    animation: none !important;
+  }
+}

@@ -96,14 +96,14 @@ html:not(.mobile-runtime) .ly-star-btn {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.18);
   color: rgba(255,255,255,0.9);
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 
 html:not(.mobile-runtime) .ly-star-btn svg { transform: scale(1.2); }

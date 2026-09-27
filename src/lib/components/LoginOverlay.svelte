@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopPanel, desktopFeedback } from '../app/desktop-motion.ts'
   import QRCode from 'qrcode'
   import { tick } from 'svelte'
   import { auth } from '../stores/auth.svelte.ts'
@@ -131,7 +132,7 @@
 
 {#if showLogin}
   <div class="login-overlay" transition:fade={{ duration: 200 }} role="button" tabindex="0" aria-label="关闭登录窗口" onclick={onClose} onkeydown={handleOverlayKeyDown}>
-    <div class="login-card" role="dialog" tabindex="-1" aria-modal="true" aria-label="登录" onclick={stopEvent} onkeydown={stopEvent}>
+    <div class="login-card" transition:desktopPanel use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-modal="true" aria-label="登录" onclick={stopEvent} onkeydown={stopEvent}>
       <button class="close-btn" onclick={onClose} aria-label="关闭">✕</button>
 
       <div class="login-header">

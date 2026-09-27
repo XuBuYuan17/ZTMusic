@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import { ncm } from '../api/client.ts'
 
   let {
@@ -27,8 +28,9 @@
     onClose?.()
   }
 
+  // 桌面 Escape 由 dialogFocus 按弹层栈处理；移动保留窗口级关闭
   function handleKeydown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' && document.documentElement.classList.contains('mobile-runtime')) {
       event.preventDefault()
       close()
     }
@@ -61,7 +63,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <div class="library-modal-backdrop" role="presentation" onclick={handleBackdrop}>
-  <div class="library-modal" role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="create-playlist-title">
+  <div class="library-modal" use:dialogFocus={close} use:desktopFeedback role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="create-playlist-title">
     <h3 class="library-modal-title" id="create-playlist-title">新建歌单</h3>
     <input
       class="library-modal-input"

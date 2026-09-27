@@ -57,6 +57,7 @@ export const STORAGE_KEYS = {
   PLAYER_TIME: 'player_time',
   PLAYER_QI: 'player_qi',
   PLAYER_QUEUE: 'player_queue',
+  PLAYER_SHUFFLE: 'player_shuffle',
   VOLUME: 'volume',
   MODE: 'mode',
   PREFERRED_QUALITY: 'preferred_quality',

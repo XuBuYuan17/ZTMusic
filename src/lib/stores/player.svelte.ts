@@ -21,12 +21,15 @@ import {
   compactTrack,
   compactQueue,
   createShuffleState,
+  restoreShuffleState,
   replaceQueueState,
+  resolveQueueSelection,
   moveQueueItemState,
   removeQueueItemState,
   getNextIndex,
   getPrevIndex,
   commitNextIndex,
+  commitPrevIndex,
 } from '../player/queue.ts'
 import type { CompactTrack, CompactTrackInput, QueueState } from '../player/queue.ts'
 import { dbHistory } from '../db/history.ts'
@@ -207,7 +210,11 @@ class PlayerState {
     )
     this.queue = restoredQueue.queue
     this.queueIndex = restoredQueue.queueIndex
-    this.shuffleState = restoredQueue.shuffleState
+    this.shuffleState = restoreShuffleState(
+      getStorageJson(STORAGE_KEYS.PLAYER_SHUFFLE, null),
+      restoredQueue.queue.length,
+      restoredQueue.queueIndex,
+    )
 
     engine.setVolume(this.volume)
   }
@@ -445,10 +452,12 @@ class PlayerState {
     if (clearStorage) {
       removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
       removeStorage(STORAGE_KEYS.PLAYER_QI)
+      removeStorage(STORAGE_KEYS.PLAYER_SHUFFLE)
       return
     }
     setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
     setStorage(STORAGE_KEYS.PLAYER_QI, this.queueIndex)
+    setStorage(STORAGE_KEYS.PLAYER_SHUFFLE, this.shuffleState)
   }
 
   _handleEnded(_state: PlayerEngineState): void {
@@ -515,6 +524,12 @@ class PlayerState {
     if (!track) return
     const playableTrack = compactTrack(track)
     if (!playableTrack) return
+
+    // 直接从搜索、消息等入口播放的歌曲不一定属于现有队列。旧逻辑只改 queueIndex，
+    // 会让“正在播放”与待播清单脱节；随机模式下也同时校准历史游标。
+    const selection = resolveQueueSelection(this.queue, this.shuffleState, playableTrack, index, this.mode)
+    if (selection.state) this._commitQueueState(selection.state)
+    index = selection.index
 
     // 中止上次未完成的播放请求
     abortAllRequests()
@@ -758,6 +773,7 @@ class PlayerState {
     if (!track) return
     // 确认切歌后才推进洗牌指针，避免预取的 peek 把这一首跳过
     commitNextIndex({ mode: this.mode, shuffleState: this.shuffleState })
+    if (this.mode === 'shuffle') setStorage(STORAGE_KEYS.PLAYER_SHUFFLE, this.shuffleState)
     this.playTrack(track, idx)
   }
 
@@ -805,10 +821,16 @@ class PlayerState {
     const idx = getPrevIndex({
       currentIndex: this.queueIndex,
       queueLength: this.queue.length,
+      mode: this.mode,
+      shuffleState: this.shuffleState,
     })
 
     const track = this.queue[idx]
-    if (track) this.playTrack(track, idx)
+    if (track) {
+      commitPrevIndex({ mode: this.mode, shuffleState: this.shuffleState })
+      if (this.mode === 'shuffle') setStorage(STORAGE_KEYS.PLAYER_SHUFFLE, this.shuffleState)
+      this.playTrack(track, idx)
+    }
   }
 
   /** 暂停 */
@@ -852,6 +874,13 @@ class PlayerState {
 
   /** 设置播放模式 */
   setMode(m: PlayMode): void {
+    if (m === 'shuffle' && this.shuffleState.order.length > 0) {
+      const position = this.shuffleState.position
+      if (position < 0 || this.shuffleState.order[position] !== this.queueIndex) {
+        this.shuffleState = createShuffleState()
+        setStorage(STORAGE_KEYS.PLAYER_SHUFFLE, this.shuffleState)
+      }
+    }
     this.mode = setSetting(STORAGE_KEYS.MODE, m) as PlayMode
   }
 
@@ -963,7 +992,11 @@ class PlayerState {
 
     this.queue = savedQueue
     this.queueIndex = idx
-    this.shuffleState = savedQueueState.shuffleState
+    this.shuffleState = restoreShuffleState(
+      getStorageJson(STORAGE_KEYS.PLAYER_SHUFFLE, null),
+      savedQueue.length,
+      idx,
+    )
     this.id = savedId
     this.title = getStorage(STORAGE_KEYS.PLAYER_TITLE, '')
     this.artist = getStorage(STORAGE_KEYS.PLAYER_ARTIST, '')
@@ -1049,6 +1082,7 @@ class PlayerState {
     this._persistState()
     setStorage(STORAGE_KEYS.PLAYER_QUEUE, this.queue)
     setStorage(STORAGE_KEYS.PLAYER_TIME, this.currentTime)
+    setStorage(STORAGE_KEYS.PLAYER_SHUFFLE, this.shuffleState)
   }
 
   /** 销毁，释放资源 */

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts';
   import Icon from './ui/Icon.svelte';
 
   interface MoreMenuItem {
@@ -40,7 +41,7 @@
   </button>
   {#if open}
     <div class="am-more-backdrop" role="presentation" onclick={() => onClose?.()}></div>
-    <div class="am-more-menu" role="menu" aria-label="更多操作菜单">
+    <div class="am-more-menu" transition:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="menu" aria-label="更多操作菜单">
       <div class="am-more-track" aria-hidden="true">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>

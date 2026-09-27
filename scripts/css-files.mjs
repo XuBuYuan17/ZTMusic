@@ -23,4 +23,5 @@ export const GLOBAL_CSS_FILES = [
   'src/styles/mobile/settings.css',
   'src/styles/mobile/responsive.css',
   'src/styles/product-polish.css',
+  'src/styles/desktop-system.css',
 ]

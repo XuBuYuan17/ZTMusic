@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import type { Song, ProviderArtist, ProviderPlaylist, SearchResult, SongId } from '../types/music.ts'
   import { tick } from 'svelte'
   import { musicService } from '../music/service.ts'
@@ -114,7 +115,8 @@
       if (_debounceTimer) clearTimeout(_debounceTimer)
       doSearch()
     }
-    if (event.key === 'Escape') onClose?.()
+    // 桌面 Escape 由 dialogFocus 按弹层栈处理；移动保留输入框级关闭
+    if (event.key === 'Escape' && document.documentElement.classList.contains('mobile-runtime')) onClose?.()
   }
 
   function playTrack(track: Song): void {
@@ -181,7 +183,7 @@
 {#if show}
   <div class="search-overlay" role="dialog" aria-modal="true" aria-label="搜索音乐">
     <button class="search-overlay__scrim" type="button" aria-label="关闭搜索" onclick={onClose}></button>
-    <section class="search-overlay__panel">
+    <section class="search-overlay__panel" use:dialogFocus={() => onClose?.()} use:desktopFeedback tabindex="-1">
       <div class="so-head">
         <label class="so-field" aria-label="搜索音乐">
           <Icon name="search" size={18} />

@@ -116,7 +116,7 @@
   {:else if loading}
     <div class="messages-skeleton" aria-label="正在加载提醒" aria-busy="true">
       {#each Array(6) as _, i}
-        <div class="message-item skeleton-row" style={`--skeleton-delay:${i * 45}ms`} aria-hidden="true">
+        <div class="message-item skeleton-row" aria-hidden="true">
           <span class="msg-avatar skeleton-block"></span>
           <span class="msg-content skeleton-copy">
             <span class="skeleton-line medium"></span>
@@ -252,16 +252,11 @@
     background: color-mix(in srgb, var(--bg-surface) 76%, white 8%);
     color: var(--text-primary);
     cursor: pointer;
-    transition: background 0.16s, transform 0.12s, border-color 0.16s;
+    transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
   }
 
   .plain-btn:hover {
     background: color-mix(in srgb, var(--bg-hover) 86%, white 10%);
-  }
-
-  .plain-btn:active,
-  .message-item:active {
-    transform: scale(0.98);
   }
 
   .plain-btn {
@@ -306,7 +301,7 @@
     align-items: center;
     gap: 13px;
     width: 100%;
-    min-height: 70px;
+    min-height: 56px;
     padding: 11px 13px;
     border: 1px solid transparent;
     border-radius: var(--radius-lg);
@@ -316,8 +311,8 @@
     font: inherit;
     cursor: pointer;
     content-visibility: auto;
-    contain-intrinsic-size: 70px;
-    transition: background 0.16s, transform 0.12s, border-color 0.16s;
+    contain-intrinsic-size: 56px;
+    transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
   }
 
   .message-item + .message-item {

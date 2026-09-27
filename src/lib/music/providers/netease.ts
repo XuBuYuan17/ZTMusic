@@ -275,6 +275,7 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       const mappedArtist = mapArtist(baseArtist)
       if (!mappedArtist) throw new Error('Netease artist mapping produced no result')
       const identify = asRecord(detailData.identify)
+      const artistUser = asRecord(detailData.user)
       const rawIdentities = asArray<string>(raw.identities)
       const artist: ArtistDetail['artist'] = {
         ...mappedArtist,
@@ -285,7 +286,9 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
           ? rawIdentities
           : typeof identify.imageDesc === 'string' ? identify.imageDesc.split('、') : [],
         briefDesc: asString(raw.briefDesc),
-        followed: Boolean(raw.followed || asRecord(detailData.user).followed),
+        followed: Boolean(raw.followed || artistUser.followed),
+        accountUserId: artistUser.userId as SongId | undefined,
+        identityLabel: asString(identify.imageDesc),
       }
       return {
         artist,

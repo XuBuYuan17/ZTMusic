@@ -1,7 +1,9 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
+  import { desktopFeedback } from './lib/app/desktop-motion.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
+  import { playerMorph } from './lib/stores/player-morph.svelte.ts'
   import { auth } from './lib/stores/auth.svelte.ts'
   import { router } from './lib/stores/router.svelte.ts'
   import { wallpaper } from './lib/stores/wallpaper.svelte.ts'
@@ -13,7 +15,7 @@
   import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.ts'
   import { createThemeTransition } from './lib/app/theme-transition.ts'
   import { lazyModule } from './lib/app/lazy-module.ts'
-  import { openAlbumRef, openArtistRef, openPlaylistRef } from './lib/app/nav-refs.ts'
+  import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from './lib/app/nav-refs.ts'
   import {
     applyAccentProperties,
     extractCoverAccent,
@@ -26,11 +28,13 @@
   import QueuePanel from './lib/components/QueuePanel.svelte'
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
+  import PlayerMorph from './lib/components/PlayerMorph.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
   import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
   import Toast from './lib/components/ui/Toast.svelte'
+  import VolumeHud from './lib/components/ui/VolumeHud.svelte'
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
 
@@ -108,6 +112,20 @@
   // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
   $effect(() => { untrack(() => player.restore()) })
 
+  // 页面进入后台或窗口关闭前同步落盘，补上定时保存之间的最后一段进度与队列变化。
+  $effect(() => {
+    const savePlaybackState = () => player.save()
+    const saveWhenHidden = () => {
+      if (document.visibilityState === 'hidden') savePlaybackState()
+    }
+    window.addEventListener('pagehide', savePlaybackState)
+    document.addEventListener('visibilitychange', saveWhenHidden)
+    return () => {
+      window.removeEventListener('pagehide', savePlaybackState)
+      document.removeEventListener('visibilitychange', saveWhenHidden)
+    }
+  })
+
 
   $effect(() => {
     const u = responsive.subscribe(r => {
@@ -146,6 +164,9 @@
   // PC 端全局键盘快捷键（移动布局自动忽略）
   $effect(() => installKeyboardShortcuts({ player, isMobile: () => isMobile }))
 
+  // 拖拽发起 morph 时先收队列，避免两个 overlay 叠在一起；open 态 tools 开队列不受影响
+  $effect(() => { if (playerMorph.phase === 'dragging' && showQueuePanel) showQueuePanel = false })
+
   $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
 
@@ -181,6 +202,8 @@
 
   // ── UI 函数 ──
   function openSheet(originEl?: Element | null): void {
+    // 桌面走连续 morph 层；移动保持原有覆盖层链路
+    if (!isMobile) { playerMorph.open(); return }
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.m-avatar-btn') || document.querySelector('.player-bar')
     if (source) {
       const r = source.getBoundingClientRect()
@@ -221,7 +244,7 @@
   <WindowTitleBar />
 {/if}
 
-<main class="app-shell" class:has-wallpaper={wallpaper.active} data-theme={theme}>
+<main class="app-shell" use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
   <WallpaperLayer />
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
@@ -249,6 +272,8 @@
           onOpenPlaylist={openPlaylistRef}
           onOpenAlbum={openAlbumRef}
           onOpenArtist={openArtistRef}
+          onOpenUser={openUserRef}
+          onOpenMessage={openMessageWithUser}
           onSearch={() => router.handleNav('search')}
           onOpenLogin={() => showLogin = true}
           onSetTheme={setTheme}
@@ -270,6 +295,7 @@
         onOpenLogin={() => showLogin = true}
         onSetTheme={setTheme}
         onSetAccentTheme={setAccentTheme}
+        onOpenMessage={openMessageWithUser}
         targetUser={messageTargetUser}
         onUnreadChange={(count: number) => { notificationUnread = count }}
       />
@@ -283,7 +309,18 @@
 </div>
 
 <LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+{#if !isMobile}
+  <PlayerMorph
+    onOpenArtist={router.goArtist}
+    onOpenAlbum={router.goAlbum}
+    onOpenPlaylist={router.goPlaylist}
+    onToggleTheme={toggleTheme}
+    showLocalQueue={showQueuePanel}
+    toggleLocalQueue={toggleQueue}
+  />
+{/if}
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
 <Toast />
+<VolumeHud />

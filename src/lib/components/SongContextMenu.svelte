@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopFeedback, desktopPanel } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import { auth } from '../stores/auth.svelte.ts'
   import { ncm } from '../api/client.ts'
@@ -77,7 +78,7 @@
 
   const MENU_WIDTH = 278
   const MENU_MARGIN = 12
-  const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 292 : 448)
+  const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 304 : 448)
 
   let menuLeft = $derived(Math.max(MENU_MARGIN, Math.min(x || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerWidth : 1200) - MENU_WIDTH - MENU_MARGIN)))
   // 桌面自定义标题栏时菜单不得进入顶部 38px 区域（标题栏 z-index 更高会盖住）
@@ -116,9 +117,9 @@
   // 组件销毁时清理所有定时器
   $effect(() => () => timers.forEach(id => clearTimeout(id)))
 
-  // Escape 键关闭菜单
+  // Escape 键关闭菜单（仅移动：桌面由 dialogFocus 按弹层栈统一处理）
   $effect(() => {
-    if (!show) return
+    if (!show || !document.documentElement.classList.contains('mobile-runtime')) return
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
@@ -250,6 +251,8 @@
     <button class="song-menu-scrim" type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
     <div
       class="song-menu"
+      transition:desktopPanel
+      use:dialogFocus={() => onClose?.()} use:desktopFeedback
       class:panel={playlistMode !== 'menu'}
       style="left:{menuLeft}px;top:{menuTop}px"
       role="menu"
@@ -352,7 +355,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--bg-elevated);
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-xl);
+  }
+
+  /* 桌面入场走 desktopPanel（220ms）；移动端保留原有 CSS 入场 */
+  :global(html.mobile-runtime) .song-menu {
     animation: songMenuIn 120ms var(--ease-out) both;
   }
 
@@ -434,7 +441,7 @@
     align-items: center;
     gap: 9px;
     width: 100%;
-    min-height: 34px;
+    min-height: 36px;
     padding: 0 8px;
     border: none;
     border-radius: var(--radius-xs);
@@ -493,7 +500,7 @@
     border-radius: 999px;
     background: var(--bg-elevated);
     color: var(--text);
-    box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+    box-shadow: var(--shadow-lg);
     font-size: 13px;
     font-weight: 500;
     animation: songToastIn 180ms ease both;

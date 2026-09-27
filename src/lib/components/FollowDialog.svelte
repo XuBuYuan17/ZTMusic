@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import { ncm } from '../api/client.ts'
   import { coverUrl } from '../utils/image.ts'
@@ -110,7 +111,7 @@
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="follow-dialog-backdrop" role="button" tabindex="0" aria-label="关闭关注列表" onclick={onClose} onkeydown={handleBackdropKeydown}></div>
-  <div class="follow-dialog" role="dialog" aria-modal="true" aria-label={title}>
+  <div class="follow-dialog" use:dialogFocus={() => onClose?.()} use:desktopFeedback tabindex="-1" role="dialog" aria-modal="true" aria-label={title}>
     <header class="follow-dialog-head">
       <div>
         <span>社交</span>

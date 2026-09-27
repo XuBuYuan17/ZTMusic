@@ -1,8 +1,9 @@
 <script lang="ts">
   import { router } from '../../stores/router.svelte.ts'
+  import { pageMotion } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
   import { lazyModule } from '../../app/lazy-module.ts'
-  import { openAlbumRef, openArtistRef, openPlaylistRef } from '../../app/nav-refs.ts'
+  import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from '../../app/nav-refs.ts'
   import HomePage from '../../pages/pc/Home.svelte'
 
   let {
@@ -11,6 +12,7 @@
     onOpenLogin,
     onSetTheme,
     onSetAccentTheme,
+    onOpenMessage,
     targetUser = null,
     onUnreadChange,
   }: {
@@ -19,6 +21,7 @@
     onOpenLogin: () => void
     onSetTheme: (value: string) => void
     onSetAccentTheme: (value: string) => void
+    onOpenMessage?: (user: { userId: string | number; nickname?: unknown; avatarUrl?: unknown }) => void
     targetUser?: unknown
     onUnreadChange?: (count: number) => void
   } = $props()
@@ -36,11 +39,12 @@
   const loadLikedPage = lazyModule(() => import('../../pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('../../pages/PlaylistPage.svelte'))
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
+  const loadUserProfilePage = lazyModule(() => import('../../pages/UserProfilePage.svelte'))
 </script>
 
 <div class="content-scroll" id="main-content">
   <div class="content-inner">
-    <div class="page-enter">
+    <div class="page-enter" class:desktop-page={true} use:pageMotion={{ identity: `${router.activeView}:${router.selectedId}`, direction: router.routeTransition }}>
       {#if router.activeView === 'home'}
         <HomePage
           onNavigate={router.handleNav}
@@ -48,9 +52,10 @@
           onOpenPlaylist={openPlaylistRef}
           onOpenArtist={openArtistRef}
           onOpenAlbum={openAlbumRef}
+          onOpenUser={openUserRef}
         />
       {:else if router.activeView === 'playlist' || router.activeView === 'album'}
-        {#await loadPlaylistPage() then module}
+        {#await loadPlaylistPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             playlistDetail={router.playlistDetail}
             loading={router.playlistDetailLoading}
@@ -67,11 +72,11 @@
           />
         {/await}
       {:else if router.activeView === 'search'}
-        {#await loadSearchPage() then module}
+        {#await loadSearchPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} onOpenPlaylist={openPlaylistRef} />
         {/await}
       {:else if router.activeView === 'artist'}
-        {#await loadArtistPage() then module}
+        {#await loadArtistPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             artist={router.artistDetail}
             songs={router.artistSongs}
@@ -83,11 +88,23 @@
             onPlayTrack={router.playArtistTrack}
             onOpenAlbum={openAlbumRef}
             onOpenArtist={openArtistRef}
+            onOpenUser={openUserRef}
             onToggleFollow={router.toggleArtistFollow}
           />
         {/await}
+      {:else if router.activeView === 'user'}
+        {#await loadUserProfilePage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
+          <module.default
+            userId={router.selectedId}
+            onBack={router.goBack}
+            onOpenUser={openUserRef}
+            onOpenPlaylist={openPlaylistRef}
+            onOpenArtist={openArtistRef}
+            {onOpenMessage}
+          />
+        {/await}
       {:else if router.activeView === 'explore'}
-        {#await loadExplorePage() then module}
+        {#await loadExplorePage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             onSearch={() => router.handleNav('search')}
             onBannerClick={router.handleBannerClick}
@@ -98,32 +115,32 @@
           />
         {/await}
       {:else if router.activeView === 'dailyHistory'}
-        {#await loadDailyHistoryPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
+        {#await loadDailyHistoryPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
       {:else if router.activeView === 'library'}
-        {#await loadLibraryPage() then module}
+        {#await loadLibraryPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default onOpenLogin={onOpenLogin} onOpenPlaylist={openPlaylistRef} onNavigate={router.handleNav} />
         {/await}
       {:else if router.activeView === 'recent'}
-        {#await loadRecentPage() then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
+        {#await loadRecentPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
       {:else if router.activeView === 'localMusic'}
-        {#await loadLocalMusicPage() then module}<module.default />{/await}
+        {#await loadLocalMusicPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default />{/await}
       {:else if router.activeView === 'listeningStats'}
-        {#await loadListeningStatsPage() then module}<module.default />{/await}
+        {#await loadListeningStatsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default />{/await}
       {:else if router.activeView === 'messages'}
-        {#await loadMessagesPage() then module}
+        {#await loadMessagesPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default onNavigate={router.handleNav} {targetUser} {onUnreadChange} />
         {/await}
       {:else if router.activeView === 'liked'}
-        {#await loadLikedPage() then module}
+        {#await loadLikedPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             onOpenArtist={openArtistRef}
             onOpenAlbum={openAlbumRef}
           />
         {/await}
       {:else if router.activeView === 'settings'}
-        {#await loadSettingsPage() then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />{/await}
+        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />{/await}
       {:else if router.activeView === 'about'}
-        {#await loadAboutPage() then module}
+        {#await loadAboutPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default />
         {/await}
       {/if}

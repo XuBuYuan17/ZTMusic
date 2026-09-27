@@ -130,6 +130,30 @@ html.mobile-runtime .player-bar-wrap .player-bar.pressing {
   transform: scale(0.985) !important;
 }
 
+html.mobile-runtime .player-bar-wrap.lyrics-open .player-bar,
+html.mobile-runtime .player-bar-wrap.lyrics-open:hover .player-bar,
+html.mobile-runtime .player-bar-wrap.lyrics-open .player-bar.pressing {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0) scale(0.96) !important;
+  filter: blur(5px);
+  pointer-events: none;
+  transition: opacity 0.16s ease-out, transform 0.28s ease-out, filter 0.18s ease-out;
+}
+
+html.mobile-runtime .player-bar-wrap.lyrics-entering {
+  z-index: 301;
+}
+
+html.mobile-runtime .player-bar-wrap.lyrics-returning .player-bar,
+html.mobile-runtime .player-bar-wrap.lyrics-returning:hover .player-bar {
+  pointer-events: none;
+  transition: opacity 0.16s ease-out, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.16s ease-out;
+}
+
+html.mobile-runtime .player-bar-wrap.lyrics-returning {
+  z-index: 301;
+}
+
 html.mobile-runtime .player-bar .ctrl-btn--play,
 html.mobile-runtime .player-bar .action-btn,
 html.mobile-runtime .player-bar .action-btn.active,

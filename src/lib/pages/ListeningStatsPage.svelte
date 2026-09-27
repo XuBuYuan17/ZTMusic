@@ -67,7 +67,7 @@
     </header>
 
     {#if loading}
-      <div class="poster-empty">正在整理你的播放足迹</div>
+      <div class="poster-empty" role="status">正在整理你的播放足迹</div>
     {:else if error}
       <div class="poster-empty">
         <p>{error}</p>
@@ -309,7 +309,7 @@
     grid-template-columns: 34px 48px minmax(0, 1fr);
     gap: 12px;
     align-items: center;
-    min-height: 62px;
+    min-height: 56px;
   }
 
   .poster-track em {
@@ -372,10 +372,10 @@
   }
 
   .poster-empty button {
-    height: 38px;
+    height: 40px;
     padding: 0 18px;
     border-radius: 999px;
-    background: #ff375f;
+    background: var(--accent);
     color: #fff;
     font-weight: 700;
   }

@@ -1,0 +1,80 @@
+html:not(.mobile-runtime) {
+  --motion-press: 90ms;
+  --motion-release: 280ms;
+  --motion-menu: 220ms;
+  --motion-panel: 320ms;
+  --motion-page: 300ms;
+  --motion-lyrics: 480ms;
+  --ease-spring: cubic-bezier(.22, 1.18, .36, 1);
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+}
+
+html:not(.mobile-runtime) :is(.desktop-page, .desktop-page > .fade-in) { animation: none; }
+html:not(.mobile-runtime) .content-inner { padding-bottom: calc(var(--player-h) + 40px); }
+html:not(.mobile-runtime) .desktop-page-loading { display: grid; gap: 24px; }
+html:not(.mobile-runtime) .desktop-page-loading > div { height: 240px; border-radius: var(--radius-xl); }
+html:not(.mobile-runtime) .desktop-page-loading > div + div { height: 320px; }
+html:not(.mobile-runtime) :is(.page-header, .artist-section-header, .library-header) { gap: 16px; align-items: center; }
+html:not(.mobile-runtime) :is(.profile-home__panel, .profile-home__section, .artist-bio-section) { box-shadow: none; background: var(--bg-surface); }
+html:not(.mobile-runtime) :is(.track-table, .song-table) { border-collapse: collapse; }
+html:not(.mobile-runtime) :is(.track-table, .song-table) tbody tr { height: 56px; transition: background-color 150ms var(--ease-out); }
+html:not(.mobile-runtime) :is(.track-table, .song-table) tbody tr:is(:hover, :focus-within) { background: var(--bg-hover); }
+html:not(.mobile-runtime) :is(.track-table, .song-table) tbody tr.active { background: var(--accent-bg); }
+html:not(.mobile-runtime) :is(.track-table, .song-table) tbody tr { transform: none; animation: none; }
+
+html:not(.mobile-runtime) :is(.confirm-btn, .library-modal-btn, .artist-play-all, .artist-follow-btn, .artist-profile-btn, .playlist-play-btn) {
+  min-height: 40px; border-radius: var(--radius-md); padding-inline: 16px;
+}
+html:not(.mobile-runtime) :is(.close-btn, .ly-back-btn, .follow-dialog-close, .am-secondary-close) { min-width: 36px; min-height: 36px; }
+html:not(.mobile-runtime) :is(.user-page__back, .playlist-back-btn, .artist-back) {
+  min-height: 40px; min-width: 40px; border-radius: var(--radius-md); box-shadow: none;
+}
+html:not(.mobile-runtime) .artist-hero { margin-top: 56px; overflow: visible; }
+html:not(.mobile-runtime) :is(.artist-hero-bg, .artist-hero-mask, .artist-hero-grain) { border-radius: inherit; }
+html:not(.mobile-runtime) .artist-hero-bg { inset: 0; transform: none; filter: none; }
+html:not(.mobile-runtime) .artist-back { top: -56px; left: 0; color: var(--text); background: var(--bg-hover); }
+
+html:not(.mobile-runtime) :is(button, [role="button"], input, textarea, select, [role="slider"]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+html:not(.mobile-runtime) :is(button:disabled, [aria-disabled="true"]) { cursor: default; opacity: .45; }
+html:not(.mobile-runtime) button[aria-busy="true"] { cursor: progress; }
+html:not(.mobile-runtime) :is(input:not([type="range"]):not([type="checkbox"]), textarea, select) {
+  border-radius: var(--radius-md); transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+html:not(.mobile-runtime) input[type="range"] { transition: none; }
+html:not(.mobile-runtime) :is(.tabs, .follow-dialog-tabs) { padding: 4px; gap: 4px; border-radius: var(--radius-md); background: var(--bg-hover); }
+html:not(.mobile-runtime) :is(.tabs, .follow-dialog-tabs) button { min-height: 36px; border-radius: var(--radius-sm); }
+html:not(.mobile-runtime) :is(.tabs, .follow-dialog-tabs) button.active { background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
+
+html:not(.mobile-runtime) :is(.confirm-card, .login-card, .library-modal, .follow-dialog, .chat-dialog, .am-secondary-sheet, .search-overlay__panel) {
+  border-radius: var(--radius-xl); border: 1px solid var(--border); box-shadow: var(--shadow-xl);
+  animation: desktop-panel-in var(--motion-panel) var(--ease-spring) both;
+}
+html:not(.mobile-runtime) :is(.am-more-menu, .song-context-menu) {
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  animation: desktop-panel-in var(--motion-menu) var(--ease-spring) both;
+}
+html:not(.mobile-runtime) :is(.confirm-card, .login-card, .song-menu, .am-more-menu) { animation: none; }
+html:not(.mobile-runtime) .song-menu { border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+html:not(.mobile-runtime) :is(.settings-panel, .messages-page, .local-music-page, .library-page) { --dur-base: 280ms; --dur-slow: 320ms; }
+html:not(.mobile-runtime) :is(.settings-row, .messages-actions) { gap: 16px; }
+html:not(.mobile-runtime) .settings-panel { box-shadow: none; border-radius: var(--radius-xl); }
+html:not(.mobile-runtime) :is(.settings-secondary-btn, .plain-btn) { min-height: 36px; border-radius: var(--radius-md); }
+html:not(.mobile-runtime) .segmented-control { padding: 4px; border-radius: var(--radius-md); background: var(--bg-hover); }
+html:not(.mobile-runtime) .segmented-control button { min-height: 32px; border-radius: var(--radius-sm); transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out); }
+html:not(.mobile-runtime) .segmented-control button.active { background: var(--bg-elevated); box-shadow: var(--shadow-sm); }
+html:not(.mobile-runtime) :is(.profile-home__track-list, .user-page__tracks) button { min-height: 56px; transform: none; }
+html:not(.mobile-runtime) :is(.skeleton-table-row, .skeleton-row) { animation-delay: 0s; }
+@keyframes desktop-panel-in {
+  from { opacity: 0; translate: 0 8px; scale: .97; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.mobile-runtime) *, html:not(.mobile-runtime) *::before, html:not(.mobile-runtime) *::after {
+    animation-duration: .01ms !important; animation-delay: 0ms !important;
+    transition-duration: .01ms !important; transition-delay: 0ms !important; scroll-behavior: auto !important;
+  }
+}
+

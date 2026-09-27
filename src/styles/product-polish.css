@@ -3,40 +3,6 @@ html:not(.mobile-runtime) :where(.page-header h1, .home-section-title, .music-se
   letter-spacing: 0;
 }
 
-html:not(.mobile-runtime) :where(
-  .home-editorial-card,
-  .home-station-card,
-  .music-feature-card,
-  .music-cover-card,
-  .shared-card
-) {
-  border-radius: var(--radius-sm);
-}
-
-html:not(.mobile-runtime) :where(
-  .home-editorial-card,
-  .home-station-card,
-  .music-feature-card,
-  .music-cover-card,
-  .shared-card,
-  .library-card
-):hover {
-  transform: none;
-}
-
-html:not(.mobile-runtime) :where(.home-station-card, .music-cover-card, .shared-card):active {
-  opacity: 0.68;
-  transform: none;
-}
-
 html.mobile-runtime :where(.m-settings-card, .m-list, .m-library-shortcuts) {
   box-shadow: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ly-fullscreen,
-  .ly-fullscreen .ly-container,
-  .apple-music-player {
-    transition-duration: 0.01ms !important;
-  }
 }

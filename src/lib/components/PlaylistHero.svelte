@@ -39,22 +39,22 @@
 
 {#if !detail}
   <div class="playlist-detail-hero playlist-detail-hero--loading">
-    <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
-      <Icon name="chevron-left" size={18} strokeWidth={2.2} />
-    </button>
     <div class="playlist-cover skeleton-block"></div>
     <div class="playlist-hero-copy">
-      <div class="skeleton-line short" style="margin-bottom:10px"></div>
+      <div class="playlist-hero-topline">
+        <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
+          <Icon name="chevron-left" size={18} strokeWidth={2.2} />
+          <span>返回</span>
+        </button>
+        <div class="skeleton-line short"></div>
+      </div>
       <div class="skeleton-line medium" style="height:52px;margin-bottom:12px"></div>
       <div class="playlist-meta skeleton-line narrow"></div>
       <div class="playlist-desc skeleton-line"></div>
     </div>
   </div>
 {:else}
-  <div class="playlist-detail-hero" style={`--playlist-hero-color:${heroColor}`}>
-    <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
-      <Icon name="chevron-left" size={18} strokeWidth={2.2} />
-    </button>
+  <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
     {#if detail.coverImgUrl || detail.picUrl}
       <img class="playlist-cover" src={coverUrl(detail.coverImgUrl || detail.picUrl, 320)} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" />
     {:else}
@@ -63,7 +63,13 @@
       </div>
     {/if}
     <div class="playlist-hero-copy">
-      <div class="playlist-kicker">{detailType}</div>
+      <div class="playlist-hero-topline">
+        <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
+          <Icon name="chevron-left" size={18} strokeWidth={2.2} />
+          <span>返回</span>
+        </button>
+        <div class="playlist-kicker">{detailType}</div>
+      </div>
       <h1>{detail.name}</h1>
       <div class="playlist-meta">{rec(detail.creator)?.nickname ?? ''}{#if totalCount} · {totalCount} 首{:else if loading} · 正在加载歌曲{/if}{#if loadingMore} · 正在补全{/if}</div>
       {#if detail.description}
@@ -92,6 +98,23 @@
       linear-gradient(135deg, color-mix(in srgb, var(--playlist-hero-color, #141414) 16%, transparent), transparent 62%),
       color-mix(in srgb, var(--bg-elevated) 72%, transparent);
     overflow: hidden;
+    transform-origin: 24% 0;
+    animation: playlistHeroIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transition: background 0.45s ease, border-color 0.3s ease;
+  }
+
+  .playlist-detail-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, white 7%, transparent) 48%, transparent 66%);
+    transform: translateX(-110%);
+  }
+
+  .playlist-detail-hero.is-syncing::after,
+  .playlist-detail-hero--loading::after {
+    animation: playlistHeroScan 1.4s ease-in-out infinite;
   }
 
   .playlist-detail-hero--loading {
@@ -99,24 +122,35 @@
   }
 
   .playlist-back-btn {
-    position: absolute;
-    top: 12px;
-    left: 12px;
-    z-index: 2;
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    color: var(--text);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    min-width: 58px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 13px 0 2px;
+    border: 0;
+    border-right: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    border-radius: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    animation: playlistHeroControlIn 0.34s ease-out 0.08s both;
+    transition: color 0.18s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .playlist-back-btn:hover {
-    background: var(--bg-hover);
+    color: var(--text);
+    transform: translateX(-2px);
+  }
+
+  .playlist-back-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 56%, transparent);
+    outline-offset: 3px;
+  }
+
+  .playlist-back-btn span {
+    font-size: 13px;
+    font-weight: 500;
   }
 
   .playlist-cover {
@@ -127,7 +161,8 @@
     object-fit: cover;
     border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-layer) 78%, transparent);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-lg);
+    animation: playlistCoverIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.04s both;
   }
 
   .playlist-cover--empty {
@@ -139,6 +174,19 @@
     display: grid;
     gap: 7px;
     padding-right: 8px;
+    animation: playlistHeroCopyIn 0.48s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  }
+
+  .playlist-hero-topline {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .playlist-hero-topline .skeleton-line {
+    width: 72px;
+    margin: 0;
   }
 
   .playlist-kicker {
@@ -199,6 +247,31 @@
     cursor: default;
   }
 
+  @keyframes playlistHeroIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.992); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @keyframes playlistCoverIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.92); filter: saturate(0.7); }
+    to { opacity: 1; transform: translateY(0) scale(1); filter: saturate(1); }
+  }
+
+  @keyframes playlistHeroCopyIn {
+    from { opacity: 0; transform: translateX(12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes playlistHeroControlIn {
+    from { opacity: 0; transform: scale(0.88); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes playlistHeroScan {
+    0% { transform: translateX(-110%); }
+    62%, 100% { transform: translateX(110%); }
+  }
+
   :global(html.mobile-runtime) .playlist-detail-hero {
     grid-template-columns: 104px minmax(0, 1fr);
     align-items: end;
@@ -213,11 +286,23 @@
   }
 
   :global(html.mobile-runtime) .playlist-back-btn {
+    position: absolute;
     top: 12px;
+    right: auto;
     left: 14px;
     width: 32px;
+    min-width: 32px;
     height: 32px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  :global(html.mobile-runtime) .playlist-back-btn span {
+    display: none;
   }
 
   :global(html.mobile-runtime) .playlist-cover {
@@ -284,5 +369,27 @@
     .playlist-hero-copy h1 {
       font-size: 23px;
     }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .playlist-detail-hero,
+    .playlist-back-btn,
+    .playlist-cover,
+    .playlist-hero-copy,
+    .playlist-detail-hero::after {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* 桌面：hero 随页面 pageMotion 统一入场，不做 500ms 逐级 stagger */
+  :global(html:not(.mobile-runtime)) .playlist-detail-hero,
+  :global(html:not(.mobile-runtime)) .playlist-back-btn,
+  :global(html:not(.mobile-runtime)) .playlist-cover,
+  :global(html:not(.mobile-runtime)) .playlist-hero-copy {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 </style>

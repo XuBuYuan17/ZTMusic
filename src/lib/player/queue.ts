@@ -146,12 +146,57 @@ export function createShuffleState(): ShuffleState {
   return { order: [], position: -1 }
 }
 
+/** 从持久化数据恢复洗牌进度；队列变化或脏数据会安全退回未洗牌状态。 */
+export function restoreShuffleState(value: unknown, queueLength: number, currentIndex: number = -1): ShuffleState {
+  if (!isRecord(value) || !Array.isArray(value.order) || !Number.isInteger(value.position)) {
+    return createShuffleState()
+  }
+  const order = value.order
+  const position = value.position as number
+  const validOrder = order.length === queueLength
+    && order.every(index => Number.isInteger(index) && index >= 0 && index < queueLength)
+    && new Set(order).size === queueLength
+  const matchesCurrentTrack = position === -1 || order[position] === currentIndex
+  if (!validOrder || position < -1 || position >= queueLength || !matchesCurrentTrack) return createShuffleState()
+  return { order: [...order] as number[], position }
+}
+
 export function replaceQueueState(tracks: unknown, startIndex: number = 0): QueueState {
   const queue = compactQueue(tracks)
   const queueIndex = queue.length === 0
     ? -1
     : Math.min(Math.max(Number.isInteger(startIndex) ? startIndex : 0, 0), queue.length - 1)
   return { queue, queueIndex, shuffleState: createShuffleState() }
+}
+
+export interface QueueSelectionResolution {
+  index: number
+  state: QueueState | null
+}
+
+/** 让直接点播的歌曲、当前队列索引和随机游标保持为同一份事实。 */
+export function resolveQueueSelection(
+  queue: readonly CompactTrack[],
+  shuffleState: ShuffleState,
+  track: CompactTrack,
+  index: number,
+  mode: PlayMode,
+): QueueSelectionResolution {
+  const selectedIndex = Number.isInteger(index) && index >= 0 ? index : -1
+  const queuedTrack = selectedIndex >= 0 ? queue[selectedIndex] : null
+  if (!queuedTrack || queuedTrack.id !== track.id) {
+    return { index: 0, state: replaceQueueState([track], 0) }
+  }
+  if (mode === 'shuffle' && shuffleState.order.length > 0) {
+    const position = shuffleState.position
+    if (position < 0 || shuffleState.order[position] !== selectedIndex) {
+      return {
+        index: selectedIndex,
+        state: { queue: [...queue], queueIndex: selectedIndex, shuffleState: createShuffleState() },
+      }
+    }
+  }
+  return { index: selectedIndex, state: null }
 }
 
 /** 纯重排/删除操作作用于任意队列元素（compact 过的或原始 track），用泛型保留元素类型 */
@@ -270,10 +315,23 @@ function reshuffle(queueLength: number, currentIndex: number, shuffleState: Shuf
 export interface PrevIndexOptions {
   currentIndex: number
   queueLength: number
+  mode?: PlayMode
+  shuffleState?: ShuffleState | null
 }
 
-/** 计算上一首的索引 */
-export function getPrevIndex({ currentIndex, queueLength }: PrevIndexOptions): number {
+/** 计算上一首的索引（随机模式按已经播放过的顺序回退） */
+export function getPrevIndex({ currentIndex, queueLength, mode = 'list', shuffleState }: PrevIndexOptions): number {
   if (queueLength === 0) return -1
+  if (mode === 'shuffle') {
+    const position = shuffleState?.position ?? -1
+    if (!shuffleState || position <= 0 || shuffleState.order[position] !== currentIndex) return currentIndex
+    return shuffleState.order[position - 1] ?? currentIndex
+  }
   return currentIndex <= 0 ? queueLength - 1 : currentIndex - 1
+}
+
+/** 确认随机模式回到上一首后，同步回退历史游标。 */
+export function commitPrevIndex({ mode, shuffleState }: CommitNextOptions): void {
+  if (mode !== 'shuffle' || !shuffleState || shuffleState.position <= 0) return
+  shuffleState.position--
 }

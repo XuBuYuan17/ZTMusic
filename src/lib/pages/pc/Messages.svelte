@@ -173,7 +173,7 @@
         {#if unreadTotal > 0}
           <button class="plain-btn" onclick={markAllRead}>全部已读 · {unreadTotal > 99 ? '99+' : unreadTotal}</button>
         {/if}
-        <button class="icon-btn" class:spinning={refreshing} onclick={() => loadMessages(true)} disabled={loading || refreshing} aria-label="刷新提醒">
+        <button class="icon-btn" aria-busy={refreshing} onclick={() => loadMessages(true)} disabled={loading || refreshing} aria-label="刷新提醒">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>
@@ -241,12 +241,12 @@
     background: color-mix(in srgb, var(--bg-surface) 76%, white 8%);
     color: var(--text-primary);
     cursor: pointer;
-    transition: background 0.16s, transform 0.12s, border-color 0.16s;
+    transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
   }
 
   .icon-btn {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     display: grid;
     place-items: center;
     border-radius: 999px;
@@ -258,17 +258,12 @@
     background: color-mix(in srgb, var(--bg-hover) 86%, white 10%);
   }
 
-  .icon-btn:active,
-  .plain-btn:active {
-    transform: scale(0.98);
-  }
-
   .icon-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
   }
 
-  .icon-btn.spinning svg { animation: spin 0.8s linear infinite; }
+  .icon-btn[aria-busy="true"] svg { animation: spin 0.8s linear infinite; }
 
   .plain-btn {
     padding: 7px 14px;

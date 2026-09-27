@@ -125,7 +125,7 @@
     font-size: 12px;
     padding: 1px 5px;
     background: var(--bg-layer);
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     color: var(--accent);
   }
 

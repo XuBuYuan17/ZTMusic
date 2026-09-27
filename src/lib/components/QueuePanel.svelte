@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import type { CompactTrack, CompactArtist } from '../player/queue.ts'
   import { player } from '../stores/player.svelte.ts'
@@ -116,7 +117,7 @@
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
-  <div class="queue-panel" class:queue-panel-mobile-visible={mobileVisible}>
+  <div class="queue-panel" use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
       <div class="queue-header-actions">
@@ -208,7 +209,7 @@
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border);
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     z-index: calc(var(--z-overlay) + 1);
     display: flex;
     flex-direction: column;
@@ -477,7 +478,7 @@
       background: var(--bg-surface);
       backdrop-filter: blur(40px) saturate(180%);
       -webkit-backdrop-filter: blur(40px) saturate(180%);
-      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.18);
+      box-shadow: var(--shadow-lg);
       animation: queue-slide-up 0.32s var(--ease-out);
     }
 
