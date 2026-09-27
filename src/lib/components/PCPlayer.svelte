@@ -150,7 +150,7 @@
 
   <!-- LEFT COLUMN: Cover + Controls -->
   <div class="ly-left" class:tools-open={showLyricTools}>
-    <div class="ly-left-cover" class:tools-open={showLyricTools}>
+    <div class="ly-left-cover">
       <div class="ly-cover-wrap">
         <button class="ly-cover-button" type="button" onclick={toggleLyricTools} aria-label="展开歌曲操作" aria-expanded={showLyricTools}>
           <img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />
@@ -181,6 +181,13 @@
         </div>
       </div>
       <div class="ly-cover-tool-panel" class:open={showLyricTools} role="menu" aria-label="歌曲更多操作" aria-hidden={!showLyricTools}>
+          <div class="ly-cover-tool-heading">
+            <div class="ly-cover-tool-heading-text">
+              <span>正在播放</span>
+              <strong>{player.title || '未在播放'}</strong>
+            </div>
+            <button type="button" onclick={closeLyricTools} aria-label="关闭歌曲操作" disabled={!showLyricTools}><Icon name="close" size={14} strokeWidth={2} /></button>
+          </div>
           <div class="ly-cover-tool-primary">
             <button class="primary" type="button" role="menuitem" onclick={like.toggle} disabled={!showLyricTools || !player.id || like.busy}>
               <Icon name={like.liked ? 'heart-filled' : 'heart'} size={20} strokeWidth={2} />
@@ -206,7 +213,7 @@
             </button>
             <button type="button" role="menuitem" onclick={cycleQuality} disabled={!showLyricTools || !player.id}>
               <Icon name="settings" size={16} strokeWidth={2} />
-              <span>{qualityLabels[player.preferredLevel] || '标准'}</span>
+              <span>音质 · {qualityLabels[player.preferredLevel] || '标准'}</span>
             </button>
             <button type="button" role="menuitem" onclick={() => openContextPanel('comments')} disabled={!showLyricTools || !player.id}>
               <Icon name="messages" size={16} strokeWidth={2} />
