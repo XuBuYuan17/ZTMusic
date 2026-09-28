@@ -40,7 +40,7 @@
     return `${m}:${s.toString().padStart(2, '0')}`
   }
 
-  function openLyricsFromBar(e: PointerEvent | KeyboardEvent): void {
+  function openLyricsFromBar(e: MouseEvent | KeyboardEvent): void {
     if (!player.id) return
     const currentEl = e.currentTarget as Element | null
     const targetEl = e.target as Element | null
@@ -55,6 +55,7 @@
   })
 
   function handleBarPointerDown(e: PointerEvent): void {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
     if (e.pointerType !== 'mouse') hapticTap()
     if ((e.target as Element).closest('.ctrl-btn, .action-btn, .volume-slider-inline')) return
     isPressing = true
@@ -114,7 +115,7 @@
     gestureStart = null
     isPressing = false
     gestureAxis = 'none'
-    if (wasVertical) playerMorph.endDrag()
+    if (wasVertical) playerMorph.cancelDrag()
   }
 
   // ---- 定时器管理器 ----
@@ -297,7 +298,7 @@
   role="group"
   style="cursor: pointer;"
 >
-  <button type="button" class="player-bar__open-hit" onclick={(e) => e.stopPropagation()} aria-label="打开歌词页"></button>
+  <button type="button" class="player-bar__open-hit" onclick={(e) => { e.stopPropagation(); if (e.detail === 0) openLyricsFromBar(e) }} onkeydown={handleBarKeyDown} aria-label="打开歌词页"></button>
   <!-- 左侧：歌曲信息 / 当前歌词 (LCD区域) -->
   <div class="player-bar__lcd" class:swipe-next={swipeDirection === 'next'} class:swipe-prev={swipeDirection === 'prev'} aria-hidden="true">
     {#if player.cover}

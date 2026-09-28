@@ -37,10 +37,10 @@ function trace(x: number, v: number, steps = 600): { states: Array<{ x: number; 
   assert(end.x === 1 && end.v === 0, 'settle at {1,0} exactly')
 }
 
-// ── 过冲：欠阻尼下最大值超过 1，过冲量在 2%..12% ──
+// ── 无过冲 ──
 {
   const { max } = trace(0, 0)
-  assert(max > 1 && max <= 1.12, `overshoot in [2%,12%] (max=${max.toFixed(3)})`)
+  assert(max === 1, `no overshoot (max=${max.toFixed(3)})`)
 }
 
 // ── 初速度方向：第一帧增量按 v0 排序 ──
@@ -71,6 +71,21 @@ function trace(x: number, v: number, steps = 600): { states: Array<{ x: number; 
   const a = runSpring({ x: 0, v: 2.4 }, 40)
   const b = runSpring({ x: 0, v: 2.4 }, 40)
   assert(a.x === b.x && a.v === b.v, 'runSpring deterministic')
+}
+
+{
+  let opening = { x: 0, v: 0 }
+  let closing = { x: 1, v: 0 }
+  for (let i = 0; i < 80; i++) {
+    opening = stepSpring(opening, 0.016, 1)
+    closing = stepSpring(closing, 0.016, 0)
+    assert(Math.abs(opening.x + closing.x - 1) < 1e-8, 'opening and closing follow mirrored paths')
+  }
+  const midway = runSpring({ x: 0, v: 0 }, 8)
+  const reversed = stepSpring(midway, 0.016, 0)
+  assert(Math.abs(reversed.x - midway.x) < 0.1, 'reversal continues without endpoint jump')
+  const cancelled = runSpring({ x: 0.75, v: 0 }, 100, 1)
+  assert(cancelled.x === 1 && cancelled.v === 0, 'cancelled close drag returns to open')
 }
 
 console.log(`spring: ${passed} passed, ${failed} failed`)

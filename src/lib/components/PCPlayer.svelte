@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
   import { player } from '../stores/player.svelte.ts';
@@ -12,7 +13,7 @@
   import QueuePanel from './QueuePanel.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
-  import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts';
+  import { dialogFocus, desktopPanel, reducedMotion } from '../app/desktop-motion.ts';
   import { closeDrag } from '../app/close-drag.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
 
@@ -43,10 +44,26 @@
   let showLyricTools = $state(false);
   let menuMessage = $state('');
   let actionBusy = $state('');
+  let showTranslation = $state(true);
 
   $effect(() => {
     if (!lyricsEl) return;
-    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5);
+    const index = lyricState.highlightIndex;
+    void showTranslation;
+    let cancelled = false;
+    tick().then(() => {
+      if (!cancelled) scrollLyricIntoView(lyricsEl, index, '.ly-line', 0.5, reducedMotion() ? 'instant' : 'smooth');
+    });
+    return () => { cancelled = true };
+  });
+
+  $effect(() => {
+    if (!lyricsEl) return;
+    const observer = new ResizeObserver(() => {
+      scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5, 'instant');
+    });
+    observer.observe(lyricsEl);
+    return () => observer.disconnect();
   });
 
   function closeLyricTools(): void {
@@ -134,7 +151,7 @@
 
 <!-- PC Layout: Two Columns -->
 <div class="ly-pc-player">
-  <div class="ly-system-actions morph-in" style="--s:0.56;--d:0.18" aria-label="歌词页工具">
+  <div class="ly-system-actions morph-in" style="--s:0.2;--d:0.55" aria-label="歌词页工具">
     <div class="ly-volume-control" class:open={showLyricsVolume} role="button" tabindex="0" aria-label="音量" aria-expanded={showLyricsVolume} onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} onkeydown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); showLyricsVolume = !showLyricsVolume } }}>
       <span class="ly-volume-shell">
         <button class="ly-glass-icon-btn" type="button" onclick={(event) => { event.stopPropagation(); showLyricsVolume = !showLyricsVolume }} aria-label={showLyricsVolume ? '收起音量调节' : '展开音量调节'}>
@@ -155,7 +172,7 @@
     <div class="ly-left-cover">
       <div class="ly-cover-wrap">
         <button class="ly-cover-button" type="button" onclick={toggleLyricTools} aria-label="展开歌曲操作" aria-expanded={showLyricTools}>
-          <img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />
+          {#if player.cover}<img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />{:else}<span class="ly-cover ly-cover-placeholder"><Icon name="music" size={64} /></span>{/if}
         </button>
       </div>
       <div class="ly-track-wrap">
@@ -243,10 +260,10 @@
     </div>
 
     <div class="ly-left-controls">
-      <div class="morph-in" style="--s:0.42;--d:0.18">
+      <div class="morph-in" style="--s:0.2;--d:0.55">
         <ProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
       </div>
-      <div class="morph-in" style="--s:0.5;--d:0.2">
+      <div class="morph-in" style="--s:0.2;--d:0.55">
         <PlaybackControls
           variant="lyrics"
           mode={player.mode}
@@ -268,17 +285,17 @@
   <!-- RIGHT COLUMN: Lyrics + Context -->
   <div class="ly-right">
     <div class="ly-right-panel">
-      <div class="ly-lyrics-scroll" bind:this={lyricsEl}>
+      <div class="ly-lyrics-scroll" class:empty={lyricState.loading || !lyricState.lyrics.length} bind:this={lyricsEl}>
         <div class="ly-lyrics-inner">
           {#if lyricState.loading}
             <div class="ly-no-lyric" aria-busy="true">歌词加载中…</div>
           {:else if lyricState.lyrics.length > 0}
             {#each lyricState.lyrics as line, i}
-              <button class="ly-line" style="--li:{i}" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
+              <button class="ly-line" style="--distance:{Math.abs(i - lyricState.highlightIndex)}" class:active={i === lyricState.highlightIndex} class:sung={i < lyricState.highlightIndex}
                 aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
                 onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
                 <span class="ly-line-text">{line.text || '...'}</span>
-                {#if line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
+                {#if showTranslation && line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
               </button>
             {/each}
           {:else}
@@ -286,7 +303,14 @@
           {/if}
         </div>
       </div>
-      <div class="morph-in" style="--s:0.62;--d:0.2">
+      <div class="ly-bottom-tools morph-in" aria-label="歌词辅助功能">
+        {#if lyricState.lyrics.some(line => line.translation)}
+          <button class="ly-glass-icon-btn" type="button" aria-label="显示译文" aria-pressed={showTranslation} onclick={() => { showTranslation = !showTranslation }}>译</button>
+        {/if}
+        <button class="ly-glass-icon-btn" type="button" aria-label="歌曲评论" onclick={() => openContextPanel('comments')}><Icon name="messages" size={18} /></button>
+        <button class="ly-glass-icon-btn" type="button" aria-label="相关歌曲" onclick={() => openContextPanel('songs')}><Icon name="music" size={18} /></button>
+      </div>
+      <div class="morph-in" style="--s:0.2;--d:0.55">
         <SongContextStrip variant="desktop" activePanel={contextPanelRequest} showCards={false} onActivePanelChange={(value) => { contextPanelRequest = value }} onOpenArtist={handleOpenArtist} {onClose} />
       </div>
     </div>

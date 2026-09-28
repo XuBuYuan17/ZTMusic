@@ -17,8 +17,6 @@ export const AXIS_RATIO = 1.2         // 主轴位移需 > 副轴的倍数才锁
 export const SAMPLE_WINDOW = 110      // 速度采样窗口 ms
 export const PROJECTION_T = 0.22      // 松手后惯性投射时长 s
 export const SNAP_P = 0.5
-export const HARD_OPEN = 0.62         // 越过恒开（无视速度）
-export const HARD_CLOSE = 0.14        // 低于且无明显上甩恒关
 
 // 手指走满 travel 即 p=1：视口高度的 45%，夹在 300..440px
 export function travelRange(viewportHeight: number): number {
@@ -41,7 +39,7 @@ export function rectLerp(a: Rect, b: Rect, t: number): Rect {
   }
 }
 
-// 竖向位移 → 进度：dy 为负（上滑）时进度增大；p0 是本次手势起点进度（0 或 1）
+// 竖向位移 → 进度：dy 为负（上滑）时进度增大；p0 可是中断动画时的任意进度。
 export function panToProgress(p0: number, dy: number, travel: number): number {
   return Math.max(0, Math.min(1, p0 - dy / travel))
 }
@@ -59,10 +57,8 @@ export function sampleVelocity(samples: Sample[], now: number): number {
   return (first.y - last.y) / (dt / 1000)
 }
 
-// 松手吸附：位置硬阈值优先，否则把进度按初速度投射 220ms 后看落在哪一侧
+// 两个方向使用相同的惯性投射，短距离快甩也能回到另一端。
 export function decideSnap(p: number, v: number): 0 | 1 {
-  if (p >= HARD_OPEN) return 1
-  if (p <= HARD_CLOSE && v < 2) return 0
   const proj = Math.max(0, Math.min(1, p + v * PROJECTION_T))
   return proj >= SNAP_P ? 1 : 0
 }

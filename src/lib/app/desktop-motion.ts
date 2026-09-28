@@ -4,10 +4,15 @@ export function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-export function desktopPanel(_node: Element) {
-  const disabled = document.documentElement.classList.contains('mobile-runtime') || reducedMotion()
-  if (disabled) return { duration: 0 }
-  return { duration: _node.getAttribute('role') === 'menu' ? motion.menu : motion.panel, css: (t: number) => `opacity:${Math.min(1, t)};translate:0 ${(1 - t) * 8}px;scale:${.97 + .03 * t}`, easing: (t: number) => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2 }
+export function desktopPanel(node: Element) {
+  if (document.documentElement.classList.contains('mobile-runtime') || reducedMotion()) return { duration: 0 }
+  const isMenu = node.getAttribute('role') === 'menu'
+  // WAAPI：避免 Svelte css 补间把 translate/scale 转成 matrix 后与 transform: translateX(-50%) 嵌套合成
+  const animation = node.animate(
+    [{ opacity: 0, transform: 'translateY(8px) scale(0.97)', easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }, { opacity: 1, transform: 'none' }],
+    { duration: isMenu ? motion.menu : motion.panel, fill: 'backwards' },
+  )
+  return { duration: 0, destroy: () => animation.cancel() }
 }
 
 export function replaceAnimation() {

@@ -4,8 +4,8 @@
 export interface SpringState { x: number; v: number }
 export interface SpringParams { stiffness: number; damping: number }
 
-// ζ = damping / (2·√stiffness) ≈ 0.62 → 欠阻尼，阶跃过冲约 8%，即「极轻微果冻」
-export const LYRIC_SPRING: SpringParams = { stiffness: 210, damping: 18 }
+// 临界阻尼：展开与收回共用，不在端点回弹。
+export const LYRIC_SPRING: SpringParams = { stiffness: 300, damping: 35 }
 
 const MAX_DT = 0.032       // 后台切回的大帧钳制，防数值爆炸
 const SUBSTEP_AT = 0.02    // 超过则拆两个半步积分

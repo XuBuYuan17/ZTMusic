@@ -3,25 +3,22 @@
   display: contents;
 }
 
-.ly-pc-player .pb-track,
-.ly-pc-player .pb-fill {
-  height: 8px;
-}
-
-.ly-pc-player .pb-fill {
+/* specificity: html 前缀压过 ProgressBar.svelte 的 scoped .pb-*.svelte-xxx（同 0-2-0 时靠后者胜） */
+html:not(.mobile-runtime) .ly-pc-player .pb-fill {
+  background: rgba(255,255,255,0.92);
   box-shadow: 0 0 12px rgba(255,255,255,0.16);
 }
-.ly-pc-player .pb-times {
-  color: rgba(255,255,255,0.9) !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  opacity: 1 !important;
+html:not(.mobile-runtime) .ly-pc-player .pb-thumb {
+  background: rgba(255,255,255,0.92);
+}
+html:not(.mobile-runtime) .ly-pc-player .pb-times {
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  font-weight: 500;
   text-shadow: 0 1px 8px rgba(0,0,0,0.28);
 }
-
-.ly-pc-player .pb-time {
-  color: rgba(255,255,255,0.9) !important;
-  font-weight: 700 !important;
+html:not(.mobile-runtime) .ly-pc-player .pb-time {
+  color: rgba(255,255,255,0.75);
 }
 
 .ly-system-actions {
@@ -53,14 +50,12 @@
   cursor: default;
 }
 
-.ly-glass-icon-btn:hover,
-.ly-bottom-tool:hover {
+.ly-glass-icon-btn:hover {
   color: #fff;
-  background: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.12);
 }
 
-.ly-glass-icon-btn:focus-visible,
-.ly-bottom-tool:focus-visible {
+.ly-glass-icon-btn:focus-visible {
   outline: 2px solid rgba(255,255,255,0.34);
   outline-offset: 3px;
 }
@@ -233,7 +228,7 @@
   transition: all 0.12s ease;
 }
 .ly-star-btn svg { transform: scale(1.2); }
-.ly-star-btn:hover { color: #fff; background: rgba(255,255,255,0.24); }
+.ly-star-btn:hover { color: #fff; background: rgba(255,255,255,0.12); }
 .ly-star-btn.active { color: rgba(255,255,255,0.96); }
 .ly-track-sub {
   display: flex;
@@ -275,10 +270,10 @@
   left: 50%;
   z-index: 2;
   width: min(100%, clamp(280px, 25vw, 460px));
-  aspect-ratio: 1;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: clamp(14px, 1.5vw, 22px);
   border-radius: var(--radius-xl);
   border: 1px solid rgba(255,255,255,0.15);
@@ -341,7 +336,7 @@
   gap: 8px;
   flex: none;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 .ly-cover-tool-primary .primary {
   min-width: 0;
@@ -382,21 +377,6 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px 8px;
   min-height: 0;
-}
-.ly-cover-tool-secondary button {
-  min-width: 0;
-  min-height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 0 8px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: rgba(255,255,255,0.81);
-  cursor: pointer;
-  transition: background 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 .ly-cover-tool-secondary button svg {
   flex: 0 0 16px;
@@ -619,10 +599,10 @@
   transform-origin: center;
   filter: none;
   transition: opacity 260ms ease, transform 260ms ease;
-  will-change: transform, opacity;
 }
 
 .ly-line.animate-words .ly-word {
+  will-change: transform, opacity;
   animation-name: lyIn;
   animation-duration: 420ms;
   animation-fill-mode: forwards;
@@ -669,178 +649,132 @@
   }
 }
 
-/* ── PlayerMorph：桌面迷你条 ↔ 全屏连续变形层（移动端不挂载，再门控一层）── */
+/* PC 底栏与歌词页共用一个进度，所有过渡均可反向。 */
 html:not(.mobile-runtime) .player-morph {
   position: fixed;
   inset: 0;
   z-index: 300;
   pointer-events: none;
 }
-
-html:not(.mobile-runtime) .pm-focus {
-  position: absolute;
-  inset: 0;
-}
-
-/* 底页退焦：暗度 + 边缘模糊都随 --p */
+html:not(.mobile-runtime) .pm-focus,
+html:not(.mobile-runtime) .pm-surface { position: absolute; inset: 0; }
+html:not(.mobile-runtime) .player-morph.active .pm-focus { pointer-events: auto; }
 html:not(.mobile-runtime) .pm-scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.42);
+  position: absolute; inset: 0;
+  background: rgb(0 0 0 / 32%);
   opacity: var(--p);
-  backdrop-filter: blur(calc(var(--p) * 20px)) saturate(1.1);
-  -webkit-backdrop-filter: blur(calc(var(--p) * 20px)) saturate(1.1);
 }
-
-html:not(.mobile-runtime) .pm-surface {
-  position: absolute;
-  inset: 0;
-}
-
-/* 材质 1：条玻璃（配方逐字同 .player-bar::before），p≥.4 退出 */
 html:not(.mobile-runtime) .pm-glass {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: rgba(245, 245, 247, 0.82);
   backdrop-filter: saturate(240%) blur(32px);
-  -webkit-backdrop-filter: saturate(240%) blur(32px);
-  opacity: calc(1 - clamp(0, (var(--p) - 0.05) / 0.35, 1));
+  opacity: calc(1 - clamp(0, var(--p) / 0.5, 1));
 }
-html[data-theme="dark"] .pm-glass {
-  background: rgba(35, 35, 38, 0.85);
-}
-
-/* 材质 2：全屏实色 #111，到 .55 铺满 */
+html[data-theme="dark"] .pm-glass { background: rgba(35, 35, 38, 0.85); }
 html:not(.mobile-runtime) .pm-solid {
-  position: absolute;
-  inset: 0;
-  background: #111;
+  position: absolute; inset: 0;
+  background: #171719;
   opacity: clamp(0, var(--p) / 0.55, 1);
 }
-
-/* 材质 3：模糊封面背景（同 .ly-fullscreen::before），.15 起淡入 */
 html:not(.mobile-runtime) .pm-art {
-  position: absolute;
-  inset: -110px;
+  position: absolute; inset: -100px;
   overflow: hidden;
-  opacity: clamp(0, (var(--p) - 0.15) / 0.65, 1);
+  opacity: var(--p);
 }
 html:not(.mobile-runtime) .pm-art img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(86px) saturate(1.35) brightness(0.82);
-  transform: scale(1.24);
+  width: 100%; height: 100%; object-fit: cover;
+  filter: blur(80px) saturate(0.65) brightness(0.7);
+  transform: scale(1.15);
 }
-
-/* 背景渐变遮罩（同 .ly-fullscreen::after）*/
 html:not(.mobile-runtime) .pm-veil {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 22% 82%, rgba(124, 126, 84, 0.22), transparent 34%),
-    linear-gradient(90deg, rgba(26, 32, 30, 0.56), rgba(26, 28, 28, 0.44) 42%, rgba(22, 23, 24, 0.62)),
-    rgba(0, 0, 0, 0.34);
+  background: linear-gradient(90deg, rgb(0 0 0 / 25%), rgb(0 0 0 / 38%));
+  opacity: var(--p);
 }
-html[data-theme="dark"] .pm-veil {
-  background:
-    radial-gradient(circle at 21% 82%, rgba(126, 127, 82, 0.18), transparent 34%),
-    linear-gradient(90deg, rgba(24, 31, 28, 0.64), rgba(27, 29, 29, 0.5) 44%, rgba(16, 17, 18, 0.7)),
-    rgba(0, 0, 0, 0.48);
-}
-
-/* 内容容器：grid 规则同 .ly-container；阶段 2 整体随 p 淡入，阶段 4 换成错落 */
 html:not(.mobile-runtime) .pm-container {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(360px, 39vw) minmax(420px, 1fr);
-  gap: clamp(54px, 7vw, 128px);
-  padding: clamp(28px, 3vw, 48px) clamp(32px, 4.4vw, 76px);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: clamp(40px, 6vw, 110px);
+  padding: 64px clamp(32px, 6vw, 112px) 32px;
   overflow: hidden;
-}
-html.desktop-titlebar:not(.mobile-runtime) .pm-container {
-  inset: var(--titlebar-h) 0 0 0;
-}
-
-/* 槽位让位共享浮层：封面只藏图（按钮仍可点 → tools 面板），标题整区隐藏 */
-html:not(.mobile-runtime) .pm-container .ly-cover { opacity: 0; }
-html:not(.mobile-runtime) .pm-container .ly-track-wrap { visibility: hidden; }
-
-/* 共享封面 / 标题浮层：在 container 之下飞行，pointer-events 永不拦截 */
-html:not(.mobile-runtime) .pm-fcover,
-html:not(.mobile-runtime) .pm-ftitle {
-  position: absolute;
-  z-index: 1;
   pointer-events: none;
 }
-html:not(.mobile-runtime) .pm-fcover img { width: 100%; height: 100%; object-fit: cover; }
-html:not(.mobile-runtime) .pm-ftitle {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 底栏在 morph 激活时隐藏（同帧由 surface 接管）*/
-html:not(.mobile-runtime) .player-bar.morph-hidden { visibility: hidden; }
-
-/* 桌面接管竖向手势（覆盖 open-hit 的 pan-y）；移动端不生效 */
-html:not(.mobile-runtime) .player-bar,
-html:not(.mobile-runtime) .player-bar__open-hit { touch-action: none; }
-html:not(.mobile-runtime) .player-morph .ly-left { touch-action: none; }
-
-/* 飞行途中内容不可交互（隐形槽位按钮也点不到），settle 到 open 后恢复 */
-html:not(.mobile-runtime) .pm-container { pointer-events: none; }
+html.desktop-titlebar:not(.mobile-runtime) .pm-container { top: var(--titlebar-h); }
 html:not(.mobile-runtime) .player-morph.is-open .pm-container { pointer-events: auto; }
-
-/* 通用入场：静态 --s（起点）/ --d（窗口），进度全读根上唯一的 --p；
-   收起时 p 递减自动倒放。独立 translate 属性走合成。*/
-html:not(.mobile-runtime) .morph-in {
-  --a: clamp(0, (var(--p) - var(--s, 0)) / var(--d, 0.2), 1);
-  opacity: var(--a);
-  translate: 0 calc((1 - var(--a)) * 16px);
+html:not(.mobile-runtime) .player-morph:not(.is-open) .ly-cover,
+html:not(.mobile-runtime) .player-morph.has-shared-title:not(.is-open) .ly-track-title { opacity: 0; }
+html:not(.mobile-runtime) .player-morph:not(.has-shared-title) .ly-track-title {
+  opacity: clamp(0, (var(--p) - 0.2) / 0.55, 1);
 }
-
-/* 关闭按钮：在 clip 之外，任何进度可点 */
+html:not(.mobile-runtime) .player-morph .ly-track-sub {
+  opacity: clamp(0, (var(--p) - 0.2) / 0.55, 1);
+}
+html:not(.mobile-runtime) .pm-fcover,
+html:not(.mobile-runtime) .pm-ftitle {
+  position: absolute; z-index: 1;
+  pointer-events: none;
+}
+html:not(.mobile-runtime) .pm-fcover { background: #252529; }
+html:not(.mobile-runtime) .pm-fcover img { width: 100%; height: 100%; object-fit: cover; }
+html:not(.mobile-runtime) .pm-ftitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html:not(.mobile-runtime) .player-morph.is-open .pm-fcover,
+html:not(.mobile-runtime) .player-morph.is-open .pm-ftitle { visibility: hidden; }
+html:not(.mobile-runtime) .player-bar.morph-hidden { visibility: hidden; }
+html:not(.mobile-runtime) .pm-bar-snapshot {
+  position: absolute; z-index: 3;
+  pointer-events: none;
+  opacity: calc(1 - clamp(0, var(--p) / 0.22, 1));
+}
+html:not(.mobile-runtime) .pm-bar-snapshot .player-bar {
+  position: relative; inset: auto; width: 100%; height: 100%;
+  max-width: none; margin: 0; transform: none; pointer-events: none;
+}
+html:not(.mobile-runtime) .pm-bar-snapshot .lcd-artwork,
+html:not(.mobile-runtime) .pm-bar-snapshot.has-title .lcd-meta__title { visibility: hidden; }
+html:not(.mobile-runtime) .player-bar,
+html:not(.mobile-runtime) .player-bar__open-hit,
+html:not(.mobile-runtime) .player-morph .ly-left,
+html:not(.mobile-runtime) .pm-close { touch-action: none; }
+html:not(.mobile-runtime) .player-morph .morph-in,
+html:not(.mobile-runtime) .player-morph .ly-lyrics-inner {
+  opacity: clamp(0, (var(--p) - 0.2) / 0.55, 1);
+}
 html:not(.mobile-runtime) .pm-close {
-  position: absolute;
-  top: 20px;
-  right: 28px;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.72);
-  cursor: pointer;
-  pointer-events: auto;
+  position: absolute; top: 12px; left: calc(50% - 48px);
+  z-index: 40;
+  display: grid; place-items: center;
+  width: 96px; height: 32px;
+  border: none; border-radius: var(--radius-lg);
+  background: transparent; cursor: grab;
+  opacity: clamp(0.2, var(--p), 1);
 }
-html:not(.mobile-runtime) .pm-close:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+html:not(.mobile-runtime) .pm-close span {
+  width: 40px; height: 4px; border-radius: 999px;
+  background: rgb(255 255 255 / 72%);
+}
+html:not(.mobile-runtime) .pm-close:hover span { background: white; }
+html:not(.mobile-runtime) .pm-close:active { cursor: grabbing; }
+html:not(.mobile-runtime) .pm-close:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 html.desktop-titlebar:not(.mobile-runtime) .pm-close { top: calc(var(--titlebar-h) + 8px); }
-
-/* 歌词行：每行 --li 决定批次（前 15 行瀑布，之后封顶同批）；
-   入场量与原有「非 active 暗化」「active 不透明」相乘 */
+html:not(.mobile-runtime) .player-morph .ly-system-actions { right: 28px; }
+html:not(.mobile-runtime) .player-morph .ly-bottom-tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  flex: none;
+}
 html:not(.mobile-runtime) .player-morph .ly-line {
-  --a: clamp(0, (var(--p) - (0.3 + min(var(--li, 0), 14) * 0.012)) / 0.16, 1);
+  filter: blur(clamp(0px, (var(--distance, 0) - 1) * 0.5px, 1.5px));
+  transition: opacity 200ms ease, filter 200ms ease;
 }
-html:not(.mobile-runtime) .player-morph .ly-line.active {
-  opacity: var(--a);
-  transform: translateY(calc((1 - var(--a)) * 16px));
+html:not(.mobile-runtime) .player-morph .ly-line:hover,
+html:not(.mobile-runtime) .player-morph .ly-line:focus-visible,
+html:not(.mobile-runtime) .player-morph.ly-no-text-blur .ly-line { filter: none; }
+html:not(.mobile-runtime) .player-morph .ly-line:focus-visible { outline: 2px solid rgb(255 255 255 / 60%); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  html:not(.mobile-runtime) .player-morph .ly-line { transition: none; }
 }
-html:not(.mobile-runtime) .player-morph .ly-line:not(.active) {
-  opacity: calc(var(--a) * 0.38);
-  transform: translateY(calc(2px + (1 - var(--a)) * 18px));
-}
-html:not(.mobile-runtime) .player-morph .ly-line.sung:not(.active) {
-  opacity: calc(var(--a) * 0.48);
-}
-html:not(.mobile-runtime) .player-morph .ly-line:not(.active):not(.sung) {
-  opacity: calc(var(--a) * 0.32);
-}
-

@@ -16,14 +16,19 @@ interface FakeLine {
   clientHeight: number
 }
 
-function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer & { scrolledTo: ScrollToOptions | null } {
+function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer & { scrolledTo: ScrollToOptions | null; scrollTop: number } {
   let scrolledTo: ScrollToOptions | null = null
-  return {
+  const container = {
     clientHeight,
+    scrollTop: 0,
     querySelectorAll: () => lines,
-    scrollTo: (opts: ScrollToOptions) => { scrolledTo = opts },
+    scrollTo(opts: ScrollToOptions) {
+      scrolledTo = opts
+      if (opts.top !== undefined) container.scrollTop = opts.top
+    },
     get scrolledTo() { return scrolledTo },
   }
+  return container
 }
 
 // index < 0 or missing container => no-op
@@ -35,18 +40,36 @@ function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer
   check(true, true, 'null container no throw')
 }
 
+// 手动 rAF 驱动器：测试环境无浏览器，用同步循环走完所有补间帧
+let rafQueue: FrameRequestCallback[] = []
+let rafTime = 0
+;(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = (cb: FrameRequestCallback) => { rafQueue.push(cb); return rafQueue.length }
+;(globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => {}
+;(globalThis as { performance?: unknown }).performance = { now: () => rafTime }
+
+function runRaf(): void {
+  // 从当前帧开始，逐帧消费队列（step 里会 push 下一帧）
+  while (rafQueue.length > 0) {
+    const cb = rafQueue.shift()!
+    cb(rafTime)
+    rafTime += 16
+  }
+}
+
 // centre ratio 0.5: offset = 300 - 400*0.5 + 30/2 = 115
 {
   const c = makeContainer([{ offsetTop: 300, clientHeight: 30 }], 400)
   scrollLyricIntoView(c, 0, '.x', 0.5)
+  runRaf()
   check(c.scrolledTo?.top, 115, 'centre offset')
-  check(c.scrolledTo?.behavior, 'smooth', 'smooth behavior')
+  check(c.scrolledTo?.behavior, undefined, 'smooth uses rAF tween, not scroll-behavior')
 }
 
 // top-biased ratio 0.25: offset = 300 - 400*0.25 + 30/2 = 215
 {
   const c = makeContainer([{ offsetTop: 300, clientHeight: 30 }], 400)
   scrollLyricIntoView(c, 0, '.x', 0.25)
+  runRaf()
   check(c.scrolledTo?.top, 215, 'top-biased offset')
 }
 
@@ -54,6 +77,7 @@ function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer
 {
   const c = makeContainer([{ offsetTop: 10, clientHeight: 20 }], 400)
   scrollLyricIntoView(c, 0, '.x', 0.5)
+  runRaf()
   check(c.scrolledTo?.top, 0, 'clamped to 0')
 }
 
@@ -62,6 +86,13 @@ function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer
   const c = makeContainer([], 400)
   scrollLyricIntoView(c, 5, '.x', 0.5)
   check(c.scrolledTo, null, 'missing line no-op')
+}
+
+{
+  const c = makeContainer([{ offsetTop: 300, clientHeight: 30 }], 400)
+  scrollLyricIntoView(c, 0, '.x', 0.5, 'instant')
+  check(c.scrolledTo?.top, 115, 'instant centering keeps the same geometry')
+  check(c.scrolledTo?.behavior, 'instant', 'resize and reduced-motion centering is immediate')
 }
 
 console.log(`\nscrollLyricIntoView: ${passed} passed, ${failed} failed`)

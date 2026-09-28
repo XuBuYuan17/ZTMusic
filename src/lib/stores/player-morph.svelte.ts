@@ -36,6 +36,13 @@ class PlayerMorphState {
   sourceTitle = $state<Rect | null>(null)
   targetCover = $state<Rect | null>(null)
   targetTitle = $state<Rect | null>(null)
+  sourceFont = $state(14)
+  targetFont = $state(24)
+  sourceLineHeight = $state(20)
+  targetLineHeight = $state(28)
+  sourceWeight = $state(500)
+  targetWeight = $state(700)
+  viewport = $state({ width: window.innerWidth, height: window.innerHeight })
 
   private samples: Sample[] = []
   private dragStartY = 0
@@ -54,7 +61,7 @@ class PlayerMorphState {
     if (!src) return { top: 0, right: 0, bottom: 0, left: 0, width: 0, height: 0, radius: 0 }
     return rectLerp(src, {
       top: 0, right: 0, bottom: 0, left: 0,
-      width: window.innerWidth, height: window.innerHeight, radius: 0,
+      width: this.viewport.width, height: this.viewport.height, radius: 0,
     }, this.p)
   }
 
@@ -73,38 +80,45 @@ class PlayerMorphState {
   private measureSources(): void {
     const bar = document.querySelector('.player-bar')
     if (!bar) return
-    this.sourceBar = elementRect(bar, 12)
-    const cover = bar.querySelector('.lcd-artwork__img')
-    this.sourceCover = cover ? elementRect(cover, 6) : null
+    this.sourceBar = elementRect(bar, parseFloat(getComputedStyle(bar).borderRadius) || 0)
+    const cover = bar.querySelector('.lcd-artwork__img, .lcd-artwork--empty')
+    this.sourceCover = cover ? elementRect(cover, parseFloat(getComputedStyle(cover).borderRadius) || 0) : null
     const title = bar.querySelector('.lcd-meta__title')
     this.sourceTitle = title ? elementRect(title, 0) : null
+    if (title) {
+      const style = getComputedStyle(title)
+      this.sourceFont = parseFloat(style.fontSize)
+      this.sourceLineHeight = parseFloat(style.lineHeight) || this.sourceFont * 1.2
+      this.sourceWeight = parseFloat(style.fontWeight) || 500
+    }
+    this.viewport = { width: window.innerWidth, height: window.innerHeight }
   }
 
   // ── 底栏上滑发起；startY 是 pointerdown 的原始位置，锁轴前位移也计入进度 ──
   beginDrag(startY: number): void {
     this.measureSources()
     if (!this.sourceBar) return
+    document.querySelector<HTMLElement>('.player-bar__open-hit')?.focus({ preventScroll: true })
     this.cancelRaf()
     this.phase = 'dragging'
-    this.p = 0
-    this.p0 = 0
+    this.p0 = this.p
     this.dragStartY = startY
-    this.samples = []
+    this.samples = [{ y: startY, t: performance.now() }]
   }
 
-  // ── 全屏态下滑发起（源几何保留，从 p=1 反向）──
-  beginCloseDrag(): void {
+  // ── 下滑发起；动画途中接管时保留当前进度 ──
+  beginCloseDrag(startY: number): void {
+    this.measureSources()
     this.cancelRaf()
     this.phase = 'dragging'
-    this.p = 1
-    this.p0 = 1
-    this.samples = []
+    this.p0 = this.p
+    this.dragStartY = startY
+    this.samples = [{ y: startY, t: performance.now() }]
   }
 
   dragTo(clientY: number): void {
     if (this.phase !== 'dragging') return
     const travel = travelRange(window.innerHeight)
-    if (!this.samples.length) this.dragStartY = clientY
     this.p = panToProgress(this.p0, clientY - this.dragStartY, travel)
     this.samples.push({ y: clientY, t: performance.now() })
     if (this.samples.length > 6) this.samples.shift()
@@ -118,20 +132,28 @@ class PlayerMorphState {
     this.launch(decideSnap(this.p, v), v)
   }
 
-  // ── tap 打开（给一个上抛初速度制造「起步快」）/ 程序化打开 ──
-  open(): void {
-    if (this.phase === 'open' || this.phase === 'animating') return
-    if (!this.sourceBar) this.measureSources()
-    this.launch(1, 2.4)
+  cancelDrag(): void {
+    if (this.phase === 'dragging') this.launch(this.p0 >= 0.5 ? 1 : 0, 0)
   }
 
-  close(v0 = 0): void {
+  // ── 点击与程序化打开共用相同的弹簧 ──
+  open(): void {
+    if (this.phase === 'open') return
+    this.measureSources()
+    if (!this.sourceBar) return
+    document.querySelector<HTMLElement>('.player-bar__open-hit')?.focus({ preventScroll: true })
+    this.launch(1, this.phase === 'animating' ? this.springV : 0)
+  }
+
+  close(): void {
     if (this.phase === 'closed') return
-    this.launch(0, v0)
+    this.measureSources()
+    this.launch(0, this.phase === 'animating' ? this.springV : 0)
   }
 
   private launch(target: 0 | 1, v0: number): void {
     if (reducedMotion()) {
+      this.cancelRaf()
       this.p = target
       this.phase = target === 1 ? 'open' : 'closed'
       return
@@ -155,7 +177,7 @@ class PlayerMorphState {
     const dt = (now - this.lastT) / 1000
     this.lastT = now
     const next = stepSpring({ x: this.p, v: this.springV }, dt, this.springTarget)
-    this.p = next.x
+    this.p = Math.max(0, Math.min(1, next.x))
     this.springV = next.v
     if (next.x === this.springTarget && next.v === 0) {
       this.rafId = null
@@ -171,7 +193,7 @@ class PlayerMorphState {
 
   // resize：未激活无需处理；激活时重测源（目标槽位由组件 effect 重测）
   remeasure(): void {
-    if (this.phase === 'closed' || this.phase === 'open') return
+    if (this.phase === 'closed') return
     this.measureSources()
   }
 

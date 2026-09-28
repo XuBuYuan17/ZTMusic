@@ -6,7 +6,6 @@
 
 import {
   lerp, rectLerp, panToProgress, sampleVelocity, decideSnap, travelRange,
-  HARD_OPEN, HARD_CLOSE,
 } from './morph-geometry.ts'
 import type { Rect, Sample } from './morph-geometry.ts'
 
@@ -70,9 +69,17 @@ assert(approx(panToProgress(0, -180, 360), 0.5), 'halfway up → .5')
 }
 
 // ── decideSnap ──
-assert(decideSnap(HARD_OPEN, -100) === 1, 'at HARD_OPEN always opens')
-assert(decideSnap(HARD_CLOSE, 0) === 0, 'at HARD_CLOSE low speed closes')
-assert(decideSnap(HARD_CLOSE, 8) === 1, 'flick up from bottom opens')
+assert(decideSnap(0.9, -3) === 0, 'short fast downward flick closes')
+assert(decideSnap(0.1, 3) === 1, 'short fast upward flick opens')
+assert(decideSnap(0.95, 0) === 1, 'small slow close drag returns open')
+assert(decideSnap(0.05, 0) === 0, 'small slow open drag returns closed')
+for (const p of [0.1, 0.3, 0.7, 0.9]) {
+  for (const v of [-3, 0, 3]) {
+    assert(decideSnap(p, v) === 1 - decideSnap(1 - p, -v), 'mirrored gestures snap symmetrically')
+  }
+}
+assert(approx(panToProgress(1, 9, 360), 0.975), 'first locked frame retains initial 9px')
+assert(approx(panToProgress(0.4, 36, 360), 0.3), 'interrupted transition drags from current progress')
 assert(decideSnap(0.5, 0) === 1, 'zero velocity at midpoint opens (>=.5)')
 assert(decideSnap(0.3, 8) === 1, 'flick from .3 projects past midpoint → open')
 assert(decideSnap(0.55, -8) === 0, 'flick down from .55 → close')

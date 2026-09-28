@@ -7,41 +7,6 @@
   padding: clamp(4px, 0.4vw, 8px) 0;
   width: min(100%, clamp(320px, 28vw, 480px));
 }
-.ly-progress-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  margin-bottom: 2px;
-}
-.ly-progress-track {
-  height: 8px;
-  background: rgba(255,255,255,0.17);
-  border-radius: 999px;
-  cursor: pointer;
-  touch-action: none;
-}
-.ly-progress-track[aria-disabled="true"] {
-  cursor: default;
-  opacity: 0.45;
-}
-.ly-time-row {
-  display: flex;
-  justify-content: space-between;
-}
-.ly-time {
-  font-size: 12px;
-  color: rgba(255,255,255,0.42);
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-}
-.ly-progress-fill {
-  height: 100%;
-  background: rgba(255,255,255,0.92);
-  border-radius: 999px;
-  box-shadow: 0 0 12px rgba(255,255,255,0.16);
-  transition: width 0.15s linear;
-}
-
 .ly-play-row {
   display: flex;
   align-items: center;
@@ -68,7 +33,7 @@
 .ly-ctrl-btn:active {
   transform: scale(0.82);
 }
-.ly-ctrl-btn:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.ly-ctrl-btn:hover { color: #fff; background: rgba(255,255,255,0.12); }
 .ly-ctrl-btn.active { color: var(--accent, #1db954); }
 .ly-ctrl-btn:disabled,
 .ly-play-btn:disabled,
@@ -100,22 +65,6 @@
 .ly-play-row svg {
   transform: scale(1.16);
 }
-.ly-play-btn:active {
-  transform: scale(0.85);
-}
-.ly-play-btn:hover { color: #fff; }
-.ly-play-btn:hover { transform: scale(1.06); }
-/* --- Top-right: Volume --- */
-.ly-volume-area.open {
-  max-width: 170px;
-  padding: 0 10px;
-}
-.ly-volume-area.open .ly-vol-track {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* --- Top-right: Queue button --- */
 .ly-queue-btn {
   display: flex;
   align-items: center;
@@ -130,7 +79,7 @@
   transition: background 0.2s, color 0.15s, transform 0.15s;
 }
 .ly-queue-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 .ly-queue-btn:active {
@@ -254,9 +203,4 @@
 
 .ly-play-row .ly-queue-btn.active {
   color: var(--accent, #1db954);
-}
-
-.ly-play-row > button:first-child svg,
-.ly-play-row .ly-queue-btn svg {
-  transform: scale(1.02);
 }
