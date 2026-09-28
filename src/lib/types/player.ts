@@ -38,6 +38,7 @@ export interface PlayerEngineErrorState extends PlayerEngineState {
 export type EngineTimeListener = (currentTime: number) => void
 export type EngineStateListener = (state: PlayerEngineState) => void
 export type EngineErrorListener = (state: PlayerEngineErrorState) => void
+export type ListeningSignal = 'sample' | 'resume' | 'suspend' | 'reset' | 'source' | 'end'
 
 /**
  * 播放引擎契约。当前唯一实现是基于双 HTMLAudioElement 的 AudioEngine
@@ -65,6 +66,7 @@ export interface PlayerEngine {
   onError(listener: EngineErrorListener): void
   onPlay(listener: EngineStateListener): void
   onPause(listener: EngineStateListener): void
+  onListening(listener: (signal: ListeningSignal, state: PlayerEngineState) => void): void
 
   readonly currentTime: number
   readonly duration: number

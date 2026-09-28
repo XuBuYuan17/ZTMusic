@@ -1,3 +1,7 @@
+<script module lang="ts">
+  let likedSnapshot: { userId: unknown; songs: unknown[] } | null = null
+</script>
+
 <script lang="ts">
   import type { SongId } from '../../types/music.ts'
   import type { NormalizedSong } from '../../utils/normalize.ts'
@@ -25,8 +29,9 @@
     onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let songs = $state<NormalizedSong[]>([])
-  let loading = $state(true)
+  const initial = likedSnapshot?.userId === auth.user?.userId ? likedSnapshot : null
+  let songs = $state<NormalizedSong[]>((initial?.songs as NormalizedSong[] | undefined) ?? [])
+  let loading = $state(!initial)
   let error = $state('')
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
@@ -44,11 +49,8 @@
       const r = rec(res)
       const rawIds = r?.ids || rec(r?.data)?.ids || []
       const ids: unknown[] = Array.isArray(rawIds) ? rawIds : []
-      if (ids.length === 0) {
-        songs = []
-        return
-      }
-      songs = (await musicService.getTracks(ids as SongId[])).map(normalizeSong).filter((s): s is NormalizedSong => s !== null)
+      songs = ids.length ? (await musicService.getTracks(ids as SongId[])).map(normalizeSong).filter((s): s is NormalizedSong => s !== null) : []
+      likedSnapshot = { userId: uid, songs: [...songs] }
     } catch (e) {
       error = '加载失败'
       console.error(e)
@@ -93,7 +95,7 @@
     {/if}
   </div>
 
-  {#if loading}
+  {#if loading && !initial}
     <div class="liked-skeleton">
       {#each Array(10) as _, i}
         <div class="liked-skeleton-row">
@@ -107,7 +109,7 @@
         </div>
       {/each}
     </div>
-  {:else if error}
+  {:else if error && !songs.length}
     <div class="liked-empty">
       <Icon name="empty" size={48} />
       <p>{error}</p>

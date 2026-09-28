@@ -34,12 +34,25 @@
   const loadLibraryPage = lazyModule(() => import('../../pages/pc/Library.svelte'))
   const loadRecentPage = lazyModule(() => import('../../pages/pc/Recent.svelte'))
   const loadLocalMusicPage = lazyModule(() => import('../../pages/LocalMusicPage.svelte'))
-  const loadListeningStatsPage = lazyModule(() => import('../../pages/ListeningStatsPage.svelte'))
+  const loadListeningStatsPage = lazyModule(() => import('../../pages/pc/ListeningReport.svelte'))
   const loadSettingsPage = lazyModule(() => import('../../pages/pc/Settings.svelte'))
   const loadLikedPage = lazyModule(() => import('../../pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('../../pages/PlaylistPage.svelte'))
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
   const loadUserProfilePage = lazyModule(() => import('../../pages/UserProfilePage.svelte'))
+
+  // 空闲时预取常用页面 chunk，首次进入不再闪骨架
+  $effect(() => {
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500))
+    const cancel = window.cancelIdleCallback ?? clearTimeout
+    const loaders = [loadLibraryPage, loadLikedPage, loadRecentPage, loadExplorePage, loadPlaylistPage, loadArtistPage, loadSearchPage, loadDailyHistoryPage]
+    let handle = idle(function next() {
+      const loader = loaders.shift()
+      if (!loader) return
+      Promise.resolve(loader()).catch(() => {}).finally(() => { handle = idle(next) })
+    })
+    return () => { loaders.length = 0; cancel(handle) }
+  })
 </script>
 
 <div class="content-scroll" id="main-content">

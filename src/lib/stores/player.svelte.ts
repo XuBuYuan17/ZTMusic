@@ -33,6 +33,7 @@ import {
 } from '../player/queue.ts'
 import type { CompactTrack, CompactTrackInput, QueueState } from '../player/queue.ts'
 import { dbHistory } from '../db/history.ts'
+import { beginListening, initializeListening, installListeningRecorder, observeListening } from '../services/listening-recorder.ts'
 import { initNativeMedia, syncNativeMedia, destroyNativeMedia, shouldUseWebMediaSession } from '../player/native-media.ts'
 import { createPrefetchManager } from '../player/prefetch.ts'
 import { PLAYBACK, QUALITY_ORDER, ERROR_MESSAGES, STORAGE_KEYS, FALLBACK_URL_TEMPLATE } from '../utils/constants.ts'
@@ -73,6 +74,7 @@ function parseStoredTrackId(value: unknown): SongId {
 }
 
 class PlayerState {
+  private _stopListening: (() => void) | undefined
   // ===== 当前歌曲 =====
   id = $state<SongId>(0)
   title = $state('')
@@ -220,6 +222,8 @@ class PlayerState {
   }
 
   _setupEngineListeners(): void {
+    this._stopListening = installListeningRecorder(message => toast.warning(message))
+    engine.onListening((signal, state) => observeListening(signal, state, this.currentTrack))
     engine.onTimeUpdate((t) => {
       this._scheduleProgressUpdate(t)
     })
@@ -542,6 +546,8 @@ class PlayerState {
     engine.cancelPreload()
 
     const requestId = ++this._playRequestId
+    observeListening('suspend', engine.getState(), this.currentTrack)
+    beginListening(playableTrack)
     this._fallback.updateUrls([])
     this.id = playableTrack.id
     this.title = playableTrack.name
@@ -570,7 +576,7 @@ class PlayerState {
     }
 
     this._persistState()
-    dbHistory.add(playableTrack) // async, non-blocking; handles SQLite + localStorage fallback internally
+    void initializeListening().catch(() => {}).then(() => dbHistory.add(playableTrack))
     this._syncTimedMedia(this.currentTime, { force: true })
 
     if (playableTrack.source === 'local') {
@@ -1104,6 +1110,7 @@ class PlayerState {
     }
     destroyNativeMedia()
     engine.destroy()
+    this._stopListening?.()
   }
 }
 

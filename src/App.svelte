@@ -314,7 +314,6 @@
     onOpenArtist={router.goArtist}
     onOpenAlbum={router.goAlbum}
     onOpenPlaylist={router.goPlaylist}
-    onToggleTheme={toggleTheme}
     showLocalQueue={showQueuePanel}
     toggleLocalQueue={toggleQueue}
   />

@@ -1,9 +1,11 @@
 <script module lang="ts">
   import type { UserProfileData } from '../../services/user-profile.ts'
   import type { NormalizedLocalHistorySong, NormalizedPlaylist } from '../../utils/normalize.ts'
-  import type { LocalListeningStats } from '../../services/listening-stats.ts'
-  interface HomeSnapshot { userId: string | number; profile: UserProfileData | null; recentTracks: NormalizedLocalHistorySong[]; recommendPlaylists: NormalizedPlaylist[]; localStats: LocalListeningStats }
-  let homeSnapshot: HomeSnapshot | null = null
+  import { getStorageJson, setStorage } from '../../utils/storage.ts'
+  interface HomeSnapshot { userId: string | number; profile: UserProfileData | null; recentTracks: NormalizedLocalHistorySong[]; recommendPlaylists: NormalizedPlaylist[]; localStats: { plays: number; milliseconds: number } }
+  // ponytail: 持久化到 localStorage 让冷启动直接出上次内容；已截断到首屏用量（约几十 KB），再变大就迁到 dbCache/IDB
+  let homeSnapshot = getStorageJson<HomeSnapshot | null>('home_snapshot', null)
+  if (!homeSnapshot?.profile || !Array.isArray(homeSnapshot.profile.createdPlaylists)) homeSnapshot = null
 </script>
 
 <script lang="ts">
@@ -14,7 +16,9 @@
   import { ncm } from '../../api/client.ts'
   import { loadHomeData, loadLocalRecentTracks } from '../../services/home.ts'
   import { loadUserProfileData } from '../../services/user-profile.ts'
-  import { EMPTY_LOCAL_LISTENING_STATS, loadLocalListeningStats } from '../../services/listening-stats.ts'
+  import { loadListeningReport } from '../../services/listening-report-store.ts'
+  import { summarizeReport, listeningTime } from '../../services/listening-report.ts'
+  import { LISTENING_CHANGE } from '../../services/listening-recorder.ts'
   import type { NormalizedRecordSong } from '../../utils/normalize.ts'
   import { coverUrl } from '../../utils/image.ts'
   import { extractCover } from '../../utils/normalize.ts'
@@ -37,7 +41,8 @@
   let profile = $state<UserProfileData | null>(initial?.profile ?? null)
   let recentTracks = $state<NormalizedLocalHistorySong[]>(initial?.recentTracks ?? [])
   let recommendPlaylists = $state<NormalizedPlaylist[]>(initial?.recommendPlaylists ?? [])
-  let localStats = $state<LocalListeningStats>(initial?.localStats ?? { ...EMPTY_LOCAL_LISTENING_STATS })
+  let localStats = $state(initial?.localStats ?? { plays: 0, milliseconds: 0 })
+  let statsError = $state(false)
   let loading = $state(!initial)
   let error = $state('')
   let requestId = 0
@@ -46,6 +51,8 @@
   function save(): void {
     if (!auth.user?.userId) return
     homeSnapshot = { userId: auth.user.userId, profile, recentTracks: [...recentTracks], recommendPlaylists: [...recommendPlaylists], localStats: { ...localStats } }
+    const persisted = profile && { ...profile, createdPlaylists: profile.createdPlaylists.slice(0, 6), weeklyTracks: profile.weeklyTracks.slice(0, 50) }
+    setStorage('home_snapshot', { ...homeSnapshot, profile: persisted, recommendPlaylists: recommendPlaylists.slice(0, 6) })
   }
 
   async function load(): Promise<void> {
@@ -70,8 +77,12 @@
 
   async function refreshLocal(): Promise<void> {
     const rid = ++statsRequestId
-    const [stats, recent] = await Promise.all([loadLocalListeningStats(), loadLocalRecentTracks(8)])
-    if (rid === statsRequestId) { localStats = stats; recentTracks = recent.slice(0, 8); save() }
+    const [stats, recent] = await Promise.allSettled([loadListeningReport(), loadLocalRecentTracks(8)])
+    if (rid !== statsRequestId) return
+    statsError = stats.status === 'rejected'
+    if (stats.status === 'fulfilled') localStats = summarizeReport(stats.value.records)
+    if (recent.status === 'fulfilled') recentTracks = recent.value.slice(0, 8)
+    save()
   }
 
   function playRecent(index: number): void { if (recentTracks.length) player.playQueue(recentTracks as unknown as CompactTrackInput[], index) }
@@ -80,7 +91,7 @@
 
   const quickCards = $derived([
     { label: 'FAVORITES', title: '喜欢的音乐', value: `${profile?.likedPlaylist?.trackCount ?? 0} 首`, icon: 'heart-filled', action: () => profile?.likedPlaylist && onOpenPlaylist?.(profile.likedPlaylist.id, true, profile.likedPlaylist) },
-    { label: 'ON THIS DEVICE', title: '本地听歌统计', value: localStats.playCount ? `${localStats.playCount} 次 · ${localStats.durationLabel}` : '开始记录你的聆听', icon: 'music', action: () => onNavigate?.('listeningStats') },
+    { label: 'ON THIS DEVICE', title: '本地听歌统计', value: statsError ? '统计暂不可用 · 点击重试' : localStats.milliseconds ? `${localStats.plays} 次 · ${listeningTime(localStats.milliseconds)}` : '开始记录你的聆听', icon: 'music', action: () => onNavigate?.('listeningStats') },
     { label: 'CONTINUE', title: '最近播放', value: `${recentTracks.length} 首记录`, icon: 'clock', action: () => onNavigate?.('recent') },
     { label: 'WEEKLY', title: '听歌排行', value: profile?.weeklyTracks[0]?.name ? `最近常听 · ${profile.weeklyTracks[0].name}` : '等待你的播放记录', icon: 'list', action: () => onNavigate?.('dailyHistory') },
   ])
@@ -90,7 +101,8 @@
     refreshLocal()
     const refresh = () => refreshLocal()
     window.addEventListener('local-listening-history-change', refresh)
-    return () => window.removeEventListener('local-listening-history-change', refresh)
+    window.addEventListener(LISTENING_CHANGE, refresh)
+    return () => { statsRequestId++; window.removeEventListener('local-listening-history-change', refresh); window.removeEventListener(LISTENING_CHANGE, refresh) }
   })
   $effect(() => { if (!auth.isLoggedIn) { loading = false; profile = null; recentTracks = [] } })
   onMount(() => document.querySelector<HTMLElement>('.content-scroll')?.scrollTo({ top: 0 }))

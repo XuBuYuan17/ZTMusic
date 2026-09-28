@@ -14,7 +14,7 @@ export function closeDrag(node: HTMLElement, handle = false) {
   function down(e: PointerEvent): void {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     // tools 面板、进度条、滑块、按钮组里的可交互子元素不发起
-    if (!handle && (e.target as Element).closest('button, a, input, [role="button"], [role="slider"], .pb-track, .ly-cover-wrap, .ly-cover-tool-panel, .ly-track-wrap')) return
+    if (!handle && (e.target as Element).closest('button, a, input, [role="button"], [role="slider"], .pb-track, .ly-cover-wrap, .ly-track-wrap')) return
     pointerId = e.pointerId
     startX = e.clientX
     startY = e.clientY

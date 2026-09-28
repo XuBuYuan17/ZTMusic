@@ -1,3 +1,7 @@
+<script module lang="ts">
+  let recentSnapshot: { userId: unknown; tracks: unknown[] } | null = null
+</script>
+
 <script lang="ts">
   import type { SongId } from '../../types/music.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
@@ -20,17 +24,17 @@
     onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let recentTracks = $state<RecentTrack[]>([])
+  let recentTracks = $state<RecentTrack[]>((recentSnapshot && recentSnapshot.userId === auth.user?.userId ? recentSnapshot.tracks : []) as RecentTrack[])
   let recentLoading = $state(false)
   let error = $state('')
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
   let _requestId = 0
 
   async function load(): Promise<void> {
-    const rid = ++_requestId; recentLoading = true; recentTracks = []; error = ''
+    const rid = ++_requestId; recentLoading = true; error = ''
     try {
       const tracks = await loadRecentData(ncm, auth.user)
-      if (rid === _requestId) recentTracks = tracks
+      if (rid === _requestId) { recentTracks = tracks; recentSnapshot = { userId: auth.user?.userId, tracks: [...tracks] } }
     } catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) recentLoading = false }
   }

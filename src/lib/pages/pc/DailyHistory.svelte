@@ -1,3 +1,9 @@
+<script module lang="ts">
+  import type { DailyDateItem as SnapshotDate } from '../../services/dailyHistory.ts'
+  import type { NormalizedSong as SnapshotSong } from '../../utils/normalize.ts'
+  let dailySnapshot: { userId: unknown; dates: SnapshotDate[]; selectedDate: string; songs: SnapshotSong[] } | null = null
+</script>
+
 <script lang="ts">
   import type { SongId } from '../../types/music.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
@@ -23,17 +29,22 @@
     onOpenAlbum?: (id: unknown) => void
   } = $props()
 
-  let dailyHistoryDates = $state<DailyDateItem[]>([])
-  let dailyHistorySongs = $state<NormalizedSong[]>([])
+  const initial = dailySnapshot?.userId === auth.user?.userId ? dailySnapshot : null
+  let dailyHistoryDates = $state<DailyDateItem[]>(initial?.dates ?? [])
+  let dailyHistorySongs = $state<NormalizedSong[]>(initial?.songs ?? [])
   let dailyHistoryLoading = $state(false)
   let error = $state('')
-  let selectedDailyDate = $state('')
+  let selectedDailyDate = $state(initial?.selectedDate ?? '')
+
+  function save(): void {
+    dailySnapshot = { userId: auth.user?.userId, dates: [...dailyHistoryDates], selectedDate: selectedDailyDate, songs: [...dailyHistorySongs] }
+  }
   let _requestId = 0
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
   async function load(): Promise<void> {
-    const rid = ++_requestId; dailyHistoryLoading = true; error = ''
-    try { const d = await loadDailyHistoryData(ncm); if (rid !== _requestId) return; dailyHistoryDates = d.dates; selectedDailyDate = d.selectedDate; dailyHistorySongs = d.songs }
+    const rid = ++_requestId; dailyHistoryLoading = !dailyHistoryDates.length; error = ''
+    try { const d = await loadDailyHistoryData(ncm); if (rid !== _requestId) return; dailyHistoryDates = d.dates; selectedDailyDate = d.selectedDate; dailyHistorySongs = d.songs; save() }
     catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
     finally { if (rid === _requestId) dailyHistoryLoading = false }
   }
@@ -42,7 +53,7 @@
     if (!date) return; const rid = ++_requestId; selectedDailyDate = date as string; dailyHistoryLoading = true
     // ponytail: date 正常是 string；item.date 为空串时 {item.date || item} 会传入整个日期对象，
     // 原 JS 行为原样保留（service 内部 String 化），这里只做类型层 cast。
-    try { const s = await loadDailyHistoryDetailData(ncm, date as string | number); if (rid === _requestId) dailyHistorySongs = s }
+    try { const s = await loadDailyHistoryDetailData(ncm, date as string | number); if (rid === _requestId) { dailyHistorySongs = s; save() } }
     finally { if (rid === _requestId) dailyHistoryLoading = false }
   }
 

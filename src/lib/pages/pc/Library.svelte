@@ -1,3 +1,7 @@
+<script module lang="ts">
+  let librarySnapshot: { userId: unknown; library: unknown; likedCovers: string[] } | null = null
+</script>
+
 <script lang="ts">
   import type { SongId } from '../../types/music.ts'
   import type { NormalizedPlaylist } from '../../utils/normalize.ts'
@@ -30,7 +34,8 @@
     onNavigate?: (view: string) => void
   } = $props()
 
-  let library = $state<LibraryData | null>(null)
+  const initial = librarySnapshot?.userId === auth.user?.userId ? librarySnapshot : null
+  let library = $state<LibraryData | null>((initial?.library as LibraryData | undefined) ?? null)
   let loading = $state(false)
   let error = $state('')
   let _requestId = 0
@@ -64,7 +69,11 @@
   // 我喜欢的音乐：直接拉取歌单曲目播放
   let playingLiked = $state(false)
   // 喜爱歌曲卡封面瀑布流：只取前 8 首的封面
-  let likedCovers = $state<string[]>([])
+  let likedCovers = $state<string[]>(initial?.likedCovers ?? [])
+
+  function save(): void {
+    librarySnapshot = { userId: auth.user?.userId, library, likedCovers: [...likedCovers] }
+  }
 
   async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
     const id = liked?.id
@@ -79,6 +88,7 @@
         const pic = rec(x?.al)?.picUrl ?? rec(x?.album)?.picUrl
         return typeof pic === 'string' ? pic : ''
       }).filter(Boolean)
+      save()
     } catch {
       // 拉不到就回退灰底红星
     }
@@ -110,8 +120,8 @@
   }
 
   async function load(): Promise<void> {
-    const rid = ++_requestId; loading = true; library = null; error = ''
-    if (!auth.isLoggedIn) { loading = false; return }
+    const rid = ++_requestId; loading = true; error = ''
+    if (!auth.isLoggedIn) { loading = false; library = null; return }
     try {
       const rawUid: unknown = auth.user?.userId || auth.user?.id
       const uid: SongId = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : 0
@@ -148,6 +158,7 @@
         savedPlaylists: saved,
         likedPlaylist: liked,
       }
+      save()
       void loadLikedCovers(liked, rid)
     } catch (e) {
       if (rid === _requestId) error = ((e as { message?: unknown } | null | undefined)?.message || '加载失败') as string
@@ -248,7 +259,7 @@
       </button>
     </div>
 
-    {#if error}
+    {#if error && !library}
       <ErrorBlock message={error} onRetry={load} />
     {:else if loading && !library}
       <div class="library-grid" aria-label="加载收藏歌单">

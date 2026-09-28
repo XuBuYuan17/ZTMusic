@@ -8,11 +8,10 @@
   import { closeDrag } from '../app/close-drag.ts'
   import { getSetting } from '../utils/settings.ts'
 
-  let { onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme, showLocalQueue = false, toggleLocalQueue }: {
+  let { onOpenArtist, onOpenAlbum, onOpenPlaylist, showLocalQueue = false, toggleLocalQueue }: {
     onOpenArtist?: (id: number | null) => void
     onOpenAlbum?: (id: number | null) => void
     onOpenPlaylist?: (id: number | null) => void
-    onToggleTheme?: (event?: MouseEvent) => void
     showLocalQueue?: boolean
     toggleLocalQueue?: () => void
   } = $props()
@@ -118,7 +117,7 @@
         <div class="pm-container">
           <PCPlayer
             onClose={() => playerMorph.close()}
-            {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme}
+            {onOpenArtist} {onOpenAlbum} {onOpenPlaylist}
             {showLocalQueue} {toggleLocalQueue}
           />
         </div>

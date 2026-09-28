@@ -33,10 +33,6 @@ html:not(.mobile-runtime) .ly-left {
   min-height: 0;
 }
 
-html:not(.mobile-runtime) .ly-left.tools-open {
-  overflow-y: auto;
-}
-
 html:not(.mobile-runtime) .ly-left-cover {
   display: flex;
   flex-direction: column;
@@ -52,12 +48,6 @@ html:not(.mobile-runtime) .ly-cover-wrap {
   width: 100%;
   aspect-ratio: 1;
   flex-shrink: 0;
-}
-
-@media (max-height: 850px) {
-  html:not(.mobile-runtime) .ly-left.tools-open {
-    justify-content: safe center;
-  }
 }
 
 html:not(.mobile-runtime) .ly-cover {

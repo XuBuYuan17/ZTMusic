@@ -208,6 +208,7 @@ export const auth = {
     removeStorage('auth_user')
     removeStorage('auth_mode')
     removeStorage('auth_vip')
+    removeStorage('home_snapshot')
   },
 
   async login(mode: string, credentials: LoginCredentials): Promise<unknown> {

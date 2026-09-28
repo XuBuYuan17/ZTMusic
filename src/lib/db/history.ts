@@ -155,7 +155,7 @@ export const dbHistory = {
   },
 
   /** 获取播放历史 */
-  async list(limit: number = 200): Promise<HistoryEntry[]> {
+  async list(limit: number = 200, strict = false): Promise<HistoryEntry[]> {
     await ensureDB()
     const db = getDB()
     if (!db) {
@@ -193,6 +193,7 @@ export const dbHistory = {
       }))
     } catch (error) {
       debugLog('db', 'history list failed', { message: describeError(error) })
+      if (strict) throw error
       return []
     }
   },

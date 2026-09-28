@@ -5,6 +5,7 @@ import type {
   PlayerEngine,
   PlayerEngineErrorState,
   PlayerEngineState,
+  ListeningSignal,
 } from '../types/player.ts'
 
 function createAudioElement(): HTMLAudioElement {
@@ -35,6 +36,7 @@ class AudioEngine implements PlayerEngine {
   private _onError: EngineErrorListener | null = null
   private _onPlay: EngineStateListener | null = null
   private _onPause: EngineStateListener | null = null
+  private _onListening: ((signal: ListeningSignal, state: PlayerEngineState) => void) | null = null
 
   private _handlers: Record<string, EventListener>
 
@@ -43,25 +45,36 @@ class AudioEngine implements PlayerEngine {
     this.preloadAudio = createAudioElement()
     this._handlers = {
       timeupdate: () => {
+        this._onListening?.('sample', this.getState())
         if (this._onTimeUpdate) this._onTimeUpdate(this.audio.currentTime)
       },
       ended: () => {
+        this._onListening?.('end', this.getState())
         if (this._onEnded) this._onEnded(this.getState())
       },
       loadstart: () => {
+        this._onListening?.('reset', this.getState())
         if (this._onLoadStart) this._onLoadStart(this.getState())
       },
       canplay: () => {
         if (this._onCanPlay) this._onCanPlay(this.getState())
       },
       error: (event: Event) => {
+        this._onListening?.('suspend', this.getState())
         if (this._onError) this._onError(this.getErrorState(event))
       },
       play: () => {
         if (this._onPlay) this._onPlay(this.getState())
       },
       pause: () => {
+        this._onListening?.('suspend', this.getState())
         if (this._onPause) this._onPause(this.getState())
+      },
+      playing: () => this._onListening?.('resume', this.getState()),
+      waiting: () => this._onListening?.('suspend', this.getState()),
+      seeking: () => this._onListening?.('reset', this.getState()),
+      seeked: () => {
+        if (!this.audio.paused && this.audio.readyState >= 3) this._onListening?.('resume', this.getState())
       },
     }
 
@@ -106,6 +119,7 @@ class AudioEngine implements PlayerEngine {
   /** 交换主播放器与预加载器：预加载的音频变为当前播放 */
   swapToPreloaded(): boolean {
     if (!this.preloadedUrl) return false
+    this._onListening?.('reset', this.getState())
     const oldAudio = this.audio
 
     this._unbindActiveAudio(oldAudio)
@@ -117,6 +131,7 @@ class AudioEngine implements PlayerEngine {
 
     // 清理旧主播放器，让它成为新的隐藏预加载器
     this._resetAudio(this.preloadAudio)
+    this._onListening?.('source', this.getState())
     return true
   }
 
@@ -151,7 +166,8 @@ class AudioEngine implements PlayerEngine {
     const nextUrl = String(url).trim()
     if (!nextUrl) return
     // 重复下发同一 URL：直接返回，避免打断当前播放
-    if (nextUrl === this.currentUrl) return
+    if (nextUrl === this.currentUrl) { this._onListening?.('source', this.getState()); return }
+    this._onListening?.('reset', this.getState())
     // 如果是预加载命中，直接 swap（swap 前会检查健康状态）
     if (this.preloadedUrl && this.preloadedUrl === nextUrl) {
       if (this._isPreloadHealthy()) {
@@ -171,6 +187,7 @@ class AudioEngine implements PlayerEngine {
     this.currentUrl = nextUrl
     this.audio.src = nextUrl
     this.audio.load()
+    this._onListening?.('source', this.getState())
   }
 
   /** 判断预加载元素是否可用于 swap（无 error、metadata 已加载） */
@@ -194,6 +211,7 @@ class AudioEngine implements PlayerEngine {
 
   seek(time: number): void {
     if (!Number.isFinite(time)) return
+    this._onListening?.('reset', this.getState())
     this.audio.currentTime = Math.max(0, time)
   }
 
@@ -220,6 +238,7 @@ class AudioEngine implements PlayerEngine {
   onError(fn: EngineErrorListener): void { this._onError = fn }
   onPlay(fn: EngineStateListener): void { this._onPlay = fn }
   onPause(fn: EngineStateListener): void { this._onPause = fn }
+  onListening(fn: (signal: ListeningSignal, state: PlayerEngineState) => void): void { this._onListening = fn }
 
   destroy(): void {
     this.pause()
@@ -234,6 +253,7 @@ class AudioEngine implements PlayerEngine {
     this._onError = null
     this._onPlay = null
     this._onPause = null
+    this._onListening = null
   }
 }
 
