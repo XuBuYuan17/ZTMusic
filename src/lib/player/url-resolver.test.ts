@@ -172,6 +172,19 @@ await runTest(async () => {
 })
 
 await runTest(async () => {
+  let cacheReads = 0
+  const prefetchCache = new Map([[93, ['https://cdn.example/prefetched-93.mp3']]])
+  dbCache.urlGet = async () => { cacheReads++; return ['https://cdn.example/cached-93.mp3'] }
+  dbCache.urlSet = async () => {}
+  ncm.songUrl = async (_id, level) => ({ data: [{ url: level === 'lossless' ? 'https://cdn.example/lossless-93.mp3' : '' }] })
+
+  const result = await getPlayableUrls(93, 'lossless', prefetchCache, 1, {}, undefined, true)
+
+  assertDeepEqual(result.urls, ['https://cdn.example/lossless-93.mp3'], 'forceRefresh re-resolves at the requested level instead of serving cached URLs')
+  assertEqual(cacheReads, 0, 'forceRefresh skips the persistent URL cache')
+})
+
+await runTest(async () => {
   const upgradeEvents: QualityUpgradeEvent[] = []
   ncm.songUrl = async (_id, level, unblock) => {
     if (unblock) return { data: [{ url: '' }] }

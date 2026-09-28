@@ -7,22 +7,30 @@
     pl,
     index = 0,
     managed = false,
+    owned = false,
     liked = false,
     covers = [],
     busy = false,
     onOpen,
     onPlay,
     onUnsubscribe,
+    onEdit,
+    onDelete,
   }: {
     pl: NormalizedPlaylist
     index?: number
+    /** 收藏来的歌单：露出「取消收藏」 */
     managed?: boolean
+    /** 自己建的歌单：露出「编辑 / 删除」 */
+    owned?: boolean
     liked?: boolean
     covers?: string[]
     busy?: boolean
     onOpen?: (pl: NormalizedPlaylist) => void
     onPlay?: (pl: NormalizedPlaylist) => void
     onUnsubscribe?: (pl: NormalizedPlaylist) => void
+    onEdit?: (pl: NormalizedPlaylist) => void
+    onDelete?: (pl: NormalizedPlaylist) => void
   } = $props()
 
   // 双列瀑布流：左列取偶数位封面、右列奇数位；不足 4 张循环补足以保证无缝滚动
@@ -58,8 +66,9 @@
 </script>
 
 <div
-  class="library-card"
+  class="library-card" data-motion="card"
   class:library-card-managed={managed}
+  class:library-card-owned={owned}
   style={`--card-i:${index}`}
   role="button"
   tabindex="0"
@@ -139,8 +148,18 @@
     {/if}
   </div>
   {#if managed}
-    <button class="library-card-unsubscribe" type="button" onclick={(e) => { e.stopPropagation(); onUnsubscribe?.(pl) }} aria-label={`取消收藏 ${pl.name}`}>
+    <button class="library-card-action library-card-action-danger" type="button" onclick={(e) => { e.stopPropagation(); onUnsubscribe?.(pl) }} aria-label={`取消收藏 ${pl.name}`}>
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
+  {/if}
+  {#if owned}
+    <div class="library-card-actions">
+      <button class="library-card-action" type="button" onclick={(e) => { e.stopPropagation(); onEdit?.(pl) }} aria-label={`编辑歌单 ${pl.name}`}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+      </button>
+      <button class="library-card-action library-card-action-danger" type="button" onclick={(e) => { e.stopPropagation(); onDelete?.(pl) }} aria-label={`删除歌单 ${pl.name}`}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+      </button>
+    </div>
   {/if}
 </div>

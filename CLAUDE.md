@@ -83,7 +83,7 @@ Provider 是**能力型契约**，不要求实现全部方法。登录、收藏�
 
 ### 存储
 
-`lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.ts`，缓存 key 把**完整 cookie 也 hash 进去**（避免跨账号串数据）。失败响应不写缓存。
+`lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.ts`，缓存 key 把**完整 cookie 明文拼进去**（`utils/cache.ts` 的 `createCacheKey` 只是 `JSON.stringify`，没有 hash；目的是避免跨账号串数据，cookie 本身也已在 localStorage）。失败响应不写缓存；但**请求失败时会回退到过期缓存**，只有 301/302 例外（登录态失效要能冒出来，不能被旧数据盖住）。
 
 ### 桌面原生（`src-tauri/src/`）
 

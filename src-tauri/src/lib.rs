@@ -13,7 +13,13 @@ use serde_json::Value;
 use tauri::Manager;
 
 pub(crate) const API_TIMEOUT_SECS: u64 = 15;
-pub(crate) const APP_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) zheting/0.1.0 Chrome/120.0.0.0 Safari/537.36";
+// 版本号从 Cargo.toml 取，别再手写：这里曾是第 5 处版本号，早就漂到 0.1.0 了，
+// 而 check:versions 只守 package.json / tauri.conf.json / Cargo.toml / Cargo.lock 四处。
+pub(crate) const APP_USER_AGENT: &str = concat!(
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) zheting/",
+    env!("CARGO_PKG_VERSION"),
+    " Chrome/120.0.0.0 Safari/537.36"
+);
 const NATIVE_MEDIA_PLUGIN_NAME: &str = "nativeMedia";
 
 pub(crate) struct AppState {

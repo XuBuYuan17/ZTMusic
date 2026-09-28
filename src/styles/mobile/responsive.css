@@ -15,12 +15,8 @@ html.mobile-runtime .m-content {
   padding-right: max(16px, env(safe-area-inset-right));
 }
 
-/* 底部 tab 横屏收窄留白，并避让左右挖孔/手势区 */
-html.mobile-runtime .m-tabs {
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  left: max(14px, env(safe-area-inset-left));
-  right: max(14px, env(safe-area-inset-right));
-}
+/* 底部 tab 的横屏覆盖统一放在文件末尾的横屏块里（此处原有一份 bottom/left/right 覆盖，
+   三个属性都被后面的基准规则 .m-tabs 覆盖，是死代码，已删）。 */
 
 /* 顶栏头像按钮横屏避让左侧挖孔 */
 html.mobile-runtime .m-avatar-btn {
@@ -329,8 +325,13 @@ html.mobile-runtime :where(
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
+  /* 横屏改为贴边全宽：必须一并清掉基准规则的居中三件套，否则 left/width/right 同时非 auto
+     会让 right 失效，再被 translateX(-50%) 左移半个宽度，把 tab 栏推出屏幕左侧。 */
   html.mobile-runtime .m-tabs {
     left: env(safe-area-inset-left);
     right: env(safe-area-inset-right);
+    width: auto;
+    max-width: none;
+    transform: none;
   }
 }

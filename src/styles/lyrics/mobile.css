@@ -454,6 +454,11 @@
     max-height: calc(min(30vh, 260px) - 54px);
   }
 
+  /* 评论面板多了一个发表框，列表要把这部分高度让出来 */
+  .ly-mobile-context .ly-context-comments .ly-context-comment-list {
+    max-height: calc(min(30vh, 260px) - 112px);
+  }
+
   .player-bar-wrap.queue-open {
     right: 10px !important;
   }

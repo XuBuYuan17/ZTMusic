@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { PlayMode } from '../types/player.ts';
   import { player } from '../stores/player.svelte.ts';
-  import Spinner from './Spinner.svelte';
 
   let { onqueue, showQueue = false }: {
     onqueue?: () => void;
@@ -67,9 +66,7 @@
 
   <!-- Play/Pause -->
   <button class="am-play-btn" class:playing={player.playing} onclick={(event) => handleButton(event, () => player.togglePlay())} aria-label={player.playing ? '暂停' : '播放'} disabled={disabled || player.loading}>
-    {#if player.loading}
-      <Spinner size="md" />
-    {:else if player.playing}
+    {#if player.playing}
       <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play">
         <path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"/>
       </svg>

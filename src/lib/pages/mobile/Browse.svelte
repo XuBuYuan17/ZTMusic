@@ -4,6 +4,7 @@
   import type { NormalizedAlbum, NormalizedPlaylist, NormalizedSong, HomepageBlock } from '../../utils/normalize.ts'
   import ArtistNames from '../../components/ArtistNames.svelte'
   import { ncm } from '../../api/client.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
   import { loadExploreData as fetchExploreData } from '../../services/explore.ts'
   import { loadToplistsData } from '../../services/home.ts'
   import { coverUrl, coverRectUrl } from '../../utils/image.ts'
@@ -24,6 +25,7 @@
 
   let loading = $state(false)
   let loaded = $state(false)
+  let loadedFor = $state<SongId | null | undefined>(undefined)
   let toplistsLoading = $state(false)
   let error = $state('')
   let banners = $state<ExploreData['banners']>([])
@@ -38,8 +40,14 @@
     return (e as { message?: string } | null | undefined)?.message || '加载失败'
   }
 
-  async function load(): Promise<void> {
-    if (loaded) return
+  // 本页在 tab 常驻后不再卸载，所以「已加载」要连账号一起记：换账号必须重拉，否则显示的是上一个账号的个性化数据
+  function currentUserId(): SongId | null {
+    return auth.isLoggedIn ? (auth.user?.userId ?? null) : null
+  }
+
+  async function load(force = false): Promise<void> {
+    const userId = currentUserId()
+    if (!force && loaded && loadedFor === userId) return
     loading = true
     error = ''
     try {
@@ -50,9 +58,11 @@
       recommendSongs = d.recommendSongs || []
       newAlbums = d.newAlbums || []
       blocks = d.blocks || []
+      if (d.allFailed) error = '发现内容加载失败'
     } catch (e) { error = errorMessage(e) }
     loading = false
     loaded = true
+    loadedFor = userId
   }
 
   async function loadToplists(): Promise<void> {
@@ -112,7 +122,7 @@
     <div class="m-empty-state small">
       <h2>发现内容加载失败</h2>
       <p>{error}</p>
-      <button class="m-primary-btn" onclick={() => { loaded = false; load(); loadToplists() }}>重试</button>
+      <button class="m-primary-btn" onclick={() => { load(true); loadToplists() }}>重试</button>
     </div>
   {:else}
     {#if hero || editors.length}

@@ -211,7 +211,10 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
         code,
         message: asString(item.message) || asString(response.message) || asString(response.msg),
         isTrial: Boolean(item.freeTrialInfo),
-        level,
+        // 用服务端返回的实际档位，不是请求的档位：非 VIP 请求 lossless 不会失败，
+        // 而是静默降级成 exhigh（data[0].level 里如实标注）。填请求值会让上层以为
+        // 拿到了无损，进而触发一次实际不存在的「音质升级」。
+        level: asString(item.level) || level,
         source: unblock ? 'official-unblock' : 'official',
         cacheable: !item.freeTrialInfo,
       }

@@ -92,6 +92,9 @@ function pickErrorMessage(error: unknown, fallback: string): string {
   return fallback
 }
 
+// 侧边栏可直达的顶层视图；不在这个集合里的（歌单/专辑/歌手/用户/喜欢/听歌报告/历史日推）算二级页
+const TOP_LEVEL_VIEWS = new Set(['home', 'explore', 'search', 'library', 'recent', 'localMusic', 'messages', 'settings', 'about'])
+
 // ── 导航状态 ──
 let _activeView = $state('home')
 let _previousView = $state('home')
@@ -121,6 +124,13 @@ const detailCache = createLruCache<DetailCacheValue>({ maxEntries: 24, ttlMs: 3 
 function currentRoute(): RouteEntry { return { view: _activeView, id: _selectedId } }
 function pushRoute(): void { _routeStack = [..._routeStack, currentRoute()] }
 function invalidateDetailRequests(): void { _detailRequestId++; _artistRequestId++ }
+
+/** 歌单被改名 / 改描述 / 删除后调用：丢掉详情缓存。
+ *  不丢的话 3 分钟 TTL 内再进详情页看到的还是旧名字。 */
+function invalidatePlaylist(id: SongId): void {
+  detailCache.clear('playlist:' + id)
+  if (_playlistDetail && String(_playlistDetail.id) === String(id)) _playlistDetail = null
+}
 
 function createPlaylistPreview(p: PlaylistPreviewInput | null, id: number): PlaylistDetail | null {
   if (!p) return null
@@ -224,6 +234,17 @@ function goUser(id: number | null, shouldPushRoute = true): void {
   _heroColor = '#141414'
 }
 
+/** 历史日推是二级页但没有共享详情数据（页面自己拉），所以只需要压栈 + 切视图。
+ *  走 handleNav 的通用分支会清空 _routeStack，从资料库进去按返回就掉回首页了。 */
+function goDailyHistory(): void {
+  pushRoute()
+  _routeTransition = 'forward'
+  _previousView = _activeView
+  _activeView = 'dailyHistory'
+  _selectedId = null
+  _heroColor = '#141414'
+}
+
 function handleBannerClick(banner: BannerTarget): void {
   const t = banner.targetId || 0; if (banner.targetType === 10 && t > 0) goAlbum(t); else if (banner.targetType === 1000 && t > 0) goPlaylist(t)
 }
@@ -308,6 +329,7 @@ function handleNav(view: string, extra?: number | null): void {
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
   if (view === 'user' && extra) { goUser(extra); return }
+  if (view === 'dailyHistory') { goDailyHistory(); return }
   _routeTransition = 'soft'; _routeStack = []; _previousView = _activeView; _activeView = view; _selectedId = null
   _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
   _playlistDetailError = ''; _playlistDetailLoading = false; _artistError = ''; _artistLoading = false
@@ -325,9 +347,18 @@ function goBack(): void {
 }
 
 // ══════════════════════════════════════════════════
+/** 歌单元数据变更广播。歌单对象在侧边栏、PC/移动端列表、歌单选择面板里各存了一份，
+ *  不广播就会出现「改完名别处还是旧的」 */
+export const PLAYLIST_CHANGE = 'playlist-change'
+export function notifyPlaylistChange(id: SongId): void {
+  invalidatePlaylist(id)
+  window.dispatchEvent(new CustomEvent(PLAYLIST_CHANGE, { detail: { id } }))
+}
+
 export const router = {
   get activeView() { return _activeView }, set activeView(v: string) { _activeView = v },
   get previousView() { return _previousView }, get selectedId() { return _selectedId },
+  get isSecondaryView() { return !TOP_LEVEL_VIEWS.has(_activeView) },
   get routeStack() { return _routeStack }, get routeTransition() { return _routeTransition },
   get refreshKey() { return _refreshKey },
 

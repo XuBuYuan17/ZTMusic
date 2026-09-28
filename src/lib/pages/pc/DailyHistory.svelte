@@ -19,6 +19,7 @@
   import SongListActions from '../../components/SongListActions.svelte'
 
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
+  import Icon from '../../components/ui/Icon.svelte'
 
   interface TrackArtist { id?: SongId; name?: unknown }
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
@@ -110,7 +111,7 @@
       </div>
     </div>
     {#if dailyHistorySongs.length > 0}
-    <button class="daily-hero-play" onclick={playAll}>播放全部</button>
+    <button class="daily-hero-play" onclick={playAll}><Icon name="play" size={18} />播放全部</button>
     {/if}
   </section>
 
@@ -124,10 +125,10 @@
         {/each}
       </div>
     {:else if dailyHistoryDates.length > 0}
-      <div class="daily-date-scroll">
+      <div class="daily-date-scroll" aria-label="历史日期">
         {#each dailyHistoryDates as item (item.date || item)}
           {@const date = item.date || item}
-            <button class="daily-date-chip" class:active={selectedDailyDate === date} onclick={() => loadDetail(date)}>
+            <button class="daily-date-chip" class:active={selectedDailyDate === date} aria-current={selectedDailyDate === date ? 'date' : undefined} onclick={() => loadDetail(date)}>
             <span>{formatDateLabel(date)}</span>
             {#if item.weekday}<small>{item.weekday}</small>{/if}
           </button>
@@ -196,10 +197,10 @@
           </div>
         </section>
     {:else}
-      <div class="empty-state">
-        <div class="large-icon">🗓️</div>
+      <div class="daily-empty">
+        <Icon name="calendar" size={48} />
         <p>暂无历史日推</p>
-        <p style="font-size:13px;color:var(--text-tertiary);margin-top:4px;">需要登录后获取</p>
+        <p class="daily-empty-hint">需要登录后获取</p>
       </div>
     {/if}
   {#if error}
@@ -210,18 +211,18 @@
 </div>
 
 <style>
-  .daily-page { display: grid; gap: 20px; }
-  .daily-hero { position: relative; overflow: hidden; min-height: 286px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 30px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 88%, transparent)); box-shadow: var(--shadow-xl); }
+  .daily-page { display: grid; gap: 26px; max-width: 1180px; margin: 0 auto; }
+  .daily-hero { position: relative; overflow: hidden; min-height: 230px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 30px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 88%, transparent)); box-shadow: var(--shadow-xl); }
   .daily-hero-bg { position: absolute; inset: 0; background: radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent) 36%, transparent), transparent 34%), linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); background-size: cover; background-position: center; filter: blur(18px) saturate(1.18); transform: scale(1.08); opacity: 0.52; }
   .daily-hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.62), rgba(0,0,0,0.18)), linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.56)); }
   .daily-hero-copy, .daily-hero-play { position: relative; z-index: 1; }
-  .daily-kicker { color: color-mix(in srgb, var(--accent) 82%, white); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-  .daily-hero h1 { color: white; font-size: clamp(42px, 5.2vw, 72px); line-height: 0.92; letter-spacing: 0; margin: 0; }
+  .daily-kicker { color: rgba(255, 255, 255, 0.72); font-size: 12px; font-weight: 700; letter-spacing: 0; margin-bottom: 10px; }
+  .daily-hero h1 { color: white; font-size: clamp(38px, 4.6vw, 64px); line-height: 1.02; letter-spacing: 0; margin: 0; }
   .daily-hero p { max-width: 520px; margin-top: 14px; color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.7; }
   .daily-hero-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .daily-hero-stats span { min-height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.86); font-size: 12px; font-weight: 700; }
-  .daily-hero-play { flex-shrink: 0; height: 40px; padding: 0 22px; border: none; border-radius: 999px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 24%, transparent); }
-  .daily-hero-play:hover { filter: brightness(1.05); }
+  .daily-hero-play { flex-shrink: 0; min-width: 112px; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; border: none; border-radius: 999px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 24%, transparent); }
+  .daily-hero-play:hover { background: var(--accent-hover); }
   .daily-date-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 8px; }
   .daily-date-chip { flex: 0 0 auto; min-width: 92px; display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-layer) 80%, transparent); color: var(--text); text-align: left; cursor: pointer; transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out); }
   .daily-date-chip:hover { background: var(--bg-hover); }
@@ -233,12 +234,12 @@
   .daily-section-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
   .daily-section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: 0; margin: 0; }
   .daily-section-header button { border: none; background: transparent; color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
-  .daily-song-list { display: grid; gap: 5px; }
-  .daily-song-row { width: 100%; min-height: 56px; display: grid; grid-template-columns: 42px 48px minmax(0, 1.2fr) minmax(120px, 0.8fr) 52px; gap: 12px; align-items: center; padding: 7px 10px; border: none; border-radius: var(--radius-lg); background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms var(--ease-out); }
+  .daily-song-list { display: grid; gap: 2px; }
+  .daily-song-row { width: 100%; min-height: 56px; display: grid; grid-template-columns: 38px 48px minmax(0, 1.2fr) minmax(120px, 0.8fr) 70px; gap: 12px; align-items: center; padding: 8px 10px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms var(--ease-out); }
   .daily-song-row:hover { background: var(--bg-hover); }
-  .daily-song-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .daily-song-index { color: var(--text-tertiary); font-size: 13px; font-weight: 700; text-align: center; }
-  .daily-song-cover { width: 48px; height: 48px; border-radius: var(--radius-md); object-fit: cover; }
+  .daily-song-row.active { background: var(--accent-bg); }
+  .daily-song-index { color: var(--text-tertiary); font-size: 12px; font-weight: 700; text-align: center; }
+  .daily-song-cover { width: 48px; height: 48px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: var(--radius-xs); object-fit: cover; box-shadow: var(--shadow-sm); }
   .daily-cover-placeholder { display: grid; place-items: center; background: var(--bg-surface); color: var(--text-tertiary); }
   .daily-song-main { min-width: 0; display: grid; gap: 2px; }
   .daily-song-main strong, .daily-song-album { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -248,6 +249,9 @@
   .artist-sep { margin: 0 4px; color: var(--text-tertiary); }
   .daily-song-album, .daily-song-dur { color: var(--text-tertiary); font-size: 12px; }
   .daily-song-dur { justify-self: end; }
+  .daily-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-secondary); text-align: center; }
+  .daily-empty p { margin: 0; }
+  .daily-empty-hint { color: var(--text-tertiary); font-size: 13px; }
   @media (prefers-reduced-motion: reduce) { .daily-date-chip, .daily-song-row { transition: none; } }
   @media (max-width: 900px) { .daily-hero { align-items: flex-start; flex-direction: column; justify-content: flex-end; } .daily-song-row { grid-template-columns: 36px 46px minmax(0, 1fr) 48px; } .daily-song-album { display: none; } }
   @media (max-width: 560px) { .daily-hero { min-height: 240px; padding: 22px; } .daily-hero h1 { font-size: 42px; } .daily-date-chip { min-width: 78px; } }

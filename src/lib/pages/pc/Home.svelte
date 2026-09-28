@@ -93,7 +93,7 @@
     { label: 'FAVORITES', title: '喜欢的音乐', value: `${profile?.likedPlaylist?.trackCount ?? 0} 首`, icon: 'heart-filled', action: () => profile?.likedPlaylist && onOpenPlaylist?.(profile.likedPlaylist.id, true, profile.likedPlaylist) },
     { label: 'ON THIS DEVICE', title: '本地听歌统计', value: statsError ? '统计暂不可用 · 点击重试' : localStats.milliseconds ? `${localStats.plays} 次 · ${listeningTime(localStats.milliseconds)}` : '开始记录你的聆听', icon: 'music', action: () => onNavigate?.('listeningStats') },
     { label: 'CONTINUE', title: '最近播放', value: `${recentTracks.length} 首记录`, icon: 'clock', action: () => onNavigate?.('recent') },
-    { label: 'WEEKLY', title: '听歌排行', value: profile?.weeklyTracks[0]?.name ? `最近常听 · ${profile.weeklyTracks[0].name}` : '等待你的播放记录', icon: 'list', action: () => onNavigate?.('dailyHistory') },
+    { label: 'DAILY', title: '历史日推', value: '回看每天为你推送的歌', icon: 'calendar', action: () => onNavigate?.('dailyHistory') },
   ])
 
   $effect(() => { if (auth.isLoggedIn) untrack(load) })
@@ -121,7 +121,7 @@
 
     <section class="profile-home__quick">
       {#each quickCards as card}
-        <button onclick={card.action}><span class="profile-home__quick-icon"><Icon name={card.icon} size={21} /></span><span class="profile-home__quick-label">{card.label}</span><strong>{card.title}</strong><em>{card.value}</em></button>
+        <button data-motion="card" onclick={card.action}><span class="profile-home__quick-icon"><Icon name={card.icon} size={21} /></span><span class="profile-home__quick-label">{card.label}</span><strong>{card.title}</strong><em>{card.value}</em></button>
       {/each}
     </section>
 
@@ -157,7 +157,7 @@
         <header><div><span>CREATED BY YOU</span><h2>创建的歌单</h2></div><button onclick={() => onNavigate?.('library')}>全部歌单</button></header>
         <div class="profile-home__cover-grid">
           {#each profile.createdPlaylists.slice(0, 6) as playlist (playlist.id)}
-            <button onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span>♫</span>{/if}<strong>{playlist.name}</strong><em>{playlist.trackCount} 首歌曲</em></button>
+            <button data-motion="card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}><span class="profile-home__cover">{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}♫{/if}</span><strong>{playlist.name}</strong><em>{playlist.trackCount} 首歌曲</em></button>
           {/each}
         </div>
       </section>
@@ -168,7 +168,7 @@
         <header><div><span>FOR YOU</span><h2>为你推荐</h2></div><button onclick={() => onNavigate?.('explore')}>更多推荐</button></header>
         <div class="profile-home__cover-grid">
           {#each recommendPlaylists.slice(0, 6) as playlist (playlist.id)}
-            <button onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span>♫</span>{/if}<strong>{playlist.name}</strong><em>{playlist.copywriter || `${playlist.trackCount} 首歌曲`}</em></button>
+            <button data-motion="card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}><span class="profile-home__cover">{#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 320)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}♫{/if}</span><strong>{playlist.name}</strong><em>{playlist.copywriter || `${playlist.trackCount} 首歌曲`}</em></button>
           {/each}
         </div>
       </section>
@@ -179,41 +179,55 @@
 </div>
 
 <style>
-  .profile-home { display: grid; gap: 28px; }
+  .profile-home { display: grid; gap: 24px; }
   .profile-home__hero-skeleton { min-height: 316px; border-radius: var(--radius-xl); }
   .profile-home__quick-skeleton, .profile-home__quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
   .profile-home__quick-skeleton span { min-height: 112px; border-radius: var(--radius-xl); }
-  .profile-home__quick > button { min-width: 0; min-height: 118px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; align-content: center; gap: 3px 10px; padding: 17px; border: 1px solid var(--border); border-radius: var(--radius-xl); color: var(--text); background: color-mix(in srgb, var(--bg-layer) 86%, transparent); text-align: left; transition: border-color .2s; }
-  .profile-home__quick > button:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
-  .profile-home__quick-icon { grid-row: 1 / 4; width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--accent); background: var(--accent-bg); }
-  .profile-home__quick-label, .profile-home__panel header span, .profile-home__section header span { color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .1em; }
+  .profile-home__quick > button { min-width: 0; min-height: 112px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto auto; align-content: center; gap: 4px 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-xl); color: var(--text); background: var(--bg-surface); text-align: left; transition: border-color var(--motion-release) var(--ease-out), background-color var(--motion-release) var(--ease-out); }
+  .profile-home__quick > button:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--bg-hover) 60%, var(--bg-surface)); }
+  .profile-home__quick-icon { grid-row: 1 / 4; width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--accent); background: var(--accent-bg); transition: background-color var(--motion-release) var(--ease-out); }
+  .profile-home__quick > button:hover .profile-home__quick-icon { background: var(--accent-bg-hover); }
+  .profile-home__quick-label, .profile-home__panel header span, .profile-home__section header span { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
   .profile-home__quick strong { overflow: hidden; font-size: 15px; text-overflow: ellipsis; white-space: nowrap; }
-  .profile-home__quick em { overflow: hidden; color: var(--text-tertiary); font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .profile-home__quick em { overflow: hidden; color: var(--text-tertiary); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
   .profile-home__dashboard, .profile-home__social { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-  .profile-home__panel, .profile-home__section { min-width: 0; padding: 21px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 84%, transparent); }
-  .profile-home__panel > header, .profile-home__section > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
-  .profile-home__panel h2, .profile-home__section h2 { margin-top: 3px; font-size: 20px; }
-  .profile-home__panel header button, .profile-home__section header button { color: var(--accent); font-size: 12px; }
-  .profile-home__track-list { display: grid; gap: 3px; }
-  .profile-home__track-list > button { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) 20px; align-items: center; gap: 11px; padding: 7px 9px; border-radius: var(--radius-md); color: var(--text); text-align: left; }
-  .profile-home__track-list--rank > button { grid-template-columns: 34px minmax(0, 1fr) 20px; }
+  .profile-home__panel, .profile-home__section { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
+  .profile-home__panel > header, .profile-home__section > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .profile-home__panel h2, .profile-home__section h2 { margin-top: 4px; font-size: 20px; }
+  .profile-home__panel header button, .profile-home__section header button { padding: 4px 8px; margin-right: -8px; border-radius: var(--radius-sm); color: var(--accent); font-size: 12px; transition: background-color var(--motion-release) var(--ease-out); }
+  .profile-home__panel header button:hover, .profile-home__section header button:hover { background: var(--accent-bg); }
+  .profile-home__track-list { display: grid; gap: 4px; }
+  .profile-home__track-list > button { min-width: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr) 20px; align-items: center; gap: 12px; padding: 8px; border-radius: var(--radius-md); color: var(--text); text-align: left; transition: background-color var(--motion-release) var(--ease-out); }
+  .profile-home__track-list--rank > button { grid-template-columns: 32px minmax(0, 1fr) 20px; }
   .profile-home__track-list > button:hover { background: var(--bg-hover); }
-  .profile-home__track-list img, .profile-home__track-empty { width: 42px; height: 42px; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-sm); background: var(--bg-elevated); }
-  .profile-home__track-list > button > span:not(.profile-home__rank):not(.profile-home__track-empty) { min-width: 0; display: grid; }
+  .profile-home__track-list > button > :global(svg) { color: var(--accent); opacity: 0; transition: opacity var(--motion-release) var(--ease-out); }
+  .profile-home__track-list > button:hover > :global(svg), .profile-home__track-list > button:focus-visible > :global(svg) { opacity: 1; }
+  .profile-home__track-list img, .profile-home__track-empty { width: 44px; height: 44px; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-sm); background: var(--bg-elevated); }
+  .profile-home__track-list > button > span:not(.profile-home__rank):not(.profile-home__track-empty) { min-width: 0; display: grid; gap: 2px; }
   .profile-home__track-list strong, .profile-home__track-list em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .profile-home__track-list strong { font-size: 13px; }
-  .profile-home__track-list em { color: var(--text-tertiary); font-size: 10px; font-style: normal; }
-  .profile-home__rank { color: var(--text-tertiary); font-size: 10px; text-align: center; }
-  .profile-home__empty { min-height: 170px; display: grid; place-items: center; color: var(--text-tertiary); font-size: 12px; }
+  .profile-home__track-list em { color: var(--text-tertiary); font-size: 11px; font-style: normal; }
+  .profile-home__rank { color: var(--text-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+  .profile-home__empty { min-height: 168px; display: grid; place-items: center; color: var(--text-tertiary); font-size: 12px; }
   .profile-home__cover-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
-  .profile-home__cover-grid button { min-width: 0; display: grid; gap: 6px; color: var(--text); text-align: left; }
-  .profile-home__cover-grid img, .profile-home__cover-grid button > span { width: 100%; aspect-ratio: 1; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-md); background: var(--bg-elevated); transition: transform .22s var(--ease-out); }
-  .profile-home__cover-grid button:hover img { transform: translateY(-2px); }
+  .profile-home__cover-grid button { min-width: 0; display: grid; gap: 8px; color: var(--text); text-align: left; }
+  .profile-home__cover { width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); color: var(--text-tertiary); background: var(--bg-elevated); transition: box-shadow var(--motion-release) var(--ease-out); }
+  .profile-home__cover img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--motion-release) var(--ease-out); }
+  .profile-home__cover-grid button:hover .profile-home__cover { box-shadow: var(--shadow-md); }
+  .profile-home__cover-grid button:hover .profile-home__cover img { transform: scale(1.04); }
   .profile-home__cover-grid strong, .profile-home__cover-grid em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .profile-home__cover-grid strong { font-size: 13px; }
-  .profile-home__cover-grid em { color: var(--text-tertiary); font-size: 11px; font-style: normal; }
+  .profile-home__cover-grid em { margin-top: -4px; color: var(--text-tertiary); font-size: 11px; font-style: normal; }
   .profile-home__logged-out { min-height: 520px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-tertiary); text-align: center; }
   .profile-home__logged-out h1 { color: var(--text); font-size: 28px; }
-  .profile-home__logged-out button { margin-top: 8px; padding: 10px 20px; border-radius: 999px; color: white; background: var(--accent); font-weight: 700; }
+  .profile-home__logged-out button { margin-top: 8px; padding: 10px 24px; border-radius: 999px; color: white; background: var(--accent); font-weight: 700; transition: filter var(--motion-release) var(--ease-out); }
+  .profile-home__logged-out button:hover { filter: brightness(1.08); }
+  /* 区块错峰入场：只在挂载时播一次，后台刷新不重播；reduced-motion 由 desktop-system.css 全局兜底 */
+  :global(html:not(.mobile-runtime)) .profile-home > :global(*) { animation: profile-home-in var(--motion-panel) var(--ease-out) both; }
+  :global(html:not(.mobile-runtime)) .profile-home > :global(:nth-child(2)) { animation-delay: 40ms; }
+  :global(html:not(.mobile-runtime)) .profile-home > :global(:nth-child(3)) { animation-delay: 80ms; }
+  :global(html:not(.mobile-runtime)) .profile-home > :global(:nth-child(4)) { animation-delay: 120ms; }
+  :global(html:not(.mobile-runtime)) .profile-home > :global(:nth-child(n+5)) { animation-delay: 160ms; }
+  @keyframes profile-home-in { from { opacity: 0; transform: translateY(8px); } }
   @media (max-width: 1100px) { .profile-home__quick { grid-template-columns: repeat(2, 1fr); } .profile-home__cover-grid { grid-template-columns: repeat(3, 1fr); } }
 </style>

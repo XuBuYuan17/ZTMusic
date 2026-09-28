@@ -27,6 +27,18 @@ check(parseLikeCheck({ data: [{ songId: 123, like: true }] }, ID), true, 'array 
 check(parseLikeCheck([{ id: 999, liked: true }, { id: 123, liked: false }], ID), false, 'array picks right id')
 check(parseLikeCheck([true], ID), true, 'array of bare boolean')
 
+// bare id array -> the ids that ARE liked (real /song/like/check shape)
+check(parseLikeCheck({ code: 200, data: ['123'] }, ID), true, 'id array hit')
+check(parseLikeCheck({ code: 200, data: ['123'] }, 456), false, 'id array miss')
+check(parseLikeCheck({ data: [] }, ID), false, 'empty id array')
+check(parseLikeCheck({ data: [123] }, ID), true, 'numeric id array')
+
+// wrapped id arrays: songIds (/song/like/check) and ids (/likelist)
+check(parseLikeCheck({ data: { songIds: [123] } }, ID), true, 'songIds wrapper')
+check(parseLikeCheck({ data: { songIds: [999] } }, ID), false, 'songIds wrapper miss')
+check(parseLikeCheck({ code: 200, ids: [123] }, ID), true, 'likelist ids wrapper')
+check(parseLikeCheck({ code: 200, ids: ['999'] }, ID), false, 'likelist ids wrapper miss')
+
 // object keyed by id
 check(parseLikeCheck({ 123: true }, ID), true, 'object keyed true')
 check(parseLikeCheck({ 123: 0 }, ID), false, 'object keyed falsy')

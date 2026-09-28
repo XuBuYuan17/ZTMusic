@@ -14,6 +14,8 @@ const loginOverlay = await readFile(new URL('../components/LoginOverlay.svelte',
 const authStore = await readFile(new URL('../stores/auth.svelte.ts', import.meta.url), 'utf8')
 const windowTitleBar = await readFile(new URL('../components/WindowTitleBar.svelte', import.meta.url), 'utf8')
 const shellCss = await readFile(new URL('../../styles/shell.css', import.meta.url), 'utf8')
+const sidebar = await readFile(new URL('../components/Sidebar.svelte', import.meta.url), 'utf8')
+const routerStore = await readFile(new URL('../stores/router.svelte.ts', import.meta.url), 'utf8')
 const lyricsCss = await readFile(new URL('../../styles/lyrics.css', import.meta.url), 'utf8')
 const searchOverlayCss = await readFile(new URL('../../styles/search-overlay.css', import.meta.url), 'utf8')
 const queuePanel = await readFile(new URL('../components/QueuePanel.svelte', import.meta.url), 'utf8')
@@ -51,6 +53,18 @@ assert.ok(searchOverlayCss.includes('html.desktop-titlebar:not(.mobile-runtime) 
 assert.ok(queuePanel.includes(':global(html.desktop-titlebar) .queue-panel'), 'desktop queue panel must start below the titlebar')
 assert.ok(!desktopHost.includes('transition:fade'), 'desktop route changes should keep the content surface stable')
 assert.ok(desktopHost.includes('class="page-enter"'), 'desktop routes should retain one stable content container')
+// 侧边栏导航项即顶层视图，必须与 router 的 TOP_LEVEL_VIEWS 同步，否则顶层页会错误地冒出返回按钮
+const topLevel = new Set(routerStore.match(/TOP_LEVEL_VIEWS = new Set\(\[([^\]]*)\]/)?.[1].match(/'([a-zA-Z]+)'/g)?.map(v => v.slice(1, -1)) || [])
+assert.ok(topLevel.size > 0, 'router should declare the top-level view list')
+for (const [, view] of sidebar.matchAll(/nav\('([a-zA-Z]+)'\)/g)) {
+  assert.ok(topLevel.has(view), `sidebar destination "${view}" must be listed in TOP_LEVEL_VIEWS`)
+}
+// 历史日推是二级页，回退只靠统一返回按钮；handleNav 的通用分支会清空 _routeStack，
+// 所以必须在它之前拦下来压栈，否则从资料库进去按返回会掉回首页
+const navBody = routerStore.slice(routerStore.indexOf('function handleNav('), routerStore.indexOf('function goBack('))
+const dailyHistoryAt = navBody.indexOf("view === 'dailyHistory'")
+assert.ok(dailyHistoryAt > -1, 'handleNav should intercept dailyHistory')
+assert.ok(dailyHistoryAt < navBody.indexOf('_routeStack = []'), 'dailyHistory must be intercepted before handleNav resets _routeStack')
 assert.ok(homePage.includes('homeSnapshot?.userId === userId'), 'home should reuse the current user snapshot before refreshing')
 assert.ok(explorePage.includes('exploreSnapshotAt'), 'explore should retain a freshness-bounded snapshot across mounts')
 assert.ok(!homePage.includes('transition:slide'), 'home should not stack a page slide over route changes')
@@ -59,4 +73,4 @@ for (const component of lazyRoutes) {
   assert.ok(desktopHost.includes(`const load${component} = lazyModule(() => import(`), `${component} should be loaded on demand`)
 }
 
-console.log(`application rendering self-check: ${lazyRoutes.length + 29} assertions passed`)
+console.log(`application rendering self-check: ${lazyRoutes.length + 31} assertions passed`)

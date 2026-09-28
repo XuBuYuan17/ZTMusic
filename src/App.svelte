@@ -34,7 +34,7 @@
   import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
   import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
   import Toast from './lib/components/ui/Toast.svelte'
-  import VolumeHud from './lib/components/ui/VolumeHud.svelte'
+  import PlayerHud from './lib/components/ui/PlayerHud.svelte'
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
 
@@ -322,4 +322,4 @@
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
 <Toast />
-<VolumeHud />
+<PlayerHud />

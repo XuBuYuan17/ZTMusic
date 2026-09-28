@@ -242,6 +242,10 @@ class PlayerState {
       this._clearLoadingTimer()
       this.duration = engine.duration
       this.playing = this._shouldAutoPlay && !engine.paused
+      // 音频真的能放了 → 之前记下的错误已经过期（加载超时 / 引擎瞬时错误）。
+      // 必须 gate 在 _shouldAutoPlay 上：_setNoUrlError 会把它置 false，
+      // 否则一次早先 load() 的迟到 canplay 会抹掉真正的「暂无可用音源」
+      if (this._shouldAutoPlay) this._clearError()
       // 恢复播放时 seek
       if (this._restoreSeeking && this.currentTime > 0) {
         const restoreTime = this.currentTime
@@ -421,10 +425,12 @@ class PlayerState {
       urlCount: fbState.total,
       ...extra,
     })
-    this.error = userMessage || ERROR_MESSAGES.PLAY_FAILED
     debugLog('player', 'error', snapshot)
-    // 用户可见错误显示 toast（silent 标记的跳过，如后台填充失败）
-    if (!extra?.silent) toast.error(this.error)
+    // silent = 后台失败（补链等），歌还在正常放，只留日志不上屏。
+    // 以前只挡 toast 却照样写 this.error，而 PlayerBar 把它当艺术家名渲染 → 整首歌挂着「播放失败」
+    if (extra?.silent) return
+    this.error = userMessage || ERROR_MESSAGES.PLAY_FAILED
+    toast.error(this.error)
   }
 
   _setNoUrlError(
@@ -597,15 +603,12 @@ class PlayerState {
         this._fallback.updateUrls(urls)
 
         if (urls.length > 0) {
-          // 如果是试听片段且已登录，显示 VIP 提示（仍播放试听）
+          // 试听片段：只弹一次 toast（仍播放试听）。这是「一次性告知」，
+          // 不该写进 player.error —— 那会顶掉 LCD 的歌手名并常驻整首歌
           if (isTrial && this._authProvider.isLoggedIn()) {
             const trialMessage = getTrialPlaybackMessage({ isLoggedIn: this._authProvider.isLoggedIn(), vipInfo: this._authProvider.getVipInfo(), isVip: this._authProvider.isVip() })
-            this._setPlayerError(
-              'TrialUrlDetected',
-              { kind: ERROR_KIND.TRIAL, message: trialMessage },
-              trialMessage,
-              { silent: true },
-            )
+            debugLog('player', 'trial-url', { trackId: this.id, title: this.title, message: trialMessage })
+            toast.warning(trialMessage)
           }
           this._prefetchNextTrack(requestId)
           this._fillFallbackInBackground(playableTrack.id, requestId, signal)
@@ -736,7 +739,10 @@ class PlayerState {
         this._setPlayerError('FillFallbackFailed', err, ERROR_MESSAGES.PLAY_FAILED, { silent: true })
       }
     } finally {
-      this._fallback.setFillPending(false)
+      // 只有当前这次填充能清自己的标记：切歌 / 切音质会立刻起新一次填充，
+      // 旧的这次若晚一步收尾，会把新填充刚设上的 pending 抹掉，
+      // 于是 _fallbackNext 走 exhausted 分支误报「暂无可用音源」
+      if (reqId === this._playRequestId) this._fallback.setFillPending(false)
     }
   }
 
@@ -890,10 +896,80 @@ class PlayerState {
     this.mode = setSetting(STORAGE_KEYS.MODE, m) as PlayMode
   }
 
-  /** 设置偏好音质 */
+  /**
+   * 设置偏好音质。正在播的歌会立刻按新档位重取 URL，播放进度不丢。
+   *
+   * ponytail: 只保证「正在播的这首」立刻换档，且会把新档位的 URL 写回它的缓存。
+   * 其他歌若已进过 dbCache，仍会按首次缓存时的档位播放 —— 缓存只按 song_id 存 URL、
+   * 不记档位（db/cache.ts 的 song_urls 表，一首歌一个槽）。要彻底修得给缓存行加 level 列
+   * 并处理 SQLite / IndexedDB / localStorage 三条路径的迁移，等真有人抱怨再动。
+   */
   setPreferredLevel(level: string): void {
-    if (QUALITY_ORDER.includes(level)) {
-      this.preferredLevel = setSetting(STORAGE_KEYS.PREFERRED_QUALITY, level) as QualityLevel
+    if (!QUALITY_ORDER.includes(level)) return
+    const changed = this.preferredLevel !== level
+    this.preferredLevel = setSetting(STORAGE_KEYS.PREFERRED_QUALITY, level) as QualityLevel
+    if (changed) void this._reloadCurrentAtPreferredLevel()
+  }
+
+  /**
+   * 按当前偏好音质重取正在播的这首歌。
+   *
+   * 旧档位的音频继续放着，等新 URL 到手才切——所以听感上不会有静音空档。
+   * 失败就静默留在旧 URL 上，不报错：用户只是换了个偏好，歌还在正常播。
+   */
+  async _reloadCurrentAtPreferredLevel(): Promise<void> {
+    const track = this.currentTrack
+    // 本地 / WebDAV 曲目没有音质档位
+    if (!this.id || !track || track.source === 'local' || track.source === 'webdav') return
+    // 音频还在加载中就别插手：下面那句 ++_playRequestId 会让 playTrack 的 .then 直接
+    // return，而这边又不调 engine.play()（那时 playing 还是 false），歌就卡在加载态
+    // 直到 15 秒超时。偏好已经存下了，这首歌保持原档位，下一首自然按新档位解析
+    if (this.loading) return
+
+    const id = this.id
+    const position = this.currentTime
+    // 顶掉上一次解析：正在跑的 fillFallback / prefetchNext 都是按旧档位发起的
+    const requestId = ++this._playRequestId
+    const signal = this._abortController.signal
+
+    try {
+      const { urls } = await getPlayableUrls(
+        id,
+        this.preferredLevel,
+        this._prefetchCache,
+        requestId,
+        { isLoggedIn: this._authProvider.isLoggedIn(), checkLoginStatus: () => this._authProvider.checkLoginStatus() },
+        signal,
+        true,
+      )
+      if (requestId !== this._playRequestId || urls.length === 0) return
+
+      this._firstUrlLevel = 'quality-switch'
+      this._fallback.updateUrls(urls)
+      this._prefetchNextTrack(requestId)
+
+      const first = this._fallback.next()
+      if (first.status !== 'playing') return
+      // 新档位拿到的还是同一个 URL（该档位不可用，解析回落了）→ 不打断当前播放
+      if (first.url === engine.currentUrl) return
+
+      // 到这里才读播放态：解析期间用户可能已经按了暂停，不该再把歌拉起来
+      const wasPlaying = this.playing
+      this.loading = true
+      this._clearError()
+      // 切 URL 会丢掉进度，交给 onCanPlay 里的 seek 恢复（与 _fallbackNext 同一套机制）
+      if (position > 0) this._restoreSeeking = true
+      engine.load(first.url)
+      if (wasPlaying) {
+        engine.play().catch((err) => {
+          if (requestId !== this._playRequestId) return
+          this._setPlayerError('QualitySwitchPlayFailed', err, ERROR_MESSAGES.PLAY_FAILED)
+          this._fallbackNext('QualitySwitchNoUrl')
+        })
+      }
+      void this._fillFallbackInBackground(id, requestId, signal)
+    } catch {
+      // 静默：换档失败不该打断正在播的旧档位
     }
   }
 

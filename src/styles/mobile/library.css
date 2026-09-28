@@ -252,6 +252,21 @@ html.mobile-runtime .m-library-sheet input {
   font-size: 16px;
 }
 
+/* 勾选框要盖掉上面那条 input 的全宽与内边距，否则会被撑成一整块 */
+html.mobile-runtime .m-library-sheet .m-library-sheet-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+html.mobile-runtime .m-library-sheet .m-library-sheet-check input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 html.mobile-runtime .m-library-sheet strong {
   color: var(--text);
   font-size: 15px;

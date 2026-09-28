@@ -24,7 +24,7 @@ html:not(.mobile-runtime) .ly-pc-player .pb-time {
 .ly-system-actions {
   position: absolute;
   top: 19px;
-  right: clamp(84px, 7vw, 118px);
+  left: clamp(84px, 7vw, 118px);
   z-index: 32;
   display: flex;
   align-items: center;
@@ -82,21 +82,25 @@ html:not(.mobile-runtime) .ly-pc-player .pb-time {
   height: 42px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  padding: 0 4px;
+  padding: 0 2px;
+  border: 1px solid rgba(255,255,255,0.14);
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255,255,255,0.075);
+  background: rgba(255,255,255,0.1);
   backdrop-filter: blur(18px) saturate(150%);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22);
   transition: max-width 0.34s cubic-bezier(0.16, 1, 0.3, 1), padding 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* 左 padding 与返回胶囊一致地保持 2px，展开时图标才不位移。
+   overflow 必须留在基础规则的 hidden：改成 visible 会让滑块在第 0 帧就整个画出来，
+   而玻璃背景要 340ms 才追上。range input 的 top:-9px/height:25px 本来就落在内容盒内，不会被裁 */
 .ly-volume-control.open .ly-volume-shell {
   max-width: 176px;
-  padding: 0 8px 0 14px;
-  overflow: visible;
+  padding: 0 14px 0 2px;
 }
 
 .ly-volume-shell .ly-glass-icon-btn {
@@ -110,11 +114,10 @@ html:not(.mobile-runtime) .ly-pc-player .pb-time {
   position: relative;
   flex: 1 1 112px;
   min-width: 96px;
-  height: 7px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(255,255,255,0.22);
   overflow: visible;
-  order: -1;
 }
 
 .ly-volume-fill {
@@ -213,7 +216,8 @@ html:not(.mobile-runtime) .ly-pc-player .pb-time {
 }
 .ly-star-btn svg { transform: scale(1.2); }
 .ly-star-btn:hover { color: #fff; background: rgba(255,255,255,0.12); }
-.ly-star-btn.active { color: rgba(255,255,255,0.96); }
+/* 已收藏 = 红心点亮。--accent 浅色 #e60012 / 深色 #ff3b30，在深色玻璃底上都够亮 */
+.ly-star-btn.active { color: var(--accent); }
 .ly-track-sub {
   display: flex;
   align-items: center;
@@ -262,6 +266,17 @@ html:not(.mobile-runtime) .ly-song-menu {
   overflow: auto;
   pointer-events: auto;
 }
+
+/* 菜单是硬编码深色玻璃，而内嵌的 SongPlaylistPanel 读的是主题令牌。
+   浅色主题下 --text 是 #1d1d1f，会把子面板文字压成看不见的深灰，这里整体翻成白色系 */
+html:not(.mobile-runtime) .ly-song-menu {
+  --text: rgb(255 255 255 / 90%);
+  --text-tertiary: rgb(255 255 255 / 52%);
+  --border: rgb(255 255 255 / 12%);
+  --bg-hover: rgb(255 255 255 / 9%);
+  --bg-surface: rgb(255 255 255 / 8%);
+}
+
 html:not(.mobile-runtime) .ly-song-menu button {
   display: flex;
   align-items: center;
@@ -291,6 +306,15 @@ html:not(.mobile-runtime) .ly-song-menu-icon { flex: 0 0 16px; width: 16px; text
 html:not(.mobile-runtime) .ly-song-menu-value { margin-left: auto; color: rgb(255 255 255 / 52%); }
 html:not(.mobile-runtime) .ly-song-menu-divider { height: 1px; margin: 5px 8px; background: rgb(255 255 255 / 10%); }
 html:not(.mobile-runtime) .ly-song-menu-message { padding: 6px 10px; font-size: 12px; color: rgb(255 255 255 / 68%); }
+
+/* 音质子面板的返回行：外观复用上面的 .ly-song-menu button，这里只补差异。
+   选择器要写成 .ly-song-menu .ly-song-menu-back —— .ly-song-menu button 是 0-2-2，光写类名压不住它 */
+html:not(.mobile-runtime) .ly-song-menu .ly-song-menu-back {
+  min-height: 44px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0;
+}
 
 .ly-sep { color: rgba(255,255,255,0.2); }
 .ly-artist,
@@ -592,7 +616,62 @@ html:not(.mobile-runtime) .pm-close:hover span { background: white; }
 html:not(.mobile-runtime) .pm-close:active { cursor: grabbing; }
 html:not(.mobile-runtime) .pm-close:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 html.desktop-titlebar:not(.mobile-runtime) .pm-close { top: calc(var(--titlebar-h) + 8px); }
-html:not(.mobile-runtime) .player-morph .ly-system-actions { right: 28px; }
+html:not(.mobile-runtime) .player-morph .ly-system-actions { left: 28px; }
+
+/* 歌词页返回：静息是 42px 玻璃圆钮，悬停向左长出一条露出「返回」。
+   材质逐字对齐左上角 .ly-volume-shell —— 两者同行同尺寸，当成一对。 */
+.ly-back-rail {
+  position: absolute;
+  top: 19px;
+  right: 28px;
+  z-index: 32;
+}
+
+.ly-back-capsule {
+  height: 42px;
+  max-width: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+  color: rgba(255,255,255,0.78);
+  cursor: pointer;
+  transition: max-width var(--motion-panel) var(--ease-out), padding var(--motion-panel) var(--ease-out), background var(--motion-release) var(--ease-out), color var(--motion-release) var(--ease-out);
+}
+
+/* 图标盒撑满收拢态的内容宽（42 - 2 描边 - 4 padding），静息才是正圆 */
+.ly-back-icon {
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+}
+
+/* 标签常驻 DOM，靠父级 overflow 裁剪；用 {#if} 会丢掉过渡和无障碍名 */
+.ly-back-label {
+  flex: none;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.16s var(--ease-out);
+}
+
+.ly-back-capsule:hover,
+.ly-back-capsule:focus-visible { max-width: 92px; padding: 0 14px 0 2px; }
+
+.ly-back-capsule:hover .ly-back-label,
+.ly-back-capsule:focus-visible .ly-back-label { opacity: 1; transition-delay: 0.12s; }
+
+.ly-back-capsule:hover { background: rgba(255,255,255,0.16); color: #fff; }
+.ly-back-capsule:focus-visible { outline: 2px solid rgba(255,255,255,0.34); outline-offset: 3px; }
+.ly-back-capsule:active { transform: scale(0.96); }
 html:not(.mobile-runtime) .player-morph .ly-line {
   filter: blur(clamp(0px, (var(--distance, 0) - 1) * 0.5px, 1.5px));
   transition: opacity 200ms ease, filter 200ms ease;

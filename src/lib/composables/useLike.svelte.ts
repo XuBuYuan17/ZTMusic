@@ -24,6 +24,11 @@ export function useLike(onMessage?: (text: string) => void) {
   let busy = $state(false)
   let requestId = 0
 
+  function activeUid(): string | number | undefined {
+    const rawUid: unknown = auth.user?.userId || auth.user?.id
+    return typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : undefined
+  }
+
   // Re-check liked status whenever the current track changes.
   $effect(() => {
     const id = player.id
@@ -40,14 +45,24 @@ export function useLike(onMessage?: (text: string) => void) {
     } catch (err) {
       const message = (err as { message?: unknown } | null | undefined)?.message
       debugLog('useLike', 'check-error', { id, error: message || String(err) })
+      // songLikeCheck 在这台服务端上不稳（SongContextMenu.svelte 早就为此加了同款兜底）。
+      // 不兜底的话异常被吞掉、liked 永远停在 false，红心永远是空心
+      const uid = activeUid()
+      if (!uid) return
+      try {
+        const list = await ncm.likelist(uid)
+        if (rid === requestId && player.id === id) liked = parseLikeCheck(list, id)
+      } catch (err2) {
+        const message2 = (err2 as { message?: unknown } | null | undefined)?.message
+        debugLog('useLike', 'likelist-error', { id, error: message2 || String(err2) })
+      }
     }
   }
 
   async function toggle(): Promise<void> {
     if (!player.id) return
     if (!auth.isLoggedIn) { onMessage?.('请先登录'); return }
-    const rawUid: unknown = auth.user?.userId || auth.user?.id
-    const uid = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : undefined
+    const uid = activeUid()
     if (!uid) { onMessage?.('登录状态异常'); return }
     busy = true
     const nextLiked = !liked

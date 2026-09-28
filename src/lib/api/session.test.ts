@@ -42,5 +42,20 @@ function assertEqual(actual: unknown, expected: unknown, message: string): void 
   assertEqual(cookie, 'MUSIC_U=token; __csrf=csrf', 'drops Set-Cookie attributes')
 }
 
+{
+  const cookie = normalizeCookieForRequest('MUSIC_U=; __csrf=csrf')
+  assertEqual(cookie, '', 'treats an empty MUSIC_U as logged out')
+}
+
+{
+  const cookie = mergeCookies('MUSIC_U=old; __csrf=csrf; os=pc', 'MUSIC_U=')
+  assertEqual(cookie, '__csrf=csrf; os=pc', 'an empty value in the response deletes the key instead of blanking it')
+}
+
+{
+  const cookie = mergeCookies('MUSIC_U=old; __csrf=csrf', 'NMTID=nmt')
+  assertEqual(cookie, 'MUSIC_U=old; __csrf=csrf; NMTID=nmt', 'keys absent from the response are kept')
+}
+
 console.log(`\n${passed} passed, ${failed} failed${failed ? ' - FAIL' : ' - all good'}`)
 process.exitCode = failed ? 1 : 0

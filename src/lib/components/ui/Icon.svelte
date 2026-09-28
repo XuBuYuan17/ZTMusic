@@ -67,6 +67,7 @@
     'chevron-down': 'M6 9l6 6 6-6',
     check: [{type:'polyline',points:'20 6 9 17 4 12'}],
     back: 'M15 18l-6-6 6-6',
+    'arrow-left': [{type:'path',d:'M19 12H5'},{type:'path',d:'M12 19l-7-7 7-7'}],
     // content
     music: [{type:'path',d:'M9 18V5l12-2v13'},{type:'circle',cx:6,cy:18,r:3},{type:'circle',cx:18,cy:16,r:3}],
     'music-note': 'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z',

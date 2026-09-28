@@ -357,11 +357,13 @@
   pointer-events: none;
 }
 
-.library-card-managed {
+.library-card-managed,
+.library-card-owned {
   position: relative;
 }
 
-.library-card-unsubscribe {
+/* 悬停浮出的圆形操作键：取消收藏 / 编辑 / 删除共用外观，只有 hover 底色不同 */
+.library-card-action {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -383,14 +385,34 @@
   z-index: 2;
 }
 
-.library-card-managed:hover .library-card-unsubscribe,
-.library-card-managed:focus-visible .library-card-unsubscribe,
-.library-card-unsubscribe:focus-visible {
+/* 自建歌单有两个键，并排放在右上角；位置由容器给，键本身不再绝对定位 */
+.library-card-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.library-card-actions .library-card-action {
+  position: static;
+}
+
+.library-card-managed:hover .library-card-action,
+.library-card-managed:focus-visible .library-card-action,
+.library-card-owned:hover .library-card-action,
+.library-card-owned:focus-within .library-card-action,
+.library-card-action:focus-visible {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 
-.library-card-unsubscribe:hover {
+.library-card-action:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.library-card-action-danger:hover {
   background: var(--danger, #ff3b30);
 }
 
@@ -423,7 +445,8 @@
   margin-bottom: 16px;
 }
 
-.library-modal-input {
+.library-modal-input,
+.library-modal-textarea {
   width: 100%;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -438,12 +461,46 @@
   margin-bottom: 20px;
 }
 
-.library-modal-input:focus {
+.library-modal-input:focus,
+.library-modal-textarea:focus {
   border-color: var(--accent);
 }
 
-.library-modal-input::placeholder {
+.library-modal-input::placeholder,
+.library-modal-textarea::placeholder {
   color: var(--text-tertiary);
+}
+
+/* 歌单描述：多行、可竖向拉伸，其余外观与输入框一致 */
+.library-modal-textarea {
+  min-height: 76px;
+  max-height: 200px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* 新建歌单的「设为隐私」勾选框 */
+.library-modal-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 0 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.library-modal-check input {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.library-modal-check input:disabled {
+  cursor: default;
 }
 
 .library-modal-actions {

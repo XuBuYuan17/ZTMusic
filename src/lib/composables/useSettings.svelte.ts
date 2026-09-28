@@ -184,7 +184,7 @@ export function useSettings() {
     try {
       cookieCheckMsg = await auth.checkLoginStatus()
         ? 'Cookie 正常 · 登录有效'
-        : 'Cookie 已过期，已自动清除登录状态'
+        : 'Cookie 已过期，请重新登录'
     } catch {
       cookieCheckMsg = '检测失败，请重试'
     }

@@ -101,6 +101,42 @@
   }
   let totalTrackCount = $derived(playlistDetail?.trackCount || playlistDetail?.trackIds?.length || playlistDetail?.tracks?.length || 0)
   let isWaitingForTracks = $derived(Boolean(loading && playlistDetail && (!playlistDetail.tracks || playlistDetail.tracks.length === 0)))
+  let totalDuration = $derived((playlistDetail?.tracks || []).reduce((sum, track) => sum + (track.dt || 0), 0))
+  let toolbarStuck = $state(false)
+  // 首屏行错峰只播一次：之后搜索/排序让行跨过 i<14 边界也不重播
+  let rowsIntro = $state(true)
+  $effect(() => {
+    if (!visibleTracks.length || !rowsIntro) return
+    const timer = setTimeout(() => rowsIntro = false, 900)
+    return () => clearTimeout(timer)
+  })
+
+  function playShuffled(): void {
+    player.setMode('shuffle')
+    onPlayAll?.(visibleTracks)
+  }
+
+  // 桌面：进入时滚回顶部；滚动时给 hero 写 --hero-p（0→1）驱动视差收缩，hero 滚出后工具栏吸顶显示小标题
+  // ponytail: WebKitGTK 支持 animation-timeline: scroll() 后，--hero-p 可改纯 CSS，只留吸顶判断
+  function heroScroll(node: HTMLElement, onStuck: (stuck: boolean) => void) {
+    const scroller = node.closest<HTMLElement>('.content-scroll')
+    if (!scroller || document.documentElement.classList.contains('mobile-runtime')) return {}
+    scroller.scrollTo({ top: 0 })
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const hero = node.querySelector<HTMLElement>('.playlist-detail-hero')
+      if (!hero) return
+      const rect = hero.getBoundingClientRect()
+      const top = scroller.getBoundingClientRect().top
+      if (!still) hero.style.setProperty('--hero-p', String(Math.min(1, Math.max(0, (top - rect.top) / rect.height)).toFixed(3)))
+      onStuck(rect.bottom <= top)
+    }
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update) }
+    scroller.addEventListener('scroll', schedule, { passive: true })
+    return { destroy() { cancelAnimationFrame(frame); scroller.removeEventListener('scroll', schedule) } }
+  }
 
   function rec(v: unknown): Record<string, unknown> | null {
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
@@ -182,7 +218,7 @@
 </script>
 
 {#key selectedId}
-  <div class="playlist-detail-page" class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)}>
+  <div class="playlist-detail-page" class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)} class:rows-intro={rowsIntro} use:heroScroll={(stuck) => toolbarStuck = stuck}>
     {#if loading && !playlistDetail}
       <PlaylistHero {onBack} />
       <div class="playlist-loading-status" role="status" aria-live="polite">
@@ -232,10 +268,19 @@
         {detailType}
         totalCount={totalTrackCount}
         visibleCount={visibleTracks.length}
+        {totalDuration}
         {onBack}
         onPlayAll={() => onPlayAll?.(visibleTracks)}
+        onShuffle={playShuffled}
       />
-      <div class="playlist-toolbar">
+      <div class="playlist-toolbar" class:is-stuck={toolbarStuck}>
+        <div class="playlist-toolbar-title" inert={!toolbarStuck}>
+          {#if playlistDetail.coverImgUrl || playlistDetail.picUrl}<img src={coverUrl(playlistDetail.coverImgUrl || playlistDetail.picUrl, 64)} alt="" referrerpolicy="no-referrer" />{/if}
+          <strong>{playlistDetail.name}</strong>
+          <button type="button" onclick={() => onPlayAll?.(visibleTracks)} disabled={!visibleTracks.length} aria-label="播放全部">
+            <Icon name="play" size={14} fill="currentColor" />
+          </button>
+        </div>
         <label class="playlist-search" aria-label="搜索歌单歌曲">
           <Icon name="search" size={16} strokeWidth={1.8} />
           <input bind:value={trackSearch} placeholder="搜索歌单内歌曲、歌手、专辑" />
@@ -1019,7 +1064,7 @@
     }
   }
 
-  /* 桌面：页面入场统一由 host 的 pageMotion 处理，卡片、骨架、行不做逐级登场 */
+  /* 桌面：页面整体入场由 host 的 pageMotion 处理；只保留首屏行错峰 */
   :global(html:not(.mobile-runtime)) .playlist-detail-page,
   :global(html:not(.mobile-runtime)) .playlist-track-surface,
   :global(html:not(.mobile-runtime)) .playlist-loading-status,
@@ -1030,5 +1075,88 @@
     opacity: 1;
     transform: none;
   }
+
+  /* 特异性需压过 desktop-system.css 对 .track-table 行的 animation: none */
+  :global(html:not(.mobile-runtime)) .playlist-detail-page.rows-intro .playlist-track-table tbody tr.playlist-track-row {
+    animation: playlistTrackRowIn var(--motion-panel) var(--ease-out) backwards;
+    animation-delay: calc(80ms + var(--playlist-row-i, 0) * 24ms);
+  }
+
+  :global(html:not(.mobile-runtime)) .playlist-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    grid-template-columns: auto minmax(260px, 1fr) auto auto;
+    margin: 0 -12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid transparent;
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    transition: background-color var(--motion-release) var(--ease-out), border-color var(--motion-release) var(--ease-out), backdrop-filter var(--motion-release) var(--ease-out);
+  }
+
+  :global(html:not(.mobile-runtime)) .playlist-toolbar.is-stuck {
+    /* 右上角全局返回胶囊占位 */
+    padding-right: 104px;
+    border-bottom-color: var(--border);
+    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .playlist-toolbar-title {
+    display: none;
+  }
+
+  :global(html:not(.mobile-runtime)) .playlist-toolbar-title {
+    min-width: 0;
+    max-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-right: -10px;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: max-width var(--motion-panel) var(--ease-out), margin var(--motion-panel) var(--ease-out), opacity var(--motion-release) var(--ease-out), transform var(--motion-panel) var(--ease-out);
+  }
+
+  :global(html:not(.mobile-runtime)) .playlist-toolbar.is-stuck .playlist-toolbar-title {
+    max-width: 320px;
+    margin-right: 8px;
+    opacity: 1;
+    transform: none;
+  }
+
+  .playlist-toolbar-title img {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: var(--radius-xs);
+    object-fit: cover;
+  }
+
+  .playlist-toolbar-title strong {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .playlist-toolbar-title button {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    background: var(--accent);
+    transition: filter var(--motion-release) var(--ease-out);
+  }
+
+  .playlist-toolbar-title button:hover:not(:disabled) { filter: brightness(1.08); }
+  .playlist-toolbar-title button:disabled { opacity: .48; }
 
 </style>

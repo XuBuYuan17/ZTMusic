@@ -2,6 +2,7 @@
   import { dialogFocus } from '../../app/desktop-motion.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import { player } from '../../stores/player.svelte.ts'
+  import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
   import Spinner from '../Spinner.svelte'
   import { coverUrl } from '../../utils/image.ts'
@@ -25,10 +26,13 @@
     msg,
     onClose,
     onNavigate,
+    onSent,
   }: {
     msg: Msg
     onClose?: () => void
     onNavigate?: (view: string, extra?: number | null) => void
+    /** 发出一条私信后回调，让外层刷新会话列表的预览 */
+    onSent?: () => void
   } = $props()
 
   let chatMessages = $state<Msg[]>([])
@@ -37,6 +41,11 @@
   let chatScrollEl = $state<HTMLElement | null>(null)
   let shouldScrollToBottom = $state(false)
   let loadRequestId = 0
+
+  let draft = $state('')
+  let sending = $state(false)
+  // 发送失败只在输入框上方提示，不能写进 chatError——那会把整个消息流换成错误占位
+  let sendError = $state('')
 
   let fromItem = $derived(Boolean(msg.userId || msg.fromUserId || msg.id))
 
@@ -82,6 +91,19 @@
     e.stopPropagation()
   }
 
+  // .main-area 带 backdrop-filter，会成为 fixed 后代的包含块并自建层叠上下文，
+  // 弹窗因此被 .player-bar-wrap（根上下文 z-index:40）整条盖住。挪到 body 才能逃出去。
+  // 移动端维持原状：那边还有 .m-subpage-enter 的 transform 陷阱，本次不碰
+  function portal(node: HTMLElement) {
+    if (document.documentElement.classList.contains('mobile-runtime')) return {}
+    document.body.appendChild(node)
+    return {
+      destroy() {
+        node.remove()
+      },
+    }
+  }
+
   function getSongCover(song: unknown): string {
     const s = rec(song)
     const album = rec(s?.al) || rec(s?.album) || {}
@@ -115,9 +137,44 @@
     onClose?.()
     onNavigate?.('playlist', p.id as number)
   }
+
+  async function send(): Promise<void> {
+    const text = draft.trim()
+    const uid = getMessageUserId(msg)
+    if (!text || sending || !uid) return
+    sending = true
+    sendError = ''
+    try {
+      const r = rec(await ncm.sendText(uid, text))
+      if (r && r.code !== 200) throw new Error((r.message || r.msg || '发送失败') as string)
+      draft = ''
+      // 本地补一条同构消息即可，不必重拉整段历史。字段要能被 parseChatMessage 和
+      // getMessageUserId 认出来：msg 是 { msg: 文本 }，fromUser.userId 填自己，
+      // 渲染时靠「与我不同」判定气泡在左还是在右
+      chatMessages = [...chatMessages, {
+        fromUser: { userId: auth.user?.userId, nickname: auth.user?.nickname, avatarUrl: auth.user?.avatarUrl },
+        msg: { msg: text },
+        time: Date.now(),
+      }]
+      shouldScrollToBottom = true
+      onSent?.()
+    } catch (e) {
+      sendError = ((e as { message?: unknown } | null | undefined)?.message || '发送失败') as string
+    } finally {
+      sending = false
+    }
+  }
+
+  // 输入法组字期间的 Enter 是「选中候选词」，不能当发送。中文输入下这个判断必须有
+  function handleComposerKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault()
+      void send()
+    }
+  }
 </script>
 
-<div class="chat-modal-backdrop" onclick={() => onClose?.()} role="presentation" class:from-item={fromItem}>
+<div class="chat-modal-backdrop" use:portal onclick={() => onClose?.()} role="presentation" class:from-item={fromItem}>
   <div class="chat-dialog" use:dialogFocus={() => onClose?.()} role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getMessageNickname(msg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
     <div class="chat-titlebar">
       <div class="dialog-user">
@@ -218,6 +275,29 @@
         </div>
       {/if}
     </div>
+
+    <form class="chat-composer" onsubmit={(e) => { e.preventDefault(); void send() }}>
+      {#if sendError}<div class="chat-send-error" role="status">{sendError}</div>{/if}
+      <textarea
+        class="chat-input"
+        bind:value={draft}
+        placeholder="发消息…（Enter 发送，Shift+Enter 换行）"
+        rows="1"
+        maxlength="500"
+        disabled={sending}
+        aria-label="消息内容"
+        onkeydown={handleComposerKeydown}
+      ></textarea>
+      <button class="chat-send-btn" type="submit" disabled={sending || !draft.trim()} aria-label="发送">
+        {#if sending}
+          <Spinner size="sm" />
+        {:else}
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>
+          </svg>
+        {/if}
+      </button>
+    </form>
   </div>
 </div>
 
@@ -548,6 +628,89 @@
     padding: 0 4px;
     font-size: 10.5px;
     color: var(--text-tertiary);
+  }
+
+  .chat-composer {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+  }
+
+  .chat-send-error {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 100%;
+    margin-bottom: 6px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--danger, #ff3b30) 92%, transparent);
+    color: #fff;
+    font-size: 12px;
+  }
+
+  .chat-input {
+    flex: 1;
+    min-width: 0;
+    min-height: 38px;
+    max-height: 120px;
+    resize: none;
+    padding: 9px 13px;
+    border-radius: var(--radius-md);
+    border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.45;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.16s;
+  }
+
+  .chat-input:focus {
+    border-color: var(--accent);
+  }
+
+  .chat-input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .chat-send-btn {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.16s, opacity 0.16s, transform 0.12s;
+  }
+
+  .chat-send-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  .chat-send-btn:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+
+  .chat-send-btn:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .chat-send-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 68%, white);
+    outline-offset: 2px;
   }
 
   @media (max-width: 760px) {

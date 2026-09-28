@@ -192,7 +192,8 @@
   />
 
   {#if selectedMsg}
-    <ChatDialog msg={selectedMsg} onClose={closeChat} {onNavigate} />
+    <!-- 发出私信后重拉一次会话列表，让左侧预览跟上最新一条 -->
+    <ChatDialog msg={selectedMsg} onClose={closeChat} {onNavigate} onSent={() => loadMessages(true)} />
   {/if}
 </div>
 

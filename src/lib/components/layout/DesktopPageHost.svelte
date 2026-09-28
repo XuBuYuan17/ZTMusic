@@ -4,6 +4,7 @@
   import type { AccentThemeName } from '../../theme/accent.ts'
   import { lazyModule } from '../../app/lazy-module.ts'
   import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from '../../app/nav-refs.ts'
+  import Icon from '../ui/Icon.svelte'
   import HomePage from '../../pages/pc/Home.svelte'
 
   let {
@@ -57,6 +58,14 @@
 
 <div class="content-scroll" id="main-content">
   <div class="content-inner">
+    {#if router.isSecondaryView}
+      <div class="content-back-rail">
+        <button type="button" class="content-back" onclick={router.goBack} aria-label="返回上一页">
+          <span class="content-back-icon"><Icon name="arrow-left" size={20} strokeWidth={2} /></span>
+          <span class="content-back-label">返回</span>
+        </button>
+      </div>
+    {/if}
     <div class="page-enter" class:desktop-page={true} use:pageMotion={{ identity: `${router.activeView}:${router.selectedId}`, direction: router.routeTransition }}>
       {#if router.activeView === 'home'}
         <HomePage

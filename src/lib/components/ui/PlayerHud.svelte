@@ -1,30 +1,56 @@
 <script lang="ts">
   import { player } from '../../stores/player.svelte.ts'
+  import type { PlayMode } from '../../types/player.ts'
   import Icon from './Icon.svelte'
 
+  const MODE_HUD: Record<PlayMode, { icon: string; text: string }> = {
+    list: { icon: 'repeat', text: '顺序播放' },
+    repeat: { icon: 'repeat-1', text: '单曲循环' },
+    shuffle: { icon: 'shuffle-lg', text: '随机播放' },
+  }
+
   let visible = $state(false)
-  let firstRun = true
+  let iconName = $state('volume-full')
+  let text = $state('')
+  let isLabel = $state(false)
   let hideTimer: ReturnType<typeof setTimeout> | null = null
 
-  // 追踪唯一数据源 player.volume：任意入口调节都在此汇总；跳过首次挂载避免启动闪现
+  // 初值取 player 现状（挂载时 storage 已读完），这样首帧不会闪 HUD
+  let lastVolume = player.volume
+  let lastMode = player.mode
+
+  function flash(nextIcon: string, nextText: string, label: boolean): void {
+    iconName = nextIcon
+    text = nextText
+    isLabel = label
+    visible = true
+    if (hideTimer) clearTimeout(hideTimer)
+    hideTimer = setTimeout(() => { visible = false }, 1200)
+  }
+
+  // 追踪唯一数据源 player.volume / player.mode：滑块、键盘、底栏、歌单页的任意入口
+  // 都在此汇总，不必让每个按钮各自去弹提示
   $effect(() => {
     const v = player.volume
-    if (firstRun) { firstRun = false; return }
-    visible = true
-    hideTimer = setTimeout(() => { visible = false }, 1000)
+    const m = player.mode
+    if (v !== lastVolume) {
+      lastVolume = v
+      flash(v === 0 ? 'volume-off' : v < 0.5 ? 'volume' : 'volume-full', `${Math.round(v * 100)}%`, false)
+    } else if (m !== lastMode) {
+      lastMode = m
+      flash(MODE_HUD[m].icon, MODE_HUD[m].text, true)
+    }
     return () => { if (hideTimer) clearTimeout(hideTimer) }
   })
-
-  let iconName = $derived(player.volume === 0 ? 'volume-off' : player.volume < 0.5 ? 'volume' : 'volume-full')
 </script>
 
-<div class="volume-hud" class:show={visible} aria-hidden="true">
-  <Icon name={iconName} size={28} strokeWidth={1.8} />
-  <span class="volume-hud__pct">{Math.round(player.volume * 100)}%</span>
+<div class="player-hud" class:show={visible} aria-hidden="true">
+  <Icon name={iconName} size={28} strokeWidth={isLabel ? 2.2 : 1.8} />
+  <span class="player-hud__text" class:label={isLabel}>{text}</span>
 </div>
 
 <style>
-  .volume-hud {
+  .player-hud {
     position: fixed;
     top: 50%;
     left: 50%;
@@ -49,16 +75,23 @@
     transition: opacity 180ms ease-out, transform 180ms ease-out, visibility 180ms;
   }
 
-  .volume-hud.show {
+  .player-hud.show {
     opacity: 1;
     visibility: visible;
     transform: translate(-50%, -50%) scale(1);
   }
 
-  .volume-hud__pct {
+  .player-hud__text {
     font-size: 26px;
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* 模式提示是文字不是数字：26px 放不下「随机播放」，且不需要等宽数字 */
+  .player-hud__text.label {
+    font-size: 15px;
+    font-weight: 500;
+    font-variant-numeric: normal;
   }
 </style>

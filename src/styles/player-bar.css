@@ -493,16 +493,6 @@ button.lcd-meta__artist:hover {
   color: rgba(255, 255, 255, 1);
 }
 
-.ctrl-btn__spinner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-}
-
-
-
 /* === Right: Actions === */
 .player-bar__actions {
   display: flex;

@@ -14,7 +14,9 @@
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
   import CreatePlaylistModal from '../../components/CreatePlaylistModal.svelte'
+  import PlaylistEditModal from '../../components/PlaylistEditModal.svelte'
   import LibraryPlaylistCard from '../../components/LibraryPlaylistCard.svelte'
+  import { PLAYLIST_CHANGE, notifyPlaylistChange } from '../../stores/router.svelte.ts'
 
   interface LibraryData {
     stats: { follow: number; fans: number; playlist: number }
@@ -46,6 +48,11 @@
   // 取消收藏确认
   let unsubscribeTarget = $state<NormalizedPlaylist | null>(null)
   let unsubscribing = $state(false)
+
+  // 自建歌单：编辑 / 删除
+  let editTarget = $state<NormalizedPlaylist | null>(null)
+  let deleteTarget = $state<NormalizedPlaylist | null>(null)
+  let deleting = $state(false)
 
   // 轻提示
   let notice = $state('')
@@ -198,7 +205,7 @@
       if (r && r.code !== 200) throw new Error((r.message || r.msg || '操作失败') as string)
       unsubscribeTarget = null
       showNotice('已取消收藏')
-      await load()
+      notifyPlaylistChange(pl.id as SongId)
     } catch (e) {
       showNotice(((e as { message?: unknown } | null | undefined)?.message || '操作失败') as string)
     } finally {
@@ -206,9 +213,41 @@
     }
   }
 
+  function confirmDelete(pl: NormalizedPlaylist): void {
+    deleteTarget = pl
+  }
+
+  function closeDelete(): void {
+    if (deleting) return
+    deleteTarget = null
+  }
+
+  async function submitDelete(): Promise<void> {
+    const pl = deleteTarget
+    if (!pl?.id || deleting) return
+    deleting = true
+    try {
+      const r = rec(await ncm.playlistDelete(pl.id as SongId))
+      if (r && r.code !== 200) throw new Error((r.message || r.msg || '删除失败') as string)
+      deleteTarget = null
+      showNotice('已删除歌单')
+      notifyPlaylistChange(pl.id as SongId)
+    } catch (e) {
+      showNotice(((e as { message?: unknown } | null | undefined)?.message || '删除失败') as string)
+    } finally {
+      deleting = false
+    }
+  }
+
   $effect(() => {
     if (auth.isLoggedIn && auth.user) load()
-    return () => timers.forEach(id => clearTimeout(id))
+    // 歌单在别处被改名 / 删除 / 取消收藏时跟着刷新。不监听的话这份列表会一直拿着旧名字
+    const reload = () => { void load() }
+    window.addEventListener(PLAYLIST_CHANGE, reload)
+    return () => {
+      window.removeEventListener(PLAYLIST_CHANGE, reload)
+      timers.forEach(id => clearTimeout(id))
+    }
   })
 </script>
 
@@ -287,7 +326,14 @@
           />
         {/if}
         {#each createdPlaylists as pl, i (pl.id as SongId)}
-          <LibraryPlaylistCard {pl} index={i + (likedPlaylist ? 1 : 0)} onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)} />
+          <LibraryPlaylistCard
+            {pl}
+            index={i + (likedPlaylist ? 1 : 0)}
+            owned={true}
+            onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
+            onEdit={(p) => editTarget = p}
+            onDelete={confirmDelete}
+          />
         {/each}
         {#each otherSavedPlaylists as pl, i (pl.id as SongId)}
           <LibraryPlaylistCard
@@ -313,6 +359,11 @@
     />
   {/if}
 
+  <!-- 编辑歌单（改名 / 改简介） -->
+  {#if editTarget}
+    <PlaylistEditModal pl={editTarget} onClose={() => editTarget = null} onNotice={showNotice} />
+  {/if}
+
   <!-- 取消收藏确认 -->
   <ConfirmDialog
     show={!!unsubscribeTarget}
@@ -322,5 +373,16 @@
     danger={true}
     onConfirm={submitUnsubscribe}
     onCancel={closeUnsubscribe}
+  />
+
+  <!-- 删除歌单确认 -->
+  <ConfirmDialog
+    show={!!deleteTarget}
+    title="删除歌单"
+    message="确定要删除「{deleteTarget?.name}」吗？删除后无法恢复。"
+    confirmText="删除"
+    danger={true}
+    onConfirm={submitDelete}
+    onCancel={closeDelete}
   />
 </div>

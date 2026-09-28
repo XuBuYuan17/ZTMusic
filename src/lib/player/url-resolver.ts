@@ -270,25 +270,33 @@ export async function fillFallbackUrls(
   const isActive = () => !isStale()
 
   // Step 1: 后台获取偏好音质
+  // covered 记录已经拿到过 URL 的实际档位：服务端会把拿不到的档位降级（非 VIP 请求
+  // lossless 返回的是 exhigh），后面再问 exhigh 只会得到同一个 URL，白跑一次请求。
+  const coveredLevels = new Set<string>()
   for (const level of allLevels) {
     if (!isActive()) return urls
+    if (coveredLevels.has(level)) continue
     const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
-    if (!result || urls.includes(result.url)) continue
+    if (!result) continue
+    // 服务端可能把档位降级（非 VIP 请求 lossless 拿到的是 exhigh），实际档位才算数
+    const actualLevel = result.level || level
+    coveredLevels.add(actualLevel)
+    if (urls.includes(result.url)) continue
 
-    if (!upgraded && urls.length > 0 && isBetterThanLevel(level, firstUrlLevel)) {
+    if (!upgraded && urls.length > 0 && isBetterThanLevel(actualLevel, firstUrlLevel)) {
       // 升级到更优音质：仅当未在播放中才无缝切换，否则仅入队
       urls.unshift(result.url)
       upgraded = true
-      logPlayback('quality-upgrade', { level, firstUrlLevel, url: result.url })
+      logPlayback('quality-upgrade', { level: actualLevel, firstUrlLevel, url: result.url })
       if (isPlaying && isActive() && currentTime > 30) {
         // 播放超过 30s 后不再中途切 URL，避免 pop/静音
-        logPlayback('quality-upgrade-deferred', { level, currentTime })
+        logPlayback('quality-upgrade-deferred', { level: actualLevel, currentTime })
       } else if (isPlaying && isActive()) {
         onQualityUpgrade?.({
           url: result.url,
           currentTime,
           urls,
-          level,
+          level: actualLevel,
         })
       }
     } else {
@@ -296,11 +304,15 @@ export async function fillFallbackUrls(
     }
   }
 
-  // Step 2: unblock 版本
+  // Step 2: unblock 版本（另一条音源，档位覆盖情况要重新算）
+  const coveredUnblockLevels = new Set<string>()
   for (const level of allLevels) {
     if (!isActive()) return urls
+    if (coveredUnblockLevels.has(level)) continue
     const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
-    if (result && !urls.includes(result.url)) urls.push(result.url)
+    if (!result) continue
+    coveredUnblockLevels.add(result.level || level)
+    if (!urls.includes(result.url)) urls.push(result.url)
   }
 
   // Step 3: UnblockNeteaseMusic 直接解灰
@@ -343,25 +355,30 @@ export async function getPlayableUrls(
   reqId: number,
   authOpts: AuthHooks = {},
   signal?: AbortSignal,
+  forceRefresh = false,
 ): Promise<PlayableUrlsResult> {
-  // 0. 检查预取缓存
-  const cached = prefetchCache?.get(id)
-  if (cached) {
-    prefetchCache?.delete(id)
-    logPlayback('prefetch-hit', { id, urls: cached })
-    return { urls: cached, firstUrlLevel: 'prefetch', isTrial: false }
-  }
-
-  // 1. 检查 SQLite / IndexedDB 持久缓存
-  try {
-    const persisted = await dbCache.urlGet(id)
-    if (persisted && Array.isArray(persisted) && persisted.length > 0) {
-      logPlayback('url-cache-hit', { id })
-      // 后台刷新，不阻塞播放
-      refreshSongUrlsBg(id, preferredLevel)
-      return { urls: persisted as string[], firstUrlLevel: 'cache', isTrial: false }
+  // 两级缓存都只存 URL、不记音质（dbCache 一首歌一个槽，谁先写谁赢）。
+  // 用户在播放中途切音质时必须跳过它们，否则拿回的还是旧档位的 URL，切了个寂寞
+  if (!forceRefresh) {
+    // 0. 检查预取缓存
+    const cached = prefetchCache?.get(id)
+    if (cached) {
+      prefetchCache?.delete(id)
+      logPlayback('prefetch-hit', { id, urls: cached })
+      return { urls: cached, firstUrlLevel: 'prefetch', isTrial: false }
     }
-  } catch { /* swallow */ }
+
+    // 1. 检查 SQLite / IndexedDB 持久缓存
+    try {
+      const persisted = await dbCache.urlGet(id)
+      if (persisted && Array.isArray(persisted) && persisted.length > 0) {
+        logPlayback('url-cache-hit', { id })
+        // 后台刷新，不阻塞播放
+        refreshSongUrlsBg(id, preferredLevel)
+        return { urls: persisted as string[], firstUrlLevel: 'cache', isTrial: false }
+      }
+    } catch { /* swallow */ }
+  }
 
   const fallbackUrl = FALLBACK_URL_TEMPLATE(id)
   const candidates: UrlCandidate[] = []
@@ -427,8 +444,10 @@ export async function getPlayableUrls(
 
   const urls = candidates.map(candidate => candidate.url)
 
-  // 判断是否为试听：所有 URL 都是试听片段或 fallback
-  const isTrial = candidates.length > 0 && candidates.every(candidate => candidate.isTrial || candidate.source === 'template-fallback')
+  // 判断是否为试听：所有 URL 都是试听片段。
+  // template-fallback 是「一个真 URL 都没拿到」的兜底，不算试听——把它算进来会让每次解析失败
+  // 都报 VIP 文案，而模板 URL 不需要 cookie 就能放，歌其实在正常播
+  const isTrial = candidates.length > 0 && candidates.every(candidate => candidate.isTrial)
 
   const cacheableUrls = candidates.filter(candidate => candidate.cacheable).map(candidate => candidate.url)
   if (cacheableUrls.length > 0) {

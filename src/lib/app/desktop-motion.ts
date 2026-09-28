@@ -41,7 +41,8 @@ export function pageMotion(node: HTMLElement, value: { identity: string; directi
     if (next.identity === identity) return
     identity = next.identity
     if (document.documentElement.classList.contains('mobile-runtime')) return
-    const x = next.direction === 'back' ? -16 : next.direction === 'forward' ? 16 : 0
+    // 有待飞入的封面时不横移，否则目标 rect 会被 16px 带偏
+    const x = freshOrigin() ? 0 : next.direction === 'back' ? -16 : next.direction === 'forward' ? 16 : 0
     animation.run(node, [{ opacity: .3, transform: `translate(${reducedMotion() ? 0 : x}px, 0)` }, { opacity: 1, transform: 'none' }], { duration: reducedMotion() ? 100 : motion.page, easing: 'cubic-bezier(.2,.8,.2,1)' })
   }
   update(value)
@@ -70,9 +71,71 @@ export function desktopFeedback(node: HTMLElement) {
     animation.run(target, [{ scale: getComputedStyle(target).scale }, { scale: event.type === 'pointercancel' ? '1' : '1.015', offset: .55 }, { scale: '1' }], { duration: motion.release, easing: 'ease-out' })
   }
   node.addEventListener('pointerdown', down)
+  node.addEventListener('click', rememberCardOrigin, true)
   window.addEventListener('pointerup', up)
   window.addEventListener('pointercancel', up)
-  return { destroy() { animation.cancel(); node.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) } }
+  return { destroy() { animation.cancel(); node.removeEventListener('pointerdown', down); node.removeEventListener('click', rememberCardOrigin, true); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) } }
+}
+
+// 卡片 → 详情页封面的共享元素飞入：点击时（捕获阶段，源页面卸载前）记下卡片封面的位置，
+// 详情页封面挂载后用 fixed 克隆从源位置飞到目标位置。
+// ponytail: 只做正向飞入；返回时反向飞回需等源页面快照渲染后再测 rect，暂不做
+interface CoverOrigin { rect: DOMRect; src: string; radius: string; at: number }
+let coverOrigin: CoverOrigin | null = null
+
+function freshOrigin(): CoverOrigin | null {
+  return coverOrigin && performance.now() - coverOrigin.at < 800 ? coverOrigin : null
+}
+
+function rememberCardOrigin(event: Event) {
+  coverOrigin = null
+  if (reducedMotion() || document.documentElement.classList.contains('mobile-runtime')) return
+  const img = (event.target as Element).closest('[data-motion="card"]')?.querySelector('img')
+  if (!img?.complete || !img.naturalWidth) return
+  const rect = img.getBoundingClientRect()
+  if (!rect.width) return
+  const own = getComputedStyle(img).borderRadius
+  const radius = own && own !== '0px' ? own : getComputedStyle(img.parentElement!).borderRadius
+  coverOrigin = { rect, src: img.currentSrc || img.src, radius, at: performance.now() }
+}
+
+export function flyCover(target: HTMLElement) {
+  const origin = freshOrigin()
+  if (!origin) return {}
+  target.style.opacity = '0'
+  const clone = document.createElement('img')
+  clone.src = origin.src
+  clone.alt = ''
+  clone.setAttribute('aria-hidden', 'true')
+  let animation: Animation | null = null
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    target.style.opacity = ''
+    clone.remove()
+  }
+  // 等一帧让详情页完成布局（含滚回顶部）再测目标位置
+  const frame = requestAnimationFrame(() => {
+    coverOrigin = null
+    const to = target.getBoundingClientRect()
+    if (!to.width) { finish(); return }
+    const from = origin.rect
+    Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', zIndex: '30', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)' })
+    document.body.append(clone)
+    const sx = from.width / to.width, sy = from.height / to.height
+    const targetRadius = getComputedStyle(target).borderRadius
+    animation = clone.animate([
+      { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
+      { transform: 'none', borderRadius: targetRadius },
+    ], { duration: motion.panel + 60, easing: 'cubic-bezier(.22,1.18,.36,1)' })
+    animation.finished.then(() => {
+      // 真封面未解码完时稍等，避免落位瞬间闪空
+      const img = target instanceof HTMLImageElement ? target : null
+      Promise.race([img && !img.complete ? img.decode() : Promise.resolve(), new Promise(r => setTimeout(r, 400))]).catch(() => {}).finally(finish)
+    }).catch(finish)
+  })
+  return { destroy() { cancelAnimationFrame(frame); animation?.cancel(); finish() } }
 }
 
 const layers: HTMLElement[] = []

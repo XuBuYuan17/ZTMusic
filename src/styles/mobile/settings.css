@@ -136,8 +136,11 @@ html.mobile-runtime .m-view-fade {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  animation: m-view-enter 0.16s var(--ease-out) both;
-  will-change: opacity, transform;
+  /* fill 用 backwards 而非 both：both 会把 to 帧的 translateY(0) 永久留在元素上，
+     加上 will-change:transform 会让本容器成为 fixed 后代的包含块与层叠上下文，
+     于是页面内的弹层（.m-library-sheet / ConfirmDialog / ChatDialog）全部相对内容盒定位，
+     且无论 z-index 多高都压在底部 tab(50)/播放条(55) 之下。 */
+  animation: m-view-enter 0.16s var(--ease-out) backwards;
 }
 
 @keyframes m-view-enter {

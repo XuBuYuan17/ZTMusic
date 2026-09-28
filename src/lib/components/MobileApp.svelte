@@ -22,6 +22,7 @@
   import LocalMusicPage from '../pages/LocalMusicPage.svelte'
   import ListeningStatsPage from '../pages/ListeningStatsPage.svelte'
   import UserProfilePage from '../pages/UserProfilePage.svelte'
+  import AboutPage from '../pages/AboutPage.svelte'
   import { router } from '../stores/router.svelte.ts'
 
   let {
@@ -238,6 +239,10 @@
 
       {#if activeView === 'settings'}
         <MobileSettings {theme} {accentTheme} onSetTheme={onSetTheme} {onSetAccentTheme} />
+      {:else if activeView === 'about'}
+        <div class="m-subpage m-subpage-enter">
+          <AboutPage />
+        </div>
       {:else if activeView === 'liked'}
         <div class="m-subpage m-subpage-enter">
           <LikedPage {onOpenArtist} {onOpenAlbum} />

@@ -11,6 +11,11 @@ export function parseLikeCheck(res: unknown, id: string | number): boolean {
   const data: unknown = root ? (root.data ?? root.result ?? res) : res
   if (typeof data === 'boolean') return data
   if (Array.isArray(data)) {
+    // /song/like/check 的实际语义：返回「传入的 ids 里被标记为喜爱的那些」，就是个纯 id 数组。
+    // 原实现只认 [{id,liked}] / [true]，纯 id 数组会一路落到 Boolean(undefined) → 红心永远不亮
+    if (data.every(value => typeof value === 'string' || typeof value === 'number')) {
+      return data.some(value => String(value) === String(id))
+    }
     const item = data.find((value) => {
       const record = value !== null && typeof value === 'object' ? value as Record<string, unknown> : null
       return !!record && (record.id === id || record.songId === id)
@@ -22,6 +27,9 @@ export function parseLikeCheck(res: unknown, id: string | number): boolean {
   if (data !== null && typeof data === 'object') {
     const record = data as Record<string, unknown>
     if (id in record) return Boolean(record[id])
+    // songIds: /song/like/check 的另一种包装；ids: /likelist 的字段名
+    const list = record.songIds ?? record.ids
+    if (Array.isArray(list)) return list.some(value => String(value) === String(id))
     return Boolean(record.liked ?? record.like ?? record.isLike ?? record.success)
   }
   return false

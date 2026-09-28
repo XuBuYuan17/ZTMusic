@@ -6,6 +6,9 @@ use std::time::Duration;
 use futures_lite::future;
 use mpris_server::{Metadata, PlaybackStatus, Player, Time};
 
+/// 消息通道容量：同 windows_smtc，消息是「最新状态覆盖旧的」，塞满即丢。
+const MPRIS_CHANNEL_CAPACITY: usize = 8;
+
 /// 启动前探测 D-Bus session bus：容器 / WSL / chroot 等环境可能没有 dbus-daemon。
 /// 用 zbus blocking 连接做轻量 ping，3s 超时。
 fn dbus_session_available() -> bool {
@@ -40,11 +43,14 @@ enum LinuxMprisMessage {
 pub struct LinuxMprisState {
     sender: async_channel::Sender<LinuxMprisMessage>,
     pending_action: Arc<Mutex<Option<String>>>,
+    warned_closed: AtomicBool,
 }
 
 impl LinuxMprisState {
     pub fn new() -> Self {
-        let (sender, receiver) = async_channel::unbounded();
+        // 有界通道，理由同 windows_smtc：线程退出后（连续 10 次 D-Bus 失败）发送端仍存活，
+        // unbounded 会让队列只进不出。这些消息本身是「最新状态覆盖旧的」，塞满丢掉即可。
+        let (sender, receiver) = async_channel::bounded(MPRIS_CHANNEL_CAPACITY);
         let pending_action = Arc::new(Mutex::new(None));
         let thread_pending_action = Arc::clone(&pending_action);
 
@@ -93,22 +99,40 @@ impl LinuxMprisState {
         Self {
             sender,
             pending_action,
+            warned_closed: AtomicBool::new(false),
+        }
+    }
+
+    /// 通道塞满或线程已退出时记一次日志就够：线程死掉后每次同步都会失败，逐次记会刷屏。
+    fn note_send(&self, delivered: bool, what: &str) {
+        if delivered {
+            self.warned_closed.store(false, Ordering::Relaxed);
+            return;
+        }
+        if !self.warned_closed.swap(true, Ordering::Relaxed) {
+            log::warn!("MPRIS {what}: channel full or thread gone, updates dropped");
         }
     }
 
     pub fn update_metadata(&self, title: String, artist: String, cover_url: String, duration: f64) {
-        let _ = self.sender.try_send(LinuxMprisMessage::Metadata {
-            title,
-            artist,
-            cover_url,
-            duration,
-        });
+        let delivered = self
+            .sender
+            .try_send(LinuxMprisMessage::Metadata {
+                title,
+                artist,
+                cover_url,
+                duration,
+            })
+            .is_ok();
+        self.note_send(delivered, "metadata");
     }
 
     pub fn update_playback_state(&self, playing: bool, position: f64) {
-        let _ = self
+        let delivered = self
             .sender
-            .try_send(LinuxMprisMessage::Playback { playing, position });
+            .try_send(LinuxMprisMessage::Playback { playing, position })
+            .is_ok();
+        self.note_send(delivered, "playback");
     }
 
     pub fn poll_pending_action(&self) -> String {

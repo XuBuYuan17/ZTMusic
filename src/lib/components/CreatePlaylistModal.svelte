@@ -13,6 +13,7 @@
   } = $props()
 
   let createName = $state('')
+  let privacy = $state(false)
   let creating = $state(false)
 
   function rec(v: unknown): Record<string, unknown> | null {
@@ -46,7 +47,7 @@
     if (!name) return
     creating = true
     try {
-      const res = await ncm.playlistCreate(name)
+      const res = await ncm.playlistCreate(name, privacy)
       const r = rec(res)
       if (r && r.code !== 200) throw new Error((r.message || r.msg || '创建失败') as string)
       onClose?.()
@@ -74,6 +75,10 @@
       use:focusOnMount
       onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitCreate() } }}
     />
+    <label class="library-modal-check">
+      <input type="checkbox" bind:checked={privacy} disabled={creating} />
+      <span>设为隐私歌单</span>
+    </label>
     <div class="library-modal-actions">
       <button class="library-modal-btn library-modal-btn-cancel" type="button" onclick={close} disabled={creating}>取消</button>
       <button class="library-modal-btn library-modal-btn-confirm" type="button" onclick={submitCreate} disabled={creating}>{creating ? '创建中…' : '创建'}</button>

@@ -9,7 +9,6 @@
   import { coverUrl } from '../utils/image.ts'
   import { hapticTap } from '../utils/haptics.ts'
   import ArtistNames from './ArtistNames.svelte'
-  import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
   let { onOpenSheet, onToggleQueue, showQueuePanel = false, onOpenArtist }: {
     onOpenSheet?: (el: Element) => void
@@ -347,11 +346,7 @@
         <Icon name="prev" size={24} fill="currentColor" />
       </button>
       <button class="ctrl-btn ctrl-btn--play" onclick={(e) => { e.stopPropagation(); player.togglePlay() }} aria-label={player.playing ? '暂停' : '播放'}>
-        {#if player.loading}
-          <div class="ctrl-btn__spinner">
-            <Spinner size="sm" />
-          </div>
-        {:else if player.playing}
+        {#if player.playing}
           <Icon name="pause" size={26} fill="currentColor" />
         {:else}
           <Icon name="play" size={26} fill="currentColor" />

@@ -4,7 +4,7 @@ use std::{
     hash::{Hash, Hasher},
     io::Write,
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use reqwest::{
@@ -31,6 +31,11 @@ const AUDIO_EXTENSIONS: &[&str] = &["aac", "flac", "m4a", "mp3", "oga", "ogg", "
 const MAX_TRACKS: usize = 500;
 const MAX_AUDIO_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_CACHE_BYTES: u64 = 3 * 1024 * 1024 * 1024;
+// PROPFIND 响应是整份读进内存的，超大目录会把内存顶爆。8 MB 约合 8 万条曲目，远超 MAX_TRACKS。
+const MAX_PROPFIND_BYTES: u64 = 8 * 1024 * 1024;
+// 下载中途被杀会留下 .part 临时文件，它们不参与配额、只能按时间清。
+// 下载超时是 600s，一小时内不动，避免删掉正在写的文件。
+const STALE_PART_AGE: Duration = Duration::from_secs(3600);
 // 音频下载的按请求总超时：共享 client 的 15s 是给 API 信号的，大文件必须放宽（覆盖 body 读取全程）
 const WEBDAV_DOWNLOAD_TIMEOUT_SECS: u64 = 600;
 
@@ -84,7 +89,7 @@ pub async fn webdav_list_audio(
         builder = builder.basic_auth(username, request.password.clone());
     }
 
-    let response = builder
+    let mut response = builder
         .send()
         .await
         .map_err(|error| format!("WebDAV request failed: {error}"))?;
@@ -92,10 +97,29 @@ pub async fn webdav_list_audio(
     if !status.is_success() {
         return Err(format!("WebDAV scan failed: {status}"));
     }
-    let xml = response
-        .text()
+    if response
+        .headers()
+        .get(CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .is_some_and(|length| length > MAX_PROPFIND_BYTES)
+    {
+        return Err(listing_too_large());
+    }
+    // 不用 response.text()：它没有大小上限。分块累加并封顶，
+    // 也顺便避免按块做 UTF-8 转换把多字节字符切断。
+    let mut bytes: Vec<u8> = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
         .await
-        .map_err(|error| format!("WebDAV response read failed: {error}"))?;
+        .map_err(|error| format!("WebDAV response read failed: {error}"))?
+    {
+        if bytes.len() as u64 + chunk.len() as u64 > MAX_PROPFIND_BYTES {
+            return Err(listing_too_large());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    let xml = String::from_utf8_lossy(&bytes);
 
     Ok(parse_webdav_tracks(&xml, &base_url))
 }
@@ -277,6 +301,13 @@ fn validate_download_url(remote: &str, base: &str) -> Result<Url, String> {
     Ok(remote_url)
 }
 
+fn listing_too_large() -> String {
+    format!(
+        "WebDAV listing is larger than {} MB; try a narrower folder",
+        MAX_PROPFIND_BYTES / 1024 / 1024
+    )
+}
+
 fn touch_cache_file(path: &Path) {
     if let Ok(file) = OpenOptions::new().write(true).open(path) {
         let _ = file.set_modified(SystemTime::now());
@@ -284,19 +315,26 @@ fn touch_cache_file(path: &Path) {
 }
 
 fn prune_cache(cache_dir: &Path, max_bytes: u64, protected: Option<&Path>) -> Result<(), String> {
+    let now = SystemTime::now();
     let mut entries: Vec<(PathBuf, u64, SystemTime)> = fs::read_dir(cache_dir)
         .map_err(|error| format!("Cannot read WebDAV cache: {error}"))?
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let path = entry.path();
-            if path.extension().and_then(|value| value.to_str()) == Some("part") {
+            let metadata = entry.metadata().ok()?;
+            if !metadata.is_file() {
                 return None;
             }
-            let metadata = entry.metadata().ok()?;
-            metadata.is_file().then(|| {
-                let modified = metadata.modified().unwrap_or(UNIX_EPOCH);
-                (path, metadata.len(), modified)
-            })
+            let modified = metadata.modified().unwrap_or(UNIX_EPOCH);
+            if path.extension().and_then(|value| value.to_str()) == Some("part") {
+                // .part 是下载中途留下的临时文件，不计入配额，只能按时间清掉，
+                // 否则进程被杀一次就永久堆一份。
+                if now.duration_since(modified).unwrap_or_default() > STALE_PART_AGE {
+                    let _ = fs::remove_file(&path);
+                }
+                return None;
+            }
+            Some((path, metadata.len(), modified))
         })
         .collect();
     let mut total = entries.iter().map(|(_, size, _)| size).sum::<u64>();
@@ -331,30 +369,52 @@ fn parse_webdav_tracks(xml: &str, base_url: &Url) -> Vec<WebDavTrack> {
         .collect()
 }
 
+/// 找结束标签 `</xxx:response>` 里那个 `>` 的位置（相对 `tail`）。
+///
+/// 不能写死 `</d:response>`：命名空间前缀由服务端决定（`</ns0:response>` 同样合法），
+/// 闭合标签的 `>` 前也允许空白。写死会让第一个不匹配的块直接 break 掉整份列表，
+/// 表现为「扫出来的曲目凭空少一截」而且不报错。
+/// `rest` 紧跟 `<` 或 `</` 之后，判断元素名是不是 `response`。
+/// 前缀由服务端决定（`d:` / `ns0:` / `dav:` 都合法），不能写死。
+fn is_response_name(rest: &str) -> bool {
+    let name_end = match rest.find(|c: char| c == '>' || c == '/' || c.is_whitespace()) {
+        Some(index) => index,
+        None => return false,
+    };
+    let name = &rest[..name_end];
+    name == "response" || name.ends_with(":response")
+}
+
+fn find_response_close(tail: &str) -> Option<usize> {
+    let mut search = 0;
+    while let Some(relative) = tail[search..].find("</") {
+        let at = search + relative;
+        if is_response_name(&tail[at + 2..]) {
+            return tail[at..].find('>').map(|gt| at + gt);
+        }
+        search = at + 2;
+    }
+    None
+}
+
 fn split_response_blocks(xml: &str) -> Vec<&str> {
     let lower = xml.to_ascii_lowercase();
     let mut blocks = Vec::new();
     let mut start = 0;
-    while let Some(relative) = lower[start..].find("<") {
+    while let Some(relative) = lower[start..].find('<') {
         let open = start + relative;
         let tail = &lower[open..];
-        if !tail.starts_with("<d:response")
-            && !tail.starts_with("<response")
-            && !tail.starts_with("<dav:response")
-        {
+        if !is_response_name(&tail[1..]) {
             start = open + 1;
             continue;
         }
-        let close = tail
-            .find("</d:response>")
-            .or_else(|| tail.find("</response>"))
-            .or_else(|| tail.find("</dav:response>"));
-        if let Some(close) = close {
-            let end = open + close + tail[close..].find('>').unwrap_or(0) + 1;
-            blocks.push(&xml[open..end]);
-            start = end;
-        } else {
-            break;
+        match find_response_close(tail) {
+            Some(close) => {
+                let end = open + close + 1;
+                blocks.push(&xml[open..end]);
+                start = end;
+            }
+            None => break,
         }
     }
     blocks
@@ -514,6 +574,26 @@ mod tests {
         assert_eq!(tracks[0].name, "测试.mp3");
         assert_eq!(tracks[0].file_size, 42);
         assert_eq!(tracks[0].mime, "audio/mpeg");
+    }
+
+    #[test]
+    fn splits_response_blocks_with_other_namespace_prefixes_and_spacing() {
+        // 服务端可能用别的前缀，也可能在闭合标签的 `>` 前留空白；写死 `</d:response>`
+        // 会让第一个不匹配的块 break 掉整份列表，曲目凭空少一截
+        let base = Url::parse("https://dav.example.com/music/").unwrap();
+        let xml = r#"
+          <ns0:multistatus xmlns:ns0="DAV:">
+            <ns0:response><ns0:href>/music/a.mp3</ns0:href></ns0:response >
+            <ns0:response><ns0:href>/music/b.mp3</ns0:href></ns0:response>
+            <response><href>/music/c.mp3</href></response>
+          </ns0:multistatus>
+        "#;
+
+        let tracks = parse_webdav_tracks(xml, &base);
+        assert_eq!(
+            tracks.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(),
+            vec!["a.mp3", "b.mp3", "c.mp3"]
+        );
     }
 
     #[test]

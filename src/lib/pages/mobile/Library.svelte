@@ -3,6 +3,7 @@
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
   import { loadMobileLibraryData } from '../../services/home.ts'
+  import { PLAYLIST_CHANGE, notifyPlaylistChange } from '../../stores/router.svelte.ts'
   import { coverUrl } from '../../utils/image.ts'
   import Spinner from '../../components/Spinner.svelte'
   import Icon from '../../components/ui/Icon.svelte'
@@ -17,6 +18,8 @@
     label?: string
     value: string
     playlist?: LibraryPlaylist
+    /** 仅新建歌单用：建出来是不是隐私歌单 */
+    privacy: boolean
   }
 
   let { onOpenPlaylist, onOpenLogin, onNavigate }: {
@@ -113,15 +116,15 @@
   }
 
   function openCreateSheet(): void {
-    sheet = { type: 'create', title: '新建歌单', label: '歌单名称', value: '' }
+    sheet = { type: 'create', title: '新建歌单', label: '歌单名称', value: '', privacy: false }
   }
 
   function openSubscribeSheet(): void {
-    sheet = { type: 'subscribe', title: '收藏歌单', label: '歌单 ID', value: '' }
+    sheet = { type: 'subscribe', title: '收藏歌单', label: '歌单 ID', value: '', privacy: false }
   }
 
   function openConfirmSheet(type: 'unsubscribe' | 'delete', playlist: LibraryPlaylist): void {
-    sheet = { type, playlist, title: type === 'delete' ? '删除歌单' : '取消收藏', value: (playlist?.name || '') as string }
+    sheet = { type, playlist, title: type === 'delete' ? '删除歌单' : '取消收藏', value: (playlist?.name || '') as string, privacy: false }
   }
 
   function closeSheet(): void {
@@ -131,19 +134,19 @@
   async function submitSheet(): Promise<void> {
     const current = sheet
     if (!current) return
-    if (current.type === 'create') await createPlaylist(current.value)
+    if (current.type === 'create') await createPlaylist(current.value, current.privacy)
     else if (current.type === 'subscribe') await subscribePlaylist(current.value)
     else if (current.type === 'unsubscribe') await unsubscribePlaylist(current.playlist)
     else if (current.type === 'delete') await deletePlaylist(current.playlist)
   }
 
-  async function createPlaylist(nameInput: string): Promise<void> {
+  async function createPlaylist(nameInput: string, privacy = false): Promise<void> {
     if (creating) return
     const name = nameInput?.trim()
     if (!name) return
     creating = true
     try {
-      const result = await ncm.playlistCreate(name)
+      const result = await ncm.playlistCreate(name, privacy)
       const error = resultError(result, '创建失败')
       if (error) throw new Error(error)
       closeSheet()
@@ -166,7 +169,7 @@
       if (error) throw new Error(error)
       closeSheet()
       showNotice('已取消收藏')
-      await load()
+      notifyPlaylistChange(playlist.id as SongId)
     } catch (error) {
       showNotice((error as { message?: string } | null | undefined)?.message || '操作失败')
     } finally {
@@ -185,7 +188,7 @@
       if (error) throw new Error(error)
       closeSheet()
       showNotice('已收藏歌单')
-      await load()
+      notifyPlaylistChange(id)
     } catch (error) {
       showNotice((error as { message?: string } | null | undefined)?.message || '收藏失败')
     } finally {
@@ -203,6 +206,7 @@
       closeSheet()
       removeCreatedPlaylist(playlist.id as SongId)
       showNotice('已删除歌单')
+      notifyPlaylistChange(playlist.id as SongId)
     } catch (error) {
       showNotice((error as { message?: string } | null | undefined)?.message || '删除失败')
     } finally {
@@ -213,7 +217,16 @@
   $effect(() => {
     // auth.user 可能异步加载（登录后 user 从 null 变为有值），所以同时追踪 isLoggedIn 和 user
     if (auth.isLoggedIn && auth.user) load()
-    return () => timers.forEach(id => clearTimeout(id))
+    // 本页常驻不卸载，换账号必须清掉上一个账号留下的弹窗与提示，否则新账号会看到旧账号未提交的表单内容
+    sheet = null
+    notice = ''
+    // 歌单在别处（PC 端、播放页）被改名 / 删除 / 收藏状态变化时跟着刷新
+    const reload = () => { void load(false) }
+    window.addEventListener(PLAYLIST_CHANGE, reload)
+    return () => {
+      window.removeEventListener(PLAYLIST_CHANGE, reload)
+      timers.forEach(id => clearTimeout(id))
+    }
   })
 </script>
 
@@ -325,6 +338,12 @@
             <span>{sheet.label}</span>
             <input bind:value={sheet.value} />
           </label>
+          {#if sheet.type === 'create'}
+            <label class="m-library-sheet-check">
+              <input type="checkbox" bind:checked={sheet.privacy} />
+              <span>设为隐私歌单</span>
+            </label>
+          {/if}
         {:else}
           <p>{sheet.type === 'delete' ? '确定删除这个歌单吗？' : '确定取消收藏这个歌单吗？'}</p>
           <strong>{sheet.playlist?.name}</strong>

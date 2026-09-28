@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SongId } from '../types/music.ts'
   import { auth } from '../stores/auth.svelte.ts'
+  import { PLAYLIST_CHANGE } from '../stores/router.svelte.ts'
   import { ncm } from '../api/client.ts'
   import { coverUrl } from '../utils/image.ts'
   import Icon from './ui/Icon.svelte'
@@ -130,6 +131,13 @@
       lastTrackId = trackId
       playlistApplyingId = null
     }
+  })
+
+  $effect(() => {
+    // 歌单在别处被改名 / 删除后这份列表就过期了。清掉 owner 标记，下次打开重新拉
+    const invalidate = () => { userPlaylistsOwnerId = null }
+    window.addEventListener(PLAYLIST_CHANGE, invalidate)
+    return () => window.removeEventListener(PLAYLIST_CHANGE, invalidate)
   })
 </script>
 

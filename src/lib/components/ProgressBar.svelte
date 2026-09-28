@@ -136,11 +136,11 @@
   .pb {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.45rem;
   }
   .pb-track {
     position: relative;
-    height: 5px;
+    height: 8px;
     background: var(--color-progress-bg, rgba(255,255,255,0.2));
     border-radius: 3px;
     cursor: pointer;
@@ -157,7 +157,7 @@
   }
   .pb-track:hover,
   .pb-track.dragging {
-    height: 7px;
+    height: 12px;
   }
   .pb-fill {
     height: 100%;
@@ -171,8 +171,8 @@
   .pb-thumb {
     position: absolute;
     top: 50%;
-    width: 12px;
-    height: 12px;
+    width: 16px;
+    height: 16px;
     background: var(--accent);
     border-radius: 50%;
     transform: translate(-50%, -50%) scale(0);

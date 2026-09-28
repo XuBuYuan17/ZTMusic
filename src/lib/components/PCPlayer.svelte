@@ -3,15 +3,19 @@
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
   import { player } from '../stores/player.svelte.ts';
+  import { auth } from '../stores/auth.svelte.ts';
+  import { toast } from '../stores/toast.svelte.ts';
   import { coverUrl } from '../utils/image.ts';
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
+  import { QUALITY_LABELS } from '../composables/useSettings.svelte.ts';
   import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import PlaybackControls from './PlaybackControls.svelte';
   import ProgressBar from './ProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
+  import SongPlaylistPanel from './SongPlaylistPanel.svelte';
   import Icon from './ui/Icon.svelte';
   import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts';
   import { closeDrag } from '../app/close-drag.ts';
@@ -20,6 +24,7 @@
   import { QUALITY_ORDER } from '../utils/constants.ts';
 
   type ContextPanel = 'songs' | 'playlists' | 'comments';
+  type MenuView = 'main' | 'add' | 'remove' | 'quality';
 
   let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, showLocalQueue = false, toggleLocalQueue }: {
     onClose?: () => void
@@ -31,7 +36,7 @@
   } = $props();
 
   const lyricState = useLyrics();
-  const like = useLike();
+  const like = useLike((text) => toast.show(text));
 
   let currentArtists = $derived(player.currentTrack?.ar || []);
   // ponytail: CompactTrack 类型无 album 字段，历史 localStorage 队列缓存可能携带，保留原 JS 的运行时回退读取
@@ -43,10 +48,13 @@
   let contextPanelRequest = $state<ContextPanel | null>(null);
   let showLyricsVolume = $state(false);
   let showLyricTools = $state(false);
+  let menuView = $state<MenuView>('main');
+  let menuWidth = $derived(menuView === 'main' ? 240 : 300);
   let menuMessage = $state('');
   let actionBusy = $state('');
   let showTranslation = $state(true);
   let menuAnchor = $state<HTMLButtonElement | null>(null);
+  let menuEl = $state<HTMLDivElement | null>(null);
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
@@ -56,13 +64,27 @@
   });
   $effect(() => () => clearTimeout(messageTimer));
 
+  // 切视图会卸载刚点的那颗按钮，焦点掉到 <body>，lyricMenu 的方向键就找不到落点了。
+  // 切完送回菜单里第一个「看得见」的可点项，不用先按 Tab 也能继续用方向键。
+  // 必须按可见性过滤：两个子面板是 hidden 常驻的，不过滤会命中隐藏面板里的按钮
+  // ponytail: 回主菜单时落点是第一项而不是刚才那颗按钮 —— {#if} 会重建按钮节点，
+  // 存旧引用没意义。真要精确还原得给按钮加 data-menu 标记再按名查找
+  $effect(() => {
+    void menuView;
+    if (!showLyricTools) return;
+    tick().then(() => {
+      const items = [...(menuEl?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [])];
+      items.find(el => el.getClientRects().length > 0)?.focus({ preventScroll: true });
+    });
+  });
+
   $effect(() => {
     if (!lyricsEl) return;
     const index = lyricState.highlightIndex;
     void showTranslation;
     let cancelled = false;
     tick().then(() => {
-      if (!cancelled) scrollLyricIntoView(lyricsEl, index, '.ly-line', 0.5, reducedMotion() ? 'instant' : 'smooth');
+      if (!cancelled) scrollLyricIntoView(lyricsEl, index, '.ly-line', 0.32, reducedMotion() ? 'instant' : 'smooth');
     });
     return () => { cancelled = true };
   });
@@ -70,7 +92,7 @@
   $effect(() => {
     if (!lyricsEl) return;
     const observer = new ResizeObserver(() => {
-      scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.5, 'instant');
+      scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.ly-line', 0.32, 'instant');
     });
     observer.observe(lyricsEl);
     return () => observer.disconnect();
@@ -78,6 +100,20 @@
 
   function closeLyricTools(): void {
     showLyricTools = false;
+    menuView = 'main';
+  }
+
+  // 只有 Escape 走这条：子面板打开时先退回主菜单，再按一次才关掉整个菜单
+  function dismissMenu(): void {
+    if (menuView !== 'main') { menuView = 'main'; return }
+    closeLyricTools();
+  }
+
+  function openMenuView(view: MenuView): void {
+    // 歌单面板要账号态。不在这里挡的话 SongPlaylistPanel 会先弹「请先登录」再显示
+    // 「没有可用歌单」，两句互相打架
+    if (view !== 'quality' && !auth.isLoggedIn) { showMenuMessage('请先登录'); return }
+    menuView = view;
   }
 
   function openContextPanel(type: ContextPanel): void {
@@ -88,15 +124,9 @@
   function toggleLyricTools(): void {
     menuAnchor?.focus({ preventScroll: true });
     menuMessage = '';
+    menuView = 'main';
     showLyricTools = !showLyricTools;
   }
-
-  const qualityLabels: Record<string, string> = {
-    lossless: '无损',
-    exhigh: '极高',
-    higher: '较高',
-    standard: '标准',
-  };
 
   function showMenuMessage(text: string): void {
     menuMessage = text;
@@ -152,11 +182,13 @@
     onOpenArtist?.(id as number | null);
   }
 
-  function cycleQuality(): void {
-    const index = QUALITY_ORDER.indexOf(player.preferredLevel);
-    const next = QUALITY_ORDER[(index + 1) % QUALITY_ORDER.length] || 'standard';
-    player.setPreferredLevel(next);
-    showMenuMessage(`音质：${qualityLabels[next] || '标准'}`);
+  // QUALITY_ORDER 是 string[]，{#each} 出来的 level 收窄不到 QualityLevel，用 Record 别名索引
+  const qualityLabels: Record<string, string> = QUALITY_LABELS;
+
+  function pickQuality(level: string): void {
+    player.setPreferredLevel(level);
+    menuView = 'main';
+    showMenuMessage(`音质：${qualityLabels[level] || '标准'}`);
   }
 
 </script>
@@ -179,6 +211,13 @@
     </div>
   </div>
 
+  <div class="ly-back-rail morph-in" style="--s:0.2;--d:0.55">
+    <button class="ly-back-capsule" type="button" onclick={() => onClose?.()} aria-label="返回">
+      <span class="ly-back-icon"><Icon name="arrow-left" size={20} strokeWidth={2} /></span>
+      <span class="ly-back-label">返回</span>
+    </button>
+  </div>
+
   <!-- LEFT COLUMN: Cover + Controls -->
   <div class="ly-left" use:closeDrag>
     <div class="ly-left-cover">
@@ -197,7 +236,7 @@
             <span class="ly-album">{album?.name || player.title || ''}</span>
           </div>
           <div class="ly-track-actions">
-            <button class="ly-star-btn" class:active={like.liked} onclick={like.toggle} disabled={like.busy} aria-label="喜欢">
+            <button class="ly-star-btn" class:active={like.liked} onclick={like.toggle} disabled={like.busy} aria-label={like.liked ? '取消收藏' : '收藏'} aria-pressed={like.liked}>
               {#if like.liked}
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
               {:else}
@@ -222,7 +261,6 @@
           variant="lyrics"
           mode={player.mode}
           playing={player.playing}
-          loading={player.loading}
           disabled={!player.id}
           onshuffle={() => player.setMode(player.mode === 'shuffle' ? 'list' : 'shuffle')}
           onprev={() => player.prev()}
@@ -265,13 +303,17 @@
 
 
   {#if showLyricTools && menuAnchor}
-    <div id="pc-lyric-menu" class="ly-song-menu" role="menu" aria-label="歌曲更多操作" tabindex="-1"
-      use:lyricMenu={{ anchor: menuAnchor, close: closeLyricTools }} use:dialogFocus={closeLyricTools} transition:lyricMenuTransition>
+    <div id="pc-lyric-menu" class="ly-song-menu" role="menu" aria-label="歌曲更多操作" tabindex="-1" bind:this={menuEl}
+      use:lyricMenu={{ anchor: menuAnchor, close: closeLyricTools, width: menuWidth }} use:dialogFocus={dismissMenu} transition:lyricMenuTransition>
+      <!-- 子面板是「次级菜单」：进子面板时主菜单整段撤掉，而不是追加在它下面 -->
+      {#if menuView === 'main'}
       <button type="button" role="menuitem" onclick={shareTrack} disabled={!showLyricTools || !player.id || actionBusy === 'share'}><Icon name="share" size={16} /><span>分享</span></button>
+      <button type="button" role="menuitem" onclick={() => openMenuView('add')} disabled={!showLyricTools || !player.id}><Icon name="add" size={16} /><span>添加到歌单</span></button>
+      <button type="button" role="menuitem" onclick={() => openMenuView('remove')} disabled={!showLyricTools || !player.id}><Icon name="trash" size={16} /><span>从歌单移除</span></button>
       <button type="button" role="menuitem" onclick={openAlbum} disabled={!showLyricTools || !album?.id}><Icon name="music" size={16} /><span>查看专辑</span></button>
       <button type="button" role="menuitem" onclick={openArtist} disabled={!showLyricTools || !firstArtist?.id}><Icon name="user" size={16} /><span>查看歌手</span></button>
       <div class="ly-song-menu-divider" role="separator"></div>
-      <button type="button" role="menuitem" onclick={cycleQuality} disabled={!showLyricTools || !player.id}><Icon name="settings" size={16} /><span>音质</span><span class="ly-song-menu-value">{qualityLabels[player.preferredLevel] || '标准'}</span></button>
+      <button type="button" role="menuitem" onclick={() => openMenuView('quality')} disabled={!showLyricTools || !player.id}><Icon name="settings" size={16} /><span>音质</span><span class="ly-song-menu-value">{qualityLabels[player.preferredLevel] || '标准'}</span></button>
       {#if lyricState.lyrics.some(line => line.translation)}
         <button type="button" role="menuitemcheckbox" aria-checked={showTranslation} disabled={!showLyricTools} onclick={() => { showTranslation = !showTranslation }}><span class="ly-song-menu-icon">译</span><span>显示译文</span><span class="ly-song-menu-value">{showTranslation ? '开' : '关'}</span></button>
       {/if}
@@ -279,6 +321,26 @@
       <button type="button" role="menuitem" onclick={() => openContextPanel('comments')} disabled={!showLyricTools || !player.id}><Icon name="messages" size={16} /><span>歌曲评论</span></button>
       <button type="button" role="menuitem" onclick={() => openContextPanel('songs')} disabled={!showLyricTools || !player.id}><Icon name="music" size={16} /><span>相似歌曲</span></button>
       <button type="button" role="menuitem" onclick={() => openContextPanel('playlists')} disabled={!showLyricTools || !player.id}><Icon name="list" size={16} /><span>相似歌单</span></button>
+      {/if}
+      <!-- 两个面板都用 hidden 常驻：SongPlaylistPanel 内部缓存用户歌单，切走再切回来不该重拉一次 -->
+      <div hidden={menuView !== 'quality'}>
+        <button class="ly-song-menu-back" type="button" onclick={() => menuView = 'main'}><Icon name="chevron-left" size={16} /><span>音质</span></button>
+        {#each QUALITY_ORDER as level}
+          <button type="button" role="menuitemradio" aria-checked={player.preferredLevel === level} onclick={() => pickQuality(level)}>
+            <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={16} /><span>{qualityLabels[level] || level}</span>
+          </button>
+        {/each}
+      </div>
+      <div hidden={menuView !== 'add' && menuView !== 'remove'}>
+        <SongPlaylistPanel
+          active={menuView === 'add' || menuView === 'remove'}
+          mode={menuView === 'remove' ? 'remove' : 'add'}
+          trackId={player.id ?? null}
+          trackName={player.title}
+          onBack={() => menuView = 'main'}
+          onToast={showMenuMessage}
+        />
+      </div>
       {#if menuMessage}<div class="ly-song-menu-message" role="status">{menuMessage}</div>{/if}
     </div>
   {/if}

@@ -29,6 +29,8 @@ export interface ExploreData {
   recommendSongs: NormalizedSong[]
   newAlbums: NormalizedAlbum[]
   blocks: HomepageBlock[]
+  /** 所有内容请求都失败（逐项降级后数据全为空，消费方据此显示错误态/重试） */
+  allFailed: boolean
 }
 
 type Loose = Record<string, unknown>
@@ -61,14 +63,16 @@ function pickNumber(...values: unknown[]): number {
 }
 
 export async function loadExploreData(ncm: ExploreApi): Promise<ExploreData> {
+  // 不要给单个请求挂 .catch()：那会把 rejection 变成 fulfilled，令下面的 allFailed 判断失效。
+  // 下游的 asRecord/asArray 已经容忍 rejected 结果（fulfilled() 返回 undefined），逐项失败照样降级成空数组。
   const [bannerRes, personalizedRes, topPlaylistRes, newSongRes, recommendRes, albumNewestRes, homepageRes] = await Promise.allSettled([
-    ncm.banner().catch(() => ({ banners: [] })),
-    ncm.personalized(10).catch(() => ({ result: [] })),
-    ncm.topPlaylist('全部', 12).catch(() => ({ playlists: [] })),
-    ncm.personalizedNewSong(12).catch(() => ({ result: [] })),
-    ncm.recommendSongs(12).catch(() => ({ data: [] })),
-    ncm.albumNewest().catch(() => ({ albums: [] })),
-    ncm.homepageBlockPage(false).catch(() => null),
+    ncm.banner(),
+    ncm.personalized(10),
+    ncm.topPlaylist('全部', 12),
+    ncm.personalizedNewSong(12),
+    ncm.recommendSongs(12),
+    ncm.albumNewest(),
+    ncm.homepageBlockPage(false),
   ])
 
   // 如果全部请求都失败，提示用户
@@ -107,5 +111,5 @@ export async function loadExploreData(ncm: ExploreApi): Promise<ExploreData> {
   const homepageVal = fulfilled(homepageRes)
   const blocks = parseHomepageBlocks(homepageVal ?? null)
 
-  return { banners, personalized, topPlaylists, recommendSongs, newAlbums, blocks }
+  return { banners, personalized, topPlaylists, recommendSongs, newAlbums, blocks, allFailed }
 }

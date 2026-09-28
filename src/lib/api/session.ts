@@ -34,7 +34,13 @@ export function mergeCookies(oldCookie: string = '', newCookie: string = ''): st
   for (const part of newCookie.split(';')) {
     const kv = part.trim()
     const eq = kv.indexOf('=')
-    if (eq > 0) map[kv.slice(0, eq)] = kv.slice(eq + 1)
+    if (eq <= 0) continue
+    const key = kv.slice(0, eq)
+    const value = kv.slice(eq + 1)
+    // 空值表示服务端在清这个 cookie（`MUSIC_U=; Expires=...`，属性已被 api.rs 截掉）。
+    // 写进空值会让 startsWith('MUSIC_U=') 仍然判定为已登录，所以要删掉这个键。
+    if (value.trim() === '') delete map[key]
+    else map[key] = value
   }
   return Object.entries(map).map(([k, v]) => `${k}=${v}`).join('; ')
 }
@@ -42,7 +48,8 @@ export function mergeCookies(oldCookie: string = '', newCookie: string = ''): st
 export function normalizeCookieForRequest(cookieString: string | null | undefined): string {
   if (!cookieString) return ''
   const parts = cookieString.split(';').map(s => s.trim()).filter(s => s.includes('='))
-  if (!parts.some(part => part.startsWith('MUSIC_U='))) return ''
+  // MUSIC_U 必须是非空值才算已登录：`MUSIC_U=` 是服务端清 cookie 的写法，不能当登录态
+  if (!parts.some(part => part.startsWith('MUSIC_U=') && part.length > 'MUSIC_U='.length)) return ''
   if (!parts.some(part => part.startsWith('os='))) {
     parts.push('os=pc')
   }
@@ -88,8 +95,14 @@ export const apiSession: ApiSession = {
     if (!cookie || cookie === apiCookie) return
     // 合并式更新：响应 cookie 覆盖旧值中同名键，保留旧值中未被提及的键
     const merged = mergeCookies(apiCookie, cookie)
-    // 只有合并后仍含 MUSIC_U 才写入，防止意外抹掉登录态
-    if (normalizeCookieForRequest(merged)) {
+    // 响应里出现空值 cookie（`MUSIC_U=`）＝ 服务端明确在清 cookie，此时必须落盘：
+    // 否则本地一直留着旧的 MUSIC_U，客户端以为还登录着，带着失效 cookie 反复发请求。
+    const serverCleared = cookie.split(';').some(part => {
+      const eq = part.indexOf('=')
+      return eq > 0 && part.slice(eq + 1).trim() === ''
+    })
+    // 其余情况仍是「只有合并后还含 MUSIC_U 才写入」，防止匿名接口的 __csrf/NMTID 抹掉登录态
+    if (serverCleared || normalizeCookieForRequest(merged)) {
       apiCookie = merged
       setStorage(API_COOKIE_KEY, apiCookie)
     }

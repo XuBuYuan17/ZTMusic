@@ -2,6 +2,7 @@
   import { dialogFocus } from '../app/desktop-motion.ts';
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { auth } from '../stores/auth.svelte.ts'
   import { ncm } from '../api/client.ts'
   import { coverUrl } from '../utils/image.ts'
   import ArtistNames from './ArtistNames.svelte'
@@ -49,6 +50,10 @@
   let songComments = $state<SongComment[]>([])
   let similarSongs = $state<NormalizedTrack[]>([])
   let similarPlaylists = $state<SimilarPlaylist[]>([])
+
+  let commentDraft = $state('')
+  let commentSending = $state(false)
+  let commentError = $state('')
 
   let showContextStrip = $state(false)
   let contextPanel = $state<ContextPanel | null>(null)
@@ -197,6 +202,40 @@
     return (comment.user?.nickname || '听众').trim().slice(0, 1) || '听'
   }
 
+  async function submitComment(): Promise<void> {
+    const content = commentDraft.trim()
+    const id = player.id
+    if (!content || commentSending || !id) return
+    commentSending = true
+    commentError = ''
+    try {
+      const r = rec(await ncm.commentAdd(id, content))
+      if (r && r.code !== 200) throw new Error((r.message || r.msg || '发表失败') as string)
+      commentDraft = ''
+      // 本地插到最前面而不是重拉：热评只取 6 条，刚发的评论不可能挤进热评榜，
+      // 重拉会让用户以为没发出去。下次打开这个面板自然会重新拉
+      songComments = [{
+        commentId: `local-${Date.now()}`,
+        user: { nickname: auth.user?.nickname || '我', avatarUrl: auth.user?.avatarUrl || '' },
+        content,
+        likedCount: 0,
+        timeStr: '刚刚',
+      }, ...songComments]
+    } catch (e) {
+      commentError = ((e as { message?: unknown } | null | undefined)?.message || '发表失败') as string
+    } finally {
+      commentSending = false
+    }
+  }
+
+  // 输入法组字期间的 Enter 是「选中候选词」，不能当发送
+  function handleCommentKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault()
+      void submitComment()
+    }
+  }
+
   // Fetch when track changes while the player is open
   $effect(() => {
     const id = player.id
@@ -323,19 +362,39 @@
             </div>
             {:else}<div class="ly-context-empty">暂时没有找到相似歌单</div>{/if}
           {:else if contextPanel === 'comments'}
-            {#if songComments.length > 0}<div class="ly-context-comment-list">
-              {#each songComments as c, i (c.commentId || i)}
-                <article class="ly-context-comment-row">
-                  <div class="ly-context-comment-author">
-                    {#if c.user?.avatarUrl}<img src={coverUrl(c.user.avatarUrl, 72)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span>{commentInitial(c)}</span>{/if}
-                    <div><strong>{c.user?.nickname || '听众'}</strong><small>{c.timeStr || '网易云音乐热评'}</small></div>
-                    {#if c.likedCount}<em>♥ {formatCount(c.likedCount)}</em>{/if}
-                  </div>
-                  <p>{c.content}</p>
-                </article>
-              {/each}
+            <div class="ly-context-comments">
+              {#if songComments.length > 0}<div class="ly-context-comment-list">
+                {#each songComments as c, i (c.commentId || i)}
+                  <article class="ly-context-comment-row">
+                    <div class="ly-context-comment-author">
+                      {#if c.user?.avatarUrl}<img src={coverUrl(c.user.avatarUrl, 72)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span>{commentInitial(c)}</span>{/if}
+                      <div><strong>{c.user?.nickname || '听众'}</strong><small>{c.timeStr || '网易云音乐热评'}</small></div>
+                      {#if c.likedCount}<em>♥ {formatCount(c.likedCount)}</em>{/if}
+                    </div>
+                    <p>{c.content}</p>
+                  </article>
+                {/each}
+              </div>
+              {:else}<div class="ly-context-empty">暂时没有热门评论</div>{/if}
+              <form class="ly-context-comment-form" onsubmit={(e) => { e.preventDefault(); void submitComment() }}>
+                <textarea
+                  class="ly-context-comment-input"
+                  bind:value={commentDraft}
+                  placeholder="说点什么…（Enter 发表，Shift+Enter 换行）"
+                  rows="2"
+                  maxlength="140"
+                  disabled={commentSending}
+                  aria-label="发表评论"
+                  onkeydown={handleCommentKeydown}
+                ></textarea>
+                <div class="ly-context-comment-foot">
+                  {#if commentError}<span class="ly-context-comment-error" role="status">{commentError}</span>{/if}
+                  <button class="ly-context-comment-submit" type="submit" disabled={commentSending || !commentDraft.trim()}>
+                    {commentSending ? '发表中…' : '发表'}
+                  </button>
+                </div>
+              </form>
             </div>
-            {:else}<div class="ly-context-empty">暂时没有热门评论</div>{/if}
           {/if}
         </div>
       </div>

@@ -425,6 +425,99 @@ button.ly-context-card.active {
   line-height: 1.5;
 }
 
+/* 发表评论：列表占满剩余高度自己滚，输入框钉在底部。
+   列表原来的 max-height 是按「只有列表」算的，这里要减掉输入框占的 ~112px */
+.ly-context-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.ly-context-comments .ly-context-comment-list {
+  max-height: calc(min(42vh, 360px) - 112px);
+}
+
+/* 一条评论都没有时占位块也要让位，否则发表框会被面板的 overflow: hidden 裁掉 */
+.ly-context-comments .ly-context-empty {
+  min-height: 96px;
+}
+
+.ly-context-comment-form {
+  flex-shrink: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.ly-context-comment-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.ly-context-comment-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  background: rgba(255,255,255,0.09);
+}
+
+.ly-context-comment-input::placeholder {
+  color: rgba(255,255,255,0.36);
+}
+
+.ly-context-comment-input:disabled {
+  opacity: 0.6;
+}
+
+.ly-context-comment-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ly-context-comment-error {
+  margin-right: auto;
+  color: #ff8080;
+  font-size: 11px;
+}
+
+.ly-context-comment-submit {
+  height: 28px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.ly-context-comment-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.ly-context-comment-submit:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.ly-context-comment-submit:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 @media (max-width: 1200px) {
   .ly-context-detail {
     right: 20px;
@@ -824,6 +917,23 @@ button.ly-context-card.active {
     margin-top: 12px;
     padding: 0 12px 14px;
     overflow: hidden;
+  }
+
+  /* 灵感浮层是定高 flex 列：列表 flex:1 占满，输入框自然落在底部 */
+  .ly-context-comments {
+    height: 100%;
+  }
+
+  .ly-context-comments .ly-context-comment-list {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .ly-context-comments .ly-context-empty {
+    flex: 1;
+    min-height: 0;
   }
 
   .ly-context-detail-list,

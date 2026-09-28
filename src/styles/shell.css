@@ -273,6 +273,74 @@ html.desktop-titlebar .app-shell {
   padding: 32px 44px 140px;
 }
 
+/* 二级页右上角返回：零高 sticky 轨，不占布局高度，随 .content-inner 的宽度约束对齐内容列。
+   静息是 40px 圆钮，悬停向左长出一条露出「返回」—— 与歌词页那个同一套语言，材质换主题令牌版。 */
+.content-back-rail {
+  position: sticky;
+  top: 12px;
+  z-index: 30;
+  height: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.content-back {
+  height: 40px;
+  max-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  animation: contentBackIn var(--motion-panel) var(--ease-out) backwards;
+  transition: max-width var(--motion-panel) var(--ease-out), padding var(--motion-panel) var(--ease-out), color var(--motion-release) var(--ease-out), background-color var(--motion-release) var(--ease-out);
+}
+
+/* 图标盒撑满收拢态的内容宽（40 - 2 描边 - 4 padding），静息才是正圆 */
+.content-back-icon {
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+}
+
+/* 标签常驻 DOM，靠父级 overflow 裁剪；用 {#if} 会丢掉过渡和无障碍名 */
+.content-back-label {
+  flex: none;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.16s var(--ease-out);
+}
+
+.content-back:hover,
+.content-back:focus-visible { max-width: 92px; padding: 0 14px 0 2px; }
+
+.content-back:hover .content-back-label,
+.content-back:focus-visible .content-back-label { opacity: 1; transition-delay: 0.12s; }
+
+.content-back:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+}
+
+/* 与 .ly-back-capsule 的按压反馈对齐；焦点圈由 desktop-system.css 的全局规则提供 */
+.content-back:active { transform: scale(0.96); }
+
+@keyframes contentBackIn {
+  from { opacity: 0; transform: translateX(8px); }
+}
+
 .mobile-bottom,
 .mobile-mini-row,
 .mobile-topbar,

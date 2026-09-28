@@ -89,6 +89,20 @@ function isProxyBadGateway(err: unknown, status?: number): boolean {
   return m.includes('502') || m.includes('bad gateway') || m.includes('econnreset') || m.includes('socket hang up')
 }
 
+/**
+ * 301/302 = 未登录或登录态失效。这类错误不能被过期缓存兜住，否则界面一直显示旧数据，
+ * 用户永远看不到「需要重新登录」。桌面端是 api.rs 拼的 `API error: 301 Moved Permanently {...}`
+ * （invoke 直接 reject 这个字符串），浏览器端是 `API error: 301`，两种都要能认出来。
+ */
+function isAuthError(err: unknown): boolean {
+  const message = typeof err === 'string'
+    ? err
+    : err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string'
+      ? (err as { message: string }).message
+      : ''
+  return /API error: 30[12]\b/.test(message)
+}
+
 async function request(
   endpoint: string,
   params: RequestParams = {},
@@ -142,8 +156,11 @@ async function request(
           await new Promise(r => setTimeout(r, 200 * attempt))
           continue
         }
-        const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
-        if (stale) return stale
+        // 登录态失效不能拿过期缓存顶替：那会让界面显示旧数据、掩盖「要重新登录」这件事
+        if (!isAuthError(error)) {
+          const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+          if (stale) return stale
+        }
         throw normalizeError(error, 'api_request')
       }
     }
@@ -153,12 +170,13 @@ async function request(
   const url = requestBase.startsWith('http')
     ? new URL(`${requestBase}${endpoint}`)
     : new URL(`${requestBase}${endpoint}`, window.location.origin)
-  if (method === 'GET') {
-    Object.entries(requestParams).forEach(([k, v]) => {
-      if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
-    })
-    if (cookie) url.searchParams.set('cookie', cookie)
-  }
+  // params 两条路径都要拼进 query，POST 也是：api.rs 对 POST 同样调 append_query_pairs。
+  // 原来只拼 GET，POST 的 params 被静默丢弃（/login/status 的 timestamp、ua 一直没发出去）。
+  // cookie 只有 GET 拼进 query——POST 的 cookie 走下面的表单字段，附两份会把登录态多泄一处。
+  Object.entries(requestParams).forEach(([k, v]) => {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v))
+  })
+  if (method === 'GET' && cookie) url.searchParams.set('cookie', cookie)
   const opts: RequestInit = { method, credentials: options.browserCredentials || 'same-origin' }
   if (requestBody) {
     const formBody: Record<string, string> = {}
@@ -192,8 +210,10 @@ async function request(
         await new Promise(r => setTimeout(r, 200 * attempt))
         continue
       }
-      const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
-      if (stale) return stale
+      if (!isAuthError(error)) {
+        const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+        if (stale) return stale
+      }
       throw normalizeError(error, 'fetch')
     }
   }
@@ -242,15 +262,9 @@ export const ncm = {
   lyric(id: SongId) {
     return request('/lyric', { id })
   },
-  lyricNew(id: SongId) {
-    return request('/lyric/new', { id })
-  },
   songDetail(id: SongId | SongId[]) {
     const ids = Array.isArray(id) ? id.join(',') : id
     return request('/song/detail', { ids })
-  },
-  checkMusic(id: SongId) {
-    return request('/check/music', { id })
   },
 
   playlistDetail(id: SongId) {
@@ -267,8 +281,17 @@ export const ncm = {
     const trackIds = Array.isArray(tracks) ? tracks.join(',') : tracks
     return request('/playlist/tracks', { op: 'del', pid: id, tracks: trackIds, timestamp: Date.now() })
   },
-  playlistCreate(name: string) {
-    return request('/playlist/create', { name, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  playlistCreate(name: string, privacy = false) {
+    // privacy='10' 是隐私歌单。不传就是公开——这是服务端的默认值，漏了会静默建出公开歌单
+    return request('/playlist/create', { name, timestamp: Date.now(), ...(privacy ? { privacy: '10' } : {}) }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
+  // 改名与改描述用各自的端点，不用 /playlist/update：后者要求 name/desc/tags 三个全传，
+  // 只改一项时得先取回另两项回填，多一次请求且容易把没动过的字段清空
+  playlistRename(id: SongId, name: string) {
+    return request('/playlist/name/update', { id, name, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
+  },
+  playlistUpdateDesc(id: SongId, desc: string) {
+    return request('/playlist/desc/update', { id, desc, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
   },
   playlistDelete(id: SongId) {
     return request('/playlist/delete', { id, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
@@ -286,7 +309,9 @@ export const ncm = {
     return request('/user/level')
   },
   userAccount() {
-    return request('/user/account', {}, 'POST', {})
+    // timestamp 放 params（进 URL）：文档说 POST 时 URL 带时间戳才不会命中服务端 2 分钟缓存。
+    // body 传 {} 而非 null——浏览器路径只在有 body 时才把 cookie 放进表单。
+    return request('/user/account', { timestamp: Date.now() }, 'POST', {})
   },
   userRecord(uid: SongId, type = 1) {
     return request('/user/record', { uid, type })
@@ -340,6 +365,10 @@ export const ncm = {
   commentMusic(id: SongId, limit = 20, offset = 0, before?: string | number) {
     return request('/comment/music', { id, limit, offset, before })
   },
+  /** 发表评论（type: 0 歌曲 / 2 歌单 / 3 专辑）。删除与回复本批没做 */
+  commentAdd(id: SongId, content: string, type = 0) {
+    return request('/comment', { timestamp: Date.now() }, 'POST', { t: 1, type, id, content })
+  },
   topAlbum(area = 'ALL', limit = 20, offset = 0, type = 'new', year?: string | number, month?: string | number) {
     return request('/top/album', { area, limit, offset, type, year, month })
   },
@@ -385,7 +414,7 @@ export const ncm = {
   },
   loginQrCreate(key: string, qrimg = true) {
     // 不传 platform=web，避免后端基于空 cookie 生成无效 chainId 污染 qrurl
-    return request('/login/qr/create', { key, qrimg, timestamp: Date.now() }, 'GET', null, { randomCNIP: false, noCookie: true, saveCookie: false, browserCredentials: 'omit' })
+    return request('/login/qr/create', { key, qrimg, timestamp: Date.now(), noCookie: true }, 'GET', null, { randomCNIP: false, noCookie: true, saveCookie: false, browserCredentials: 'omit' })
   },
   loginQrCheck(key: string) {
     return request('/login/qr/check', { key, timestamp: Date.now(), noCookie: true }, 'GET', null, { noCookie: true, allowErrorBody: true, randomCNIP: false, saveCookie: false, browserCredentials: 'omit' })
@@ -397,7 +426,9 @@ export const ncm = {
     return request('/login', {}, 'POST', { email, password }, { randomCNIP: false })
   },
   logout() {
-    return request('/logout', {}, 'POST', null, { randomCNIP: false })
+    // body 不能为 null：浏览器路径只在有 body 时才把 cookie 放进表单，传 null 会导致
+    // dev 环境登出请求根本没带 cookie。timestamp 同样放 params（见 userAccount）。
+    return request('/logout', { timestamp: Date.now() }, 'POST', {}, { randomCNIP: false })
   },
   loginStatus(cookie?: string) {
     return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })
@@ -415,6 +446,14 @@ export const ncm = {
     const list = Array.isArray(ids) ? ids : [ids]
     return request('/song/like/check', { ids: JSON.stringify(list), timestamp: Date.now() }, 'GET', null, { cache: false })
   },
+  /**
+   * 听歌打卡：把有效播放写进服务端，日推、听歌排行、年度报告都吃这份数据。
+   * 只用 v1——/scrobble 在本服务端稳定返回 502（网关连不上网易云），而 v1 的 sourceid
+   * 是可选的，播放来源可能是搜索或本地队列、拿不到歌单/专辑 id。
+   */
+  scrobble(id: SongId, time: number, extra: { total?: number; name?: string; artist?: string; level?: string } = {}) {
+    return request('/scrobble/v1', { timestamp: Date.now() }, 'POST', { id, time: Math.round(time), ...extra })
+  },
 
   // ===== 私信 & 通知 =====
   /** 获取私信列表 */
@@ -431,19 +470,19 @@ export const ncm = {
   },
   /** 发送文字私信 */
   sendText(userIds: SongId | SongId[], msg?: string) {
-    return request('/send/text', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, msg })
+    return request('/send/text', { timestamp: Date.now() }, 'POST', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, msg })
   },
   /** 发送歌曲私信 */
   sendSong(userIds: SongId | SongId[], id: SongId, msg?: string) {
-    return request('/send/song', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, id, msg })
+    return request('/send/song', { timestamp: Date.now() }, 'POST', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, id, msg })
   },
   /** 发送专辑私信 */
   sendAlbum(userIds: SongId | SongId[], id: SongId, msg?: string) {
-    return request('/send/album', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, id, msg })
+    return request('/send/album', { timestamp: Date.now() }, 'POST', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, id, msg })
   },
   /** 发送歌单私信 */
   sendPlaylist(userIds: SongId | SongId[], playlist: SongId, msg?: string) {
-    return request('/send/playlist', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, playlist, msg })
+    return request('/send/playlist', { timestamp: Date.now() }, 'POST', { user_ids: Array.isArray(userIds) ? userIds.join(',') : userIds, playlist, msg })
   },
   /** 获取评论通知 */
   msgComments(uid: SongId, limit = 30, before?: string | number) {

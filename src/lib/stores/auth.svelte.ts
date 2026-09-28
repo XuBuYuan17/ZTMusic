@@ -1,6 +1,7 @@
 import type { SongId } from '../types/music.ts'
 import { ncm } from '../api/client.ts'
 import { fetchVipInfo, normalizeVipInfo } from '../auth/vip.ts'
+import { classifyLoginStatus } from '../auth/login-status.ts'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.ts'
 
 type Loose = Record<string, unknown>
@@ -61,7 +62,6 @@ let _user = $state<AuthUser | null>(null)
 let _loginMode = $state<string | null>(null)
 let _cookieOk = $state(true)
 let _vipInfo = $state<VipInfo | null>(null)
-let _authToken = 0
 
 function deepFind(obj: unknown, key: string): string | undefined {
   if (!obj || typeof obj !== 'object') return undefined
@@ -84,37 +84,26 @@ function deepFind(obj: unknown, key: string): string | undefined {
   return search(obj)
 }
 
-/** 检测登录 cookie 是否仍然有效，无效则自动清除登录状态 */
+/** 检测登录 cookie 是否仍然有效。只在服务端「明确」说失效时标记，不清 cookie */
 async function checkLoginStatus(): Promise<boolean> {
   if (!_loginMode) return true
   const modeSnapshot = _loginMode  // 记录本次检测时的登录会话
   try {
-    const res = await ncm.loginStatus()
-    const r = asRecord(res)
-    const d = asRecord(r?.data)
-    const ok = r?.code === 200 || d?.code === 200
-    const isAnon = asRecord(r?.account)?.anonimousUser || asRecord(d?.account)?.anonimousUser
-    if (!ok || isAnon) {
+    const verdict = classifyLoginStatus(await ncm.loginStatus())
+    if (verdict === 'expired') {
       // 二次校验：await 期间用户可能已重新登录，_loginMode 会被 setUser 覆盖
       if (_loginMode !== modeSnapshot) return true
+      // 只标记失效，保留 cookie 与 auth_user：App.svelte 靠 cookieOk 的 true→false 边沿弹登录框，
+      // 用户手动重登才覆盖。清 storage 不可逆，不该由一次后台检测触发
       _cookieOk = false
-      // 延迟一点清除登录态，让 UI 可以捕捉到 cookieOk 变化
-      const token = ++_authToken
-      setTimeout(() => {
-        // 定时器触发时再次校验：这 100ms 内用户可能刚登录成功
-        if (token !== _authToken) return
-        clearCookie()
-        _user = null
-        _loginMode = null
-        _vipInfo = null
-        removeStorage('auth_user')
-        removeStorage('auth_mode')
-        removeStorage('auth_vip')
-      }, 100)
       return false
     }
-    _cookieOk = true
-    return true
+    if (verdict === 'valid') {
+      _cookieOk = true
+      return true
+    }
+    // unknown：这次没问出来（网关抖动等），沿用上次结论，不动登录态
+    return _cookieOk
   } catch {
     return _cookieOk
   }

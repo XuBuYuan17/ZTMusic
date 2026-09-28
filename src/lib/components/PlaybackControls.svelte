@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PlayMode } from '../types/player.ts'
-  import Spinner from './Spinner.svelte'
   import Icon from './ui/Icon.svelte'
 
   let {
@@ -9,7 +8,6 @@
     size = 'md',
     mode = 'list',
     playing = false,
-    loading = false,
     disabled = false,
     onshuffle,
     onprev,
@@ -24,7 +22,6 @@
     size?: 'sm' | 'md' | 'lg'
     mode?: PlayMode
     playing?: boolean
-    loading?: boolean
     disabled?: boolean
     onshuffle?: () => void
     onprev?: () => void
@@ -50,9 +47,6 @@
     shuffle: '随机播放'
   }
 
-  // 组件级 toast 清理：收集所有 toast timer id，组件销毁时统一清理
-  const toastTimers = new Set<ReturnType<typeof setTimeout>>()
-
   // Mode cycle: list -> repeat -> shuffle -> list
   function handleClick(event: MouseEvent, action?: () => void): void {
     event.preventDefault()
@@ -77,65 +71,8 @@
       else if (mode === 'shuffle') onshuffle?.()
     }
 
-    // Show toast notification
-    showToast(modeLabels[nextMode])
+    // 播放模式的提示交给 PlayerHud（盯 player.mode），这里不再自己造 toast
   }
-
-  function showToast(text: string): void {
-    // Remove existing toast
-    const existing = document.querySelector('.play-mode-toast')
-    if (existing) existing.remove()
-
-    const toast = document.createElement('div')
-    toast.className = 'play-mode-toast'
-    toast.textContent = text
-    toast.style.cssText = `
-      position: fixed;
-      bottom: 120px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.85);
-      color: white;
-      padding: 10px 20px;
-      border-radius: var(--radius-xl);
-      font-size: 14px;
-      font-weight: 500;
-      z-index: 9999;
-      animation: modeToastFadeIn 0.2s ease-out;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    `
-    document.body.appendChild(toast)
-
-    const id = setTimeout(() => {
-      toast.style.animation = 'modeToastFadeOut 0.3s ease-out forwards'
-      setTimeout(() => toast.remove(), 300)
-    }, 1500)
-    toastTimers.add(id)
-  }
-
-  // 组件销毁时清理所有 toast 定时器（顶层 effect，不嵌套在 showToast 内）
-  $effect(() => () => { toastTimers.forEach(clearTimeout); toastTimers.clear() })
-
-  // Add toast keyframes if not present
-  function ensureKeyframes(): void {
-    if (typeof document === 'undefined') return
-    if (document.getElementById('play-mode-toast-styles')) return
-    const style = document.createElement('style')
-    style.id = 'play-mode-toast-styles'
-    style.textContent = `
-      @keyframes modeToastFadeIn {
-        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-        to { opacity: 1; transform: translateX(-50%) translateY(0); }
-      }
-      @keyframes modeToastFadeOut {
-        from { opacity: 1; transform: translateX(-50%) translateY(0); }
-        to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-      }
-    `
-    document.head.appendChild(style)
-  }
-  if (typeof document !== 'undefined') ensureKeyframes()
 </script>
 
 <div class="pc" class:ly-play-row={isLyrics} class:pc-disabled={disabled} style:gap={isLyrics ? undefined : gap}>
@@ -157,9 +94,7 @@
 
   <!-- 播放/暂停 -->
   <button class={playClass} onclick={(e) => handleClick(e, onplaypause)} aria-label={playing ? '暂停' : '播放'} disabled={isLyrics ? false : disabled}>
-    {#if loading}
-      <Spinner size={isLyrics ? 'md' : (size === 'lg' ? 'md' : 'sm')} />
-    {:else if playing}
+    {#if playing}
       <Icon name="pause" size={playSize} fill="currentColor" />
     {:else}
       <Icon name="play" size={playSize} fill="currentColor" />

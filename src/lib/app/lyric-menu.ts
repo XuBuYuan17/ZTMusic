@@ -23,13 +23,15 @@ export function menuKeyIndex(key: string, current: number, count: number): numbe
   return null
 }
 
-export function lyricMenu(node: HTMLElement, { anchor, close }: { anchor: HTMLElement; close: () => void }) {
+type LyricMenuOptions = { anchor: HTMLElement; close: () => void; width?: number }
+
+export function lyricMenu(node: HTMLElement, { anchor, close, width = 240 }: LyricMenuOptions) {
   const layer = anchor.closest('.pm-focus')
   if (layer) layer.append(node)
   function position() {
     const root = document.documentElement
     const inset = root.classList.contains('desktop-titlebar') ? parseFloat(getComputedStyle(root).getPropertyValue('--titlebar-h')) || 0 : 0
-    const rect = placeLyricMenu(anchor.getBoundingClientRect(), 240, node.scrollHeight + 2, window.innerWidth, window.innerHeight, inset)
+    const rect = placeLyricMenu(anchor.getBoundingClientRect(), width, node.scrollHeight + 2, window.innerWidth, window.innerHeight, inset)
     Object.assign(node.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, maxHeight: `${rect.maxHeight}px` })
   }
   function outside(event: PointerEvent) {
@@ -50,12 +52,24 @@ export function lyricMenu(node: HTMLElement, { anchor, close }: { anchor: HTMLEl
   window.addEventListener('resize', close)
   document.addEventListener('pointerdown', outside, true)
   node.addEventListener('keydown', key)
-  return { destroy() {
-    observer.disconnect()
-    window.removeEventListener('resize', close)
-    document.removeEventListener('pointerdown', outside, true)
-    node.removeEventListener('keydown', key)
-  } }
+  return {
+    // 子面板比主菜单宽。内联 width 是这里写进去的，CSS 改不动它，所以只能在这儿跟着改。
+    // 只认 width：Svelte 对对象字面量每次都判为「变了」，不做这个判断的话
+    // 歌词页 currentTime 每 tick 都会触发一次 getBoundingClientRect 重排。
+    // anchor / close 换新值这里不处理（会留下旧闭包），调用方传的都是稳定引用
+    update(next: LyricMenuOptions) {
+      const nextWidth = next.width ?? 240
+      if (nextWidth === width) return
+      width = nextWidth
+      position()
+    },
+    destroy() {
+      observer.disconnect()
+      window.removeEventListener('resize', close)
+      document.removeEventListener('pointerdown', outside, true)
+      node.removeEventListener('keydown', key)
+    },
+  }
 }
 
 export function lyricMenuTransition(_node: Element) {

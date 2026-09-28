@@ -26,13 +26,10 @@ html:not(.mobile-runtime) :is(.confirm-btn, .library-modal-btn, .artist-play-all
   min-height: 40px; border-radius: var(--radius-md); padding-inline: 16px;
 }
 html:not(.mobile-runtime) :is(.close-btn, .ly-back-btn, .follow-dialog-close, .am-secondary-close) { min-width: 36px; min-height: 36px; }
-html:not(.mobile-runtime) :is(.user-page__back, .playlist-back-btn, .artist-back) {
-  min-height: 40px; min-width: 40px; border-radius: var(--radius-md); box-shadow: none;
-}
-html:not(.mobile-runtime) .artist-hero { margin-top: 56px; overflow: visible; }
+html:not(.mobile-runtime) :is(.user-page__back, .playlist-back-btn, .artist-back) { display: none; }
+html:not(.mobile-runtime) .artist-hero { overflow: visible; }
 html:not(.mobile-runtime) :is(.artist-hero-bg, .artist-hero-mask, .artist-hero-grain) { border-radius: inherit; }
 html:not(.mobile-runtime) .artist-hero-bg { inset: 0; transform: none; filter: none; }
-html:not(.mobile-runtime) .artist-back { top: -56px; left: 0; color: var(--text); background: var(--bg-hover); }
 
 html:not(.mobile-runtime) :is(button, [role="button"], input, textarea, select, [role="slider"]):focus-visible {
   outline: 2px solid var(--accent); outline-offset: 3px;
@@ -57,6 +54,19 @@ html:not(.mobile-runtime) :is(.am-more-menu, .song-context-menu) {
 }
 html:not(.mobile-runtime) :is(.confirm-card, .login-card, .song-menu, .am-more-menu) { animation: none; }
 html:not(.mobile-runtime) .song-menu { border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); }
+
+/* 私信弹窗。它此前被困在 .main-area 的包含块里（那边有 backdrop-filter），
+   被 .player-bar-wrap（根上下文 z-index:40）整条盖住；ChatDialog 的 portal 动作
+   把它挪到 body 才逃出来，下面的偏移在那之后才成立。
+   底栏占 12px 偏移 + 68px 高度 = 80px，遮罩在它上面收边，播放条保持清晰可点。
+   收边处会有一道很淡的模糊分界，若实机看着刺眼，加一行 mask-image 渐隐即可。
+   z-index 保持原来的 80 不动：它只要高过播放条（40）就够，且必须低于底栏上那些按钮
+   能拉起来的面板——队列面板 --z-overlay(200)、歌词页 300——否则底栏可点了，
+   点队列却弹出到弹窗后面看不见。 */
+html:not(.mobile-runtime) .chat-modal-backdrop { inset: 0 0 80px 0; }
+/* 高度用容器百分比而不是 100vh：定位基准已经是视口，但遮罩自身还让掉了 80px。
+   min-height 也要跟着收，否则窗口极矮时会把弹窗顶进底栏区 */
+html:not(.mobile-runtime) .chat-dialog { height: min(720px, 100%); min-height: min(420px, 100%); }
 html:not(.mobile-runtime) :is(.settings-panel, .messages-page, .local-music-page, .library-page) { --dur-base: 280ms; --dur-slow: 320ms; }
 html:not(.mobile-runtime) :is(.settings-row, .messages-actions) { gap: 16px; }
 html:not(.mobile-runtime) .settings-panel { box-shadow: none; border-radius: var(--radius-xl); }
