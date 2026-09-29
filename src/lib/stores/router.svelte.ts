@@ -322,7 +322,7 @@ function playArtistTrack(t: DetailTrack | null | undefined): void { if (!t) retu
 function playArtistAll(): void { if (_artistSongs.length) player.playQueue(_artistSongs, 0) }
 function playExploreSong(t: DetailTrack | null | undefined): void { if (t) player.playTrack(t, 0) }
 
-function handleNav(view: string, extra?: number | null): void {
+function handleNav(view: string, extra?: number | null, preserveSource = false): void {
   invalidateDetailRequests()
   if (view === 'profile') view = 'home'
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
@@ -330,7 +330,9 @@ function handleNav(view: string, extra?: number | null): void {
   if (view === 'artist' && extra) { goArtist(extra); return }
   if (view === 'user' && extra) { goUser(extra); return }
   if (view === 'dailyHistory') { goDailyHistory(); return }
-  _routeTransition = 'soft'; _routeStack = []; _previousView = _activeView; _activeView = view; _selectedId = null
+  if (preserveSource && view !== _activeView) pushRoute()
+  else if (!preserveSource) _routeStack = []
+  _routeTransition = preserveSource ? 'forward' : 'soft'; _previousView = _activeView; _activeView = view; _selectedId = null
   _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
   _playlistDetailError = ''; _playlistDetailLoading = false; _artistError = ''; _artistLoading = false
 }

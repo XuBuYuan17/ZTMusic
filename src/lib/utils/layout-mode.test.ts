@@ -27,13 +27,16 @@ globalThis.window = {
 } as unknown as Window & typeof globalThis
 
 assertEqual(shouldUseMobileLayout(390, 844, 'auto'), true, 'auto uses mobile layout on phones')
+assertEqual(shouldUseMobileLayout(844, 390, 'auto'), false, 'landscape phones use pc layout')
 assertEqual(shouldUseMobileLayout(768, 1024, 'auto'), false, 'auto uses pc layout on tablets')
 assertEqual(shouldUseMobileLayout(390, 844, 'pc'), false, 'pc override wins on phones')
-assertEqual(shouldUseMobileLayout(1024, 768, 'mobile'), true, 'mobile override wins on tablets')
+assertEqual(shouldUseMobileLayout(768, 1024, 'mobile'), true, 'mobile override wins in portrait')
+assertEqual(shouldUseMobileLayout(1024, 768, 'mobile'), false, 'landscape wins over mobile override')
 
-// ?mobile 强制手持端布局，优先级高于 pc 覆盖
+// ?mobile 在竖屏强制手持端布局，横屏仍切到 PC 外壳
 locationState.search = '?mobile'
-assertEqual(shouldUseMobileLayout(1440, 900, 'pc'), true, '?mobile forces mobile layout even with pc override')
+assertEqual(shouldUseMobileLayout(900, 1440, 'pc'), true, '?mobile forces portrait mobile layout even with pc override')
+assertEqual(shouldUseMobileLayout(1440, 900, 'mobile'), false, 'landscape wins over ?mobile')
 locationState.search = ''
 
 console.log(`\nlayout-mode: ${passed} passed, ${failed} failed`)

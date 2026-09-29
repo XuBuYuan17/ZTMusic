@@ -126,7 +126,7 @@
                 </div>
               {/if}
             </td>
-            <td class="col-title">{track.name}</td>
+            <td class="col-title">{track.name}<button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button></td>
             <td class="col-artist artist-links">
               {#each artistsOf(track) as artist, index (artist.id || (artist.name as SongId))}
                 {#if index > 0}<span class="artist-sep">/</span>{/if}

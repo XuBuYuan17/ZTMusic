@@ -63,7 +63,7 @@
   let showFollowDialog = $state(false)
   let showQueuePanel = $state(false)
   let showMobileDrawer = $state(false)
-  let mobileTabsHidden = $state(false)
+  let mobileMenuTrigger: HTMLButtonElement | null = null
   let lyricsOrigin = $state<LyricsOrigin | null>(null)
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
@@ -169,6 +169,10 @@
 
   $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
+  $effect(() => {
+    document.documentElement.classList.toggle('custom-wallpaper', wallpaper.active)
+    return () => document.documentElement.classList.remove('custom-wallpaper')
+  })
 
   $effect(() => {
     const selected = normalizeAccentTheme(accentTheme)
@@ -204,7 +208,7 @@
   function openSheet(originEl?: Element | null): void {
     // 桌面走连续 morph 层；移动保持原有覆盖层链路
     if (!isMobile) { playerMorph.open(); return }
-    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.m-avatar-btn') || document.querySelector('.player-bar')
+    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.player-bar')
     if (source) {
       const r = source.getBoundingClientRect()
       lyricsOrigin = {
@@ -222,12 +226,34 @@
   function closeSheet(): void { showSheet = false }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
+  function openMobileDrawer(trigger: HTMLButtonElement): void {
+    mobileMenuTrigger = trigger
+    showMobileDrawer = true
+  }
+  function closeMobileDrawer(restoreFocus = true): void {
+    if (!showMobileDrawer) return
+    showMobileDrawer = false
+    if (restoreFocus) tick().then(() => mobileMenuTrigger?.focus())
+  }
+
+  $effect(() => {
+    if (!isMobile || !showMobileDrawer) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMobileDrawer()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
+
+  $effect(() => {
+    if (!isMobile) showMobileDrawer = false
+  })
   function setTheme(value: string): void { theme = normalizeTheme(value) }
   function setAccentTheme(value: string): void { accentTheme = normalizeAccentTheme(value) }
 
   function openMessageWithUser(user: MessageTargetUser): void {
     if (!auth.isLoggedIn) { showLogin = true; return }
-    showFollowDialog = false; messageTargetUser = user; router.handleNav('messages')
+    showFollowDialog = false; messageTargetUser = user; router.handleNav('messages', undefined, isMobile)
   }
 
   const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
@@ -240,25 +266,33 @@
   else { router.handleNav('home') }
 </script>
 
+<WallpaperLayer />
+
 {#if hasCustomTitlebar}
   <WindowTitleBar />
 {/if}
 
-<main class="app-shell" use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
-  <WallpaperLayer />
+<main class="app-shell" inert={isMobile && (showSheet || showQueuePanel || showLogin || showFollowDialog)} use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
     activeView={router.activeView}
     bind:collapsed={sidebarCollapsed}
     {theme}
+    inDrawer={isMobile}
+    open={!isMobile || showMobileDrawer}
     notificationUnread={notificationUnread}
     refreshKey={router.refreshKey}
-    onNavigate={(view: string, extra?: number | null) => { router.handleNav(view, extra) }}
+    onNavigate={(view: string, extra?: number | null) => { router.handleNav(view, extra, isMobile) }}
     onToggleTheme={toggleTheme}
     onOpenLogin={() => { showLogin = true }}
+    onRequestClose={() => closeMobileDrawer()}
   />
 
-  <div class="main-area">
+  {#if isMobile && showMobileDrawer}
+    <button class="mobile-sidebar-backdrop" type="button" aria-label="关闭导航菜单" onclick={() => closeMobileDrawer()}></button>
+  {/if}
+
+  <div class="main-area" inert={isMobile && showMobileDrawer}>
     {#if isMobile}
       {#await loadMobileApp()}
         <div class="loading-state" aria-busy="true" aria-label="正在加载移动端界面"></div>
@@ -266,23 +300,19 @@
         <module.default
           activeView={router.activeView}
           {theme}
-          bind:drawerOpen={showMobileDrawer}
           onNavigate={router.handleNav}
-          onOpenPlayer={openSheet}
           onOpenPlaylist={openPlaylistRef}
           onOpenAlbum={openAlbumRef}
           onOpenArtist={openArtistRef}
           onOpenUser={openUserRef}
           onOpenMessage={openMessageWithUser}
-          onSearch={() => router.handleNav('search')}
           onOpenLogin={() => showLogin = true}
           onSetTheme={setTheme}
           {accentTheme}
           onSetAccentTheme={setAccentTheme}
           onBack={router.goBack}
-          onTabsHiddenChange={(hidden: boolean) => mobileTabsHidden = hidden}
+          onOpenMenu={openMobileDrawer}
           targetUser={messageTargetUser}
-          {notificationUnread}
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
         />
       {:catch}
@@ -303,10 +333,11 @@
   </div>
 </main>
 
-<!-- PlayerBar: 两端共享，PC 由 app-pc.css 定位，移动端由 app-mobile.css 覆盖 -->
-<div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed} class:m-runtime={isMobile} class:tabs-hidden={mobileTabsHidden} class:drawer-open={showMobileDrawer} aria-hidden={showMobileDrawer} inert={showMobileDrawer}>
-  <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
-</div>
+{#if !isMobile || player.id}
+  <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
+    <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
+  </div>
+{/if}
 
 <LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobileDrag } from '../app/mobile-interaction.ts'
   import { dialogFocus, desktopFeedback, desktopPanel } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import { auth } from '../stores/auth.svelte.ts'
@@ -260,6 +261,7 @@
       aria-label="歌曲操作菜单"
       oncontextmenu={handleContextmenu}
     >
+    <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <header class="song-menu__header">
       <div class="song-menu__cover">
         {#if albumOf(mt)?.picUrl || mt.picUrl}

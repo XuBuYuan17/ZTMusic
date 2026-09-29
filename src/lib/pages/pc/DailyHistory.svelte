@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { SongId } from '../../types/music.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import type { DailyDateItem } from '../../services/dailyHistory.ts'
@@ -64,7 +65,7 @@
     if (idx >= 0) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], idx); else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
 
-  $effect(() => { if (auth.isLoggedIn) load() })
+  $effect(() => { if (auth.isLoggedIn) untrack(load) })
 
   function artistsOf(track: NormalizedSong): TrackArtist[] {
     return (track.artists || track.ar || []) as TrackArtist[]
@@ -191,7 +192,8 @@
                   </em>
                 </span>
                 <span class="daily-song-album">{albumOf(track)}</span>
-                <span class="daily-song-dur">{formatDuration((track.duration as number) || track.dt || 0)}</span>
+                <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
+            <span class="daily-song-dur">{formatDuration((track.duration as number) || track.dt || 0)}</span>
               </div>
             {/each}
           </div>

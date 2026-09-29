@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobileDrag } from '../app/mobile-interaction.ts';
   import { dialogFocus } from '../app/desktop-motion.ts';
   import type { SongId } from '../types/music.ts';
   import { player } from '../stores/player.svelte.ts';
@@ -57,6 +58,7 @@
 {#if panel}
   <div class="am-secondary-backdrop" role="presentation" onclick={() => onClose?.()}></div>
   <div class="am-secondary-sheet" use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
+    <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="am-secondary-header">
       <div class="am-secondary-title">{title}</div>
       <button class="am-secondary-close" type="button" aria-label="关闭" onclick={() => onClose?.()}>

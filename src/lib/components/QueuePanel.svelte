@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobileDrag } from '../app/mobile-interaction.ts';
   import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import type { CompactTrack, CompactArtist } from '../player/queue.ts'
@@ -118,6 +119,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
   <div class="queue-panel" use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
+    <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
       <div class="queue-header-actions">
@@ -483,8 +485,8 @@
     }
 
     .queue-panel.queue-panel-mobile-visible .queue-list {
-      padding: calc(50% - 32px) 0;
-      scroll-padding-block: 50%;
+      padding: 8px 0;
+      scroll-padding-block: 8px;
     }
 
     .queue-panel.queue-panel-mobile-visible .queue-item.active {

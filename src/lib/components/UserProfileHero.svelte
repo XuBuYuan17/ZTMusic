@@ -103,14 +103,14 @@
   .user-profile-hero__stats strong { overflow: hidden; font-size: 17px; font-weight: 700; text-overflow: ellipsis; }
   .user-profile-hero__stats span { color: rgba(255,255,255,.55); font-size: 11px; }
 
-  :global(html.mobile-runtime) .user-profile-hero { min-height: 260px; border-radius: var(--radius-lg); }
-  :global(html.mobile-runtime) .user-profile-hero__content { min-height: 260px; grid-template-columns: 1fr; grid-template-rows: auto auto auto; gap: 14px; padding: 22px 18px 18px; }
+  :global(html.mobile-runtime) .user-profile-hero { min-height: 220px; border-radius: var(--radius-lg); }
+  :global(html.mobile-runtime) .user-profile-hero__content { min-height: 220px; grid-template-columns: 1fr; grid-template-rows: auto auto; gap: 14px; padding: 22px 18px 18px; }
   :global(html.mobile-runtime) .user-profile-hero__identity { align-items: flex-end; gap: 14px; }
   :global(html.mobile-runtime) .user-profile-hero__avatar { width: 78px; height: 78px; border-width: 2px; }
   :global(html.mobile-runtime) .user-profile-hero h1 { font-size: 27px; }
   :global(html.mobile-runtime) .user-profile-hero p { max-height: 42px; overflow: hidden; margin-top: 6px; font-size: 12px; }
   :global(html.mobile-runtime) .user-profile-hero__actions { align-self: auto; }
-  :global(html.mobile-runtime) .user-profile-hero__actions button { flex: 1; height: 36px; }
+  :global(html.mobile-runtime) .user-profile-hero__actions button { flex: 1; min-height: 44px; }
   :global(html.mobile-runtime) .user-profile-hero__stats { grid-column: auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   :global(html.mobile-runtime) .user-profile-hero__stats div { padding: 8px 5px; text-align: center; }
   :global(html.mobile-runtime) .user-profile-hero__stats strong { font-size: 14px; }

@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { responsive } from '../utils/responsive.ts';
+  import { mobileDrag } from '../app/mobile-interaction.ts';
+  import Icon from './ui/Icon.svelte';
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
   import { player } from '../stores/player.svelte.ts';
@@ -101,6 +104,7 @@
   });
 
   function handleClose() {
+    if ($responsive.isMobile) { onClose?.(); return; }
     closing = true;
     safeTimeout(() => { onClose?.(); }, 220);
   }
@@ -110,7 +114,7 @@
   }
 
   function handlePlayerPointerDown(event: PointerEvent): void {
-    if (secondaryPanel || showMoreMenu || showLocalQueue) return;
+    if ($responsive.isMobile || secondaryPanel || showMoreMenu || showLocalQueue) return;
     swipeStartX = event.clientX;
     swipeStartY = event.clientY;
     swipeActive = true;
@@ -278,16 +282,25 @@
     artist={player.artist || ''}
   />
 
-  <!-- Flying cover -->
-  <div class="am-flying-cover" role="button" tabindex="0"
-    onclick={handleCoverClick}
-    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); toggleLyricsMode(); } }}>
-    <img class="am-vinyl-label" src={coverUrl(player.cover, 300)} alt="" referrerpolicy="no-referrer" />
-    <img class="am-flying-cover-img" src={coverUrl(player.cover, 400)} alt="" referrerpolicy="no-referrer" />
-  </div>
+  {#snippet coverArtwork()}
+    <img draggable="false" class="am-vinyl-label" src={coverUrl(player.cover, 300)} alt="" referrerpolicy="no-referrer" />
+    <img draggable="false" class="am-flying-cover-img" src={coverUrl(player.cover, 400)} alt="" referrerpolicy="no-referrer" />
+  {/snippet}
+  {#if $responsive.isMobile}
+    <div class="am-flying-cover" role="button" tabindex="0" aria-label="切换封面与歌词，左右滑动切歌" onclick={handleCoverClick}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode(); } }}
+      use:mobileDrag={{ close: () => onClose?.(), next: () => { if (player.id) player.next() }, previous: () => { if (player.id) player.prev() }, target: () => document.querySelector<HTMLElement>('.ly-fullscreen'), blocked: () => lyricsMode || !!(secondaryPanel || showMoreMenu || showLocalQueue) }}>
+      {@render coverArtwork()}
+    </div>
+  {:else}
+    <div class="am-flying-cover" role="button" tabindex="0" aria-label="切换封面与歌词" onclick={handleCoverClick}
+      onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode(); } }}>
+      {@render coverArtwork()}
+    </div>
+  {/if}
 
   <!-- Track info (controls mode, left-aligned with cover) -->
-  <div class="am-track-info">
+  <div class="am-track-info" inert={lyricsMode} aria-hidden={lyricsMode}>
     <div class="am-track-title">{player.title || '未在播放'}</div>
     <div class="am-track-artist">
       <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />
@@ -295,7 +308,7 @@
   </div>
 
   <!-- Corner info (lyrics mode only, top-left) -->
-  <div class="am-corner-info">
+  <div class="am-corner-info" inert={!lyricsMode} aria-hidden={!lyricsMode}>
     <div class="am-corner-title">{player.title || ''}</div>
     <div class="am-corner-artist">
       <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />

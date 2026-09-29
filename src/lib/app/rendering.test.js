@@ -21,6 +21,9 @@ const searchOverlayCss = await readFile(new URL('../../styles/search-overlay.css
 const queuePanel = await readFile(new URL('../components/QueuePanel.svelte', import.meta.url), 'utf8')
 const homePage = await readFile(new URL('../pages/pc/Home.svelte', import.meta.url), 'utf8')
 const explorePage = await readFile(new URL('../pages/pc/Explore.svelte', import.meta.url), 'utf8')
+const dailyHistoryPage = await readFile(new URL('../pages/pc/DailyHistory.svelte', import.meta.url), 'utf8')
+const wallpaperLayer = await readFile(new URL('../components/WallpaperLayer.svelte', import.meta.url), 'utf8')
+const wallpaperCss = await readFile(new URL('../../styles/wallpaper.css', import.meta.url), 'utf8')
 const lazyRoutes = [
   'PlaylistPage', 'SearchPage', 'ArtistPage', 'ExplorePage', 'DailyHistoryPage',
   'LibraryPage', 'RecentPage', 'MessagesPage', 'LikedPage', 'SettingsPage', 'AboutPage',
@@ -32,13 +35,13 @@ assert.ok(!desktopHost.includes('<div style:display={router.activeView'), 'inact
 assert.ok(!desktopHost.includes('{#key router.activeView}'), 'desktop route changes should not add a second forced remount boundary')
 assert.ok(app.includes("const loadMobileApp = lazyModule(() => import("), 'mobile application should not be in the desktop startup bundle')
 assert.ok(lazyModule.includes('return () => module ?? (promise ??= loader().then'), 'loaded route modules should render synchronously on repeat visits')
-assert.ok(mobileApp.includes("mountedTabs.includes('explore')"), 'mobile tab pages should mount on first visit')
+assert.ok(mobileApp.includes("mountedViews.includes('explore')"), 'mobile primary pages should mount on first visit')
 assert.ok(mobileApp.includes("{:else if activeView === 'messages'}"), 'mobile secondary pages should mount only while active')
-assert.ok(mobileApp.includes('tabScrollPositions'), 'mobile tabs should preserve independent scroll positions')
+assert.ok(mobileApp.includes('scrollPositions'), 'mobile routes should preserve independent scroll positions')
 assert.match(loginOverlay, /import\s*\{[^}]*\btick\b[^}]*\}\s*from\s*['"]svelte['"]/, 'login mode focus should import tick')
 assert.ok(authStore.includes("finish(rejectPromise, new DOMException('Aborted', 'AbortError'))"), 'canceling QR polling should settle its promise')
 assert.ok(!loginOverlay.includes("if (m === 'qr') startQr()"), 'QR mode changes should rely on one reactive start')
-assert.ok(mobileApp.includes("onclick={() => handleNav('explore')}"), 'mobile tab navigation should capture scroll before route changes')
+assert.ok(mobileApp.includes('onNavigate?.(view, extra, !primaryViews.includes(view))'), 'mobile secondary navigation should preserve its source route')
 assert.ok(app.includes('const hasCustomTitlebar = isTauriDesktop()'), 'custom titlebar must be gated to Tauri desktop')
 assert.ok(app.includes('{#if hasCustomTitlebar}'), 'custom titlebar must not render in web or mobile runtimes')
 assert.ok(windowTitleBar.includes('data-tauri-drag-region="deep"'), 'desktop titlebar should expose a Tauri drag region')
@@ -68,9 +71,18 @@ assert.ok(dailyHistoryAt < navBody.indexOf('_routeStack = []'), 'dailyHistory mu
 assert.ok(homePage.includes('homeSnapshot?.userId === userId'), 'home should reuse the current user snapshot before refreshing')
 assert.ok(explorePage.includes('exploreSnapshotAt'), 'explore should retain a freshness-bounded snapshot across mounts')
 assert.ok(!homePage.includes('transition:slide'), 'home should not stack a page slide over route changes')
+assert.ok(dailyHistoryPage.includes('untrack(load)'), 'daily history initial load must not track state written by the request')
+assert.ok(app.indexOf('<WallpaperLayer />') < app.indexOf('<main class="app-shell"'), 'wallpaper should cover the full desktop window behind the app shell')
+assert.ok(app.includes("classList.toggle('custom-wallpaper', wallpaper.active)"), 'wallpaper state should reach root-level desktop surfaces')
+assert.ok(wallpaperLayer.includes('class="wallpaper-layer__backdrop"'), 'image wallpaper should render a blurred fill layer')
+assert.ok(wallpaperLayer.includes('class="wallpaper-layer__media"'), 'wallpaper should render a distinct foreground media layer')
+assert.equal(wallpaperLayer.match(/<video/g)?.length, 1, 'video wallpaper should use one decoder')
+assert.match(wallpaperCss, /html:not\(\.mobile-runtime\) \.wallpaper-layer__media[\s\S]*?object-fit: contain/, 'desktop wallpaper foreground should preserve the complete frame')
+assert.match(wallpaperCss, /\.wallpaper-layer__media[\s\S]*?object-fit: cover/, 'mobile wallpaper should retain cover sizing')
+assert.ok(wallpaperCss.includes('--bg-surface: rgba(250, 250, 252, 0.48)'), 'desktop wallpaper mode should expose translucent surface tokens')
 
 for (const component of lazyRoutes) {
   assert.ok(desktopHost.includes(`const load${component} = lazyModule(() => import(`), `${component} should be loaded on demand`)
 }
 
-console.log(`application rendering self-check: ${lazyRoutes.length + 31} assertions passed`)
+console.log(`application rendering self-check: ${lazyRoutes.length + 39} assertions passed`)

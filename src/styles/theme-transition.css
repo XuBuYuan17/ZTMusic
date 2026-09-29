@@ -35,8 +35,6 @@ html.accent-color-transitioning {
 .theme-transitioning .sidebar,
 .theme-transitioning .main-area,
 .theme-transitioning .player-bar,
-.theme-transitioning .m-tabs,
-.theme-transitioning .mobile-mini-player,
 .theme-transitioning .settings-card,
 .theme-transitioning .messages-card {
   transition:
@@ -60,8 +58,6 @@ html.accent-color-transitioning {
   .theme-transitioning .sidebar,
   .theme-transitioning .main-area,
   .theme-transitioning .player-bar,
-  .theme-transitioning .m-tabs,
-  .theme-transitioning .mobile-mini-player,
   .theme-transitioning .settings-card,
   .theme-transitioning .messages-card {
     transition: none !important;

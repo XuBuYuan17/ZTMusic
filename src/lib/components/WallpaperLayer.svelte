@@ -24,11 +24,13 @@
 </script>
 
 {#if wallpaper.active}
-  <div class="wallpaper-layer" aria-hidden="true">
+  <div class="wallpaper-layer" class:wallpaper-layer--video={wallpaper.kind === 'video'} aria-hidden="true">
     {#if wallpaper.kind === 'image'}
-      <img src={wallpaper.url} alt="" />
+      <img class="wallpaper-layer__backdrop" src={wallpaper.url} alt="" />
+      <img class="wallpaper-layer__media" src={wallpaper.url} alt="" />
     {:else}
       <video
+        class="wallpaper-layer__media"
         bind:this={video}
         src={wallpaper.url}
         muted

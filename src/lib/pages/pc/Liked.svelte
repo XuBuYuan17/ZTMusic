@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte'
   import type { SongId } from '../../types/music.ts'
   import type { NormalizedSong } from '../../utils/normalize.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
@@ -24,9 +25,11 @@
   let {
     onOpenArtist,
     onOpenAlbum,
+    onOpenLogin,
   }: {
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
+    onOpenLogin?: () => void
   } = $props()
 
   const initial = likedSnapshot?.userId === auth.user?.userId ? likedSnapshot : null
@@ -75,7 +78,8 @@
   }
 
   $effect(() => {
-    if (auth.isLoggedIn) loadLiked()
+    if (auth.isLoggedIn) untrack(loadLiked)
+    else loading = false
   })
 </script>
 
@@ -112,7 +116,7 @@
   {:else if error && !songs.length}
     <div class="liked-empty">
       <Icon name="empty" size={48} />
-      <p>{error}</p>
+      <p>{error}</p><button onclick={loadLiked}>重试</button>
     </div>
   {:else if songs.length === 0}
     <div class="liked-empty">
@@ -143,6 +147,7 @@
                 {/each}
               </em>
             </span>
+            <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
             <span class="liked-song-dur">{formatDuration(track.dt || (track.duration as number) || 0)}</span>
           </div>
         {/each}

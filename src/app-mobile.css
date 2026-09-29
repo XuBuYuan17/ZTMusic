@@ -1,507 +1,263 @@
-/* ================================================
-   Mobile Layout (new, PC-derived)
-   覆盖 styles/content.css 中保留的历史 MobileShell 规则
-   ================================================ */
-
-/* 由 html.mobile-runtime 控制，不再依赖宽度媒体查询 */
+html.mobile-runtime {
+  --mobile-page-bar-h: 60px;
+  --mobile-player-h: 68px;
+  -webkit-tap-highlight-color: transparent;
+}
 
 html.mobile-runtime,
 html.mobile-runtime body,
-html.mobile-runtime #app,
-html.mobile-runtime .app-shell {
+html.mobile-runtime #app {
   width: 100%;
+  height: 100%;
   min-width: 0;
-  height: 100%;
-  min-height: 100%;
   overflow: hidden;
 }
 
-html.mobile-runtime body,
-html.mobile-runtime #app,
 html.mobile-runtime .app-shell {
-  display: flex;
-}
-
-html.mobile-runtime #app,
-html.mobile-runtime .app-shell {
-  flex: 1;
-}
-
-html.mobile-runtime .main-area,
-html.mobile-runtime .mobile-app {
+  width: 100%;
+  height: var(--mobile-viewport-height, 100dvh);
+  min-width: 0;
   min-height: 0;
-}
-
-html.mobile-runtime .mobile-app {
-  width: 100%;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-html.mobile-runtime .m-avatar-btn {
-  position: fixed;
-  top: calc(8px + env(safe-area-inset-top));
-  z-index: 60;
-  width: var(--mobile-avatar-size);
-  height: var(--mobile-avatar-size);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  color: var(--text);
-  box-shadow:
-    0 4px 12px rgba(0,0,0,0.08),
-    inset 0 1px 0 rgba(255,255,255,0.55);
-  cursor: pointer;
-  transition: transform 0.15s var(--ease-out), background 0.15s var(--ease-out);
-}
-
-html.mobile-runtime[data-theme="dark"] .m-avatar-btn {
-  background: rgba(40,40,42,0.72);
-  border-color: rgba(255,255,255,0.08);
-  box-shadow:
-    0 4px 14px rgba(0,0,0,0.35),
-    inset 0 1px 0 rgba(255,255,255,0.12);
-}
-
-html.mobile-runtime .m-avatar-btn {
-  left: max(12px, calc((100vw - 430px) / 2 + 12px));
-}
-
-html.mobile-runtime .m-avatar-btn:active {
-  transform: scale(0.94);
-  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
-}
-
-html.mobile-runtime .m-avatar-btn img {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--accent);
-}
-
-/* 内容区 */
-html.mobile-runtime .m-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  padding: calc(18px + var(--mobile-avatar-size)) 18px calc(var(--mobile-tabs-h) + 104px + env(safe-area-inset-bottom));
-}
-
-html.mobile-runtime .m-view-fade {
-  width: 100%;
-  max-width: 430px;
-  margin: 0 auto;
-}
-
-html.mobile-runtime .m-content-detail {
-  padding-bottom: calc(var(--mobile-tabs-h) + 104px + env(safe-area-inset-bottom));
-}
-
-html.mobile-runtime .m-blank {
-  min-height: 100%;
-}
-
-/* 底部主导航 —— 样式与 PlayerBar 统一 */
-html.mobile-runtime .m-tabs {
-  position: fixed;
-  left: 14px;
-  right: 14px;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  z-index: 50;
-  overflow: hidden;
-  height: var(--mobile-tabs-h);
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 6px 20px;
+  padding: 0;
+  margin: 0;
+  gap: 0;
+  border: 0;
   border-radius: 0;
-  border-top: 1px solid var(--border);
-  background: var(--bg-elevated);
-  box-shadow: 0 -4px 18px rgba(0,0,0,0.08);
-  transition: transform 0.32s var(--ease-out), opacity 0.25s ease;
-}
-
-@media (min-width: 480px) {
-  html.mobile-runtime .m-tabs,
-  html.mobile-runtime .player-bar-wrap .player-bar,
-  html.mobile-runtime .player-bar-wrap .player-bar.compact,
-  html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
-    max-width: 430px !important;
-    margin-left: auto;
-    margin-right: auto;
-  }
-}
-
-html.mobile-runtime .m-tabs::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: transparent;
-  z-index: -1;
-}
-
-html.mobile-runtime .m-tabs::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
-  pointer-events: none;
-  z-index: 1;
-}
-
-html.mobile-runtime[data-theme="dark"] .m-tabs {
-  background: var(--bg-elevated);
-}
-
-html.mobile-runtime[data-theme="dark"] .m-tabs::after {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
-}
-
-html.mobile-runtime .mobile-app.tabs-hidden .m-tabs {
-  transform: translate(-50%, calc(100% + 28px));
-  opacity: 0;
-  pointer-events: none;
-}
-
-html.mobile-runtime .mobile-app.drawer-open .m-tabs {
-  transform: translate(-50%, calc(100% + 28px));
-  opacity: 0;
-  pointer-events: none;
-}
-
-html.mobile-runtime .m-tab {
-  min-width: 0;
-  min-height: 44px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border-radius: var(--radius-sm);
-  color: color-mix(in srgb, var(--text-secondary) 88%, var(--text) 12%);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  transition: color 0.16s var(--ease-out), background 0.16s var(--ease-out), transform 0.16s var(--ease-out);
-}
-
-html.mobile-runtime .m-tab svg {
-  width: 22px;
-  height: 22px;
-}
-
-html.mobile-runtime .m-tab.active {
-  color: var(--accent);
-  background: transparent;
-}
-
-html.mobile-runtime[data-theme="dark"] .m-tab:not(.active) {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-html.mobile-runtime[data-theme="dark"] .m-tab.active {
-  color: var(--accent);
-}
-
-html.mobile-runtime .m-tab:active {
-  transform: scale(0.96);
-}
-
-/* ---------- 抽屉 ---------- */
-html.mobile-runtime .m-drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(0,0,0,0.38);
-  animation: m-fade-in 0.22s var(--ease-out);
-}
-
-html.mobile-runtime .m-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: min(280px, 82vw);
-  z-index: 91;
-  background: var(--bg-surface);
-  transform: translateX(-105%);
-  transition: transform 0.28s var(--ease-out);
-  box-shadow: 4px 0 32px rgba(0,0,0,0.22);
   overflow: hidden;
 }
 
-html.mobile-runtime .m-drawer.open {
-  transform: translateX(0);
-}
-
-html.mobile-runtime .m-drawer .sidebar,
-html.mobile-runtime .m-drawer .sidebar.in-drawer {
-  display: flex !important;
-  width: 100% !important;
+html.mobile-runtime .main-area {
+  width: 100%;
   height: 100%;
-  border-radius: 0 !important;
-  background: var(--bg-surface) !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
 }
 
-/* 抽屉内头像区 */
-html.mobile-runtime .m-drawer .sidebar-avatar-btn {
-  padding: calc(18px + env(safe-area-inset-top)) 18px 16px;
-  pointer-events: none;
-}
-
-html.mobile-runtime .m-drawer .sidebar-avatar {
-  width: 56px;
-  height: 56px;
-}
-
-html.mobile-runtime .m-drawer .sidebar-avatar-meta {
+html.mobile-runtime .mobile-app {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
-html.mobile-runtime .m-drawer .sidebar-avatar-name {
+html.mobile-runtime .mobile-page-bar {
+  position: relative;
+  z-index: 20;
+  flex: none;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  min-height: calc(var(--mobile-page-bar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+html.mobile-runtime.custom-wallpaper .mobile-page-bar {
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+html.mobile-runtime .mobile-page-bar h1 {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
   font-size: 18px;
   font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .mobile-page-bar__button {
+  grid-column: 1;
+  grid-row: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-left: -10px;
+  border-radius: var(--radius-md);
   color: var(--text);
-}
-
-html.mobile-runtime .m-drawer .sidebar-login-link {
-  pointer-events: auto;
-  font-size: 13px;
-  color: var(--accent);
   background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
 }
 
-html.mobile-runtime .m-drawer .sidebar-nav {
-  padding-top: 0;
+html.mobile-runtime .mobile-page-content {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: 24px;
 }
 
-/* ---------- PlayerBar 移动端适配 ---------- */
-html.mobile-runtime .player-bar-wrap {
+html.mobile-runtime .mobile-page-content__inner {
+  width: 100%;
+  max-width: 1080px;
+  min-width: 0;
+  margin-inline: auto;
+  padding: 20px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+html.mobile-runtime:has(.player-bar-wrap) .mobile-page-content__inner {
+  padding-bottom: calc(var(--mobile-player-h) + 36px + env(safe-area-inset-bottom));
+}
+
+html.mobile-runtime .mobile-shared-page,
+html.mobile-runtime .mobile-page-content__inner > :is(.playlist-page, .artist-page, .user-page, .settings-page, .about-page) {
+  width: 100%;
+  min-width: 0;
+}
+
+/* The existing PC Sidebar becomes the mobile navigation drawer. */
+html.mobile-runtime .app-shell > .sidebar.in-drawer {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom));
-  z-index: 55;
-  pointer-events: auto;
-  transition: bottom 0.32s var(--ease-out), transform 0.32s var(--ease-out);
-}
-
-html.mobile-runtime .player-bar-wrap.tabs-hidden {
-  bottom: calc(12px + env(safe-area-inset-bottom));
-}
-
-/* 抽屉打开时 PlayerBar 降到 drawer 下方 */
-html.mobile-runtime .player-bar-wrap.drawer-open {
-  z-index: 40;
-  transform: translate(-50%, calc(100% + 28px));
-  opacity: 0;
+  inset: 0 auto 0 0;
+  z-index: 210;
+  display: flex !important;
+  width: min(82vw, var(--sidebar-w));
+  height: var(--mobile-viewport-height, 100dvh);
+  padding-top: env(safe-area-inset-top);
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  transform: translateX(-104%);
+  transition: transform 220ms var(--ease-out);
+  visibility: hidden;
   pointer-events: none;
 }
 
-html.mobile-runtime .player-bar-wrap.m-runtime {
-  display: block !important;
+html.mobile-runtime .app-shell > .sidebar.in-drawer.open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 
-html.mobile-runtime .player-bar-wrap .player-bar,
-html.mobile-runtime .player-bar-wrap .player-bar.compact,
-html.mobile-runtime .player-bar-wrap .player-bar.with-lyrics {
-  display: grid !important;
-  width: 100% !important;
-  max-width: none !important;
-  height: 64px;
-  margin: 0;
-  padding: 0 18px;
-  grid-template-columns: minmax(0, 1fr) 44px 40px;
-  gap: 2px;
-  border: none;
-  border-top: 1px solid var(--border);
+html.mobile-runtime .mobile-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  width: 100%;
+  height: 100%;
+  border: 0;
   border-radius: 0;
-  box-shadow: 0 -6px 18px rgba(0,0,0,0.08);
-  transform: none !important;
+  background: rgba(0, 0, 0, .44);
 }
 
-html.mobile-runtime .player-bar-wrap:hover .player-bar,
-html.mobile-runtime .player-bar-wrap:hover .player-bar.compact,
-html.mobile-runtime .player-bar-wrap:hover .player-bar.with-lyrics {
-  max-width: none !important;
-  transform: none !important;
+/* Use the same PlayerBar component on desktop and mobile. */
+html.mobile-runtime .player-bar-wrap,
+html.mobile-runtime .player-bar-wrap.sidebar-collapsed {
+  position: fixed;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 90;
+  width: auto;
+  pointer-events: auto;
 }
 
-html.mobile-runtime .player-bar .player-bar__lcd,
+html.mobile-runtime .player-bar-wrap.queue-open { right: max(12px, env(safe-area-inset-right)); }
+
+html.mobile-runtime .player-bar-wrap > .player-bar,
+html.mobile-runtime .player-bar-wrap > .player-bar.compact,
+html.mobile-runtime .player-bar-wrap > .player-bar.with-lyrics,
+html.mobile-runtime .player-bar-wrap:hover > .player-bar {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 4px;
+  width: 100%;
+  max-width: none;
+  height: var(--mobile-player-h);
+  min-height: var(--mobile-player-h);
+  margin: 0;
+  padding: 0 10px 0 8px;
+  border-radius: var(--radius-lg);
+  transform: none;
+}
+
+html.mobile-runtime .player-bar__lcd,
 html.mobile-runtime .player-bar.compact .player-bar__lcd,
 html.mobile-runtime .player-bar.with-lyrics .player-bar__lcd {
   max-width: none;
-  padding-right: 4px;
-  gap: 10px;
-}
-
-html.mobile-runtime .player-bar .lcd-artwork {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-xs);
-}
-
-html.mobile-runtime .player-bar .lcd-meta__title,
-html.mobile-runtime .player-bar .lcd-meta__lyric {
-  font-size: 14px;
-  line-height: 1.25;
-}
-
-html.mobile-runtime .player-bar .lcd-meta__artist,
-html.mobile-runtime .player-bar .lcd-meta__translation {
-  font-size: 11px;
-  color: color-mix(in srgb, var(--text-secondary) 86%, var(--text) 14%);
-}
-
-html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__artist,
-html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__translation,
-html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__artist,
-html.mobile-runtime[data-theme="dark"] .player-bar .lcd-meta__translation {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-html.mobile-runtime .player-bar .player-bar__controls {
-  align-items: center;
-  justify-content: center;
-}
-
-html.mobile-runtime .player-bar .playback-controls {
-  gap: 0;
-}
-
-/* 移动端隐藏复杂控制：随机/上一首/下一首/循环/音量只保留播放 */
-html.mobile-runtime .player-bar .ctrl-btn--shuffle,
-html.mobile-runtime .player-bar .ctrl-btn--prev,
-html.mobile-runtime .player-bar .ctrl-btn--next,
-html.mobile-runtime .player-bar .ctrl-btn--repeat,
-html.mobile-runtime .player-bar .volume-slider-inline,
-html.mobile-runtime .player-bar .player-bar__volume {
-  display: none !important;
-}
-
-html.mobile-runtime .player-bar .ctrl-btn--play {
-  width: 44px;
-  height: 44px;
-  transform: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text);
-  box-shadow: none;
-}
-
-html.mobile-runtime .player-bar .player-bar__actions {
-  justify-content: center;
-  padding-left: 0;
-  gap: 0;
   min-width: 0;
-  width: 44px;
-  height: 44px;
+  gap: 10px;
+  padding-right: 4px;
 }
 
-html.mobile-runtime .player-bar .action-btn {
-  width: 40px;
-  height: 44px;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text);
-  box-shadow: none;
+html.mobile-runtime .lcd-artwork { width: 48px; height: 48px; border-radius: var(--radius-sm); }
+html.mobile-runtime .lcd-meta { min-width: 0; }
+html.mobile-runtime .lcd-meta__title,
+html.mobile-runtime .lcd-meta__lyric { font-size: 14px; line-height: 1.25; }
+html.mobile-runtime .lcd-meta__artist,
+html.mobile-runtime .lcd-meta__translation { font-size: 11px; }
+html.mobile-runtime .player-bar__controls { justify-content: center; }
+html.mobile-runtime .playback-controls { gap: 0; }
+html.mobile-runtime :is(.ctrl-btn--shuffle, .ctrl-btn--prev, .ctrl-btn--next, .ctrl-btn--repeat, .volume-slider-inline, .action-btn--mobile-next) { display: none !important; }
+html.mobile-runtime .ctrl-btn--play,
+html.mobile-runtime .action-btn--queue { width: 44px; height: 44px; }
+html.mobile-runtime .player-bar__actions { width: 44px; min-width: 44px; padding: 0; gap: 0; justify-content: center; }
+
+html.mobile-runtime.mobile-keyboard-open .player-bar-wrap {
+  visibility: hidden;
+  pointer-events: none;
 }
 
-html.mobile-runtime .player-bar .action-btn--queue { display: none; }
-html.mobile-runtime .player-bar .action-btn--mobile-next { display: grid; place-items: center; }
+html.mobile-runtime.mobile-keyboard-open .mobile-page-content__inner { padding-bottom: 24px; }
 
-html.mobile-runtime .player-bar .action-btn.active {
-  background: color-mix(in srgb, var(--accent) 16%, var(--bg-elevated) 84%);
-  color: var(--accent);
+/* PC page components keep their visual system; only their geometry changes. */
+html.mobile-runtime .profile-home { gap: 16px; }
+html.mobile-runtime .profile-home__quick,
+html.mobile-runtime .profile-home__quick-skeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+html.mobile-runtime .profile-home__quick > button { min-height: 104px; padding: 14px; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 10px; }
+html.mobile-runtime .profile-home__quick-icon { width: 40px; height: 40px; }
+html.mobile-runtime .profile-home__dashboard,
+html.mobile-runtime .profile-home__social { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+html.mobile-runtime .profile-home__panel,
+html.mobile-runtime .profile-home__section { padding: 16px; }
+html.mobile-runtime .profile-home__cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+html.mobile-runtime .profile-home__logged-out { min-height: calc(100dvh - 190px); }
+
+html.mobile-runtime .music-discovery-header,
+html.mobile-runtime .settings-header { display: none; }
+html.mobile-runtime .library-title { display: none; }
+html.mobile-runtime .library-header { justify-content: flex-end; }
+html.mobile-runtime .library-stats { width: 100%; justify-content: space-around; }
+
+html.mobile-runtime :is(.playlist-back-btn, .artist-back, .user-page__back) { display: none; }
+html.mobile-runtime :is(.page-header h1, .local-header h1, .local-header > div > .local-kicker) { display: none; }
+html.mobile-runtime .artist-hero { flex-direction: column; align-items: center; gap: 20px; padding: 24px 20px; }
+html.mobile-runtime .artist-avatar { width: min(48vw, 200px); height: auto; aspect-ratio: 1; }
+html.mobile-runtime .artist-info { width: 100%; min-width: 0; }
+html.mobile-runtime .artist-albums { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+
+html.mobile-runtime :is(button, a, [role="button"]) { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+html.mobile-runtime :is(button, input, textarea, select, [role="button"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+html.mobile-runtime :is(input:not([type="range"]):not([type="checkbox"]), textarea, select) { max-width: 100%; font-size: 16px; }
+
+@media (orientation: landscape) and (max-height: 560px) {
+  html.mobile-runtime { --mobile-page-bar-h: 52px; --mobile-player-h: 60px; }
+  html.mobile-runtime .mobile-page-content__inner { padding-top: 14px; }
+  html.mobile-runtime .player-bar-wrap > .player-bar,
+  html.mobile-runtime .player-bar-wrap > .player-bar.compact,
+  html.mobile-runtime .player-bar-wrap > .player-bar.with-lyrics { min-height: 60px; height: 60px; }
 }
 
-html.mobile-runtime[data-theme="dark"] .player-bar .ctrl-btn--play,
-html.mobile-runtime[data-theme="dark"] .player-bar .action-btn,
-html.mobile-runtime[data-theme="dark"] .player-bar .ctrl-btn--play,
-html.mobile-runtime[data-theme="dark"] .player-bar .action-btn {
-  background: transparent;
-  color: rgba(255,255,255,0.92);
-  box-shadow: none;
-}
-
-html.mobile-runtime[data-theme="dark"] .player-bar .action-btn.active,
-html.mobile-runtime[data-theme="dark"] .player-bar .action-btn.active {
-  background: color-mix(in srgb, var(--bg-elevated) 86%, var(--accent) 14%);
-  color: color-mix(in srgb, var(--accent) 82%, #fff 18%);
-}
-
-html.mobile-runtime .player-bar .action-btn svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* 移动端点击整个 PlayerBar 打开歌词页，控制按钮仍在上层 */
-html.mobile-runtime .player-bar__open-hit {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  z-index: 3;
-}
-
-/* 禁用旧 mobile-bottom / mobile-mini 等 */
-html.mobile-runtime .mobile-bottom,
-html.mobile-runtime .mobile-mini-row,
-html.mobile-runtime .mobile-tabs,
-html.mobile-runtime .mobile-tab,
-html.mobile-runtime .mobile-topbar {
-  display: none !important;
-}
-
-html.mobile-runtime .m-subpage {
-  min-height: 100%;
-}
-
-@keyframes m-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(28px);
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime *,
+  html.mobile-runtime *::before,
+  html.mobile-runtime *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-html.mobile-runtime .m-subpage-enter {
-  animation: m-slide-up 0.32s var(--ease-out) both;
-}
-
-@keyframes m-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }

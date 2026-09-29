@@ -20,6 +20,7 @@
 
   let keyword = $state('')
   let loading = $state(false)
+  let searchError = $state('')
   let results = $state<SearchResult>({ songs: [], artists: [], playlists: [] })
   let hotList = $state<HotSearchItem[]>([])
   let hotSongs = $state<Song[]>([])
@@ -45,6 +46,7 @@
     if (!kw) return
     const currentRequest = ++requestId
     loading = true
+    searchError = ''
     activeCategory = 'all'
     results = { songs: [], artists: [], playlists: [] }
     try {
@@ -52,7 +54,7 @@
       if (currentRequest !== requestId) return
       results = searchResults
     } catch {
-      if (currentRequest === requestId) results = { songs: [], artists: [], playlists: [] }
+      if (currentRequest === requestId) { results = { songs: [], artists: [], playlists: [] }; searchError = '搜索失败，请重试' }
     }
     if (currentRequest === requestId) loading = false
   }
@@ -79,6 +81,7 @@
 </script>
 
 <div class="search-page fade-in">
+  {#if searchError}<div class="m-empty-state" role="alert"><p>{searchError}</p><button class="m-primary-btn" onclick={doSearch}>重试</button></div>{/if}
   <header class="search-header">
     <div>
       <span class="search-kicker">Search</span>
@@ -186,11 +189,11 @@
             <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
             <div class="search-songs">
               {#each results.songs.slice(0, 8) as track (track.id)}
-                <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
+                <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                   {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                   <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
-                  <span class="search-song-dur">{formatDuration(track.dt)}</span>
-                </button>
+                  <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
+                </div>
               {/each}
             </div>
           </section>
@@ -229,11 +232,11 @@
           <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
           <div class="search-songs">
             {#each results.songs as track (track.id)}
-              <button class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
+              <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                 {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
                 <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
-                <span class="search-song-dur">{formatDuration(track.dt)}</span>
-              </button>
+                <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
+              </div>
             {/each}
           </div>
         </section>

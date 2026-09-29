@@ -1,28 +1,42 @@
 .app-shell.has-wallpaper {
   isolation: isolate;
+  z-index: 1;
   background: transparent;
 }
 
 .wallpaper-layer {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.3), transparent 44%),
+    #dedee4;
 }
 
-.wallpaper-layer img,
-.wallpaper-layer video {
+.wallpaper-layer__backdrop,
+.wallpaper-layer__media {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.wallpaper-layer__backdrop {
+  display: none;
+}
+
+.wallpaper-layer__media {
   object-fit: cover;
+  object-position: center;
 }
 
 .wallpaper-layer__scrim {
   position: absolute;
   inset: 0;
+  z-index: 2;
   background: rgba(238, 238, 242, 0.34);
 }
 
@@ -32,6 +46,81 @@
 
 .app-shell.has-wallpaper > .main-area {
   z-index: 1;
+}
+
+html:not(.mobile-runtime) .wallpaper-layer__backdrop {
+  display: block;
+  z-index: 0;
+  object-fit: cover;
+  filter: blur(28px) saturate(1.08);
+  transform: scale(1.08);
+}
+
+html:not(.mobile-runtime) .wallpaper-layer__media {
+  z-index: 1;
+  object-fit: contain;
+}
+
+html:not(.mobile-runtime) .wallpaper-layer--video {
+  background:
+    radial-gradient(circle at 24% 16%, rgba(255, 255, 255, 0.3), transparent 42%),
+    linear-gradient(145deg, #dedee4, #c9c9d0);
+}
+
+html[data-theme="dark"]:not(.mobile-runtime) .wallpaper-layer {
+  background:
+    radial-gradient(circle at 24% 16%, rgba(255, 255, 255, 0.08), transparent 42%),
+    #0d0d10;
+}
+
+html:not(.mobile-runtime) .wallpaper-layer__scrim {
+  background: rgba(238, 238, 242, 0.16);
+}
+
+html[data-theme="dark"]:not(.mobile-runtime) .wallpaper-layer__scrim {
+  background: rgba(4, 4, 6, 0.24);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper {
+  --bg-surface: rgba(250, 250, 252, 0.48);
+  --bg-layer: rgba(238, 238, 242, 0.38);
+  --bg-elevated: rgba(255, 255, 255, 0.58);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper[data-theme="dark"] {
+  --bg-surface: rgba(24, 24, 26, 0.44);
+  --bg-layer: rgba(18, 18, 20, 0.34);
+  --bg-elevated: rgba(36, 36, 40, 0.56);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper > .sidebar {
+  background: rgba(250, 250, 252, 0.5);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper > .main-area {
+  background: rgba(248, 248, 250, 0.42);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper[data-theme="dark"] > .sidebar {
+  background: rgba(18, 18, 20, 0.5);
+}
+
+html:not(.mobile-runtime) .app-shell.has-wallpaper[data-theme="dark"] > .main-area {
+  background: rgba(14, 14, 16, 0.42);
+}
+
+html.custom-wallpaper:not(.mobile-runtime) .window-titlebar {
+  background: rgba(248, 248, 250, 0.5);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+html.custom-wallpaper[data-theme="dark"]:not(.mobile-runtime) .window-titlebar {
+  background: rgba(14, 14, 16, 0.5);
 }
 
 html.mobile-runtime .app-shell.has-wallpaper {

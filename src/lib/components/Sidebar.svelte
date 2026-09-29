@@ -11,9 +11,11 @@
     notificationUnread = 0,
     refreshKey = 0,
     inDrawer = false,
+    open = true,
     onNavigate,
     onToggleTheme,
-    onOpenLogin
+    onOpenLogin,
+    onRequestClose,
   }: {
     activeView?: string
     collapsed?: boolean
@@ -21,15 +23,18 @@
     notificationUnread?: number
     refreshKey?: number
     inDrawer?: boolean
+    open?: boolean
     onNavigate?: (id: string) => void
     onToggleTheme?: (event?: MouseEvent) => void
     onOpenLogin?: () => void
+    onRequestClose?: () => void
   } = $props()
 
   let showLogoutConfirm = $state(false)
 
   function nav(id: string): void {
     onNavigate?.(id)
+    if (inDrawer) onRequestClose?.()
   }
 
   function toggleCollapsed(): void {
@@ -37,7 +42,7 @@
   }
 </script>
 
-<aside class="sidebar" class:collapsed class:in-drawer={inDrawer}>
+<aside class="sidebar" class:collapsed={collapsed && !inDrawer} class:in-drawer={inDrawer} class:open={inDrawer && open} aria-hidden={inDrawer && !open} inert={inDrawer && !open}>
   <!-- 顶部头像按钮（老B站风格：点击伸缩侧栏） -->
   {#if !inDrawer}
   <button class="sidebar-avatar-btn" type="button" onclick={toggleCollapsed} aria-label={collapsed ? '展开侧栏' : '收起侧栏'} title={collapsed ? '展开侧栏' : '收起侧栏'}>
@@ -65,7 +70,7 @@
     <div class="sidebar-avatar-meta">
       <span class="sidebar-avatar-name">{auth.isLoggedIn ? auth.user?.nickname : '未登录'}</span>
       {#if !auth.isLoggedIn}
-        <button class="sidebar-login-link" onclick={() => onOpenLogin?.()}>点击登录</button>
+        <button class="sidebar-login-link" onclick={() => { onRequestClose?.(); onOpenLogin?.() }}>点击登录</button>
       {/if}
     </div>
   </div>

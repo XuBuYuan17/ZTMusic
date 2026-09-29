@@ -1,166 +1,68 @@
-/* ================================================
-   Mobile Player Styles
-   ================================================ */
-
-
-/* Mobile container */
-html.mobile-runtime .ly-container {
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  gap: 0;
-  padding: calc(16px + env(safe-area-inset-top)) clamp(20px, 6vw, 28px) calc(18px + env(safe-area-inset-bottom));
-  overflow: hidden;
+/* Mobile player geometry. Desktop keeps its original cover/lyrics layout. */
+html.mobile-runtime .ly-fullscreen {
+  position: fixed; inset: 0; z-index: 300; height: 100dvh; padding: 0;
+  opacity: 1; transform: none; clip-path: none; overflow: hidden; background: #151519;
+  pointer-events: auto; transition: none;
 }
-
-html.mobile-runtime .ly-back-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  top: calc(6px + env(safe-area-inset-top));
-  left: 50%;
-  right: auto;
-  width: 96px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  transform: translateX(-50%);
-  z-index: 1020;
+html.mobile-runtime .ly-fullscreen::before, html.mobile-runtime .ly-fullscreen::after { display: none; }
+html.mobile-runtime .ly-fullscreen .ly-container { position: relative; display: block; width: 100%; height: 100%; padding: 0; margin: 0; max-width: none; transform: none; opacity: 1; }
+html.mobile-runtime .ly-container .apple-music-player {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, auto) auto auto; align-content: center;
+  gap: 20px; padding: calc(64px + env(safe-area-inset-top)) max(24px, calc((100vw - 480px) / 2)) calc(20px + env(safe-area-inset-bottom));
+  font-family: var(--font); overflow: hidden; transform: none; opacity: 1;
 }
-
-html.mobile-runtime .ly-back-btn::before {
-  content: '';
-  width: 54px;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.72);
-  box-shadow: 0 1px 10px rgba(0,0,0,0.22);
+html.mobile-runtime .ly-container .am-bg-overlay { background: linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.68)); }
+html.mobile-runtime .ly-container .am-flying-cover {
+  position: relative; inset: auto; grid-row: 1; grid-column: 1; align-self: end; justify-self: center;
+  width: min(100%, calc(100dvh - 360px), 380px); height: auto; aspect-ratio: 1;
+  border-radius: var(--radius-xl); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
 }
-
-html.mobile-runtime .ly-back-btn svg {
-  display: none;
+html.mobile-runtime .ly-container .am-flying-cover-img { transform: none; width: 100%; height: 100%; object-fit: cover; }
+html.mobile-runtime .ly-container .am-track-info {
+  position: relative; inset: auto; grid-row: 2; grid-column: 1; width: 100%; min-width: 0; max-width: none; margin: 0; opacity: 1; transform: none; text-align: left;
 }
-
-html.mobile-runtime .ly-back-btn {
-  opacity: 1;
-  transition: opacity 0.45s ease, transform 0.45s ease;
+html.mobile-runtime .ly-container .am-track-title { font-size: 24px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; }
+html.mobile-runtime .ly-container .am-track-artist { color: rgba(255,255,255,.75); font-size: 15px; margin-top: 6px; }
+html.mobile-runtime .ly-container .am-bottom-controls {
+  position: relative; inset: auto; grid-row: 3; grid-column: 1; width: 100%; margin: 0; opacity: 1; transform: none; pointer-events: auto; transition: none;
 }
-html.mobile-runtime .ly-container.controls-hidden .ly-back-btn {
-  opacity: 0;
-  pointer-events: none;
+html.mobile-runtime .ly-container .am-play-row { justify-content: space-between; gap: 4px; }
+html.mobile-runtime .ly-container .am-ctrl-btn { width: 44px; height: 52px; color: rgba(255,255,255,.85); }
+html.mobile-runtime .ly-container .am-play-btn { width: 64px; height: 64px; }
+html.mobile-runtime .ly-container .am-corner-info, html.mobile-runtime .ly-container .am-lyrics-area { display: none; }
+html.mobile-runtime .ly-container .lyrics-mode { align-content: stretch; grid-template-rows: 56px minmax(0, 1fr) auto; }
+html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { align-self: center; justify-self: start; width: 48px; height: 48px; border-radius: var(--radius-sm); }
+html.mobile-runtime .ly-container .lyrics-mode .am-track-info { display: none; }
+html.mobile-runtime .ly-container .lyrics-mode .am-corner-info { position: relative; inset: auto; grid-row: 1; grid-column: 1; align-self: center; display: block; min-width: 0; margin-left: 64px; opacity: 1; transform: none; }
+html.mobile-runtime .ly-container .lyrics-mode .am-lyrics-area {
+  position: relative; inset: auto; grid-row: 2; grid-column: 1; display: block; min-height: 0; padding: 0; margin: 0;
+  mask-image: linear-gradient(transparent, #000 8%, #000 88%, transparent); touch-action: pan-y;
 }
-
-/* Apple Music style: close button at top-left (旧样式，已废弃，实际关闭按钮由 LyricsPageV2 的 .ly-back-btn 提供) */
-
-html.mobile-runtime .ly-top-bar {
-  top: calc(48px + env(safe-area-inset-top));
-  left: auto;
-  right: 26px;
-  z-index: 31;
+html.mobile-runtime .ly-container .am-lyrics-inner { padding: 24px 0 64px; }
+html.mobile-runtime .ly-container .am-lyric-line { padding-block: 14px; }
+html.mobile-runtime .ly-container .am-lyric-text { font-size: 26px; line-height: 1.45; color: rgba(255,255,255,.48); }
+html.mobile-runtime .ly-container .am-lyric-line.active .am-lyric-text { color: white; font-size: 26px; }
+html.mobile-runtime .ly-container .am-lyric-trans { color: rgba(255,255,255,.7); }
+html.mobile-runtime .ly-container .am-lyrics-fade-top, html.mobile-runtime .ly-container .am-lyrics-fade-bottom { display: none; }
+html.mobile-runtime .ly-container .am-more-shell { top: calc(8px + env(safe-area-inset-top)); right: 16px; }
+html.mobile-runtime .ly-container .am-more-btn { width: 44px; height: 44px; background: none; box-shadow: none; }
+html.mobile-runtime .m-player-dismiss { position: absolute; top: env(safe-area-inset-top); left: calc(50% - 48px); width: 96px; height: 48px; z-index: 1001; display: grid; place-items: center; background: none; touch-action: none; }
+html.mobile-runtime .m-player-dismiss span { width: 36px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.7); }
+html.mobile-runtime .ly-container .vinyl-theme .am-flying-cover::before { width: 90%; height: 90%; right: -12%; top: 5%; }
+html.mobile-runtime .ly-container .vinyl-theme .am-vinyl-label { width: 36%; height: 36%; right: 15%; top: 32%; }
+html.mobile-runtime .ly-container .lyrics-mode.vinyl-theme .am-flying-cover::before { display: none; }
+@media (max-height: 700px) and (orientation: portrait) {
+  html.mobile-runtime .ly-container .apple-music-player { gap: 12px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  html.mobile-runtime .ly-container .am-track-title { font-size: 21px; }
 }
-
-html.mobile-runtime .ly-top-bar .ly-queue-btn {
-  display: flex;
+@media (orientation: landscape) and (max-height: 560px) {
+  html.mobile-runtime .ly-container .apple-music-player { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 12px 32px; padding: 56px max(24px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
+  html.mobile-runtime .ly-container .am-flying-cover { grid-row: 1 / 3; align-self: center; width: min(100%, calc(100dvh - 88px)); }
+  html.mobile-runtime .ly-container .am-track-info { grid-column: 2; grid-row: 1; align-self: end; }
+  html.mobile-runtime .ly-container .am-track-title { font-size: 20px; }
+  html.mobile-runtime .ly-container .am-bottom-controls { grid-column: 2; grid-row: 2; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { display: none; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-corner-info { grid-column: 2; grid-row: 1; margin: 0; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-lyrics-area { grid-column: 1; grid-row: 1 / 3; }
+  html.mobile-runtime .ly-container .am-lyric-text, html.mobile-runtime .ly-container .am-lyric-line.active .am-lyric-text { font-size: 22px; }
 }
-
-/* Hide PC panels */
-html.mobile-runtime .ly-left,
-html.mobile-runtime .ly-right {
-  display: none !important;
-}
-
-/* ===== 已删除：旧移动端歌词页样式（约 524 行，2026-07-22 清理）
-   删除的选择器全部依赖 .ly-mobile-player / .ly-mobile-context / .ly-mobile-lyrics
-   / .ly-mobile-action-btn / .ly-playing-badge 等，而这些类名在移动端组件中
-   零使用（真正的移动端歌词页由 AppleMusicPlayer.svelte 的 <style> 提供）。
-   如需查阅历史样式，参考 git 历史 commit 之前的版本。 ===== */
-
-
-
-
-
-/* Mobile queue panel */
-html.mobile-runtime .ly-local-queue .queue-panel-backdrop {
-  background: rgba(0,0,0,0.28);
-  backdrop-filter: blur(6px);
-}
-
-html.mobile-runtime .ly-local-queue .queue-panel {
-  top: calc(92px + env(safe-area-inset-top)) !important;
-  right: 16px !important;
-  bottom: auto !important;
-  left: 16px !important;
-  width: auto !important;
-  max-height: min(58dvh, 460px) !important;
-  border-radius: var(--radius-xl) !important;
-  animation: lyQueueDrop 0.2s ease both !important;
-}
-
-html.mobile-runtime .ly-local-queue .queue-list {
-  max-height: calc(min(58dvh, 460px) - 72px);
-}
-
-html.mobile-runtime .ly-context-toggle {
-  right: 24px;
-  bottom: calc(28px + env(safe-area-inset-bottom));
-  width: 44px;
-  height: 44px;
-  z-index: 32;
-}
-
-html.mobile-runtime .ly-context-toggle.open {
-  transform: translate(0, 0) scale(1);
-}
-
-html.mobile-runtime .ly-context-strip {
-  left: 18px;
-  right: 18px;
-  bottom: calc(82px + env(safe-area-inset-bottom));
-  width: auto;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  padding: 0 34px 0 0;
-}
-
-html.mobile-runtime .ly-context-card {
-  height: 80px;
-  border-radius: var(--radius-lg);
-}
-
-html.mobile-runtime .ly-context-card.ly-context-playlists {
-  display: none;
-}
-
-html.mobile-runtime .ly-context-scrim {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  z-index: -1;
-}
-
-html.mobile-runtime .ly-context-detail {
-  position: static;
-  width: 100%;
-  max-height: min(30vh, 260px);
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: var(--radius-xl);
-}
-
-html.mobile-runtime .ly-context-detail-list,
-html.mobile-runtime .ly-context-comment-list,
-html.mobile-runtime .ly-context-detail-grid {
-  max-height: calc(min(30vh, 260px) - 54px);
-}
-
-/* 评论面板多了一个发表框，列表要把这部分高度让出来 */
-html.mobile-runtime .ly-context-comments .ly-context-comment-list {
-  max-height: calc(min(30vh, 260px) - 112px);
-}
-
-html.mobile-runtime .player-bar-wrap.queue-open {
-  right: 10px !important;
-}
-
-

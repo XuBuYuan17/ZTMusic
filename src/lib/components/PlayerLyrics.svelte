@@ -28,7 +28,7 @@
 {/snippet}
 
 <!-- Lyrics area -->
-<div class="am-lyrics-area" bind:this={lyricsEl} aria-live="polite" aria-atomic="false">
+<div inert={!active} aria-hidden={!active} class="am-lyrics-area" bind:this={lyricsEl} aria-live="polite" aria-atomic="false">
   <div class="am-lyrics-inner">
     {#if lyricState.loading}
       <div class="am-no-lyric" aria-busy="true">歌词加载中…</div>

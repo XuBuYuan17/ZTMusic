@@ -162,7 +162,7 @@
     <div class="settings-row">
       <div>
         <div class="settings-label">布局模式</div>
-        <div class="settings-desc">自动时手机使用移动布局，平板可手动切换到 PC 布局获得更大内容空间</div>
+        <div class="settings-desc">竖屏手机使用移动布局；设备横屏时自动切换到 PC 布局</div>
       </div>
       <select class="settings-select" value={settings.layoutMode} onchange={(e) => settings.handleLayoutMode((e.target as HTMLSelectElement).value)}>
         <option value="auto">自动</option>

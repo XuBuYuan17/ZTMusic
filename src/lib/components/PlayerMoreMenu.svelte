@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mobileDrag } from '../app/mobile-interaction.ts';
   import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts';
   import Icon from './ui/Icon.svelte';
 
@@ -42,6 +43,7 @@
   {#if open}
     <div class="am-more-backdrop" role="presentation" onclick={() => onClose?.()}></div>
     <div class="am-more-menu" transition:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="menu" aria-label="更多操作菜单">
+    <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
       <div class="am-more-track" aria-hidden="true">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>

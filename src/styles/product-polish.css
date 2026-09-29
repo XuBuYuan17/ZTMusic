@@ -2,7 +2,3 @@
 html:not(.mobile-runtime) :where(.page-header h1, .home-section-title, .music-section-head h2, .daily-section-header h2) {
   letter-spacing: 0;
 }
-
-html.mobile-runtime :where(.m-settings-card, .m-list, .m-library-shortcuts) {
-  box-shadow: none;
-}

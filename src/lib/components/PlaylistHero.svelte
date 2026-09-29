@@ -298,87 +298,17 @@
     62%, 100% { transform: translateX(110%); }
   }
 
-  :global(html.mobile-runtime) .playlist-detail-hero {
-    grid-template-columns: 104px minmax(0, 1fr);
-    align-items: end;
-    gap: 14px;
-    margin: -18px -14px 0;
-    padding: 52px 14px 16px;
-    border-width: 0 0 1px;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    background:
-      linear-gradient(155deg, color-mix(in srgb, var(--playlist-hero-color, #141414) 24%, transparent), transparent 68%),
-      color-mix(in srgb, var(--bg-elevated) 82%, transparent);
-  }
-
-  :global(html.mobile-runtime) .playlist-back-btn {
-    position: absolute;
-    top: 12px;
-    right: auto;
-    left: 14px;
-    width: 32px;
-    min-width: 32px;
-    height: 32px;
-    padding: 0;
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-  }
-
-  :global(html.mobile-runtime) .playlist-back-btn span {
-    display: none;
-  }
-
-  :global(html.mobile-runtime) .playlist-cover {
-    width: 104px;
-    height: 104px;
-    border-radius: var(--radius-md);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
-  }
-
-  :global(html.mobile-runtime) .playlist-hero-copy {
-    align-self: end;
-    gap: 6px;
-    padding-right: 0;
-  }
-
-  :global(html.mobile-runtime) .playlist-kicker {
-    font-size: 10px;
-    letter-spacing: .4px;
-  }
-
-  :global(html.mobile-runtime) .playlist-hero-copy h1 {
-    font-size: 22px;
-    line-height: 1.14;
-    line-clamp: 3;
-    -webkit-line-clamp: 3;
-  }
-
-  :global(html.mobile-runtime) .playlist-meta {
-    min-width: 0;
-    overflow: hidden;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  :global(html.mobile-runtime) .playlist-desc {
-    display: none;
-  }
-
-  :global(html.mobile-runtime) .playlist-play-btn {
-    min-height: 36px;
-    width: min(100%, 132px);
-    justify-content: center;
-    margin-top: 3px;
-    padding: 0 14px;
-    border-radius: 999px;
-    font-size: 13px;
-  }
+  :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; margin: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
+  :global(html.mobile-runtime) .playlist-back-btn { display: none; }
+  :global(html.mobile-runtime) .playlist-cover { justify-self: center; width: min(56vw, 240px); height: auto; aspect-ratio: 1; border-radius: var(--radius-lg); }
+  :global(html.mobile-runtime) .playlist-hero-copy { width: 100%; min-width: 0; gap: 8px; padding: 0; }
+  :global(html.mobile-runtime) .playlist-kicker { font-size: 11px; color: var(--text-secondary); }
+  :global(html.mobile-runtime) .playlist-hero-copy h1 { font-size: 26px; line-height: 1.25; line-clamp: 3; -webkit-line-clamp: 3; }
+  :global(html.mobile-runtime) .playlist-meta { min-width: 0; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+  :global(html.mobile-runtime) .playlist-desc { display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+  :global(html.mobile-runtime) .playlist-play-btn, :global(html.mobile-runtime) .playlist-shuffle-btn { min-height: 44px; justify-content: center; padding: 0 16px; border-radius: var(--radius-md); font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-shuffle-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-elevated); color: var(--text); }
 
   @media (max-width: 680px) {
     .playlist-detail-hero {

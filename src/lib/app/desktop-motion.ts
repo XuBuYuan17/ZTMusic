@@ -140,11 +140,25 @@ export function flyCover(target: HTMLElement) {
 
 const layers: HTMLElement[] = []
 export function dialogFocus(node: HTMLElement, close: () => void) {
-  if (document.documentElement.classList.contains('mobile-runtime')) return {}
   const previous = document.activeElement as HTMLElement | null
+  const isolated: HTMLElement[] = []
   layers.push(node)
   const items = () => [...node.querySelectorAll<HTMLElement>('button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea, select, a[href], [tabindex="0"]')].filter(el => el.getClientRects().length && !el.closest('[inert]'))
-  queueMicrotask(() => { if (node.isConnected && layers.at(-1) === node) (items()[0] || node).focus({ preventScroll: true }) })
+  queueMicrotask(() => {
+    if (!node.isConnected || layers.at(-1) !== node) return
+    if (document.documentElement.classList.contains('mobile-runtime')) {
+      let branch: HTMLElement = node
+      while (branch.parentElement && branch !== document.body) {
+        for (const sibling of branch.parentElement.children) {
+          if (!(sibling instanceof HTMLElement) || sibling === branch || sibling.inert || sibling.matches('script, style, [class*="backdrop"]')) continue
+          sibling.inert = true
+          isolated.push(sibling)
+        }
+        branch = branch.parentElement
+      }
+    }
+    ;(items()[0] || node).focus({ preventScroll: true })
+  })
   function key(event: KeyboardEvent) {
     if (layers.at(-1) !== node) return
     if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); close() }
@@ -156,5 +170,14 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
     }
   }
   window.addEventListener('keydown', key, true)
-  return { destroy() { const top = layers.at(-1) === node; const index = layers.indexOf(node); if (index >= 0) layers.splice(index, 1); window.removeEventListener('keydown', key, true); if (top && previous?.isConnected) previous.focus({ preventScroll: true }) } }
+  return { destroy() {
+    const top = layers.at(-1) === node
+    const index = layers.indexOf(node)
+    if (index >= 0) layers.splice(index, 1)
+    isolated.forEach(element => { element.inert = false })
+    window.removeEventListener('keydown', key, true)
+    if (top && previous?.isConnected) queueMicrotask(() => {
+      if (!previous.closest('[inert]')) previous.focus({ preventScroll: true })
+    })
+  } }
 }

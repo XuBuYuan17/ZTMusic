@@ -1,27 +1,28 @@
-// 移动端抽屉里渲染的是同一份 Sidebar，所以它的每个入口都必须有移动端渲染分支，
-// 否则点进去是一片空白（「关于」曾漏掉）。
+// Mobile keeps a dedicated navigation shell but renders the same page and player components as PC.
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const read = (file) => readFile(new URL(file, import.meta.url), 'utf8')
-const [sidebar, mobileApp] = await Promise.all([
+const [app, sidebar, mobileApp] = await Promise.all([
+  read('../../App.svelte'),
   read('./Sidebar.svelte'),
   read('./MobileApp.svelte'),
 ])
 
-const navTargets = [...sidebar.matchAll(/nav\('([^']+)'\)/g)].map((m) => m[1])
-assert.ok(navTargets.length > 0, 'Sidebar 未解析出导航入口，本检查的正则需要更新')
-
-const tabViewsSource = mobileApp.match(/const tabViews = \[([^\]]+)\]/)
-assert.ok(tabViewsSource, 'MobileApp.svelte 找不到 tabViews 声明，本检查需要更新')
-
-const handled = new Set([
-  ...[...mobileApp.matchAll(/activeView === '([^']+)'/g)].map((m) => m[1]),
-  ...[...tabViewsSource[1].matchAll(/'([^']+)'/g)].map((m) => m[1]),
-])
-
-for (const view of navTargets) {
-  assert.ok(handled.has(view), `侧栏入口 "${view}" 在 MobileApp 没有渲染分支，移动端打开会是空白页`)
+for (const page of ['Home', 'Explore', 'Library']) {
+  assert.ok(mobileApp.includes(`../pages/pc/${page}.svelte`), `mobile must render the PC ${page} page`)
 }
+assert.ok(mobileApp.includes('../pages/pc/Settings.svelte'), 'mobile settings must reuse the PC page')
+assert.ok(!mobileApp.includes('../pages/mobile/'), 'mobile shell must not import a second set of page components')
 
-console.log(`mobile shell coverage: ${navTargets.length} sidebar entries all rendered`)
+const navTargets = [...sidebar.matchAll(/nav\('([^']+)'\)/g)].map((match) => match[1])
+const handled = new Set([...mobileApp.matchAll(/activeView === '([^']+)'/g)].map((match) => match[1]))
+for (const view of navTargets) assert.ok(handled.has(view), `Sidebar destination "${view}" has no mobile render branch`)
+
+assert.ok(app.includes('<Sidebar'), 'mobile navigation must use the shared Sidebar component')
+assert.ok(app.includes('inDrawer={isMobile}'), 'shared Sidebar must switch to drawer mode on mobile')
+assert.ok(app.includes('<PlayerBar'), 'mobile playback must use the shared PlayerBar component')
+assert.ok(!app.includes('MobileMiniPlayer'), 'mobile must not render a separate mini player component')
+assert.ok(!mobileApp.includes('class="m-tabs"'), 'the duplicate bottom tab navigation must be removed')
+assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
+console.log('mobile shell coverage: shared PC pages, Sidebar and PlayerBar passed')

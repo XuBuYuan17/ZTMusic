@@ -391,7 +391,7 @@
                     </div>
                   {/if}
                 </td>
-                <td class="col-title">{track.name}</td>
+                <td class="col-title">{track.name}<button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button></td>
                 <td class="col-artist artist-links">
                   {#each artistsOf(track) as artist, index ((artist.id || artist.name) as SongId)}
                     {#if index > 0}<span class="artist-sep">/</span>{/if}
@@ -832,8 +832,8 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
-    margin: 0 -14px;
-    padding: 10px 14px 8px;
+    margin: 0;
+    padding: 10px 0;
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
     backdrop-filter: blur(22px) saturate(150%);
@@ -855,14 +855,14 @@
 
   :global(html.mobile-runtime) .playlist-search {
     min-width: 0;
-    height: 38px;
+    min-height: 44px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
   }
 
   :global(html.mobile-runtime) .playlist-search input {
     min-width: 0;
-    font-size: 13px;
+    font-size: 16px;
   }
 
   :global(html.mobile-runtime) .playlist-toolbar-count {
@@ -919,7 +919,7 @@
       "cover artist";
     align-items: center;
     column-gap: 11px;
-    padding: 8px 4px;
+    padding: 8px 48px 8px 0;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
     border-radius: 0;
     background: transparent;
