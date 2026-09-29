@@ -61,7 +61,9 @@ for (const name of FILES) {
   }
 }
 
-assert.ok(checked >= 20, `应扫到至少 20 条大字号规则，实际 ${checked}（扫描器可能失效）`)
+// 下限只是「扫描器还活着」的哨兵（失效会扫到 0），不是大字号数量的目标值。
+// 2026-09 清掉 913 行死 CSS 后从 20 降到 19，故留出余量取 15。
+assert.ok(checked >= 15, `应扫到至少 15 条大字号规则，实际 ${checked}（扫描器可能失效）`)
 assert.deepEqual(offenders, [], `发现负字距：\n  ${offenders.join('\n  ')}`)
 
 console.log(`type scale self-check: ${checked} large-type rules, no negative letter spacing`)

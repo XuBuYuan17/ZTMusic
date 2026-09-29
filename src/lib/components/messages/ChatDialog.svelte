@@ -447,7 +447,7 @@
   .close-btn {
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     background: color-mix(in srgb, var(--bg-surface) 76%, white 8%);
-    color: var(--text-primary);
+    color: var(--text);
     cursor: pointer;
     transition: background 0.16s, transform 0.12s, border-color 0.16s;
     width: 34px;
@@ -523,7 +523,7 @@
     border-radius: var(--radius-lg);
     border-bottom-left-radius: 6px;
     background: color-mix(in srgb, var(--bg-surface) 88%, white 4%);
-    color: var(--text-primary);
+    color: var(--text);
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
     line-height: 1.48;
   }
@@ -548,7 +548,7 @@
     border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
     border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--bg-surface) 96%, white 4%);
-    color: var(--text-primary);
+    color: var(--text);
     text-align: left;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.11);
   }
@@ -664,7 +664,7 @@
     border-radius: var(--radius-md);
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     background: color-mix(in srgb, var(--bg) 70%, transparent);
-    color: var(--text-primary);
+    color: var(--text);
     font-family: inherit;
     font-size: 14px;
     line-height: 1.45;

@@ -54,17 +54,6 @@
     display: none;
   }
 
-  .ly-top-bar {
-    top: calc(48px + env(safe-area-inset-top));
-    left: auto;
-    right: 26px;
-    z-index: 31;
-  }
-
-  .ly-top-bar .ly-volume-area {
-    display: none;
-  }
-
   .ly-top-bar .ly-queue-btn {
     display: flex;
   }
@@ -75,16 +64,6 @@
   }
 
   /* ===== Mobile Player (single .ly-left + lyrics toggle) ===== */
-  .ly-mobile-player {
-    display: flex !important;
-    flex: 1;
-    min-height: 0;
-    padding: 0;
-    justify-content: center;
-    overflow: hidden;
-    transform: translateY(clamp(22px, 5vh, 52px));
-    transition: padding 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  }
 
   .ly-mobile-player .ly-left-cover {
     transform: translateY(8px);
@@ -113,14 +92,6 @@
   .ly-mobile-player .ly-left-controls {
     transform: translateY(10px);
     transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ly-mobile-player .ly-mobile-action-row {
-    display: flex;
-  }
-
-  .ly-mobile-player .ly-mobile-volume-row {
-    display: none;
   }
 
   /* Lyrics mode: cover shrinks to top-left thumbnail + controls hidden */
@@ -202,17 +173,6 @@
   }
 
   /* Lyrics overlay */
-  .ly-mobile-lyrics {
-    display: none;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding: 14px 20px 28px;
-    width: 100%;
-  }
-  .ly-mobile-lyrics::-webkit-scrollbar { display: none; }
 
   .ly-mobile-player.lyrics-mode .ly-mobile-lyrics {
     display: block;
@@ -265,14 +225,6 @@
 
   .ly-local-queue .queue-list {
     max-height: calc(min(58dvh, 460px) - 72px);
-  }
-
-  .ly-context-toggle {
-    right: 24px;
-    bottom: calc(28px + env(safe-area-inset-bottom));
-    width: 44px;
-    height: 44px;
-    z-index: 32;
   }
 
   .ly-context-toggle.open {
@@ -353,19 +305,6 @@
     bottom: 224px;
     width: auto;
     max-height: min(42vh, 340px);
-  }
-
-  .ly-mobile-player.context-open {
-    justify-content: flex-start;
-    transform: translateY(clamp(6px, 1.6vh, 18px));
-  }
-
-  .ly-mobile-context {
-    width: 100%;
-    min-height: 0;
-    margin-top: 18px;
-    padding: 0 2px 2px;
-    overflow: visible;
   }
 
   .ly-mobile-context .ly-context-strip {

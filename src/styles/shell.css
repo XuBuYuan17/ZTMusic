@@ -341,10 +341,3 @@ html.desktop-titlebar .app-shell {
   from { opacity: 0; transform: translateX(8px); }
 }
 
-.mobile-bottom,
-.mobile-mini-row,
-.mobile-topbar,
-.mobile-tabs {
-  display: none;
-}
-

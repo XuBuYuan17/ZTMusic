@@ -234,7 +234,7 @@
 
   .filter-tabs button.active {
     background: var(--bg-active);
-    color: var(--text-primary);
+    color: var(--text);
   }
 
   .filter-tabs button.active span { color: var(--accent); }
@@ -250,7 +250,7 @@
   .plain-btn {
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     background: color-mix(in srgb, var(--bg-surface) 76%, white 8%);
-    color: var(--text-primary);
+    color: var(--text);
     cursor: pointer;
     transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
   }

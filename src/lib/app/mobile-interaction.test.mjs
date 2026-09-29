@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { compileModule } from 'svelte/compiler'
 import ts from 'typescript'
-import { createMobileSwipe, mobileDrag } from './mobile-interaction.ts'
+import { createMobileSwipe, mobileDrag, mobileSheet } from './mobile-interaction.ts'
 
 const swipe = createMobileSwipe(true)
 swipe.start(100, 100)
@@ -37,6 +37,22 @@ let captured = false
 const node = { style, parentElement: null, addEventListener: (key, fn) => listeners.set(key, fn), removeEventListener: key => listeners.delete(key), setPointerCapture() { captured = true }, hasPointerCapture: () => captured, releasePointerCapture() { captured = false } }
 globalThis.document = { documentElement: { classList: { contains: () => true } } }
 globalThis.window = { matchMedia: () => ({ matches: true }) }
+
+// mobileSheet：只有「移动端 + 非 reduced-motion」才给时长，否则退化成瞬切（duration 0）
+const media = globalThis.window.matchMedia
+globalThis.window.matchMedia = () => ({ matches: false })
+const sheetMotion = mobileSheet(node)
+assert.equal(sheetMotion.duration, 480, '入场默认 480ms')
+assert.equal(sheetMotion.css(0), 'translate: 0 -100dvh', '起点完全在屏幕上方外')
+assert.equal(sheetMotion.css(1), 'translate: 0 0dvh', '终点落回原位')
+assert.equal(mobileSheet(node, { duration: 360 }).duration, 360, '出场时长可覆盖')
+globalThis.document.documentElement.classList.contains = () => false
+assert.equal(mobileSheet(node).duration, 0, '桌面端不播下落动画')
+globalThis.document.documentElement.classList.contains = () => true
+globalThis.window.matchMedia = () => ({ matches: true })
+assert.equal(mobileSheet(node).duration, 0, 'reduced-motion 下退化为瞬切')
+globalThis.window.matchMedia = media
+
 let actions = 0
 let blocked = false
 const action = mobileDrag(node, { close: () => actions++, blocked: () => blocked })

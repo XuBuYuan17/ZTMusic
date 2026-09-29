@@ -204,7 +204,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    color: var(--text-primary);
+    color: var(--text);
   }
 
   .page-header {
@@ -240,7 +240,7 @@
   .plain-btn {
     border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
     background: color-mix(in srgb, var(--bg-surface) 76%, white 8%);
-    color: var(--text-primary);
+    color: var(--text);
     cursor: pointer;
     transition: background 150ms var(--ease-out), border-color 150ms var(--ease-out);
   }

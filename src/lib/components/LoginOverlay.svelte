@@ -240,7 +240,7 @@
   .form { display: flex; flex-direction: column; gap: 12px; }
   .input {
     padding: 12px 14px; border-radius: var(--radius-sm);
-    background: var(--bg-elevated); border: 1px solid var(--divider);
+    background: var(--bg-elevated); border: 1px solid var(--border);
     color: var(--text); font-size: 14px; outline: none;
     transition: border-color 0.2s;
   }

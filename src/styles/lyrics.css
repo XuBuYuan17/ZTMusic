@@ -107,17 +107,6 @@ html.desktop-titlebar:not(.mobile-runtime) .ly-container {
   margin-top: var(--titlebar-h);
 }
 /* --- Back button --- */
-.ly-top-bar {
-  position: absolute;
-  top: 20px;
-  left: clamp(70px, 7vw, 140px);
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  z-index: 20;
-  pointer-events: auto;
-}
 
 .ly-back-btn {
   position: absolute;

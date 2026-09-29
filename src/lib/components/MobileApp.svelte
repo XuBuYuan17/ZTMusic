@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick, untrack } from 'svelte'
   import { mobileViewport } from '../app/mobile-interaction.ts'
+  import { scrollChrome } from '../app/scroll-chrome.ts'
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
@@ -127,7 +128,7 @@
     <h1>{titles[activeView] || '哲听'}</h1>
   </header>
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} use:scrollChrome>
     <div class="mobile-page-content__inner">
       {#if activeView === 'home' || mountedViews.includes('home')}
         <div class="mobile-shared-page" style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'} aria-hidden={activeView !== 'home'}>
@@ -192,4 +193,19 @@
       {/if}
     </div>
   </main>
+
+  <nav class="mobile-tab-bar" aria-label="主导航">
+    <button class="mobile-tab" class:active={activeView === 'home'} data-view="home" aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
+      <Icon name="home" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__label">主页</span>
+    </button>
+    <button class="mobile-tab" class:active={activeView === 'explore'} data-view="explore" aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
+      <Icon name="compass" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__label">发现</span>
+    </button>
+    <button class="mobile-tab" class:active={activeView === 'library'} data-view="library" aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
+      <Icon name="liked" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__label">我的收藏</span>
+    </button>
+  </nav>
 </div>

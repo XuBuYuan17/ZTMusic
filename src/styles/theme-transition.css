@@ -53,6 +53,19 @@ html.accent-color-transitioning {
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 2; }
 
+/* 横竖屏切换：整壳换位。crossfade + 轻微收束，不做方向位移 —— 设备本身已经在转，
+   再叠方向会产生双重旋转感。作用域类由 layout-transition.ts 挂载，与主题切换互不干扰。 */
+
+@keyframes layout-in {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes layout-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .theme-transitioning,
   .theme-transitioning .sidebar,
@@ -65,6 +78,12 @@ html.accent-color-transitioning {
 
   ::view-transition-old(root),
   ::view-transition-new(root) {
+    animation: none;
+  }
+
+  /* 需要压过上面 html.layout-transitioning 那条更高特异性的规则 */
+  html.layout-transitioning::view-transition-old(root),
+  html.layout-transitioning::view-transition-new(root) {
     animation: none;
   }
 }

@@ -560,7 +560,7 @@
     display: inline-flex;
     align-items: center;
     padding: 3px;
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
   }

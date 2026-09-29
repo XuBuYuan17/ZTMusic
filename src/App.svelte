@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte'
-  import { desktopFeedback } from './lib/app/desktop-motion.ts'
+  import { flushSync, tick, untrack } from 'svelte'
+  import { desktopFeedback, reducedMotion } from './lib/app/desktop-motion.ts'
+  import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
   import { playerMorph } from './lib/stores/player-morph.svelte.ts'
@@ -32,7 +33,7 @@
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
-  import { isMobileDevice, responsive } from './lib/utils/responsive.ts'
+  import { isMobileDevice, isTouchDevice, responsive } from './lib/utils/responsive.ts'
   import Toast from './lib/components/ui/Toast.svelte'
   import PlayerHud from './lib/components/ui/PlayerHud.svelte'
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
@@ -127,18 +128,37 @@
   })
 
 
+  // 上一次布局尺寸，用来判断「朝向真的翻转了」。
+  // 初值给 0：启动到订阅之间的尺寸变化不算翻转，避免开场误播一次过渡。
+  let layoutBox = { width: 0, height: 0 }
+
+  function applyLayout(next: { isMobile: boolean }): void {
+    isMobile = next.isMobile
+    // 切换到移动布局默认收起侧栏，切回 PC 默认展开
+    sidebarCollapsed = next.isMobile
+    // 同步更新 CSS 依赖的根元素 class（控制 Sidebar/PC 元素显示隐藏）
+    document.documentElement.classList.toggle('mobile-runtime', next.isMobile)
+  }
+
   $effect(() => {
     const u = responsive.subscribe(r => {
-      if (r.isMobile !== isMobile) {
-        isMobile = r.isMobile
-        // 切换到移动布局默认收起侧栏，切回 PC 默认展开
-        sidebarCollapsed = r.isMobile
-        // 同步更新 CSS 依赖的根元素 class（控制 Sidebar/PC 元素显示隐藏）
-        if (isMobile) {
-          document.documentElement.classList.add('mobile-runtime')
-        } else {
-          document.documentElement.classList.remove('mobile-runtime')
-        }
+      const prev = layoutBox
+      layoutBox = { width: r.width, height: r.height }
+      // untrack：这个 effect 只负责订阅，不该因 isMobile 变化重跑
+      const wasMobile = untrack(() => isMobile)
+      if (r.isMobile === wasMobile) return
+      const animate = shouldAnimateLayoutFlip({
+        wasMobile, isMobile: r.isMobile,
+        prevWidth: prev.width, prevHeight: prev.height,
+        width: r.width, height: r.height,
+        touch: isTouchDevice(),
+      })
+      // 旋转是整壳销毁重建：class 切换与 Svelte 渲染必须一起落在回调内，
+      // 否则旧快照会拍到「class 已换、内容未换」的错位帧
+      if (animate && !reducedMotion() && canViewTransition()) {
+        startLayoutTransition(() => flushSync(() => applyLayout(r)))
+      } else {
+        applyLayout(r)
       }
     })
     return () => u()

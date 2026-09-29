@@ -99,9 +99,6 @@
   z-index: 29 !important;
   pointer-events: auto;
 }
-.ly-top-bar {
-  z-index: 30;
-}
 
 /* --- Toast --- */
 @keyframes lyToastIn {

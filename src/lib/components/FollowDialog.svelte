@@ -187,7 +187,7 @@
     width: min(420px, calc(100vw - 28px));
     max-height: min(640px, calc(100dvh - 72px));
     overflow: hidden;
-    color: var(--text-primary);
+    color: var(--text);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
@@ -249,7 +249,7 @@
   }
 
   .follow-dialog-tabs button.active {
-    color: var(--text-primary);
+    color: var(--text);
     background: var(--bg-elevated);
     box-shadow: 0 6px 16px rgba(0,0,0,0.08);
   }

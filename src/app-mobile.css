@@ -1,6 +1,12 @@
 html.mobile-runtime {
   --mobile-page-bar-h: 60px;
   --mobile-player-h: 68px;
+  --mobile-tabs-h: 56px;   /* 悬浮底栏高度，不含 safe-area */
+  --mobile-dock-gap: 12px; /* 悬浮栏离屏幕边缘的内距；与播放条一致 */
+  /* desktop-system.css:2-3 只在 html:not(.mobile-runtime) 下定义过这两个，移动端补一档。
+     触摸比鼠标慢（手指按下/抬起的物理时间更长），所以比桌面的 90/280 各放慢一点。 */
+  --motion-press: 120ms;
+  --motion-release: 300ms;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -91,6 +97,8 @@ html.mobile-runtime .mobile-page-bar__button {
   border-radius: var(--radius-md);
   color: var(--text);
   background: transparent;
+  /* 这条是「松手」那条曲线（弹性、带过冲）；按下那条在文件末尾的按压规范里 */
+  transition: transform var(--motion-release) var(--ease-spring);
 }
 
 html.mobile-runtime .mobile-page-content {
@@ -99,7 +107,7 @@ html.mobile-runtime .mobile-page-content {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  scroll-padding-bottom: 24px;
+  scroll-padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom));
 }
 
 html.mobile-runtime .mobile-page-content__inner {
@@ -107,11 +115,76 @@ html.mobile-runtime .mobile-page-content__inner {
   max-width: 1080px;
   min-width: 0;
   margin-inline: auto;
-  padding: 20px max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: 20px max(16px, env(safe-area-inset-right)) calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
+/* 悬浮底栏。脱离文档流，内容区才能铺满到底、从栏底下穿过（否则毛玻璃后面永远是纯色）。
+   用 absolute 而非 fixed：.main-area 带 backdrop-filter（shell.css:252），会为 fixed 后代
+   创建 containing block。这里依赖 .main-area 的 position: relative（shell.css:249）。
+   safe-area 只由 bottom 承担，min-height / padding 里不能再扣一次。 */
+html.mobile-runtime .mobile-tab-bar {
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(var(--mobile-dock-gap) + env(safe-area-inset-bottom));
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  min-height: var(--mobile-tabs-h);
+  padding: 4px 6px;
+  border-radius: 999px;   /* MD3：整条读作一个胶囊 */
+  /* 与播放条同材质（player-bar.css:176-178,183），两条悬浮栏才读得出一体 */
+  background: rgba(245, 245, 247, 0.82);
+  backdrop-filter: saturate(240%) blur(32px);
+  -webkit-backdrop-filter: saturate(240%) blur(32px);
+  box-shadow: var(--shadow-lg);
+  transition: opacity 0.24s var(--ease-out);
+}
+
+html.mobile-runtime[data-theme="dark"] .mobile-tab-bar {
+  background: rgba(35, 35, 38, 0.85);
+}
+
+/* 选中态：强调色胶囊包住图标 + 标签。
+   胶囊靠 background-clip: content-box + 左右 padding 内缩，不需要额外的包裹元素。
+   ⚠️ .active 里必须用 background-color 长手属性 —— 用 background 简写会把
+   background-clip 重置回 border-box，胶囊立刻铺满整格。
+   高度账：图标 22 + gap 2 + 标签 11 = 35，加 tab 上下 padding 8 = 43，
+   被网格行拉到 48（= 56 − 底栏自身上下 padding 8），底栏仍是 56px，
+   --mobile-tabs-h 与其派生的四条偏移公式不受影响。 */
+html.mobile-runtime .mobile-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background-color: transparent;
+  background-clip: content-box;
+  /* transform 走「松手」那条曲线（弹性、带过冲）；按下那条在文件末尾的按压规范里 */
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--motion-release) var(--ease-spring);
+}
+
+html.mobile-runtime .mobile-tab.active {
+  background-color: var(--accent-bg);
+  color: var(--accent);
+}
+
+html.mobile-runtime .mobile-tab__label {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* 悬浮播放条叠在底栏之上。这条是整段覆盖基础 padding（不是叠加），所以底栏那一段要算进来：
+   底栏顶 = dock-gap + tabs-h + safe，播放条顶 = 上面再抬 8px + player-h。留 24px 余量。 */
 html.mobile-runtime:has(.player-bar-wrap) .mobile-page-content__inner {
-  padding-bottom: calc(var(--mobile-player-h) + 36px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + 32px + env(safe-area-inset-bottom));
 }
 
 html.mobile-runtime .mobile-shared-page,
@@ -159,13 +232,28 @@ html.mobile-runtime .player-bar-wrap.sidebar-collapsed {
   position: fixed;
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
-  bottom: calc(12px + env(safe-area-inset-bottom));
+  bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 8px + env(safe-area-inset-bottom));
   z-index: 90;
   width: auto;
   pointer-events: auto;
+  transition: transform 0.24s var(--ease-out);
 }
 
 html.mobile-runtime .player-bar-wrap.queue-open { right: max(12px, env(safe-area-inset-right)); }
+
+/* 滑动中收起底部 chrome（class 由 scroll-chrome.ts 挂在 <html> 上）。
+   播放条下移的 64px = 正常态 bottom(tabs-h + dock-gap + 8 + safe) − 隐藏态 bottom(dock-gap + safe)，
+   正好落进底栏腾出来的槽位。用 transform 而不是过渡 bottom：纯合成层，且已核实
+   .player-bar-wrap 下没有 position:fixed 后代（Morph 是独立的 PlayerMorph 覆盖层）。 */
+html.mobile-runtime.mobile-chrome-hidden .mobile-tab-bar {
+  opacity: 0;
+  pointer-events: none;   /* 必须留着，否则透明状态下仍会吃掉点击 */
+}
+
+html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap,
+html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap.sidebar-collapsed {
+  transform: translateY(calc(var(--mobile-tabs-h) + 8px));
+}
 
 html.mobile-runtime .player-bar-wrap > .player-bar,
 html.mobile-runtime .player-bar-wrap > .player-bar.compact,
@@ -206,12 +294,20 @@ html.mobile-runtime .ctrl-btn--play,
 html.mobile-runtime .action-btn--queue { width: 44px; height: 44px; }
 html.mobile-runtime .player-bar__actions { width: 44px; min-width: 44px; padding: 0; gap: 0; justify-content: center; }
 
+/* Toast 的 120px 偏移是按 PC 播放条定的，移动端要同时让开标签栏与悬浮播放条 */
+html.mobile-runtime .toast {
+  bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + 20px + env(safe-area-inset-bottom));
+}
+
 html.mobile-runtime.mobile-keyboard-open .player-bar-wrap {
   visibility: hidden;
   pointer-events: none;
 }
 
-html.mobile-runtime.mobile-keyboard-open .mobile-page-content__inner { padding-bottom: 24px; }
+/* 键盘弹出时播放条只是 visibility:hidden，:has() 仍在匹配 —— 这条要把它压回「只有底栏」的档位 */
+html.mobile-runtime.mobile-keyboard-open .mobile-page-content__inner {
+  padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom));
+}
 
 /* PC page components keep their visual system; only their geometry changes. */
 html.mobile-runtime .profile-home { gap: 16px; }
@@ -226,7 +322,23 @@ html.mobile-runtime .profile-home__section { padding: 16px; }
 html.mobile-runtime .profile-home__cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 html.mobile-runtime .profile-home__logged-out { min-height: calc(100dvh - 190px); }
 
-html.mobile-runtime .music-discovery-header,
+/* 搜索入口从底栏搬到发现页顶部。PC 头部左半（ZTmusic + 大标题）由移动端页面栏承担，只留搜索栏；
+   explore.css:388 那条 max-width:760px 的 display:none 被这里的更高特异性盖掉。 */
+html.mobile-runtime .music-discovery-header {
+  display: block;
+  min-height: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+html.mobile-runtime .music-discovery-header > div { display: none; }
+html.mobile-runtime .music-search-field {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+}
 html.mobile-runtime .settings-header { display: none; }
 html.mobile-runtime .library-title { display: none; }
 html.mobile-runtime .library-header { justify-content: flex-end; }
@@ -243,13 +355,37 @@ html.mobile-runtime :is(button, a, [role="button"]) { -webkit-tap-highlight-colo
 html.mobile-runtime :is(button, input, textarea, select, [role="button"]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 html.mobile-runtime :is(input:not([type="range"]):not([type="checkbox"]), textarea, select) { max-width: 100%; font-size: 16px; }
 
-@media (orientation: landscape) and (max-height: 560px) {
-  html.mobile-runtime { --mobile-page-bar-h: 52px; --mobile-player-h: 60px; }
-  html.mobile-runtime .mobile-page-content__inner { padding-top: 14px; }
-  html.mobile-runtime .player-bar-wrap > .player-bar,
-  html.mobile-runtime .player-bar-wrap > .player-bar.compact,
-  html.mobile-runtime .player-bar-wrap > .player-bar.with-lyrics { min-height: 60px; height: 60px; }
+/* ── 按压规范 ─────────────────────────────────────────────────────────
+   两档 + 一次转场拆分。「按下快、松手弹」纯 CSS 就能做出来，靠的是两条规则各写各的
+   transition：按下时生效的是 :active 规则里那条，松手时生效的是基态那条。
+   ⚠️ :active 里必须用 transition-duration / transition-timing-function 长手属性 ——
+   用 transition 简写会把属性列表一起重置，background-color / color 的过渡在按下期间会丢。
+   基态那条曲线不在这一块：底栏 tab 和顶栏按钮写在上面各自的规则里，
+   播放条两个键本来就是弹性曲线（player-bar.css:430/510），卡片类只有这里有（移动端专属）。 */
+html.mobile-runtime :is(.mobile-tab, .mobile-page-bar__button, .ctrl-btn, .action-btn):active {
+  transform: scale(0.94);   /* 播放条那两条旧值 0.82 是按鼠标定的，手指按下去太夸张 */
+  transition-duration: var(--motion-press);
+  transition-timing-function: var(--ease-out);
 }
+
+html.mobile-runtime :is(.home-song-card, .home-playlist-card, .library-card, .song-card, .ranking-card, .artist-album-card) {
+  transition: transform var(--motion-release) var(--ease-spring);
+}
+html.mobile-runtime :is(.home-song-card, .home-playlist-card, .library-card, .song-card, .ranking-card, .artist-album-card):active {
+  transform: scale(0.97);   /* 大面积元素缩得比小控件轻，缩多了整个页面在晃 */
+  transition-duration: var(--motion-press);
+  transition-timing-function: var(--ease-out);
+}
+
+/* 列表行不缩放：整行横向缩会在左右露出空隙，读起来是「行变窄了」而不是「按下了」。
+   压背景才是对的 —— 移动端这些行本来就是 display:grid（content.css:992），不是表格行。
+   只补 :active，让反馈在按下瞬间就到，不用等 :hover 在触屏上落地。 */
+html.mobile-runtime :is(.track-table tbody tr, .liked-song-row, .daily-song-row, .search-song-row):active {
+  background: var(--bg-hover);
+}
+
+/* 这里没有横屏媒体查询：layout-mode 在 width > height 时直接判非移动端（早于 ?mobile 强制参数），
+   横屏下 html.mobile-runtime 根本不存在，写了也不会匹配。 */
 
 @media (prefers-reduced-motion: reduce) {
   html.mobile-runtime *,

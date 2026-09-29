@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { mobileDrag } from '../app/mobile-interaction.ts';
+  import { fade } from 'svelte/transition'
+  import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts';
   import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import type { CompactTrack, CompactArtist } from '../player/queue.ts'
@@ -117,8 +118,8 @@
 
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
-  <div class="queue-panel" use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
+  <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} transition:fade={{ duration: mobileVisible ? 240 : 0 }} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
+  <div class="queue-panel" in:mobileSheet={{ duration: 480 }} out:mobileSheet={{ duration: 360 }} use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
@@ -460,7 +461,7 @@
       position: fixed;
       inset: 0;
       z-index: 100;
-      background: transparent;
+      background: rgba(0, 0, 0, .4);
     }
 
     .queue-panel.queue-panel-mobile-visible {
@@ -481,7 +482,6 @@
       backdrop-filter: blur(40px) saturate(180%);
       -webkit-backdrop-filter: blur(40px) saturate(180%);
       box-shadow: var(--shadow-lg);
-      animation: queue-slide-up 0.32s var(--ease-out);
     }
 
     .queue-panel.queue-panel-mobile-visible .queue-list {
@@ -494,28 +494,6 @@
       width: calc(100% - 20px);
       border-radius: var(--radius-lg);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
-    }
-  }
-
-  @keyframes queue-slide-up {
-    from {
-      transform: translateY(24px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  @keyframes queue-drop-down {
-    from {
-      transform: translateY(-22px) scale(0.98);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0) scale(1);
-      opacity: 1;
     }
   }
 </style>

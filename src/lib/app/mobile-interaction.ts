@@ -1,4 +1,8 @@
+import { expoOut } from 'svelte/easing'
+
 export type SwipeDirection = 'horizontal' | 'vertical' | null
+
+const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 export function createMobileSwipe(horizontal = false) {
   let start: { x: number; y: number } | null = null
@@ -35,7 +39,6 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
   let animation: Animation | undefined
   let clickTimer: ReturnType<typeof setTimeout> | undefined
   let dismissing = false
-  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
   function reset() {
     if (target) { target.style.removeProperty('translate'); target.style.removeProperty('transition') }
   }
@@ -124,4 +127,25 @@ export function mobileViewport(_node: HTMLElement) {
     root.classList.remove('mobile-keyboard-open')
     root.style.removeProperty('--mobile-viewport-height'); root.style.removeProperty('--mobile-viewport-top')
   } }
+}
+
+/**
+ * 移动端底部 sheet 的「从屏幕顶外降下」过渡 —— `desktopPanel`（desktop-motion.ts:7）的镜像。
+ * 桌面端与 reduced-motion 下返回 duration: 0，桌面那套 CSS slideIn 照常跑。
+ *
+ * 用独立属性 `translate` 而非 `transform`：mobileDrag 也用 translate 拖同一个面板，同属性下
+ * WAAPI 的 fill:'forwards' 能盖住这里的补间；换成 transform 两个位移会叠加，面板会飞出屏幕。
+ *
+ * 行程必须是 100dvh 而不是 -100%：面板是 bottom:0 + height:min(75dvh,640px)，
+ * -100% 只挪 75dvh，底部还会露 25dvh 在屏幕里。
+ */
+export function mobileSheet(_node: HTMLElement, options: { duration?: number } = {}) {
+  if (reduced() || !document.documentElement.classList.contains('mobile-runtime')) return { duration: 0 }
+  return {
+    duration: options.duration ?? 480,
+    // expoOut 与 desktopPanel 用的 cubic-bezier(0.16,1,0.3,1) 基本重合（t=0.3 时两者都是 0.875）：
+    // 100dvh 的行程需要「快速落下 + 稳稳停住」。TransitionConfig.easing 只收函数，不收 CSS 字符串。
+    easing: expoOut,
+    css: (t: number) => `translate: 0 ${(1 - t) * -100}dvh`,
+  }
 }

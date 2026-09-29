@@ -20,7 +20,7 @@ import './styles/desktop-system.css'
 import './app-mobile.css'
 import './styles/mobile/lyrics.css'
 import './styles/mobile/responsive.css'
-import { layoutMode } from './lib/utils/layout-mode.ts'
+import { isMobileDevice } from './lib/utils/responsive.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 
 installNativeShell()
@@ -78,12 +78,9 @@ async function installDevErrorReporter() {
 
 installDevErrorReporter()
 
-function syncMobileRuntime(state) {
-  document.documentElement.classList.toggle('mobile-runtime', state.isMobile)
-}
-
-// 唯一响应式来源：layoutMode store → mobile-runtime class → CSS 选择器
-layoutMode.subscribe(syncMobileRuntime)
+// 首帧同步一次，消除 FOUC 窗口。之后的切换由 App.svelte 独占 —— 它要把 class 切换
+// 和 Svelte 渲染一起包进 View Transition 回调，第二个订阅者会抢在旧快照之前改 DOM。
+document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 
 function hideSplash() {
   const splash = document.getElementById('splash')

@@ -46,10 +46,6 @@ html:not(.mobile-runtime) .ly-pc-player .pb-time {
   transition: color 150ms var(--ease-out), background 150ms var(--ease-out);
 }
 
-.ly-glass-icon-btn--passive {
-  cursor: default;
-}
-
 .ly-glass-icon-btn:hover {
   color: #fff;
   background: rgba(255,255,255,0.12);
@@ -449,14 +445,6 @@ html:not(.mobile-runtime) .ly-song-menu .ly-song-menu-back {
 }
 
 /* 逐词 Q 弹入场动画 */
-.ly-word {
-  display: inline-block;
-  opacity: 1;
-  transform: none;
-  transform-origin: center;
-  filter: none;
-  transition: opacity 260ms ease, transform 260ms ease;
-}
 
 .ly-line.animate-words .ly-word {
   will-change: transform, opacity;
