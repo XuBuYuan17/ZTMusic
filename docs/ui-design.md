@@ -327,7 +327,7 @@ import './app-mobile.css'
 - 避免动态拼接 class 名，CSS 清理脚本依赖静态字面量。
 - flex 滚动布局中的固定头部、标签栏和操作栏应设置 `flex-shrink: 0`；真正滚动的内容区设置 `min-height: 0`。
 - 新增大字号、字体或动画后运行现有 UI 自检。
-- 清理 CSS 前先运行 `node scripts/find-dead-css.mjs` 和 `node scripts/prune-dead-css.mjs --dry`。
+- 清理 CSS 前先运行 `node scripts/maintenance/find-dead-css.mjs` 和 `node scripts/maintenance/prune-dead-css.mjs --dry`。
 
 ## 10. 新增或修改 UI 的检查清单
 

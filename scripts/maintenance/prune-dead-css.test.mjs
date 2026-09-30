@@ -1,6 +1,6 @@
 /**
  * prune-dead-css 的解析/重建保真自检。
- * Run: node scripts/prune-dead-css.test.mjs
+ * Run: node scripts/maintenance/prune-dead-css.test.mjs
  *
  * 核心不变量：**空死名单时，输出必须与输入逐字节一致**。
  * 若该断言失败，说明重建逻辑会破坏 CSS 结构（曾发生：规则块丢失闭合 }）。

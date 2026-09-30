@@ -45,6 +45,7 @@ const stripCrossorigin = () => ({
 export default defineConfig({
   base: './',
   build: {
+    sourcemap: process.env.VITE_APP_CHANNEL === 'dev',
     // 禁用 CSS 动态注入和 modulepreload：动态注入的 <link>/<script> 会自带 crossorigin，
     // 在 Tauri 自定义协议下被 CORS 拦截（与上面的 stripCrossorigin 配套）。
     // ponytail: 继续保留 chrome100 基线。桌面端 WebView2 能吃更高的 target，但 Linux 的

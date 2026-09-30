@@ -7,7 +7,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { GLOBAL_CSS_FILES } from '../../../scripts/css-files.mjs'
+import { GLOBAL_CSS_FILES } from '../../../scripts/maintenance/css-files.mjs'
 
 const FILES = GLOBAL_CSS_FILES
 

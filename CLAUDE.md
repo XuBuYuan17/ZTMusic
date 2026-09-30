@@ -13,11 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 pnpm install              # 装依赖（pnpm，有 lockfile）
 pnpm dev                  # 浏览器开发（Vite，/ncm-api 代理转发）
-pnpm tauri:dev            # 桌面端开发
-pnpm build                # 前端构建
+pnpm check                # Svelte / TypeScript 检查
 pnpm test                 # 全部自检（node scripts/run-tests.mjs）
 pnpm check:versions       # 校验 4 处版本号一致
-pnpm verify               # = check:versions + test + build ← CI 的门禁，改完代码跑这个
+pnpm verify               # CI 门禁：check:versions + check + test + build
 ```
 
 **跑单个测试**：测试就是可直接执行的 node 脚本，没有框架：
@@ -28,14 +27,9 @@ node src/lib/player/fallback.test.ts   # Node 自动类型擦除；Node 22 早�
 
 `pnpm test` 递归收集 `src/` 和 `scripts/` 下所有 `*.test.{js,mjs,ts}`，**每个文件用独立子进程跑**（它们会装浏览器全局变量、patch 模块单例，同进程会互相污染）。`.ts` 测试由 runner 自动加 `--experimental-strip-types`，不引入测试框架。测试不依赖 `node_modules`，未装依赖也能跑。
 
-**构建安装包**：
+日常在 `dev` 分支写 UI，通过 `pnpm dev` 在浏览器预览；本地运行检查和测试，安装包交给 GitHub，不安装 Rust、不运行本地 Tauri 构建。新功能 PR 指向 `dev`，验证后通过 `dev → main` PR 更新稳定版。
 
-```bash
-pnpm tauri:build            # Windows NSIS（已内置 --target x86_64-pc-windows-gnu）
-pnpm tauri:build:linux      # deb + rpm
-```
-
-⚠️ **Windows 打包不要裸跑 `tauri build`**：用户级 `~/.cargo/config.toml` 设了 `[build] target`，cargo 输出到 `target/x86_64-pc-windows-gnu/release/` 而 tauri CLI 默认找 `target/release/` → `os error 2`。`package.json` 里已内置 `--target`。
+可复用 CSS / 字体工具放在 `scripts/maintenance/`，一次性实验放在被忽略的 `.local/`；历史审计记录在 `docs/archive/`。不提交个人代理配置、环境文件、签名材料、登录 Cookie 或数据库导出。提交前的路径与常见密钥检查已纳入 `pnpm test`；完整约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 架构
 
@@ -83,7 +77,7 @@ Provider 是**能力型契约**，不要求实现全部方法。登录、收藏�
 
 ### 存储
 
-`lib/db/` —— 优先 SQLite（SQLocal），不可用降级 IndexedDB（`utils/dbcache.js`）。API 缓存 TTL 表在 `api/cache-policy.ts`，缓存 key 把**完整 cookie 明文拼进去**（`utils/cache.ts` 的 `createCacheKey` 只是 `JSON.stringify`，没有 hash；目的是避免跨账号串数据，cookie 本身也已在 localStorage）。失败响应不写缓存；但**请求失败时会回退到过期缓存**，只有 301/302 例外（登录态失效要能冒出来，不能被旧数据盖住）。
+`lib/db/` 优先 SQLite（SQLocal），不可用时降级到 IndexedDB / localStorage。API 缓存 TTL 在 `api/cache-ttl.ts`，策略在 `api/cache-policy.ts`；完整 Cookie 参与缓存键以隔离账号，失败响应不写缓存。不要把运行时数据库或 Cookie 导出提交到仓库。
 
 ### 桌面原生（`src-tauri/src/`）
 
@@ -95,7 +89,7 @@ Cargo `crate-type` 仅保留 `rlib`，由桌面端 `main.rs` 调用 `app_lib::ru
 
 ## CSS 的硬约束
 
-样式在 `main.js` 顶部**静态导入**，顺序有依赖。新增全局 CSS 文件必须同步改 `main.js` **和** `scripts/css-files.mjs`（自检与清理脚本共享的清单）。
+样式在 `main.js` 顶部**静态导入**，顺序有依赖。新增全局 CSS 文件必须同步改 `main.js` **和** `scripts/maintenance/css-files.mjs`（自检与清理脚本共享的清单）。
 
 ⚠️ **不要改回动态 `import()`**：Vite 生产构建无法静态分析变量路径，动态导入的 CSS 不会被打包，曾导致生产版 `app-pc.css` 丢失、歌词页空白。
 
@@ -106,10 +100,10 @@ Cargo `crate-type` 仅保留 `rlib`，由桌面端 `main.rs` 调用 `app_lib::ru
 部分"测试"其实是 CSS 设计令牌守卫，会扫描全局 CSS 并让 `pnpm test` 失败：`utils/font-weight.test.js`、`type-scale.test.js`（字距）、`border-radius.test.js`（圆角只允许 6/8/12/16/20px 等语义档）、`ui-harmony.test.js`（对比度）。配套的批量收敛脚本：
 
 ```bash
-node scripts/converge-font-weight.mjs --dry
-node scripts/converge-border-radius.mjs --dry
-node scripts/find-dead-css.mjs            # 列零引用 class
-node scripts/prune-dead-css.mjs --dry     # 预览删除
+node scripts/maintenance/converge-font-weight.mjs --dry
+node scripts/maintenance/converge-border-radius.mjs --dry
+node scripts/maintenance/find-dead-css.mjs            # 列零引用 class
+node scripts/maintenance/prune-dead-css.mjs --dry     # 预览删除
 ```
 
 ## 调试
@@ -137,7 +131,9 @@ localStorage.setItem('debug_playback', 'true')  // Console 输出 [play-url:*] /
 
 版本号有 4 处必须一致（`package.json` 为准）：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`。`pnpm check:versions` 守这条，改版本别手改单个文件。
 
-发版走 GitHub Actions：手动触发 **Prepare Release** → 跑 `pnpm verify` → 算版本号 → 更新上述文件 + CHANGELOG → 原子 push `main` 与 tag → tag push 自然触发 **Build Installers**（不用再手动 dispatch）。`build.yml` 在 push main / PR / tag `v*` / 手动触发时都先跑 `pnpm verify` 再构建。
+发版走 GitHub Actions：在 `main` 手动运行 **Prepare Release** → 生成版本和 CHANGELOG 更新 PR → 检查通过后合入 → **Tag Prepared Release** 校验并创建正式标签 → 显式 dispatch **Build Installers**。不直接向 `main` 写入版本更新，也不依赖 `GITHUB_TOKEN` 推送标签的隐式触发。
+
+`dev` 推送与 `dev/main` PR 构建 Windows 开发包，**Artifacts** 保留 14 天。开发包使用独立标识 `com.zheting.music.dev` 和 `zheting-dev.exe`，按 `F12` / `Ctrl+Shift+I` 打开 DevTools；正式标签构建 Windows/Linux 并发布 Release。详细流程以 [开发指南](docs/development.md) 为准。
 
 ## 延伸文档
 

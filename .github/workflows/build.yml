@@ -2,11 +2,11 @@ name: Build Installers
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     tags:
       - 'v*'
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
     inputs:
       build_windows:
@@ -18,14 +18,14 @@ on:
         description: 'Build Linux packages'
         required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
   group: installers-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   NODE_VERSION: 22
@@ -43,9 +43,28 @@ jobs:
     name: Source checks
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    outputs:
+      channel: ${{ steps.context.outputs.channel }}
+      short-sha: ${{ steps.context.outputs.short-sha }}
+      build-windows: ${{ steps.context.outputs.build-windows }}
+      build-linux: ${{ steps.context.outputs.build-linux }}
+      publish: ${{ steps.context.outputs.publish }}
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Select build channel
+        id: context
+        env:
+          BUILD_WINDOWS: ${{ inputs.build_windows }}
+          BUILD_LINUX: ${{ inputs.build_linux }}
+        run: node scripts/build-channel.mjs
+
+      - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/validate-release-tag.mjs
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -68,7 +87,7 @@ jobs:
   windows:
     name: Windows installer ${{ matrix.arch }}
     needs: source-check
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_windows)
+    if: needs.source-check.outputs.build-windows == 'true'
     runs-on: windows-2022
     timeout-minutes: 60
     strategy:
@@ -92,7 +111,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: windows-${{ matrix.target }}
+          key: windows-${{ matrix.target }}-${{ needs.source-check.outputs.channel }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -118,20 +137,29 @@ jobs:
           pnpm tauri --version
           echo "target=${{ matrix.target }} bundles=${{ matrix.bundles }}"
 
+      - name: Build Windows development installer
+        if: needs.source-check.outputs.channel == 'dev'
+        env:
+          VITE_APP_CHANNEL: dev
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: pnpm tauri build --ci --verbose --config src-tauri/tauri.dev.conf.json --features dev-channel --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
       - name: Build Windows installer
+        if: needs.source-check.outputs.channel == 'stable'
         run: pnpm tauri build --ci --verbose --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v5
         with:
-          name: zheting-windows-${{ matrix.arch }}
+          name: zheting-${{ needs.source-check.outputs.channel }}-windows-${{ matrix.arch }}-${{ github.run_number }}-${{ needs.source-check.outputs.short-sha }}
           path: src-tauri/target/${{ matrix.target }}/release/bundle/**
           if-no-files-found: error
+          retention-days: 14
 
   linux:
     name: Linux packages
     needs: source-check
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.build_linux)
+    if: needs.source-check.outputs.build-linux == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -154,7 +182,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: linux-packages
+          key: linux-packages-${{ needs.source-check.outputs.channel }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -171,22 +199,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build Linux development packages
+        if: needs.source-check.outputs.channel == 'dev'
+        env:
+          VITE_APP_CHANNEL: dev
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: pnpm tauri build --ci --verbose --config src-tauri/tauri.dev.conf.json --features dev-channel --bundles deb,rpm
+
       - name: Build Linux packages
+        if: needs.source-check.outputs.channel == 'stable'
         run: pnpm tauri build --ci --verbose --bundles deb,rpm
 
       - name: Upload Linux packages
         uses: actions/upload-artifact@v5
         with:
-          name: zheting-linux
+          name: zheting-${{ needs.source-check.outputs.channel }}-linux-${{ github.run_number }}-${{ needs.source-check.outputs.short-sha }}
           path: |
             src-tauri/target/release/bundle/deb/**
             src-tauri/target/release/bundle/rpm/**
           if-no-files-found: error
+          retention-days: 14
 
   release:
     name: Publish GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux]
+    if: needs.source-check.outputs.publish == 'true'
+    needs: [source-check, windows, linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:

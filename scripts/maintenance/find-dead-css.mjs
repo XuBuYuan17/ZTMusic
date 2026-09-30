@@ -2,8 +2,8 @@
  * 扫描全局 CSS 中在源码里找不到任何引用的 class 选择器。
  *
  * 用法：
- *   node scripts/find-dead-css.mjs           # 列出候选
- *   node scripts/find-dead-css.mjs --json    # 输出 JSON（供删除脚本消费）
+ *   node scripts/maintenance/find-dead-css.mjs           # 列出候选
+ *   node scripts/maintenance/find-dead-css.mjs --json    # 输出 JSON（供删除脚本消费）
  *
  * 判定为"活"的条件（任一成立即保留）：
  *   1. 出现在 .svelte / .js 源码或 index.html 中（去掉组件 <style> 块后再匹配）
@@ -18,7 +18,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { GLOBAL_CSS_FILES } from './css-files.mjs'
 
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 
 function walk(dir, acc = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

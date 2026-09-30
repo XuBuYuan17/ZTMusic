@@ -44,3 +44,26 @@ AGENTS.md
 .claude/
 .codex-target/
 .pnpm-store/
+
+# Personal tools and scratch files
+/.codex/
+/.local/
+/scripts/_tmp-*
+
+# Environment files (only templates may be committed)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Private keys and local database files
+*.pem
+*.key
+*.p12
+*.pfx
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*

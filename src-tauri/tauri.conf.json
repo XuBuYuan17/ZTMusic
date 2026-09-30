@@ -22,6 +22,7 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
+        "devtools": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HardwareMediaKeyHandling"
       }
     ],
@@ -42,14 +43,10 @@
     ],
     "linux": {
       "deb": {
-        "files": {
-          "/usr/share/applications/zheting.desktop": "linux/zheting.desktop"
-        }
+        "desktopTemplate": "linux/zheting.desktop"
       },
       "rpm": {
-        "files": {
-          "/usr/share/applications/zheting.desktop": "linux/zheting.desktop"
-        }
+        "desktopTemplate": "linux/zheting.desktop"
       }
     },
     "windows": {

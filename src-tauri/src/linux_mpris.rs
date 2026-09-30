@@ -152,9 +152,14 @@ async fn run_mpris(
     // 避免 Player 的 Sync 边界与 async 任务修改状态之间的数据竞争。
     let is_playing = Arc::new(AtomicBool::new(false));
 
-    let player = Player::builder("zheting")
-        .identity("哲听")
-        .desktop_entry("zheting")
+    let (bus_name, identity, desktop_entry) = if cfg!(feature = "dev-channel") {
+        ("zheting.dev", "哲听 Dev", "哲听 Dev")
+    } else {
+        ("zheting", "哲听", "zheting")
+    };
+    let player = Player::builder(bus_name)
+        .identity(identity)
+        .desktop_entry(desktop_entry)
         .supported_uri_schemes(["file", "http", "https"])
         .can_go_next(true)
         .can_go_previous(true)

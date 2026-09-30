@@ -15,8 +15,8 @@ name: Prepare Release
         default: auto
 
 permissions:
-  actions: write
   contents: write
+  pull-requests: write
 
 concurrency:
   group: release-prepare
@@ -24,7 +24,8 @@ concurrency:
 
 jobs:
   prepare:
-    name: Calculate version and create release tag
+    name: Prepare version update PR
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -49,7 +50,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify source before tagging
+      - name: Verify source before preparing release
         run: pnpm verify
 
       - name: Calculate next version and changelog
@@ -219,22 +220,24 @@ jobs:
           grep -q "^version = \"$VERSION\"$" src-tauri/Cargo.toml
           pnpm check:versions
 
-      - name: Commit, tag and push
+      - name: Create version update PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.release.outputs.version }}
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
+          BRANCH="release/$TAG"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Release branch $BRANCH already exists; merge or close its PR first."
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
+          git switch -c "$BRANCH"
           git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md
-          if git diff --cached --quiet; then
-            echo "Release files already prepared; tagging the current commit."
-          else
-            git commit -m "chore(release): $TAG"
-          fi
-          git tag "$TAG"
-          git push --atomic origin HEAD:main "$TAG"
-          echo "Pushed $TAG; build.yml will run from the tag push trigger."
+          git commit -m "chore(release): $TAG"
+          git push origin "$BRANCH"
+          printf 'Prepare version %s. Merge after Source checks pass to create the release tag and build official installers.\n\nIf GitHub requests approval for bot-created PR checks, approve the workflow run first.\n' "$VERSION" > "$RUNNER_TEMP/release-pr.md"
+          gh pr create --base main --head "$BRANCH" --title "chore(release): $TAG" --body-file "$RUNNER_TEMP/release-pr.md"

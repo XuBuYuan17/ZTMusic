@@ -15,6 +15,9 @@ name = "app_lib"
 # 桌面端 main.rs 调用 app_lib::run()。
 crate-type = ["rlib"]
 
+[features]
+dev-channel = ["tauri/devtools"]
+
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
 

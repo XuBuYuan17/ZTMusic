@@ -42,13 +42,23 @@ function serializeClientError(value) {
 }
 
 async function installDevErrorReporter() {
-  if (!import.meta.env.DEV || !window.__TAURI_INTERNALS__) return
+  if (!(import.meta.env.DEV || import.meta.env.VITE_APP_CHANNEL === 'dev') || !window.__TAURI_INTERNALS__) return
   let invoke
   try {
     ;({ invoke } = await import('@tauri-apps/api/core'))
   } catch {
     return
   }
+
+  console.info('[build]', {
+    channel: import.meta.env.VITE_APP_CHANNEL || 'local',
+    commit: import.meta.env.VITE_BUILD_SHA || 'local',
+  })
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'F12' && !(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'i')) return
+    event.preventDefault()
+    invoke('dev_open_devtools').catch(error => console.warn('[devtools]', error))
+  })
 
   const report = (level, value, source = '') => {
     const serialized = serializeClientError(value)

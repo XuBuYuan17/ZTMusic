@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
-import { convergeRadiusDeclarations, isAllowedRadius, radiusToken } from '../../../scripts/converge-border-radius.mjs'
+import { convergeRadiusDeclarations, isAllowedRadius, radiusToken } from '../../../scripts/maintenance/converge-border-radius.mjs'
 
 const ROOT = new URL('../../../', import.meta.url)
 
