@@ -382,6 +382,35 @@
     <script>
       (function () {
         'use strict'
+        function showStartupError(error) {
+          var splash = document.getElementById('splash')
+          var app = document.getElementById('app')
+          if (!splash || !app) return
+          splash.remove()
+          var panel = document.createElement('section')
+          panel.setAttribute('role', 'alert')
+          panel.style.cssText = 'padding:32px 20px;color:#f4f4f5;background:#0a0a0a;min-height:100vh;box-sizing:border-box'
+          var title = document.createElement('h2')
+          title.textContent = '哲听加载失败'
+          var detail = document.createElement('pre')
+          detail.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;color:#ffb4ab;font-size:14px;line-height:1.5;user-select:text'
+          detail.textContent = error && error.message
+            ? (error.name || 'Error') + ': ' + error.message + (error.stack ? '\n\n' + error.stack : '')
+            : String(error)
+          var retry = document.createElement('button')
+          retry.textContent = '重新加载'
+          retry.style.cssText = 'min-height:48px;padding:0 24px;margin-top:16px;border:0;border-radius:var(--radius-lg)'
+          retry.onclick = function () { window.location.reload() }
+          panel.append(title, detail, retry)
+          app.textContent = ''
+          app.appendChild(panel)
+        }
+        window.addEventListener('ztmusic:startup-error', function (event) { showStartupError(event.detail) })
+        window.addEventListener('unhandledrejection', function (event) { showStartupError(event.reason) })
+        window.addEventListener('error', function (event) {
+          if (event.message) showStartupError(event.error || event.message + '\n' + (event.filename || ''))
+          else if (event.target && event.target.tagName === 'SCRIPT') showStartupError('启动脚本加载失败：' + event.target.src)
+        }, true)
         var ztMask = document.getElementById('splashZtMask')
         if (!ztMask) return
 

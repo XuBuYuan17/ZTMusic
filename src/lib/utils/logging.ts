@@ -1,6 +1,6 @@
 export function debugLog(scope: string, type: string, payload: unknown = {}): void {
   const enabled =
-    (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ||
+    (typeof import.meta !== 'undefined' && (import.meta.env?.DEV || import.meta.env?.VITE_APP_CHANNEL === 'dev')) ||
     (typeof localStorage !== 'undefined' && localStorage.getItem('debug_playback') === 'true')
   if (!enabled || typeof console === 'undefined') return
   console.debug(`[${scope}:${type}]`, payload)

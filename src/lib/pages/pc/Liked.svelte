@@ -130,7 +130,7 @@
           <div class="liked-song-row" role="button" tabindex="0"
             class:active={player.id === track.id}
             onclick={() => playTrack(track)}
-            onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); playTrack(track) } }}
+            onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); playTrack(track) } }}
             oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
             <span class="liked-song-index">{i + 1}</span>
             <img class="liked-song-cover" src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
@@ -146,6 +146,7 @@
                   {/if}
                 {/each}
               </em>
+              <small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt || track.duration}<time>{formatDuration(track.dt || (track.duration as number))}</time>{/if}</small>
             </span>
             <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
             <span class="liked-song-dur">{formatDuration(track.dt || (track.duration as number) || 0)}</span>

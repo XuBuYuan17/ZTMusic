@@ -2,8 +2,8 @@
  * 删除全局 CSS 中确认无引用的 class 规则。
  *
  * 用法：
- *   node scripts/prune-dead-css.mjs --dry    # 只报告将要删什么
- *   node scripts/prune-dead-css.mjs          # 实际写入
+ *   node scripts/maintenance/prune-dead-css.mjs --dry    # 只报告将要删什么
+ *   node scripts/maintenance/prune-dead-css.mjs          # 实际写入
  *
  * 安全策略（宁可漏删，不可错删）：
  *   - 只处理"整条规则的所有选择器都是死 class"的规则块，整块删除
@@ -12,7 +12,7 @@
  *   - at-rule（@media 等）递归处理内部；内部全空则连同 at-rule 一起删
  *
  * 保真不变量：空死名单时输出必须与输入逐字节一致。
- * 见 scripts/prune-dead-css.test.mjs —— 该自检曾抓到"重建时丢失闭合 }"的 bug。
+ * 见 scripts/maintenance/prune-dead-css.test.mjs —— 该自检曾抓到"重建时丢失闭合 }"的 bug。
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { GLOBAL_CSS_FILES } from './css-files.mjs'
 
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 
 /**
  * 把 CSS 切成顶层 token。每个 token 的 `text` 是它在原文中的**原样切片**，
@@ -141,7 +141,7 @@ export function rebuild(css, dead, stats = emptyStats()) {
 if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) {
   const dryRun = process.argv.includes('--dry')
   const dead = new Set(JSON.parse(
-    execFileSync(process.execPath, [resolve(root, 'scripts/find-dead-css.mjs'), '--json'], { encoding: 'utf8' })
+    execFileSync(process.execPath, [resolve(root, 'scripts/maintenance/find-dead-css.mjs'), '--json'], { encoding: 'utf8' })
   ))
   const outputs = GLOBAL_CSS_FILES.map((file) => {
     const path = resolve(root, file)

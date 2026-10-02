@@ -2,8 +2,8 @@
  * 把 CSS 里的 font-weight 收敛到 HarmonyOS Sans SC 实际打包的 3 档：400 / 500 / 700。
  *
  * 用法：
- *   node scripts/converge-font-weight.mjs --dry   # 预览
- *   node scripts/converge-font-weight.mjs         # 写入
+ *   node scripts/maintenance/converge-font-weight.mjs --dry   # 预览
+ *   node scripts/maintenance/converge-font-weight.mjs         # 写入
  *
  * 为什么必须收敛：只打包了 Regular/Medium/Bold 三个字面，其余字重浏览器要么
  * 舍入到最近档、要么合成"假粗体"（synthetic bold，笔画糊、字距乱）。
@@ -22,7 +22,7 @@ import { join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { GLOBAL_CSS_FILES } from './css-files.mjs'
 
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 
 /** 全部含 CSS 的文件：全局样式表 + 组件 <style> 块 + index.html 内联样式 */
 function targets() {

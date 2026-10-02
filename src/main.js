@@ -42,13 +42,23 @@ function serializeClientError(value) {
 }
 
 async function installDevErrorReporter() {
-  if (!import.meta.env.DEV || !window.__TAURI_INTERNALS__) return
+  if (!(import.meta.env.DEV || import.meta.env.VITE_APP_CHANNEL === 'dev') || !window.__TAURI_INTERNALS__) return
   let invoke
   try {
     ;({ invoke } = await import('@tauri-apps/api/core'))
   } catch {
     return
   }
+
+  console.info('[build]', {
+    channel: import.meta.env.VITE_APP_CHANNEL || 'local',
+    commit: import.meta.env.VITE_BUILD_SHA || 'local',
+  })
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'F12' && !(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'i')) return
+    event.preventDefault()
+    invoke('dev_open_devtools').catch(error => console.warn('[devtools]', error))
+  })
 
   const report = (level, value, source = '') => {
     const serialized = serializeClientError(value)
@@ -114,17 +124,10 @@ function hideSplash() {
     mount(App, { target: document.getElementById('app') })
     hideSplash()
   } catch (e) {
-    // HMR 重载时的临时编译错误不覆盖页面
+    console.error('[哲听] 初始加载错误:', e)
     if (import.meta.hot) {
-      console.warn('[哲听] 初始加载错误，等待 HMR 重试:', e)
       import.meta.hot.on('vite:error', () => window.location.reload())
-      return
     }
-    document.getElementById('app').innerHTML = `
-      <div style="padding:40px;color:white;font-family:sans-serif">
-        <h2>哲听 加载失败</h2>
-        <pre style="color:#ff6a6a;margin-top:16px;white-space:pre-wrap">${e.stack || e.message || e}</pre>
-      </div>
-    `
+    window.dispatchEvent(new CustomEvent('ztmusic:startup-error', { detail: e }))
   }
 })()

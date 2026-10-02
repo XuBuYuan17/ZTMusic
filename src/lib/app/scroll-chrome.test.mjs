@@ -19,6 +19,9 @@ const spy = () => {
   chrome.scroll(300)
   assert.deepEqual(s.calls, [true], '滑动期间只隐藏一次')
   await tick()
+  assert.deepEqual(s.calls, [true], '手指仍按住时不恢复')
+  chrome.interact(false)
+  await tick()
   assert.deepEqual(s.calls, [true, false], '停手后恢复')
   chrome.destroy()
 }
@@ -84,4 +87,32 @@ const spy = () => {
   assert.deepEqual(s.calls, [true, false], 'destroy 后不再有回调')
 }
 
+{
+  const s = spy()
+  const chrome = createScrollChrome(s.apply, 20)
+  chrome.interact(true)
+  chrome.scroll(100)
+  chrome.interact(false)
+  await new Promise(resolve => setTimeout(resolve, 10))
+  chrome.interact(true)
+  chrome.scroll(200)
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.deepEqual(s.calls, [true], '再次触摸取消恢复计时')
+  chrome.interact(false)
+  await new Promise(resolve => setTimeout(resolve, 25))
+  assert.deepEqual(s.calls, [true, false], '再次停稳后恢复')
+  chrome.destroy()
+}
+{
+  const s = spy()
+  const chrome = createScrollChrome(s.apply)
+  chrome.interact(true)
+  chrome.scroll(100)
+  chrome.interact(false)
+  await new Promise(resolve => setTimeout(resolve, 500))
+  assert.deepEqual(s.calls, [true], '默认延迟不在半秒内恢复')
+  await new Promise(resolve => setTimeout(resolve, 550))
+  assert.deepEqual(s.calls, [true, false], '默认一秒后恢复')
+  chrome.destroy()
+}
 console.log('scroll chrome self-check: hide, restore and interaction gating passed')

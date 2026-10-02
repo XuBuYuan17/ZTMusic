@@ -57,6 +57,13 @@ function restore(): void {
   assert.equal(isTauriDesktop(), true, 'Tauri macOS: is desktop')
 }
 
+// ── Android UA 包含 Linux，但不能启用桌面标题栏 ──
+{
+  setRuntime({ hasTauri: true, platform: 'Linux aarch64', userAgent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36' })
+  assert.equal(isTauriRuntime(), true, 'Android still uses Tauri IPC')
+  assert.equal(isTauriDesktop(), false, 'Android is not a Linux desktop')
+}
+
 // ── navigator 缺失（SSR / node 环境） ──
 {
   globalThis.window = { __TAURI_INTERNALS__: undefined } as unknown as RuntimeWindow
@@ -71,4 +78,4 @@ function restore(): void {
 }
 
 restore()
-console.log('runtime detection: 12 assertions passed')
+console.log('runtime detection: 14 assertions passed')

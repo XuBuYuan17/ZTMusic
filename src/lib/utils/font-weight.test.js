@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
-import { GLOBAL_CSS_FILES } from '../../../scripts/css-files.mjs'
+import { GLOBAL_CSS_FILES } from '../../../scripts/maintenance/css-files.mjs'
 
 const PACKED = [400, 500, 700]
 const ROOT = new URL('../../../', import.meta.url)

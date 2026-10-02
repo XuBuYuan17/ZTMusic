@@ -191,7 +191,7 @@
               {#each results.songs.slice(0, 8) as track (track.id)}
                 <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                   {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                  <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
+                  <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /><span class="search-desktop-album">{#if track.al?.name} · {track.al.name}{/if}</span></em><small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small></span>
                   <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
                 </div>
               {/each}
@@ -234,7 +234,7 @@
             {#each results.songs as track (track.id)}
               <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
                 {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} />{#if track.al?.name} · {track.al.name}{/if}</em></span>
+                <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /><span class="search-desktop-album">{#if track.al?.name} · {track.al.name}{/if}</span></em><small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small></span>
                 <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
               </div>
             {/each}

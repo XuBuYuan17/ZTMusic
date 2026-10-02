@@ -230,4 +230,69 @@
   :global(html:not(.mobile-runtime)) .profile-home > :global(:nth-child(n+5)) { animation-delay: 160ms; }
   @keyframes profile-home-in { from { opacity: 0; transform: translateY(8px); } }
   @media (max-width: 1100px) { .profile-home__quick { grid-template-columns: repeat(2, 1fr); } .profile-home__cover-grid { grid-template-columns: repeat(3, 1fr); } }
+
+  :global(html.mobile-runtime) .profile-home { gap: 24px; }
+  :global(html.mobile-runtime) .profile-home__dashboard,
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__level) { display: none; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero),
+  :global(html.mobile-runtime) .profile-home__hero-skeleton { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--text); }
+  :global(html.mobile-runtime) .profile-home__hero-skeleton { height: 120px; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__background),
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__wash) { display: none; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__content) { min-height: 0; gap: 16px; padding: 4px 0; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__identity) { align-items: center; gap: 12px; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__avatar) { width: 56px; height: 56px; border: 0; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__label),
+  :global(html.mobile-runtime) .profile-home__quick-label,
+  :global(html.mobile-runtime) .profile-home__panel header span,
+  :global(html.mobile-runtime) .profile-home__section header span { display: none; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero h1) { font-size: 22px; line-height: 1.2; color: var(--text); }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__name-line) { gap: 8px; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero p) { overflow: hidden; max-height: none; margin-top: 4px; font-size: 13px; line-height: 1.4; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__identity-label) { margin-top: 4px; padding: 2px 8px; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__stats) { gap: 8px; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__stats div) { gap: 0; padding: 2px 0; border: 0; background: none; backdrop-filter: none; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__stats strong) { font-size: 16px; line-height: 1.25; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__stats span) { font-size: 13px; line-height: 1.3; }
+  :global(html.mobile-runtime) .profile-home__quick,
+  :global(html.mobile-runtime) .profile-home__quick-skeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :global(html.mobile-runtime) .profile-home__quick > button { min-height: 68px; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; gap: 2px 10px; padding: 8px 0; border: 0; border-radius: var(--radius-sm); background: transparent; }
+  :global(html.mobile-runtime) .profile-home__quick > button:first-child { padding-inline: 8px; border-radius: var(--radius-lg); background: var(--md-primary-container); }
+  :global(html.mobile-runtime) .profile-home__quick > button:first-child strong { color: var(--md-primary); }
+  :global(html.mobile-runtime) .profile-home__quick-skeleton span { min-height: 68px; border-radius: var(--radius-md); }
+  :global(html.mobile-runtime) .profile-home__quick-icon { grid-row: 1 / 3; width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--md-container-high); color: var(--md-primary); }
+  :global(html.mobile-runtime) .profile-home__quick > button:hover .profile-home__quick-icon { background: var(--md-container-high); }
+  :global(html.mobile-runtime) .profile-home__quick strong { font-size: 15px; line-height: 1.35; }
+  :global(html.mobile-runtime) .profile-home__quick em { font-size: 13px; line-height: 1.3; }
+  :global(html.mobile-runtime) .profile-home__panel,
+  :global(html.mobile-runtime) .profile-home__section { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  :global(html.mobile-runtime) .profile-home__panel > header,
+  :global(html.mobile-runtime) .profile-home__section > header { align-items: center; min-height: 48px; margin-bottom: 8px; }
+  :global(html.mobile-runtime) .profile-home .profile-home__panel h2,
+  :global(html.mobile-runtime) .profile-home .profile-home__section h2 { margin-top: 0; font-size: 18px; line-height: 24px; }
+  :global(html.mobile-runtime) .profile-home__panel header button,
+  :global(html.mobile-runtime) .profile-home__section header button { min-width: 48px; min-height: 48px; margin-right: 0; font-size: 13px; }
+  :global(html.mobile-runtime) .profile-home__track-list { gap: 2px; }
+  :global(html.mobile-runtime) .profile-home__track-list > button { min-height: 60px; grid-template-columns: 44px minmax(0, 1fr) 16px; gap: 10px; padding: 6px 4px; }
+  :global(html.mobile-runtime) .profile-home__track-list--rank > button { grid-template-columns: 28px minmax(0, 1fr) 16px; }
+  :global(html.mobile-runtime) .profile-home__track-list > button > :global(svg) { opacity: 1; }
+  :global(html.mobile-runtime) .profile-home__track-list strong { font-size: 14px; }
+  :global(html.mobile-runtime) .profile-home__track-list em,
+  :global(html.mobile-runtime) .profile-home__rank { font-size: 13px; }
+  :global(html.mobile-runtime) .profile-home__empty { min-height: 80px; font-size: 13px; }
+  :global(html.mobile-runtime) .profile-home__cover-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 12px; }
+  :global(html.mobile-runtime) .profile-home__cover-grid button { min-height: 48px; gap: 6px; align-content: start; background: transparent; }
+  :global(html.mobile-runtime) .profile-home__cover { border-radius: var(--radius-sm); box-shadow: none; }
+  :global(html.mobile-runtime) .profile-home__cover-grid strong { display: -webkit-box; -webkit-box-orient: vertical; line-clamp: 2; -webkit-line-clamp: 2; min-height: 40px; font-size: 15px; line-height: 20px; white-space: normal; }
+  :global(html.mobile-runtime) .profile-home__cover-grid em { margin-top: 0; font-size: 13px; line-height: 18px; }
+  :global(html.mobile-runtime) .profile-home__cover-grid button:hover .profile-home__cover { box-shadow: none; }
+  :global(html.mobile-runtime) .profile-home__cover-grid button:hover .profile-home__cover img { transform: none; }
+  @media (max-width: 359px) {
+    :global(html.mobile-runtime) .profile-home__cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 600px) {
+    :global(html.mobile-runtime) .profile-home__dashboard,
+    :global(html.mobile-runtime) .profile-home__social { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    :global(html.mobile-runtime) .profile-home__cover-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
 </style>

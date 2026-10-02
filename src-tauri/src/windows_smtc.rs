@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use async_channel::{bounded, Receiver, Sender};
-use windows::core::{w, HSTRING};
+use windows::core::HSTRING;
 use windows::Foundation::{TimeSpan, TypedEventHandler, Uri};
 use windows::Media::{
     MediaPlaybackStatus, SystemMediaTransportControls, SystemMediaTransportControlsButton,
@@ -18,6 +18,9 @@ use windows::Win32::System::WinRT::{
 };
 use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
+#[cfg(feature = "dev-channel")]
+const APP_USER_MODEL_ID: &str = "com.zheting.music.dev";
+#[cfg(not(feature = "dev-channel"))]
 const APP_USER_MODEL_ID: &str = "com.zheting.music";
 /// 消息通道容量：这些是「最新状态覆盖旧的」的更新，消费端一次只取一条，
 /// 留几格缓冲足够吸收突发，塞满就丢（发送端用的是 try_send）。
@@ -32,7 +35,7 @@ impl Drop for WindowsRuntimeApartment {
 }
 
 pub fn set_process_app_id() -> windows::core::Result<()> {
-    unsafe { SetCurrentProcessExplicitAppUserModelID(w!("com.zheting.music")) }
+    unsafe { SetCurrentProcessExplicitAppUserModelID(&HSTRING::from(APP_USER_MODEL_ID)) }
 }
 
 #[derive(Debug)]

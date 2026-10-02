@@ -310,6 +310,8 @@
       </div>
     {/if}
     <div class="lcd-meta" class:show-lyric={showLyric}>
+      <div class="lcd-meta__mobile-title">{player.title || '未在播放'}</div>
+      <div class="lcd-meta__mobile-secondary">{player.error || (player.webdavDownloading ? `正在下载 ${player.webdavDownloading.name}${player.webdavDownloading.percent >= 0 ? ` ${player.webdavDownloading.percent}%` : ''}` : player.loading ? '正在载入…' : lyricLoading ? '正在同步歌词…' : currentLyric?.text || player.artist || '')}</div>
       {#if showLyric}
         {#key `${currentLyric!.time}-${currentLyric!.text}`}
           <div class="lcd-meta__lyric-group">
@@ -395,3 +397,10 @@
   </div>
 
 </div>
+
+<style>
+  .lcd-meta__mobile-title, .lcd-meta__mobile-secondary { display: none; }
+  :global(html.mobile-runtime) .lcd-meta__mobile-title { display: block; color: var(--text); font-size: 14px; font-weight: 500; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :global(html.mobile-runtime) .lcd-meta__mobile-secondary { display: block; color: var(--text-secondary); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  :global(html.mobile-runtime) .lcd-meta > :is(.lcd-meta__title, .lcd-meta__artist, .lcd-meta__lyric-group) { display: none; }
+</style>

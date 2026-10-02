@@ -1,11 +1,11 @@
 /* Touch adaptations for the same page components used by PC. */
 html.mobile-runtime :is(.search-page, .playlist-page, .artist-page, .user-page, .local-music-page, .listening-stats-page, .messages-page) { min-width: 0; max-width: 100%; }
 html.mobile-runtime :is(.playlist-back-btn, .artist-back, .user-page__back) { display: none; }
-html.mobile-runtime .artist-hero { flex-direction: column; align-items: center; gap: 20px; padding: 24px 20px; border-radius: var(--radius-xl); }
+html.mobile-runtime .artist-hero { flex-direction: row; align-items: center; gap: 16px; padding: 12px 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 html.mobile-runtime .artist-avatar-wrap { align-self: center; }
-html.mobile-runtime .artist-avatar { width: min(48vw, 200px); height: auto; aspect-ratio: 1; }
+html.mobile-runtime .artist-avatar { width: 96px; height: 96px; aspect-ratio: 1; }
 html.mobile-runtime .artist-info { width: 100%; min-width: 0; }
-html.mobile-runtime .artist-info h1 { font-size: 28px; line-height: 1.25; overflow-wrap: anywhere; }
+html.mobile-runtime .artist-info h1 { font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
 html.mobile-runtime .artist-actions { flex-wrap: wrap; }
 html.mobile-runtime .artist-section { padding: 16px 0; }
 html.mobile-runtime .artist-albums { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
@@ -14,15 +14,16 @@ html.mobile-runtime :is(.page-title, .page-header h1) { font-size: 24px; }
 html.mobile-runtime :is(.track-table, .song-table) { width: 100%; min-width: 0; table-layout: fixed; }
 html.mobile-runtime :is(.track-table, .song-table) tr { min-height: 64px; }
 /* 卡片按钮只在 :hover/:focus-visible 显形，触屏两者都不可达，移动端常驻显示 */
-html.mobile-runtime :is(.library-card-play-btn, .library-card-action) { opacity: 1; transform: none; }
-html.mobile-runtime :is(.song-more-btn, .track-more-btn, .playlist-play-btn, .artist-play-all, .artist-follow-btn) { min-height: 44px; min-width: 44px; }
-html.mobile-runtime :is(.nav-item, .sidebar-avatar-btn, .song-menu__item) { min-height: 44px; }
+html.mobile-runtime :is(.library-card-play-btn, .library-card-action) { width: 48px; height: 48px; opacity: 1; transform: none; border: 0; border-radius: var(--radius-md); background: var(--md-container-high); color: var(--text); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.mobile-runtime .library-card-action-danger { color: var(--danger); }
+html.mobile-runtime :is(.song-more-btn, .track-more-btn, .playlist-play-btn, .artist-play-all, .artist-follow-btn) { min-height: 48px; min-width: 48px; }
+html.mobile-runtime :is(.nav-item, .sidebar-avatar-btn, .song-menu__item) { min-height: 48px; }
 html.mobile-runtime :is(.error-state, .empty-state) { padding: 32px 16px; border-radius: var(--radius-lg); color: var(--text-secondary); text-align: center; }
 html.mobile-runtime :is(input:not([type="range"]):not([type="checkbox"]), textarea, select) { font-size: 16px; max-width: 100%; scroll-margin-block: 24px; }
-html.mobile-runtime :is(.login-overlay, .library-modal-overlay, .confirm-overlay, .follow-dialog-overlay) { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); align-items: center; }
-html.mobile-runtime :is(.login-card, .library-modal, .confirm-card, .follow-dialog, .chat-dialog) { width: min(100%, 560px); max-height: calc(var(--mobile-viewport-height, 100dvh) - 32px); overflow-y: auto; border-radius: var(--radius-xl); }
-html.mobile-runtime.mobile-keyboard-open :is(.login-overlay, .library-modal-overlay, .confirm-overlay, .follow-dialog-overlay, .m-library-sheet-overlay) { top: var(--mobile-viewport-top, 0px); bottom: auto; height: var(--mobile-viewport-height, 100dvh); }
-html.mobile-runtime :is(.m-library-sheet, .am-more-menu, .am-secondary-sheet, .queue-panel.queue-panel-mobile-visible, .song-context-menu) { border-radius: var(--radius-xl) var(--radius-xl) 0 0; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); box-shadow: var(--shadow-xl); }
+html.mobile-runtime :is(.login-overlay, .library-modal-overlay, .library-modal-backdrop, .confirm-overlay, .follow-dialog-overlay) { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); align-items: center; }
+html.mobile-runtime :is(.login-card, .library-modal, .confirm-card, .follow-dialog, .chat-dialog) { width: min(100%, 560px); max-height: calc(var(--mobile-viewport-height, 100dvh) - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom))); overflow-y: auto; border-radius: var(--radius-xl); }
+html.mobile-runtime.mobile-keyboard-open :is(.login-overlay, .library-modal-overlay, .library-modal-backdrop, .confirm-overlay, .follow-dialog-overlay, .m-library-sheet-overlay) { top: var(--mobile-viewport-top, 0px); bottom: auto; height: var(--mobile-viewport-height, 100dvh); }
+html.mobile-runtime :is(.m-library-sheet, .am-more-menu, .am-secondary-sheet, .queue-panel.queue-panel-mobile-visible, .song-context-menu) { border-radius: var(--radius-lg) var(--radius-lg) 0 0; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text); box-shadow: var(--shadow-xl); }
 html.mobile-runtime .m-sheet-handle { display: grid; place-items: center; width: 100%; height: 44px; flex: none; background: none; color: var(--text-secondary); touch-action: none; }
 html.mobile-runtime .m-sheet-handle::before { content: ''; width: 36px; height: 4px; border-radius: 999px; background: currentColor; opacity: .55; }
 html:not(.mobile-runtime) .m-sheet-handle { display: none; }
@@ -31,8 +32,12 @@ html:not(.mobile-runtime) .m-sheet-handle { display: none; }
    原先这里写的是 mobile-page-in —— 那个 @keyframes 全项目从未定义过，所以面板一直是瞬现。 */
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-width: 760px; margin-inline: auto; height: min(75dvh, 640px); max-height: var(--mobile-viewport-height, 100dvh); padding-bottom: env(safe-area-inset-bottom); animation: none; }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-list { flex: 1; min-height: 0; overflow: auto; }
-html.mobile-runtime :is(.am-more-menu, .am-secondary-sheet) { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - 24px); overflow-y: auto; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); transform: none; }
+html.mobile-runtime :is(.am-more-menu, .am-secondary-sheet) { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))); overflow-y: auto; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); transform: none; }
 html.mobile-runtime .am-more-backdrop { background: rgba(0,0,0,.4); }
+html.mobile-runtime .song-menu-scrim { background: rgba(0,0,0,.4); }
+html.mobile-runtime .song-menu .song-menu__item.primary { color: var(--md-primary); }
+html.mobile-runtime .song-menu__panel-head { grid-template-columns: 48px minmax(0, 1fr); }
+html.mobile-runtime .song-menu__panel-head button { width: 48px; height: 48px; }
 html.mobile-runtime .am-more-item { color: var(--text); min-height: 48px; }
 html.mobile-runtime .am-more-track strong { color: var(--text); }
 html.mobile-runtime .am-more-track small { color: var(--text-secondary); }
@@ -41,19 +46,30 @@ html.mobile-runtime .am-secondary-title { color: var(--text); }
 html.mobile-runtime .am-secondary-close { color: var(--text); min-width: 44px; min-height: 44px; }
 html:not(.mobile-runtime) .m-track-more { display: none; }
 html.mobile-runtime .mobile-page-content :is(.track-table tbody tr, .liked-song-row, .daily-song-row, .search-song-row) { position: relative; }
-html.mobile-runtime .mobile-page-content :is(.track-table .col-title, .track-table .col-artist) { padding-right: 48px; }
-html.mobile-runtime .mobile-page-content .m-track-more { position: absolute; right: 0; top: calc(50% - 22px); width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; font-size: 14px; letter-spacing: 2px; }
-html.mobile-runtime .mobile-page-content :is(.liked-song-row, .daily-song-row) { grid-template-columns: 44px minmax(0, 1fr); padding: 10px 48px 10px 0; gap: 12px; }
+html.mobile-runtime .mobile-page-content :is(.track-table .col-title, .track-table .col-artist) { padding-right: 56px; }
+html.mobile-runtime .mobile-page-content .m-track-more { position: absolute; right: 0; top: calc(50% - 24px); width: 48px; height: 48px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--text-secondary); background: transparent; font-size: 14px; letter-spacing: 2px; }
+html.mobile-runtime .mobile-page-content :is(.liked-song-row, .daily-song-row) { grid-template-columns: 44px minmax(0, 1fr); padding: 10px 56px 10px 0; gap: 12px; }
 html.mobile-runtime :is(.liked-song-index, .liked-song-dur, .daily-song-index, .daily-song-dur, .daily-song-album) { display: none; }
-html.mobile-runtime .search-song-row { padding-right: 48px; }
+html.mobile-runtime .search-song-row { grid-template-columns: 42px minmax(0, 1fr); padding-right: 56px; min-height: 64px; }
+html.mobile-runtime .search-song-dur { display: none; }
 html.mobile-runtime .search-header { display: none; }
-html.mobile-runtime .song-menu { left: 0 !important; top: auto !important; bottom: 0; right: 0; width: 100%; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - 24px); overflow-y: auto; border-radius: var(--radius-xl) var(--radius-xl) 0 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
-html.mobile-runtime .m-library-sheet { left: 0; right: 0; bottom: 0; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - 24px); overflow-y: auto; padding-top: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+html.mobile-runtime .song-menu { left: 0 !important; top: auto !important; bottom: 0; right: 0; width: 100%; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))); overflow-y: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime .song-menu { display: flex; flex-direction: column; max-height: min(calc(var(--mobile-viewport-height, 100dvh) * .85), calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top)))); overflow: hidden; }
+html.mobile-runtime .song-menu.panel { width: 100%; max-width: 760px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+html.mobile-runtime .song-menu__header { flex: none; }
+html.mobile-runtime .song-menu__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+html.mobile-runtime .m-sheet-handle { min-height: 48px; }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible { height: min(calc(var(--mobile-viewport-height, 100dvh) * .75), 640px); max-height: calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))); }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-list { overscroll-behavior: contain; }
+html.mobile-runtime.mobile-keyboard-open :is(.song-menu, .sort-sheet, .queue-panel.queue-panel-mobile-visible) { bottom: calc(100dvh - var(--mobile-viewport-height) - var(--mobile-viewport-top)); }
+html.mobile-runtime .m-library-sheet { left: 0; right: 0; bottom: 0; max-width: 760px; margin-inline: auto; max-height: calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))); overflow-y: auto; padding-top: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
 html.mobile-runtime.mobile-keyboard-open .m-library-sheet { bottom: calc(100dvh - var(--mobile-viewport-height) - var(--mobile-viewport-top)); }
 
 html.mobile-runtime .m-library-sheet-form { display: grid; gap: 14px; }
-html.mobile-runtime .queue-panel :is(.queue-clear-btn, .queue-close-btn, .queue-item-remove, .queue-item-playnext) { min-width: 44px; min-height: 44px; opacity: 1; }
+html.mobile-runtime .queue-panel :is(.queue-clear-btn, .queue-close-btn, .queue-item-remove, .queue-item-playnext) { min-width: 48px; min-height: 48px; opacity: 1; }
 html.mobile-runtime .queue-item-duration { display: none; }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item.active { background: var(--md-primary-container); color: var(--md-primary); }
+html.mobile-runtime .queue-panel .queue-clear-btn { color: var(--md-primary); }
 
 /* Secondary pages retain their desktop content and use the shell's mobile heading. */
 html.mobile-runtime .mobile-page-content .page-header h1,
@@ -73,3 +89,233 @@ html.mobile-runtime .chat-send-btn { width: 44px; height: 44px; }
 html.mobile-runtime.mobile-keyboard-open .chat-modal-backdrop { top: var(--mobile-viewport-top, 0px); bottom: auto; height: var(--mobile-viewport-height, 100dvh); }
 html.mobile-runtime :is(.liked-empty, .daily-empty, .artist-empty, .user-page__error, .search-error) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 240px; padding: 32px 16px; color: var(--text-secondary); text-align: center; }
 html.mobile-runtime :is(.liked-empty, .daily-empty, .artist-empty, .user-page__error) button { min-height: 44px; padding: 10px 20px; border-radius: var(--radius-md); background: var(--accent); color: white; }
+
+html.mobile-runtime .mobile-page-content__inner { padding-top: 12px; }
+html.mobile-runtime .mobile-page-content :is(.music-section-head h2, .profile-home__panel h2, .profile-home__section h2, .library-section-header h2) { font-size: 18px; line-height: 1.3; }
+html.mobile-runtime :is(.profile-home__panel, .profile-home__section, .search-side-card, .search-main-card, .settings-panel, .search-songs-panel, .search-chart-panel, .search-top-result) { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .profile-home__quick > button { background: transparent; border: 0; border-radius: var(--radius-xs); }
+html.mobile-runtime .profile-home__cover-grid { display: flex; overflow-x: auto; gap: 12px; padding-block: 2px 6px; scroll-snap-type: x proximity; scrollbar-width: none; }
+html.mobile-runtime .profile-home__cover-grid > button { flex: 0 0 clamp(132px, 40vw, 168px); scroll-snap-align: start; }
+html.mobile-runtime .profile-home__quick-icon { color: var(--md-primary); background: var(--md-surface); border-radius: var(--radius-md); }
+html.mobile-runtime :is(.profile-home__quick-label, .profile-home__panel header span, .profile-home__section header span) { color: var(--md-primary); letter-spacing: .04em; }
+html.mobile-runtime .profile-home__logged-out { min-height: 0; padding: 48px 12px; }
+html.mobile-runtime .profile-home__logged-out h1 { font-size: 28px; text-wrap: balance; }
+html.mobile-runtime .user-profile-hero { color: var(--text); background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+html.mobile-runtime .user-profile-hero__background { display: none; }
+html.mobile-runtime .user-profile-hero__wash { display: none; }
+html.mobile-runtime .user-profile-hero h1 { color: var(--text); }
+html.mobile-runtime .user-profile-hero :is(.user-profile-hero__label, p, .user-profile-hero__stats span) { color: var(--text-secondary); }
+html.mobile-runtime .user-profile-hero__stats div { background: var(--md-container); border: 0; backdrop-filter: none; }
+html.mobile-runtime :is(.profile-home__panel, .profile-home__section) header button { min-height: 48px; color: var(--md-primary); }
+html.mobile-runtime .user-profile-hero :is(.user-profile-hero__level, .user-profile-hero__identity-label) { background: var(--md-container); border: 0; color: var(--md-primary); }
+html.mobile-runtime .user-profile-hero__avatar { border-color: var(--md-surface); box-shadow: none; }
+html.mobile-runtime .music-search-field { min-height: 56px; background: var(--md-container-high); }
+html.mobile-runtime .search-toolbar { padding: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+html.mobile-runtime .search-input-wrap { min-height: 48px; background: var(--md-container-high); border: 0; border-radius: var(--radius-sm); }
+html.mobile-runtime .search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+html.mobile-runtime .search-input:focus-visible { outline: none; }
+html.mobile-runtime .search-input-wrap:focus-within { outline: 2px solid var(--md-primary); outline-offset: 2px; color: var(--md-primary); }
+html.mobile-runtime .search-clear { width: 48px; height: 48px; }
+html.mobile-runtime .search-category-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 4px; overflow: visible; background: var(--md-container); }
+html.mobile-runtime .search-category-tabs button { justify-content: center; min-width: 0; min-height: 48px; padding: 0 6px; gap: 4px; }
+html.mobile-runtime .search-category-tabs button.active { background: var(--md-primary-container); color: var(--md-primary); }
+html.mobile-runtime .search-category-tabs em { opacity: 1; }
+html.mobile-runtime .search-section-header button { min-height: 48px; color: var(--md-primary); }
+html.mobile-runtime :is(.library-quick-chip, .retry-btn) { min-height: 48px; background: var(--md-primary-container); color: var(--text); border: 0; }
+html.mobile-runtime .library-quick-actions { flex-wrap: wrap; }
+html.mobile-runtime :is(.music-cover-card img, .music-cover-placeholder, .library-card-cover, .profile-home__cover) { border-radius: var(--radius-sm); box-shadow: none; }
+html.mobile-runtime :is(.music-feature-card, .music-feature-card.primary) { border-radius: var(--radius-xl); }
+html.mobile-runtime .mobile-page-content :is(.track-table tbody tr, .liked-song-row, .daily-song-row, .search-song-row).active { background: var(--md-primary-container); color: var(--text); }
+html.mobile-runtime .sidebar :is(.nav-item, .sidebar-avatar-name, .nav-group-label) { color: var(--text-secondary); }
+html.mobile-runtime .sidebar .nav-item { border-radius: 999px; }
+html.mobile-runtime .sidebar .nav-item.active { color: var(--text); background: var(--md-primary-container); }
+html.mobile-runtime :is(.login-card, .library-modal, .confirm-card, .follow-dialog, .chat-dialog, .song-menu, .am-more-menu, .am-secondary-sheet, .queue-panel.queue-panel-mobile-visible, .m-library-sheet) { background: var(--md-container-highest); border: 0; box-shadow: var(--md-shadow); backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.mobile-runtime :is(.am-secondary-sheet, .am-more-menu) { animation-duration: 280ms; }
+html.mobile-runtime :is(.login-card, .library-modal, .confirm-card) { padding: 24px; }
+html.mobile-runtime :is(.login-card .tab, .confirm-btn, .library-modal-btn, .search-submit, .am-secondary-close, .follow-dialog-close, .login-card .close-btn) { min-height: 48px; min-width: 48px; border-radius: 999px; }
+html.mobile-runtime .login-card .tabs { border-radius: 999px; background: var(--md-container); }
+html.mobile-runtime .login-card .tab.active { background: var(--md-primary-container); box-shadow: none; }
+html.mobile-runtime .library-modal-btn-confirm { background: var(--md-primary); color: var(--md-on-primary); }
+html.mobile-runtime :is(.login-btn, .search-submit, .profile-home__logged-out button, .library-login-btn, .playlist-play-btn, .artist-play-all, .confirm-btn-confirm:not(.danger)) { min-height: 48px; background: var(--md-primary); color: var(--md-on-primary); border-radius: 999px; box-shadow: none; }
+html.mobile-runtime .user-profile-hero__actions button { min-height: 48px; background: var(--md-primary); color: var(--md-on-primary); border: 0; }
+html.mobile-runtime .user-profile-hero__actions :is(button.secondary, button.active) { background: var(--md-container-high); color: var(--text); }
+html.mobile-runtime .am-secondary-context :is(.ly-context-detail-playlist strong, .ly-context-subhead span, .ly-context-comment-row strong) { color: var(--text); }
+html.mobile-runtime .am-secondary-context .ly-context-comment-row p { color: var(--text-secondary); }
+html.mobile-runtime .am-secondary-row.active { background: var(--md-primary-container); color: var(--md-primary); border-radius: var(--radius-md); }
+html.mobile-runtime .am-secondary-header { border-color: var(--border); }
+html.mobile-runtime .am-secondary-close:active { background: var(--md-primary-container); color: var(--text); }
+html.mobile-runtime :is(.song-menu__item, .am-more-item, .am-secondary-row):is(:hover, :focus-visible) { background: var(--bg-hover); border-radius: var(--radius-md); }
+html.mobile-runtime[data-theme] .player-bar .ctrl-btn--play { background: var(--md-primary); color: var(--md-on-primary); }
+html.mobile-runtime[data-theme] .player-bar .action-btn--queue { color: var(--text-secondary); background: transparent; }
+html.mobile-runtime .player-bar .action-btn--queue.active { background: var(--md-primary-container); color: var(--text); }
+html.mobile-runtime .mobile-page-bar__button:active { background: var(--md-primary-container); }
+html.mobile-runtime :is(.profile-home__quick > button, .music-cover-card, .library-quick-chip, .login-btn, .confirm-btn) { transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out), box-shadow 180ms var(--ease-out), scale 180ms var(--ease-out); }
+html.mobile-runtime :is(.profile-home__quick > button, .music-cover-card, .library-quick-chip, .login-btn, .confirm-btn):active { transform: none; }
+html.mobile-runtime :is(.mobile-choice-option, .am-secondary-row, .sort-sheet-option).active:is(:hover, :focus-visible) { background: var(--md-primary-container); color: var(--md-primary); }
+
+/* Listening report uses the same tonal cards and touch targets as other mobile pages. */
+html.mobile-runtime .listening-report { width: 100%; min-width: 0; max-width: 100%; padding: 0; }
+html.mobile-runtime .listening-report :is(.report-header, .report-hero, .report-rhythm, .report-clocks, .report-rankings, .legacy-report) { min-width: 0; }
+html.mobile-runtime .listening-report p { color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+html.mobile-runtime .listening-report :is(.report-header .eyebrow, .report-header h1, .section-heading .eyebrow, .legacy-report .eyebrow) { display: none; }
+html.mobile-runtime .listening-report .report-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+html.mobile-runtime .listening-report .report-header p { margin: 0; }
+html.mobile-runtime .listening-report .report-header nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border: 0; border-radius: 999px; background: var(--md-container); }
+html.mobile-runtime .listening-report .report-header nav button { min-width: 0; min-height: 48px; padding: 0 8px; font-size: 14px; font-weight: 700; color: var(--text-secondary); }
+html.mobile-runtime .listening-report .report-header nav button.active { color: var(--text); background: var(--md-primary-container); box-shadow: none; }
+html.mobile-runtime .listening-report .report-hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding: 8px 0 16px; gap: 16px; border: 0; border-radius: 0; background: transparent; }
+html.mobile-runtime .listening-report .hero-copy > .eyebrow { color: var(--md-primary); font-size: 13px; letter-spacing: 0; }
+html.mobile-runtime .listening-report .hero-copy h2 { margin: 12px 0 8px; font-size: clamp(28px, 8vw, 38px); line-height: 1.25; overflow-wrap: anywhere; }
+html.mobile-runtime .listening-report .hero-copy p { margin: 0; }
+html.mobile-runtime .listening-report .report-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 20px; }
+html.mobile-runtime .listening-report .report-numbers strong { font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; }
+html.mobile-runtime .listening-report .report-numbers span { margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--text-secondary); }
+html.mobile-runtime .listening-report .report-covers { display: flex; align-items: center; gap: 8px; min-height: 0; }
+html.mobile-runtime .listening-report .report-covers img { position: static; width: 44px; height: 44px; border: 0; border-radius: var(--radius-sm); transform: none; box-shadow: none; }
+html.mobile-runtime .listening-report .cover-placeholder { height: auto; flex-direction: row; justify-content: flex-start; gap: 10px; color: var(--md-primary); }
+html.mobile-runtime .listening-report .cover-placeholder svg { width: 24px; height: 24px; }
+html.mobile-runtime .listening-report .cover-placeholder span { font-size: 13px; letter-spacing: 0; }
+html.mobile-runtime .listening-report .report-rhythm { padding: 16px; border: 0; border-radius: var(--radius-md); background: var(--md-container); box-shadow: none; }
+html.mobile-runtime .listening-report .report-rankings > section { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .listening-report .report-rhythm { margin: 16px 0; }
+html.mobile-runtime .listening-report :is(.report-clocks, .report-rankings) { grid-template-columns: minmax(0, 1fr); gap: 16px; margin: 16px 0; }
+html.mobile-runtime .listening-report .report-clocks > .report-rhythm { margin: 0; }
+html.mobile-runtime .listening-report .section-heading { align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+html.mobile-runtime .listening-report .section-heading h2 { margin: 0; font-size: 18px; line-height: 1.4; font-weight: 700; }
+html.mobile-runtime .listening-report .section-heading > span { color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+html.mobile-runtime .listening-report .wall-figure { min-width: 0; max-width: 100%; --wall-empty: var(--md-container-highest); }
+html.mobile-runtime .listening-report .wall-figure:not(.wall-figure-strip) { grid-template-columns: 20px max-content; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 8px; scrollbar-width: thin; }
+html.mobile-runtime .listening-report .wall-grid-heat { width: max-content; grid-template-rows: repeat(7, 12px); grid-auto-columns: 12px; aspect-ratio: auto !important; }
+html.mobile-runtime .listening-report :is(.wall-months, .wall-weekdays, .wall-axis) { color: var(--text-secondary); font-size: 12px; }
+html.mobile-runtime .listening-report .wall-months { width: max-content; grid-template-columns: none !important; grid-auto-columns: 12px; line-height: 1.5; }
+html.mobile-runtime .listening-report .wall-weekdays { position: sticky; left: 0; z-index: 1; background: var(--md-container); }
+html.mobile-runtime .listening-report .wall-cell { border-radius: 3px; background: color-mix(in srgb, var(--md-primary) var(--fill), var(--wall-empty)); }
+html.mobile-runtime .listening-report .wall-grid-strip { grid-template-rows: 24px; }
+html.mobile-runtime .listening-report .fact-list > div { gap: 12px; padding: 14px 0; }
+html.mobile-runtime .listening-report .fact-list dt { font-size: 13px; color: var(--text-secondary); }
+html.mobile-runtime .listening-report .fact-list dd { max-width: 55%; font-size: 14px; }
+html.mobile-runtime .listening-report small { font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+html.mobile-runtime .listening-report .track-ranking li { display: grid; grid-template-columns: 20px 44px minmax(0, 1fr); gap: 4px 10px; min-height: 76px; padding: 12px 0; }
+html.mobile-runtime .listening-report .track-ranking .rank-number { grid-column: 1; grid-row: 1 / 3; align-self: center; font-size: 13px; }
+html.mobile-runtime .listening-report .track-ranking :is(img, .rank-placeholder) { grid-column: 2; grid-row: 1 / 3; align-self: center; border-radius: var(--radius-sm); }
+html.mobile-runtime .listening-report .rank-placeholder { background: var(--md-container-highest); color: var(--md-primary); }
+html.mobile-runtime .listening-report .rank-copy { grid-column: 3; grid-row: 1; }
+html.mobile-runtime .listening-report :is(.rank-copy strong, .artist-ranking strong) { display: block; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.mobile-runtime .listening-report .rank-copy small { margin-top: 2px; }
+html.mobile-runtime .listening-report .rank-time { grid-column: 3; grid-row: 2; display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; min-width: 0; max-width: none; text-align: left; font-size: 13px; line-height: 1.5; }
+html.mobile-runtime .listening-report .rank-time small { margin: 0; }
+html.mobile-runtime .listening-report .artist-ranking li { gap: 12px; min-height: 76px; padding: 12px 0; }
+html.mobile-runtime .listening-report .artist-initial { width: 44px; height: 44px; background: var(--md-primary-container); color: var(--md-primary); }
+html.mobile-runtime .listening-report .artist-ranking .rank-number { font-size: 13px; }
+html.mobile-runtime .listening-report .artist-meter { height: 4px; background: var(--md-container-highest); }
+html.mobile-runtime .listening-report .artist-meter i { background: var(--md-primary); }
+html.mobile-runtime .listening-report .legacy-report { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; padding: 16px; background: var(--md-container); border-radius: var(--radius-lg); }
+html.mobile-runtime .listening-report .legacy-report > div:first-child { grid-column: 1 / -1; }
+html.mobile-runtime .listening-report .legacy-report h2 { font-size: 18px; margin: 0; }
+html.mobile-runtime .listening-report .legacy-report strong { font-size: 18px; overflow-wrap: anywhere; }
+html.mobile-runtime .listening-report .legacy-report > div > span:not(.eyebrow) { font-size: 13px; color: var(--text-secondary); }
+html.mobile-runtime .listening-report footer { margin-top: 16px; padding: 0 4px; border: 0; }
+html.mobile-runtime .listening-report footer p { font-size: 13px; margin: 8px 0; }
+html.mobile-runtime .listening-report :is(.ranking-empty, .report-empty) { margin: 0; padding: 24px 4px; font-size: 13px; line-height: 1.65; color: var(--text-secondary); }
+html.mobile-runtime .listening-report .report-notice { flex-wrap: wrap; gap: 12px; padding: 16px; border: 0; border-radius: var(--radius-lg); background: var(--md-container); font-size: 13px; line-height: 1.65; }
+html.mobile-runtime .listening-report .report-notice button { min-height: 48px; padding: 0 16px; border-radius: 999px; background: var(--md-primary-container); color: var(--md-primary); }
+@media (min-width: 600px) {
+  html.mobile-runtime .listening-report :is(.report-clocks, .report-rankings) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+html.mobile-runtime :is(.recent-page, .daily-page, .liked-page) { min-width: 0; }
+html.mobile-runtime .recent-page { position: relative; }
+html.mobile-runtime .recent-page .page-header { display: flex; align-items: center; min-height: 48px; padding-right: 136px; margin-bottom: 12px; }
+html.mobile-runtime .recent-page .subtitle { margin: 0; font-size: 13px; line-height: 1.5; }
+html.mobile-runtime .recent-page .recent-actions { position: absolute; top: 0; right: 0; margin: 0; }
+html.mobile-runtime :is(.recent-page .play-all-btn, .daily-page .daily-hero-play, .liked-page .liked-hero-play) { min-height: 48px; height: 48px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--md-primary); color: var(--md-on-primary); box-shadow: none; }
+html.mobile-runtime :is(.recent-page .play-all-btn, .daily-page .daily-hero-play, .liked-page .liked-hero-play):hover { background: var(--md-primary); }
+html.mobile-runtime .recent-page .track-table tbody tr { min-height: 64px; padding: 10px 8px; border: 0; column-gap: 12px; }
+html.mobile-runtime .recent-page .track-table tbody td { min-height: 0; height: auto; padding-top: 0; padding-bottom: 0; border: 0; }
+html.mobile-runtime .recent-page .track-table .col-title { width: auto; font-size: 14px; line-height: 20px; }
+html.mobile-runtime .recent-page .track-table .col-artist { width: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+html.mobile-runtime .recent-page .track-table :is(.track-cover-img, .track-cover-placeholder) { width: 44px; height: 44px; border: 0; border-radius: var(--radius-sm); box-shadow: none; }
+html.mobile-runtime :is(.daily-page, .liked-page) { gap: 12px; }
+html.mobile-runtime .daily-page .daily-hero { min-height: 0; padding: 0; gap: 12px; align-items: center; justify-content: space-between; flex-direction: row; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .daily-page :is(.daily-hero-bg, .daily-hero-shade, .daily-kicker, .daily-hero h1, .daily-section-eyebrow, .daily-section-header button) { display: none; }
+html.mobile-runtime .daily-page .daily-hero-copy { min-width: 0; }
+html.mobile-runtime .daily-page .daily-hero p { display: none; margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+html.mobile-runtime .daily-page .daily-hero-stats { gap: 6px; margin-top: 0; }
+html.mobile-runtime .daily-page .daily-hero-stats span { min-height: 28px; padding: 0 10px; background: var(--md-container); color: var(--text); font-size: 13px; font-weight: 500; }
+html.mobile-runtime .daily-page .daily-date-scroll { min-width: 0; gap: 8px; padding: 0 0 4px; overscroll-behavior-x: contain; }
+html.mobile-runtime .daily-page .daily-date-chip { min-width: 80px; min-height: 64px; padding: 10px 12px; border: 0; border-radius: var(--radius-md); background: var(--md-container); color: var(--text); box-shadow: none; transform: none; }
+html.mobile-runtime .daily-page .daily-date-chip span { font-size: 14px; }
+html.mobile-runtime .daily-page .daily-date-chip small { font-size: 13px; color: var(--text-secondary); }
+html.mobile-runtime .daily-page .daily-date-chip.active { background: var(--md-primary-container); color: var(--text); box-shadow: none; }
+html.mobile-runtime .daily-page .daily-song-panel { min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .daily-page .daily-section-header { margin-bottom: 8px; gap: 8px; }
+html.mobile-runtime .daily-page .daily-section-header h2 { font-size: 18px; line-height: 1.4; }
+html.mobile-runtime .liked-page .liked-hero { min-height: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+html.mobile-runtime .liked-page .liked-hero-art { display: none; width: 56px; height: 56px; border: 0; border-radius: var(--radius-md); background: var(--md-container); color: var(--md-primary); box-shadow: none; }
+html.mobile-runtime .liked-page .liked-hero-art svg { width: 28px; height: 28px; }
+html.mobile-runtime .liked-page :is(.liked-kicker, .liked-hero h1) { display: none; }
+html.mobile-runtime .liked-page .liked-hero p { display: none; margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+html.mobile-runtime .liked-page .liked-hero-meta { margin-top: 6px; color: var(--text); font-size: 13px; line-height: 1.5; }
+html.mobile-runtime .liked-page .liked-hero-play { grid-column: 2; grid-row: 1; width: auto; }
+html.mobile-runtime :is(.daily-page .daily-song-row, .liked-page .liked-song-row) { grid-template-columns: 44px minmax(0, 1fr); min-height: 64px; padding: 10px 56px 10px 8px; gap: 12px; border-radius: var(--radius-md); }
+html.mobile-runtime :is(.daily-page .daily-song-cover, .liked-page .liked-song-cover) { width: 44px; height: 44px; border: 0; border-radius: var(--radius-sm); box-shadow: none; }
+html.mobile-runtime :is(.daily-page .daily-song-main, .liked-page .liked-song-main) strong { font-size: 14px; line-height: 20px; }
+html.mobile-runtime :is(.daily-page .daily-song-main, .liked-page .liked-song-main) em { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+html.mobile-runtime :is(.recent-page, .daily-page, .liked-page) .artist-link { color: var(--md-primary); }
+html.mobile-runtime :is(.recent-page .empty-state, .daily-page .daily-empty, .liked-page .liked-empty) { min-height: 200px; padding: 28px 16px; gap: 12px; border: 0; border-radius: var(--radius-lg); background: var(--md-container); color: var(--text-secondary); box-shadow: none; }
+html.mobile-runtime :is(.recent-page .empty-state, .daily-page .daily-empty, .liked-page .liked-empty) p { margin: 0; font-size: 13px; line-height: 1.6; }
+html.mobile-runtime :is(.recent-page .empty-state, .daily-page .daily-empty, .liked-page .liked-empty) svg { color: var(--md-primary); }
+html.mobile-runtime :is(.daily-page .daily-empty, .liked-page .liked-empty) button { min-height: 48px; border-radius: 999px; background: var(--md-primary); color: var(--md-on-primary); }
+html.mobile-runtime .liked-page .liked-skeleton-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); min-height: 64px; gap: 12px; padding: 10px 8px; }
+html.mobile-runtime .liked-page .liked-skeleton-row > :is(:first-child, :last-child) { display: none; }
+html.mobile-runtime .liked-page .liked-skeleton-row > :nth-child(2) { width: 44px !important; height: 44px !important; }
+
+/* 完整歌曲列表使用三行信息；队列与迷你播放器保持两行。 */
+html:not(.mobile-runtime) .mobile-track-meta { display: none; }
+html.mobile-runtime .mobile-page-content .track-table tbody tr { display: grid; grid-template-areas: none; grid-template-columns: 48px minmax(0, 1fr) 44px; grid-template-rows: 20px 18px 18px; align-content: center; align-items: center; gap: 2px 12px; min-height: 80px; box-sizing: border-box; padding: 10px 56px 10px 0; border: 0; box-shadow: none; border-radius: var(--radius-xs); background: transparent; }
+html.mobile-runtime .mobile-page-content .track-table tbody td { min-width: 0; width: auto; height: auto; min-height: 0; padding: 0; border: 0; font-size: 13px; line-height: 18px; }
+html.mobile-runtime .mobile-page-content .track-table .col-cover { grid-area: auto; grid-column: 1; grid-row: 1 / 4; width: 48px; }
+html.mobile-runtime .mobile-page-content .track-table :is(.track-cover-img, .track-cover-placeholder) { width: 48px; height: 48px; border-radius: var(--radius-sm); box-shadow: none; }
+html.mobile-runtime .mobile-page-content .track-table .col-title { grid-area: auto; grid-column: 2 / 4; grid-row: 1; font-size: 15px; line-height: 20px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.mobile-runtime .mobile-page-content .track-table .col-artist { grid-area: auto; grid-column: 2 / 4; grid-row: 2; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; overflow: hidden; white-space: nowrap; color: var(--text-secondary); }
+html.mobile-runtime .mobile-page-content .track-table .col-album { display: block; grid-column: 2; grid-row: 3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+html.mobile-runtime .mobile-page-content .track-table .col-dur { display: block; grid-column: 3; grid-row: 3; white-space: nowrap; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+html.mobile-runtime .mobile-page-content .track-table :is(.col-num, .col-added) { display: none; }
+html.mobile-runtime .mobile-page-content .track-table .artist-link { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-primary); }
+html.mobile-runtime .mobile-page-content :is(.track-table tbody tr, .liked-song-row, .daily-song-row, .search-song-row).active { background: var(--md-primary-container); }
+html.mobile-runtime .mobile-page-content :is(.liked-song-row, .daily-song-row, .search-song-row) { grid-template-columns: 48px minmax(0, 1fr); min-height: 80px; box-sizing: border-box; padding: 10px 56px 10px 0; gap: 12px; border: 0; border-radius: var(--radius-xs); }
+html.mobile-runtime .mobile-page-content :is(.liked-song-cover, .daily-song-cover, .search-song-cover) { width: 48px; height: 48px; border-radius: var(--radius-sm); }
+html.mobile-runtime .mobile-page-content :is(.liked-song-main, .daily-song-main, .search-song-info) { display: grid; min-width: 0; gap: 2px; }
+html.mobile-runtime .mobile-page-content :is(.liked-song-main, .daily-song-main, .search-song-info) strong { font-size: 15px; font-weight: 500; line-height: 20px; }
+html.mobile-runtime .mobile-page-content :is(.liked-song-main, .daily-song-main, .search-song-info) em { font-size: 13px; line-height: 18px; }
+html.mobile-runtime .mobile-page-content .mobile-track-meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; line-height: 18px; font-weight: 400; color: var(--text-secondary); }
+html.mobile-runtime .mobile-track-meta > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.mobile-runtime .mobile-track-meta time { flex: none; font-variant-numeric: tabular-nums; }
+html.mobile-runtime .search-desktop-album { display: none; }
+html.mobile-runtime .mobile-page-content :is(.playlist-detail-page, .playlist-track-surface, .playlist-toolbar, .playlist-track-row, .playlist-skeleton-row) { animation: none; opacity: 1; }
+html.mobile-runtime .mobile-page-content .local-track { min-height: 80px; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) 48px; border: 0; border-radius: var(--radius-xs); }
+html.mobile-runtime .mobile-page-content .local-track-main { min-height: 80px; box-sizing: border-box; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
+html.mobile-runtime .mobile-page-content .local-track-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); }
+html.mobile-runtime .mobile-page-content .local-track-duration { display: none; }
+html.mobile-runtime .mobile-page-content .local-track-delete { width: 48px; height: 48px; }
+html.mobile-runtime .mobile-page-content .user-profile-hero__stats div { border: 0; background: transparent; backdrop-filter: none; }
+html.mobile-runtime .mobile-page-content .user-profile-hero__content { padding: 12px 0; }
+html.mobile-runtime .mobile-page-content .user-profile-hero h1 { font-size: 24px; }
+html.mobile-runtime .mobile-page-content .settings-panel { margin-bottom: 24px; }
+
+html.mobile-runtime .mobile-page-content .settings-panel .developer-options > summary { padding-inline: 8px; }
+html.mobile-runtime .mobile-page-content .settings-panel .developer-options > summary > span:first-child { min-width: 0; }
+
+html.mobile-runtime .mobile-page-content .track-table .col-dur[data-duration-missing="true"] { visibility: hidden; }
+html.mobile-runtime .mobile-page-content .track-table tr.active::before { content: none; }
+html.mobile-runtime :is(.m-track-more, .library-card-more) svg circle { fill: currentColor; stroke: none; }
+html.mobile-runtime .artist-avatar-wrap { flex: none; }
+html.mobile-runtime .artist-info { flex: 1; width: auto; }
+html.mobile-runtime .mobile-page-content .user-page__panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .user-page__panel header span { display: none; }
+html.mobile-runtime .user-page__panel h2 { font-size: 18px; }
+
+html.mobile-runtime .mobile-page-content .local-list { border: 0; border-radius: 0; background: transparent; }
+html.mobile-runtime .mobile-page-content .local-webdav { padding: 0; border: 0; border-radius: 0; background: transparent; }
+
+html.mobile-runtime .mobile-page-content .track-table tr[data-mobile-pressed] { box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 10%, transparent); }

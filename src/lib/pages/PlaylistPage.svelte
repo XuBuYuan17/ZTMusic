@@ -5,6 +5,7 @@
   import { coverUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
   import PlaylistHero from '../components/PlaylistHero.svelte'
+  import PlaylistSortSheet from '../components/PlaylistSortSheet.svelte'
   import Icon from '../components/ui/Icon.svelte'
   import {
     filterAndSortPlaylistTracks,
@@ -81,6 +82,7 @@
   let trackSearch = $state('')
   let trackSort = $state<PlaylistSortKey>('added')
   let trackSortDir = $state<PlaylistSortDir>('desc')
+  let showSortSheet = $state(false)
   let lastSelectedId = $state<SongId | null>(null)
 
   let visibleTracks = $derived(filterAndSortPlaylistTracks(playlistDetail?.tracks || [], trackSearch, trackSort, trackSortDir))
@@ -119,9 +121,10 @@
   // 桌面：进入时滚回顶部；滚动时给 hero 写 --hero-p（0→1）驱动视差收缩，hero 滚出后工具栏吸顶显示小标题
   // ponytail: WebKitGTK 支持 animation-timeline: scroll() 后，--hero-p 可改纯 CSS，只留吸顶判断
   function heroScroll(node: HTMLElement, onStuck: (stuck: boolean) => void) {
-    const scroller = node.closest<HTMLElement>('.content-scroll')
-    if (!scroller || document.documentElement.classList.contains('mobile-runtime')) return {}
-    scroller.scrollTo({ top: 0 })
+    const mobile = document.documentElement.classList.contains('mobile-runtime')
+    const scroller = node.closest<HTMLElement>(mobile ? '.mobile-page-content' : '.content-scroll')
+    if (!scroller) return {}
+    if (!mobile) scroller.scrollTo({ top: 0 })
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     let frame = 0
     const update = () => {
@@ -131,7 +134,7 @@
       const rect = hero.getBoundingClientRect()
       const top = scroller.getBoundingClientRect().top
       if (!still) hero.style.setProperty('--hero-p', String(Math.min(1, Math.max(0, (top - rect.top) / rect.height)).toFixed(3)))
-      onStuck(rect.bottom <= top)
+      if (!mobile) onStuck(rect.bottom <= top)
     }
     const schedule = () => { if (!frame) frame = requestAnimationFrame(update) }
     scroller.addEventListener('scroll', schedule, { passive: true })
@@ -146,6 +149,7 @@
     if (lastSelectedId !== selectedId) {
       lastSelectedId = selectedId
       trackSearch = ''
+      showSortSheet = false
       trackSort = 'added'
       trackSortDir = 'desc'
     }
@@ -210,7 +214,7 @@
   }
 
   function handleRowKeydown(event: KeyboardEvent, track: DetailTrackLike): void {
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
       onPlayTrack?.(track.id, visibleTracks)
     }
@@ -292,6 +296,9 @@
         </label>
 
         <div class="playlist-sort-controls">
+          <button class="playlist-sort-mobile" type="button" aria-label="选择歌曲排序" aria-haspopup="dialog" aria-expanded={showSortSheet} onclick={() => showSortSheet = true}>
+            <span>{sortName(trackSort)}</span><span>{sortDirectionName()}</span><Icon name="chevron-down" size={18} />
+          </button>
           <label class="playlist-sort-select">
             <span>排序</span>
             <select value={trackSort} onchange={(event) => setSort((event.currentTarget as HTMLSelectElement).value as PlaylistSortKey)} aria-label="歌曲排序方式">
@@ -391,7 +398,7 @@
                     </div>
                   {/if}
                 </td>
-                <td class="col-title">{track.name}<button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button></td>
+                <td class="col-title">{track.name}<button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}><Icon name="more" size={20} /></button></td>
                 <td class="col-artist artist-links">
                   {#each artistsOf(track) as artist, index ((artist.id || artist.name) as SongId)}
                     {#if index > 0}<span class="artist-sep">/</span>{/if}
@@ -404,7 +411,7 @@
                 </td>
                 <td class="col-album">{albumName(track)}</td>
                 <td class="col-added" title={playlistAddedTime(track) ? new Date(playlistAddedTime(track)).toLocaleString('zh-CN') : '没有加入时间'}>{addedDate(track)}</td>
-                <td class="col-dur">{duration(track)}</td>
+                <td class="col-dur" data-duration-missing={!track.dt && !track.duration}>{duration(track)}</td>
               </tr>
             {/each}
             {#if (loadingMore || hasMore) && playlistDetail?.tracks?.length}
@@ -429,9 +436,15 @@
     {/if}
   </div>
   <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn) => { songActions = { bindRow: fn } }} />
+  <PlaylistSortSheet show={showSortSheet} sort={trackSort} direction={trackSortDir} onSort={(sort) => { if (sort !== trackSort) setSort(sort) }} onDirection={(direction) => trackSortDir = direction} onClose={() => showSortSheet = false} />
 {/key}
 
 <style>
+  .playlist-sort-mobile { display: none; }
+  :global(html.mobile-runtime) .playlist-sort-mobile { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 48px; padding: 0 12px; border: 0; border-radius: 999px; color: var(--text); background: var(--md-container); font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-sort-mobile span:first-child { font-weight: 500; }
+  :global(html.mobile-runtime) .playlist-sort-mobile span:nth-child(2) { margin-left: auto; color: var(--md-primary); font-size: 11px; }
+  :global(html.mobile-runtime) .playlist-sort-controls > :is(.playlist-sort-select, .playlist-sort-direction) { display: none; }
   .playlist-detail-page {
     display: grid;
     gap: 18px;
@@ -831,33 +844,44 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     margin: 0;
-    padding: 10px 0;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    backdrop-filter: blur(22px) saturate(150%);
-    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    padding: 6px 0;
+    background: var(--md-surface);
+    border-bottom: 0;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   :global(html.mobile-runtime) .playlist-sort-controls {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
     width: 100%;
+    height: 54px;
+    border: 0;
+    background: var(--md-container);
   }
 
   :global(html.mobile-runtime) .playlist-sort-select {
     flex: 1;
+    min-width: 0;
   }
 
   :global(html.mobile-runtime) .playlist-sort-select select {
     flex: 1;
+    min-width: 0;
+    height: 48px;
   }
 
+  :global(html.mobile-runtime) .playlist-sort-direction { min-width: 48px; height: 48px; color: var(--md-primary); background: var(--md-primary-container); }
+
   :global(html.mobile-runtime) .playlist-search {
+    grid-column: 1 / -1;
     min-width: 0;
-    min-height: 44px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+    min-height: 48px;
+    border-radius: var(--radius-sm);
+    background: var(--md-container-high);
   }
 
   :global(html.mobile-runtime) .playlist-search input {
@@ -866,6 +890,9 @@
   }
 
   :global(html.mobile-runtime) .playlist-toolbar-count {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
     max-width: 82px;
     overflow: hidden;
     color: var(--text-tertiary);
@@ -883,7 +910,6 @@
 
   :global(html.mobile-runtime) .playlist-detail-page .track-table,
   :global(html.mobile-runtime) .playlist-detail-page .track-table tbody,
-  :global(html.mobile-runtime) .playlist-detail-page .track-table tr,
   :global(html.mobile-runtime) .playlist-detail-page .track-table td {
     display: block;
   }
@@ -897,109 +923,13 @@
 
   :global(html.mobile-runtime) .playlist-detail-page .track-table thead,
   :global(html.mobile-runtime) .playlist-detail-page .track-table .col-num,
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-album,
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-added,
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-dur {
+  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-added {
     display: none !important;
   }
 
   :global(html.mobile-runtime) .playlist-detail-page .track-table tbody {
     display: grid;
-    gap: 2px;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table tbody tr {
-    position: relative;
-    min-width: 0;
-    min-height: 62px;
-    display: grid;
-    grid-template-columns: 50px minmax(0, 1fr);
-    grid-template-areas:
-      "cover title"
-      "cover artist";
-    align-items: center;
-    column-gap: 11px;
-    padding: 8px 48px 8px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
-    border-radius: 0;
-    background: transparent;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table tbody tr:hover {
-    background: transparent;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table tbody tr.active {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
-    color: var(--text);
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table tbody tr.active::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 14px;
-    bottom: 14px;
-    width: 3px;
-    border-radius: 999px;
-    background: var(--accent);
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-cover {
-    grid-area: cover;
-    width: 50px;
-    padding: 0;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-cover-img,
-  :global(html.mobile-runtime) .playlist-detail-page .track-cover-placeholder {
-    width: 50px;
-    height: 50px;
-    border-radius: var(--radius-sm);
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-title,
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-artist {
-    min-width: 0;
-    padding: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-title {
-    grid-area: title;
-    align-self: end;
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .col-artist {
-    grid-area: artist;
-    align-self: start;
-    padding-top: 3px;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    line-height: 1.25;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .artist-links {
-    min-width: 0;
-    display: flex;
-    align-items: center;
     gap: 4px;
-    overflow: hidden;
-    flex-wrap: nowrap;
-  }
-
-  :global(html.mobile-runtime) .playlist-detail-page .track-table .artist-link {
-    max-width: none;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   :global(html.mobile-runtime) .playlist-detail-page .track-empty-row,

@@ -12,20 +12,26 @@
 |---|---|
 | SMTC（系统媒体传输控制） | ✅ `src-tauri/src/windows_smtc.rs` + `windows` crate |
 | NSIS 安装包（简体中文 + installer hooks） | ✅ `tauri.conf.json` 的 `bundle.windows.nsis` |
-| WebView2 安装模式 | ⚠️ 未配置 `webviewInstallMode`，建议 `downloadBootstrapper`（现代 Windows 已内置 WebView2） |
+| WebView2 安装模式 | 未显式配置，使用当前 Tauri 配置 schema 的 `downloadBootstrapper` 默认值 |
 
 ### Linux
 
 | 项 | 状态 |
 |---|---|
 | MPRIS 媒体控制 | ✅ `src-tauri/src/linux_mpris.rs` + `mpris-server` crate |
-| `.deb` / `.rpm` 打包 | ✅ `pnpm tauri:build:linux` |
+| `.deb` / `.rpm` 打包 | GitHub 正式构建；本地不打包 |
 
 ### Web
 
-- Vite 纯前端构建（`pnpm build` → `dist/`），API 走 `/ncm-api` 代理
-- 未部署；如需公网访问，建议 Cloudflare Pages / GitHub Pages 单独部署
-- 手机浏览器访问走响应式移动布局（`pages/mobile/`）
+- 本地使用 `pnpm dev`，默认 API 走 `/ncm-api` 代理。
+- `pnpm build` 生成的静态产物本身不提供代理，公开部署需另外确认后端 CORS 或代理配置。
+- 手机浏览器使用响应式移动布局和共享页面；不提供 Android 安装包。
+
+### 开发与稳定渠道
+
+`dev` 推送和指向 `dev/main` 的 PR 自动构建 Windows UI 调试包；Linux 开发包按需手动构建。`main` 验证 Windows/Linux 正式包，正式标签构建完成后发布 Release。
+
+开发版使用“哲听 Dev”、`com.zheting.music.dev` 和 `zheting-dev`，安装与数据独立，启用 DevTools、日志和前端源码映射。稳定版保留原应用身份并关闭 DevTools。下载与验证流程见 [开发指南](development.md#分支与安装包)。
 
 ---
 
@@ -33,10 +39,9 @@
 
 | 优先级 | 项 | 说明 |
 |---|---|---|
-| P1 | WebView2 `downloadBootstrapper` | 减小安装包体积，缺 WebView2 的旧机器自动下载 |
 | P2 | tauri updater | 桌面端自动更新，需要签名密钥与更新服务器 |
 
-版本号三处一致（`package.json` / `Cargo.toml` / `tauri.conf.json`）由 `pnpm check:versions` 校验，已并入 `pnpm verify`。
+版本号四处一致（`package.json` / `Cargo.toml` / `tauri.conf.json` / `Cargo.lock`）由 `pnpm check:versions` 校验，已并入 `pnpm verify`。
 
 ---
 

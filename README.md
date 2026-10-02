@@ -37,24 +37,22 @@
 | Linux | `.deb` / `.rpm` | ✅ |
 | Web | 浏览器直开 | ✅ |
 
-> macOS 没有预构建包，可以自己跑 `pnpm tauri:build` 编。
+> 当前 CI 提供 Windows / Linux 安装包，macOS 没有预构建包。
 
 ## 快速开始
 
-需要 Node.js 22+ 和 Rust 工具链。包管理器用 pnpm（`corepack enable` 即可）。
+本地 UI 开发需要 Node.js 22+ 和 pnpm；安装包由 GitHub 构建，本机无需 Rust 工具链。
 
 ```bash
 pnpm install              # 装依赖
 pnpm dev                  # 浏览器开发（Vite，默认走 /ncm-api 代理）
-pnpm tauri:dev            # 桌面端开发（Tauri）
-pnpm build                # 前端构建
-pnpm tauri:build          # 构建当前平台安装包
+pnpm check                # Svelte / TypeScript 检查
 pnpm test                 # 在隔离的 Node.js 进程中运行全部自检脚本
 ```
 
 浏览器开发时，`/ncm-api` 会被 Vite 代理到后端，不用操心跨域。桌面端走 Tauri IPC 直接发请求。
 
-跑单个测试：`node src/lib/player/fallback.test.js`，退出码 0 = 过，1 = 挂。
+跑单个测试：`node --experimental-strip-types src/lib/player/fallback.test.ts`，退出码 0 = 过，1 = 挂。
 
 ## 技术栈
 
@@ -83,12 +81,17 @@ ZTmusic/
 │       ├── services/      # 数据加载
 │       └── utils/         # 工具函数
 ├── src-tauri/            # Tauri / Rust
-│   ├── src/               # Rust 端：ncm_request IPC、SMTC、MPRIS
+│   ├── src/               # Rust 端：api_request IPC、SMTC、MPRIS
 │   ├── capabilities/      # Tauri 权限配置
 │   └── icons/
 ├── public/               # 静态资源（SVG 图标）
-├── docs/                 # 开发文档
-├── .github/workflows/    # CI：build（版本校验 + Windows / Linux 安装包）+ prepare-release
+├── scripts/              # CI、版本与测试入口
+│   └── maintenance/       # 可复用的 CSS / 字体维护工具
+├── tests/                # 浏览器手动集成检查
+├── docs/                 # 当前开发文档
+│   └── archive/           # 带日期的历史审计记录
+├── .github/workflows/    # 开发包、正式构建、版本 PR 与标签发布
+├── CONTRIBUTING.md       # 分支、文件归类与提交前检查
 ├── index.html
 ├── vite.config.js        # Vite + /ncm-api 代理
 ├── svelte.config.js
@@ -101,16 +104,24 @@ ZTmusic/
 
 ## 构建与发版
 
-本地构建：`pnpm tauri:build`（当前平台安装包）。
+日常在 `dev` 分支写 UI，用 `pnpm dev` 在浏览器预览；功能 PR 合入 `dev`，验证后再提交 `dev → main` PR。`main` 是稳定分支，要求 PR 和 **Source checks** 通过。
 
-发版走 GitHub Actions：
+开发包在 [GitHub Actions](https://github.com/XuBuYuan17/ZTMusic/actions/workflows/build.yml) 下载：
 
-1. 手动触发 **Prepare Release** workflow，选版本号策略（auto / patch / minor / major）
-2. 它会自动：跑 `pnpm verify` → 算下一版本号 → 更新 package.json / Cargo.toml / CHANGELOG.md → 打 tag → push
-3. push 到 `main`、PR、tag `v*` 或手动触发 **Build Installers** 都会先跑 source checks，再构建 Windows / Linux 安装包
-4. tag 构建完成后自动发布到 GitHub Releases，release notes 从 CHANGELOG 抽
+- 推送 `dev` 或提交到 `dev/main` 的 PR：检查源码，构建 Windows 开发安装包。进入对应运行的 **Artifacts** 下载，保留 14 天；名称包含运行编号和提交 SHA。
+- 开发版“哲听 Dev”可与稳定版同时安装，登录、设置和缓存独立。按 `F12` 或 `Ctrl+Shift+I` 打开开发者工具，可查看源码、Console 和 Network；Console 的 `[build]` 标识对应提交。
+- 合入 `main`：验证 Windows/Linux 正式构建，不自动发布。手动运行 **Build Installers** 时选择 `dev/main` 和平台；Linux 默认不选。
+
+正式发版也走 PR：
+
+1. 在 `main` 手动运行 **Prepare Release**，选择 auto / patch / minor / major，自动生成版本与 CHANGELOG 更新 PR。
+2. 如果 GitHub 要求批准机器人 PR 的检查，先批准对应运行；源码检查通过后合入 PR。
+3. **Tag Prepared Release** 为合入提交创建正式标签并显式触发安装包构建；正式标签必须属于 `main` 且与版本号一致。
+4. Windows/Linux 安装包构建完成后发布 GitHub Release。仓库需允许 GitHub Actions 创建 PR；发版后将 `main` 的版本更新通过 PR 同步回 `dev`。
 
 详细的架构说明、API 链路、调试技巧见 [`docs/development.md`](docs/development.md)。
+
+提交约定与目录说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。`pnpm test` 包含仓库内容检查，会拦截被跟踪的本机配置、临时产物和常见密钥格式；只显示文件与行号，不回显疑似密钥。
 
 这个项目耗费了我很多时间和精力，奈何本人能力不足，总是会有各种奇奇怪怪的 BUG。
 如果遇到了，希望您不要介意。

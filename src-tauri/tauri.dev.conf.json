@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "哲听 Dev",
+  "mainBinaryName": "zheting-dev",
+  "identifier": "com.zheting.music.dev",
+  "app": {
+    "windows": [
+      {
+        "title": "哲听 Dev",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 360,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "devtools": true,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HardwareMediaKeyHandling"
+      }
+    ]
+  }
+}

@@ -70,8 +70,8 @@ struct ClientErrorLog {
 
 #[tauri::command]
 fn dev_report_client_error(log: ClientErrorLog) {
-    if cfg!(debug_assertions) {
-        eprintln!(
+    if cfg!(any(debug_assertions, feature = "dev-channel")) {
+        log::error!(
             "[client:{}] {}{}{}",
             log.level,
             log.message,
@@ -82,6 +82,20 @@ fn dev_report_client_error(log: ClientErrorLog) {
                 .map(|stack| format!("\n{stack}"))
                 .unwrap_or_default()
         );
+    }
+}
+
+#[tauri::command]
+fn dev_open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(any(debug_assertions, feature = "dev-channel"))]
+    {
+        window.open_devtools();
+        Ok(())
+    }
+    #[cfg(not(any(debug_assertions, feature = "dev-channel")))]
+    {
+        let _ = window;
+        Err("Developer tools are disabled in stable builds".into())
     }
 }
 
@@ -112,6 +126,7 @@ fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .build()
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "windows")]
     if let Err(error) = windows_smtc::set_process_app_id() {
@@ -155,7 +170,7 @@ pub fn run() {
                 app.handle()
                     .plugin(tauri_plugin_window_state::Builder::default().build())?;
             }
-            if cfg!(debug_assertions) {
+            if cfg!(any(debug_assertions, feature = "dev-channel")) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
@@ -171,7 +186,8 @@ pub fn run() {
             pending_action::pollPendingAction,
             webdav::webdav_list_audio,
             webdav::webdav_cache_audio,
-            dev_report_client_error
+            dev_report_client_error,
+            dev_open_devtools
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

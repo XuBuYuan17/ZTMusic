@@ -2,8 +2,8 @@
  * 将布局圆角收敛到 6 / 8 / 12 / 16 / 20px 五档语义令牌。
  *
  * 用法：
- *   node scripts/converge-border-radius.mjs --dry
- *   node scripts/converge-border-radius.mjs
+ *   node scripts/maintenance/converge-border-radius.mjs --dry
+ *   node scripts/maintenance/converge-border-radius.mjs
  *
  * 1–4px 属于进度轨、滚动条等微型几何；50% 和 999px 分别代表圆形与
  * 胶囊，保持原样。其余 px 值按邻近的语义档位收敛。
@@ -12,7 +12,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const root = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 
 function targets() {
   const found = ['index.html']

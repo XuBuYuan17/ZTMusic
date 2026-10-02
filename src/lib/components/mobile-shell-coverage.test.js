@@ -1,4 +1,4 @@
-// Mobile keeps a dedicated navigation shell but renders the same page and player components as PC.
+// Mobile shares page components and playback state, with dedicated touch controls.
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
@@ -21,8 +21,8 @@ for (const view of navTargets) assert.ok(handled.has(view), `Sidebar destination
 
 assert.ok(app.includes('<Sidebar'), 'mobile navigation must use the shared Sidebar component')
 assert.ok(app.includes('inDrawer={isMobile}'), 'shared Sidebar must switch to drawer mode on mobile')
-assert.ok(app.includes('<PlayerBar'), 'mobile playback must use the shared PlayerBar component')
-assert.ok(!app.includes('MobileMiniPlayer'), 'mobile must not render a separate mini player component')
+assert.ok(app.includes('<PlayerBar'), 'desktop playback must retain PlayerBar')
+assert.ok(app.includes('<MobileMiniPlayer'), 'mobile playback must use the dedicated mini player')
 assert.ok(mobileApp.includes('class="mobile-tab-bar"'), 'the bottom tab bar must be present')
 for (const view of ['home', 'explore', 'library']) {
   assert.ok(mobileApp.includes(`data-view="${view}"`), `bottom tab bar is missing the ${view} entry`)

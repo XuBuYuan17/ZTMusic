@@ -116,7 +116,7 @@
   })
 
   function handleRowKeydown(event: KeyboardEvent, track: ArtistTrack): void {
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
       onPlayTrack?.(track)
     }
@@ -302,7 +302,7 @@
                   {/each}
                 </td>
                 <td class="col-album">{albumOf(track).name || ''}</td>
-                <td class="col-dur">{durationOf(track)}</td>
+                <td class="col-dur" data-duration-missing={!track.dt && !track.duration}>{durationOf(track)}</td>
               </tr>
             {/each}
           </tbody>

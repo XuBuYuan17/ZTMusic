@@ -1,6 +1,6 @@
 <script lang="ts">
   import { flushSync, tick, untrack } from 'svelte'
-  import { desktopFeedback, reducedMotion } from './lib/app/desktop-motion.ts'
+  import { desktopFeedback, reducedMotion, rememberCardOrigin } from './lib/app/desktop-motion.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
@@ -26,6 +26,8 @@
   import type { AccentThemeName } from './lib/theme/accent.ts'
   import Sidebar from './lib/components/Sidebar.svelte'
   import PlayerBar from './lib/components/PlayerBar.svelte'
+  import MobileMiniPlayer from './lib/components/MobileMiniPlayer.svelte'
+  import { mobileFeedback } from './lib/app/mobile-feedback.ts'
   import QueuePanel from './lib/components/QueuePanel.svelte'
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
@@ -69,6 +71,15 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  $effect(() => {
+    if (!isMobile) return
+    const feedback = mobileFeedback(document.body)
+    document.body.addEventListener('click', rememberCardOrigin, true)
+    return () => {
+      feedback.destroy()
+      document.body.removeEventListener('click', rememberCardOrigin, true)
+    }
+  })
 
   // ── 主题 ──
   migrateSettings()
@@ -355,7 +366,11 @@
 
 {#if !isMobile || player.id}
   <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
-    <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
+    {#if isMobile}
+      <MobileMiniPlayer onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
+    {:else}
+      <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
+    {/if}
   </div>
 {/if}
 

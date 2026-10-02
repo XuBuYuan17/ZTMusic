@@ -1,7 +1,9 @@
 <script lang="ts">
   import { mobileDrag } from '../app/mobile-interaction.ts';
-  import { dialogFocus, desktopPanel } from '../app/desktop-motion.ts';
+  import { dialogFocus, desktopPanel, reducedMotion } from '../app/desktop-motion.ts';
   import Icon from './ui/Icon.svelte';
+  import { fade } from 'svelte/transition';
+  import { responsive } from '../utils/responsive.ts';
 
   interface MoreMenuItem {
     label: string;
@@ -41,15 +43,17 @@
     <span class="am-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
   </button>
   {#if open}
-    <div class="am-more-backdrop" role="presentation" onclick={() => onClose?.()}></div>
-    <div class="am-more-menu" transition:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="menu" aria-label="更多操作菜单">
+    <div class="am-more-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
+    <div class="am-more-menu" data-bottom-panel in:desktopPanel out:desktopPanel={{ duration: 240 }} use:dialogFocus={() => onClose?.()} tabindex="-1" role={$responsive.isMobile ? 'dialog' : 'menu'} aria-modal={$responsive.isMobile ? true : undefined} aria-label="更多操作菜单">
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
+      <header class="mobile-more-header"><h2>更多操作</h2><button type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button></header>
+      <div class="am-more-body">
       <div class="am-more-track" aria-hidden="true">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>
       </div>
       {#each items as item}
-        <button class="am-more-item" type="button" role="menuitem" onclick={() => handleItem(item)} disabled={item.disabled}>
+        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : 'menuitem'} onclick={() => handleItem(item)} disabled={item.disabled}>
           <Icon name={item.icon} size={18} strokeWidth={1.8} />
           <span>{item.label}</span>
         </button>
@@ -57,11 +61,14 @@
       {#if message}
         <div class="am-more-message" aria-live="polite">{message}</div>
       {/if}
+      </div>
     </div>
   {/if}
 </div>
 
 <style>
+  .mobile-more-header { display: none; }
+  .am-more-body { display: contents; }
   .am-more-shell {
     position: absolute;
     top: calc(36px + env(safe-area-inset-top));

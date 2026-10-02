@@ -13,7 +13,10 @@ rust-version = "1.88.0"
 [lib]
 name = "app_lib"
 # 桌面端 main.rs 调用 app_lib::run()。
-crate-type = ["rlib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+dev-channel = ["tauri/devtools"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.2", features = [] }
@@ -25,6 +28,8 @@ log = "0.4"
 tauri = { version = "2.11.2", features = [] }
 tauri-plugin-log = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "cookies", "rustls-tls"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-window-state = "2"
 tauri-plugin-single-instance = "2"
 
