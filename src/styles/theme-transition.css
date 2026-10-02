@@ -31,6 +31,13 @@ html.accent-color-transitioning {
     --accent-bg-hover 0.42s var(--ease-in-out);
 }
 
+html.mobile-theme-switching,
+html.mobile-theme-switching *,
+html.mobile-theme-switching *::before,
+html.mobile-theme-switching *::after {
+  transition: none !important;
+}
+
 .theme-transitioning,
 .theme-transitioning .sidebar,
 .theme-transitioning .main-area,

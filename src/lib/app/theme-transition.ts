@@ -37,21 +37,35 @@ interface ThemeTransitionOptions {
   tick: () => Promise<unknown> | unknown
 }
 
-export function createThemeTransition({ getTheme, setTheme, tick }: ThemeTransitionOptions): (event?: MouseEvent) => void {
+export function createThemeTransition({ getTheme, setTheme, tick }: ThemeTransitionOptions): (event?: MouseEvent, theme?: string) => void {
   let timer: ReturnType<typeof setTimeout> | undefined
   let activeTransition: PendingViewTransition | null = null
+  let mobileGeneration = 0
 
-  return function toggleTheme(event?: MouseEvent): void {
+  return function toggleTheme(event?: MouseEvent, theme?: string): void {
     const shell = document.querySelector('.app-shell')
     const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const nextTheme = getTheme() === 'dark' ? 'light' : 'dark'
+    const nextTheme = theme ?? (getTheme() === 'dark' ? 'light' : 'dark')
+    if (nextTheme === getTheme()) return
     clearTimeout(timer)
     activeTransition?.skipTransition?.()
+
+    const root = document.documentElement
+    if (root.classList.contains('mobile-runtime')) {
+      const generation = ++mobileGeneration
+      root.classList.add('mobile-theme-switching')
+      setTheme(nextTheme)
+      Promise.resolve(tick()).then(() => {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (generation === mobileGeneration) root.classList.remove('mobile-theme-switching')
+        }))
+      })
+      return
+    }
 
     const currentTarget = event?.currentTarget as { getBoundingClientRect?: () => RectLike } | null
     const rect = currentTarget?.getBoundingClientRect?.()
     const { x, y, radius } = getThemeTransitionGeometry(rect, window.innerWidth, window.innerHeight)
-    const root = document.documentElement
 
     const doc = document as DocumentWithViewTransition
     if (!reduceMotion && doc.startViewTransition && typeof root.animate === 'function') {

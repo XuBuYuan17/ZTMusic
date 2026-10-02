@@ -7,7 +7,6 @@ import { apiSession } from '../api/session.ts'
 import type { CompactTrack } from '../player/queue.ts'
 import type { ListeningSignal, PlayerEngineState } from '../types/player.ts'
 import type { SongId } from '../types/music.ts'
-import { isMobileDevice } from '../utils/responsive.ts'
 
 export const LISTENING_CHANGE = 'listening-report-change'
 let initialization: Promise<void> | undefined
@@ -40,7 +39,6 @@ function scrobblePlay(seconds: number, duration: number): void {
 }
 
 export function initializeListening(): Promise<void> {
-  if (isMobileDevice()) return Promise.resolve()
   if (!initialization) initialization = (async () => {
     if (!archiveSnapshot) {
       const existing = await listeningDB.read()
@@ -54,7 +52,6 @@ export function initializeListening(): Promise<void> {
 }
 
 export async function flushListening(): Promise<void> {
-  if (isMobileDevice() && !session) return
   if (session) checkpoints.put(session.snapshot())
   try {
     await initializeListening()
@@ -73,22 +70,19 @@ export function beginListening(track: CompactTrack): void {
   awaitingSource = true
   session = undefined
   scrobbleTarget = null
-  if (!isMobileDevice()) {
-    session = new ListeningSession(crypto.randomUUID(), {
-      key: `${track.source || 'online'}:${track.id}`,
-      name: track.name || '未知歌曲',
-      artists: track.ar.map(artist => artist.name).filter(Boolean),
-      cover: /^(https?:|data:image\/)/.test(track.picUrl || track.al.picUrl) ? track.picUrl || track.al.picUrl : '',
-    })
-    if (!track.source || track.source === 'online') {
-      scrobbleTarget = { id: track.id, name: track.name || '', artist: track.ar.map(artist => artist.name).filter(Boolean).join('/') }
-    }
-    void flushListening()
+  session = new ListeningSession(crypto.randomUUID(), {
+    key: `${track.source || 'online'}:${track.id}`,
+    name: track.name || '未知歌曲',
+    artists: track.ar.map(artist => artist.name).filter(Boolean),
+    cover: /^(https?:|data:image\/)/.test(track.picUrl || track.al.picUrl) ? track.picUrl || track.al.picUrl : '',
+  })
+  if (!track.source || track.source === 'online') {
+    scrobbleTarget = { id: track.id, name: track.name || '', artist: track.ar.map(artist => artist.name).filter(Boolean).join('/') }
   }
+  void flushListening()
 }
 
 export function observeListening(signal: ListeningSignal, state: PlayerEngineState, track: CompactTrack | null): void {
-  if (isMobileDevice()) { running = false; session?.reset(); return }
   if (signal === 'resume' && !session && track) { beginListening(track); awaitingSource = false }
   if (!session) return
   if (signal === 'source') { awaitingSource = false; running = false; session.reset(); return }
@@ -107,7 +101,7 @@ export function observeListening(signal: ListeningSignal, state: PlayerEngineSta
 }
 
 export function installListeningRecorder(onError: (message: string) => void): () => void {
-  if (isMobileDevice() || installed) return () => {}
+  if (installed) return () => {}
   installed = true
   let shownError = ''
   const reportError = () => {

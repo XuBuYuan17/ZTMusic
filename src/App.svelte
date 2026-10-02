@@ -1,6 +1,8 @@
 <script lang="ts">
   import { flushSync, tick, untrack } from 'svelte'
-  import { desktopFeedback, reducedMotion, rememberCardOrigin } from './lib/app/desktop-motion.ts'
+  import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
+  import { subscribeAndroidBack } from './lib/app/android-back.ts'
+  import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
@@ -71,6 +73,27 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  let mobileDialogOpen = $state(false)
+  $effect(() => {
+    if (!isMobile) return
+    const root = document.documentElement
+    const sync = () => { mobileDialogOpen = root.classList.contains('mobile-panel-open') }
+    const observer = new MutationObserver(sync)
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    sync()
+    return () => observer.disconnect()
+  })
+  $effect(() => {
+    if (!isMobile || !isTauriRuntime() || !/Android/i.test(runtimePlatform())) return
+    if (!mobileDialogOpen && !showMobileDrawer && !showSheet && !showQueuePanel && router.activeView === 'home') return
+    return subscribeAndroidBack(() => {
+      if (dismissTopDialog()) return
+      if (showMobileDrawer) { closeMobileDrawer(); return }
+      if (showSheet) { closeSheet(); return }
+      if (showQueuePanel) { closeQueue(); return }
+      router.goBack()
+    })
+  })
   $effect(() => {
     if (!isMobile) return
     const feedback = mobileFeedback(document.body)
@@ -279,7 +302,7 @@
   $effect(() => {
     if (!isMobile) showMobileDrawer = false
   })
-  function setTheme(value: string): void { theme = normalizeTheme(value) }
+  function setTheme(value: string): void { toggleTheme(undefined, normalizeTheme(value)) }
   function setAccentTheme(value: string): void { accentTheme = normalizeAccentTheme(value) }
 
   function openMessageWithUser(user: MessageTargetUser): void {

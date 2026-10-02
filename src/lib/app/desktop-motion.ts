@@ -146,12 +146,21 @@ export function flyCover(target: HTMLElement) {
 }
 
 const layers: HTMLElement[] = []
+const dialogClosers = new Map<HTMLElement, () => void>()
+export function dismissTopDialog(): boolean {
+  const top = layers.at(-1)
+  const close = top && dialogClosers.get(top)
+  if (!close) return false
+  close()
+  return true
+}
 const mobileIsolation = new Map<HTMLElement, number>()
 const bottomPanels = new Map<HTMLElement, () => void>()
 export function dialogFocus(node: HTMLElement, close: () => void) {
   const previous = document.activeElement as HTMLElement | null
   const isolated: HTMLElement[] = []
   layers.push(node)
+  dialogClosers.set(node, close)
   const mobile = document.documentElement.classList.contains('mobile-runtime')
   if (mobile) document.documentElement.classList.add('mobile-panel-open')
   if (mobile && node.matches('.queue-panel, .song-menu, .sort-sheet, [data-bottom-panel]')) {
@@ -190,6 +199,7 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
     const top = layers.at(-1) === node
     const index = layers.indexOf(node)
     if (index >= 0) layers.splice(index, 1)
+    dialogClosers.delete(node)
     if (mobile && !layers.length) document.documentElement.classList.remove('mobile-panel-open')
     bottomPanels.delete(node)
     isolated.forEach(element => {
