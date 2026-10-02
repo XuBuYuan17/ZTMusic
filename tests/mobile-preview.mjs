@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url)
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const output = process.env.MOBILE_PREVIEW_OUTPUT || join(process.env.TEMP, 'ztmusic-md3-preview')
 await mkdir(output, { recursive: true })
-const base = 'http://127.0.0.1:5173'
+const base = process.env.MOBILE_PREVIEW_URL || 'http://127.0.0.1:5173'
 const title = '静静听见 · 很长的歌曲标题用于检查窄屏文字截断'
 const cover = `${base}/preview-cover.svg`
 const tracks = Array.from({ length: 16 }, (_, i) => ({ id: 91000 + i, name: i ? `测试歌曲 ${i} · 长标题截断检查` : title, ar: [{ id: 1, name: i === 1 ? '哲听预览 · 很长的歌手名称检查窄屏文字截断' : '哲听预览' }], al: { id: 1, name: '测试专辑', picUrl: cover }, dt: 240000 }))
@@ -108,18 +108,18 @@ try {
     const libraryScroll = await page.locator('.mobile-page-content').evaluate(el => el.scrollTop)
     await owned.locator('img').first().evaluate(img => img.decode())
     await owned.click()
-    await page.locator('.mobile-detail-page .playlist-track-row').first().waitFor()
+    await page.locator('.mobile-detail-page:not([inert]) .playlist-track-row').first().waitFor()
     const flight = page.locator('.shared-cover-flight')
     await flight.waitFor()
     const landing = await flight.evaluate(img => ({ left: parseFloat(img.style.left), top: parseFloat(img.style.top), width: parseFloat(img.style.width) }))
-    await page.locator('.mobile-detail-page').evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)))
+    await page.locator('.mobile-detail-page:not([inert])').evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)))
     const destination = await page.locator('.playlist-cover-open img').boundingBox()
     assert.ok(Math.abs(landing.left - destination.x) < 1 && Math.abs(landing.top - destination.y) < 1 && Math.abs(landing.width - destination.width) < 1, `shared cover lands without a jump: ${JSON.stringify({ landing, destination })}`)
     await flight.waitFor({ state: 'detached' })
     assert.equal(await page.locator('.playlist-cover-open img').evaluate(img => getComputedStyle(img).opacity), '1', 'real cover is restored after the flight')
     for (const width of [320, 375, 390, 430, 720]) {
       await page.setViewportSize({ width, height: width === 720 ? 1024 : 844 })
-      const geometry = await page.locator('.mobile-detail-page').evaluate(el => ({
+      const geometry = await page.locator('.mobile-detail-page:not([inert])').evaluate(el => ({
         width: el.clientWidth, scroll: el.scrollWidth,
         cover: el.querySelector('.playlist-cover-open').getBoundingClientRect().width,
         rows: [...el.querySelectorAll('.playlist-track-row')].slice(0,2).map(row => ({ height: row.getBoundingClientRect().height, bottom: row.getBoundingClientRect().bottom, opacity: getComputedStyle(row).opacity, shadow: getComputedStyle(row).boxShadow, album: getComputedStyle(row.querySelector('.col-album')).display, duration: getComputedStyle(row.querySelector('.col-dur')).display, more: row.querySelector('.m-track-more').getBoundingClientRect().width })),
@@ -131,7 +131,7 @@ try {
       if (width === 390) assert.ok(geometry.rows[1].bottom <= geometry.dock, 'two complete songs above dock: ' + JSON.stringify(geometry))
     }
     await page.setViewportSize({ width: 390, height: 844 })
-    assert.equal(await page.locator('.mobile-detail-page .col-dur[data-duration-missing="true"]').evaluate(el => getComputedStyle(el).visibility), 'hidden', 'missing duration is not fabricated')
+    assert.equal(await page.locator('.mobile-detail-page:not([inert]) .col-dur[data-duration-missing="true"]').evaluate(el => getComputedStyle(el).visibility), 'hidden', 'missing duration is not fabricated')
     await page.screenshot({ path: join(output, 'playlist-' + theme + '.png') })
     const coverEntry = page.locator('.playlist-cover-open')
     await coverEntry.click()
@@ -162,11 +162,11 @@ try {
     await page.locator('.sort-sheet').waitFor({ state: 'detached' })
     assert.equal(await page.locator('.playlist-sort-mobile').evaluate(el => document.activeElement === el), true)
     const songBeforeArtist = await page.locator('.mini-player-info strong').textContent()
-    await page.locator('.mobile-detail-page .artist-link').first().press('Enter')
+    await page.locator('.mobile-detail-page:not([inert]) .artist-link').first().press('Enter')
     await page.locator('.artist-page').waitFor()
     assert.equal(await page.locator('.mini-player-info strong').textContent(), songBeforeArtist, 'artist keyboard entry does not play the row')
     await page.getByRole('button', { name: '返回上一页', exact: true }).click()
-    await page.locator('.mobile-detail-page .playlist-track-row').first().waitFor()
+    await page.locator('.mobile-detail-page:not([inert]) .playlist-track-row').first().waitFor()
     await page.evaluate(async () => {
       const { router } = await import('/src/lib/stores/router.svelte.ts')
       const saved = { ...router.playlistDetail }
@@ -202,7 +202,7 @@ try {
     await ghost.waitFor({ state: 'detached' })
     assert.equal(await page.locator('.mobile-page-content').evaluate(el => el.scrollTop), libraryScroll, 'return restores the library scroll position')
     await owned.click()
-    await page.locator('.mobile-detail-page .playlist-track-row').first().waitFor()
+    await page.locator('.mobile-detail-page:not([inert]) .playlist-track-row').first().waitFor()
     assert.ok(await page.locator('.mobile-page-content').evaluate(el => el.scrollTop >= 359), 'back into detail restores scroll')
     await page.getByRole('button', { name: '返回上一页', exact: true }).click()
     await owned.click()
@@ -213,7 +213,7 @@ try {
     await page.getByRole('button', { name: '返回上一页', exact: true }).click()
     assert.equal(await page.locator('.mobile-detail-outro').count(), 0, 'reduced motion has no exit layer')
     await owned.click()
-    assert.equal(await page.locator('.mobile-detail-page').evaluate(el => el.getAnimations().length), 0)
+    assert.equal(await page.locator('.mobile-detail-page:not([inert])').evaluate(el => el.getAnimations().length), 0)
     await page.getByRole('button', { name: '返回上一页', exact: true }).click()
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await owned.waitFor()
@@ -223,13 +223,13 @@ try {
     await page.mouse.move(box.x + box.width / 2, box.y + 55)
     await page.mouse.up()
     await page.waitForTimeout(550)
-    assert.equal(await page.locator('.library-options-sheet, .playlist-detail-page').count(), 0, 'scroll movement cancels long press and its release click')
+    assert.equal(await page.locator('.library-options-sheet, .playlist-detail-page:visible').count(), 0, 'scroll movement cancels long press and its release click')
     await page.mouse.move(box.x + box.width / 2, box.y + 30)
     await page.mouse.down()
     await page.getByRole('dialog', { name: '歌单管理', exact: true }).waitFor()
     await page.mouse.up()
     await page.locator('.library-options-sheet').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)))
-    assert.equal(await page.locator('.playlist-detail-page').count(), 0, 'long press must not open the playlist on release')
+    assert.equal(await page.locator('.playlist-detail-page:visible').count(), 0, 'long press must not open the playlist on release')
     await page.screenshot({ path: join(output, `library-menu-${theme}.png`) })
     await page.getByRole('button', { name: '编辑歌单 名称与简介', exact: true }).click()
     await page.getByRole('dialog', { name: '编辑歌单', exact: true }).waitFor()
@@ -425,6 +425,7 @@ try {
         await page.setViewportSize({ width, height: width === 320 ? 568 : 844 })
         await page.waitForFunction(() => document.documentElement.classList.contains('mobile-runtime') && Math.abs(document.querySelector('.app-shell').getBoundingClientRect().height - innerHeight) < 1)
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+        await page.waitForFunction(() => !document.querySelector('.mobile-route-outgoing'))
         const layout = await root.evaluate(el => ({ left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right, client: el.clientWidth, scroll: el.scrollWidth }))
         assert.ok(layout.left >= -1 && layout.right <= width + 1 && layout.scroll <= layout.client + 1, `${selector} fits ${width}px: ${JSON.stringify(layout)}`)
         assert.equal(await page.locator('.mobile-page-content').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true, `${selector} has no page overflow at ${width}px`)
@@ -475,8 +476,8 @@ try {
     assert.ok(await page.locator('.profile-home__cover-grid').last().evaluate(el => el.scrollLeft > 0), 'keyboard focus reveals an offscreen playlist')
     await page.locator('.profile-home__cover-grid').evaluateAll(elements => elements.forEach(el => el.scrollLeft = 0))
     await page.locator('.mobile-page-content').evaluate(el => el.scrollTop = 0)
-    assert.ok(homeGeometry.hero <= 170 && homeGeometry.quick <= 152, `compact home summary: ${JSON.stringify(homeGeometry)}`)
-    assert.ok(homeGeometry.firstPlaylistBottom <= (await page.locator('.mobile-mini-player').boundingBox()).y, 'home shows a complete playlist card above its dock')
+    assert.ok(homeGeometry.hero <= 170 && homeGeometry.quick >= 306 && homeGeometry.quick <= 320, `home keeps two rows of large cards: ${JSON.stringify(homeGeometry)}`)
+    assert.equal(await page.locator('.profile-home__quick-label:visible').count(), 4, 'home cards retain their English labels')
     await page.locator('.profile-home__quick > button').filter({ hasText: '最近播放' }).click()
     await page.locator('.recent-page .track-table tbody tr').first().waitFor()
     await checkPage('.recent-page', '.play-all-btn, .m-track-more', '.col-title', 'recent')

@@ -7,6 +7,8 @@
   import { ACCENT_THEME_OPTIONS } from '../../theme/accent.ts'
   import pkg from '../../../../package.json'
   import SettingSelect from '../../components/SettingSelect.svelte'
+  import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
+  import { engine } from '../../player/engine.ts'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme }: {
     theme?: string
@@ -42,6 +44,7 @@
   </div>
 
   <div class="settings-panel">
+    {#if engine.native}<AndroidPlayerSettings />{/if}
 
     <!-- 主题 -->
     <div class="settings-row">

@@ -16,7 +16,7 @@ assert.ok(mobileApp.includes('../pages/pc/Settings.svelte'), 'mobile settings mu
 assert.ok(!mobileApp.includes('../pages/mobile/'), 'mobile shell must not import a second set of page components')
 
 const navTargets = [...sidebar.matchAll(/nav\('([^']+)'\)/g)].map((match) => match[1])
-const handled = new Set([...mobileApp.matchAll(/activeView === '([^']+)'/g)].map((match) => match[1]))
+const handled = new Set([...mobileApp.matchAll(/(?:activeView|page\.view) === '([^']+)'/g)].map((match) => match[1]))
 for (const view of navTargets) assert.ok(handled.has(view), `Sidebar destination "${view}" has no mobile render branch`)
 
 assert.ok(app.includes('<Sidebar'), 'mobile navigation must use the shared Sidebar component')

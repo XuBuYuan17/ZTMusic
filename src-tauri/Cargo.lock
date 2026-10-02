@@ -4024,6 +4024,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-zt-player"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5849,6 +5860,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-single-instance",
  "tauri-plugin-window-state",
+ "tauri-plugin-zt-player",
  "windows 0.58.0",
  "zbus",
 ]

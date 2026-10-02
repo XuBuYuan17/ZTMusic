@@ -46,6 +46,7 @@ import { getLocalPlayableUrl } from '../local-music/storage.ts'
 import { getWebDavPlayableUrl, subscribeWebDavDownloadProgress } from '../local-music/webdav.ts'
 import type { SongId } from '../types/music.ts'
 import type { PlayMode, QualityLevel, PlayerEngineState } from '../types/player.ts'
+import type { AndroidPlaybackState } from '../player/android-state.ts'
 
 /** App.svelte 注入的登录态提供者（解耦 player 对 auth store 的直接依赖） */
 interface PlayerAuthProvider {
@@ -218,10 +219,31 @@ class PlayerState {
       restoredQueue.queueIndex,
     )
 
-    engine.setVolume(this.volume)
+    if (!engine.native) engine.setVolume(this.volume)
   }
 
   _setupEngineListeners(): void {
+    engine.onNativeState?.((state: AndroidPlaybackState) => {
+      const previousId = this.id
+      this.queue = compactQueue(state.tracks)
+      this.queueIndex = state.index
+      const track = this.queue[state.index] || null
+      this.currentTrack = track
+      this.id = track?.id || 0
+      this.title = track?.name || ''
+      this.artist = track?.ar.map(artist => artist.name).join(' / ') || ''
+      this.cover = normalizeImageUrl(track?.picUrl || track?.al.picUrl || '')
+      this.duration = state.duration / 1000
+      this.playing = state.playing
+      this.loading = state.loading
+      this.volume = state.volume
+      this.mode = state.mode
+      this._shouldAutoPlay = state.playing
+      this._restoreSeeking = false
+      this._clearLoadingTimer()
+      this._persistState()
+      if (track && track.id !== previousId) void dbHistory.add(track)
+    })
     this._stopListening = installListeningRecorder(message => toast.warning(message))
     engine.onListening((signal, state) => observeListening(signal, state, this.currentTrack))
     engine.onTimeUpdate((t) => {
@@ -230,7 +252,7 @@ class PlayerState {
 
     engine.onEnded((state: PlayerEngineState) => {
       this.playing = false
-      this._handleEnded(state)
+      if (!engine.native) this._handleEnded(state)
     })
 
     engine.onLoadStart(() => {
@@ -260,7 +282,7 @@ class PlayerState {
 
     engine.onError((state) => {
       this._setPlayerError('EngineError', state, ERROR_MESSAGES.PLAY_FAILED)
-      this._fallbackNext('EngineErrorNoFallback')
+      if (!engine.native) this._fallbackNext('EngineErrorNoFallback')
     })
 
     engine.onPlay(() => {
@@ -459,6 +481,7 @@ class PlayerState {
     this.queueIndex = state.queueIndex
     this.shuffleState = state.shuffleState || createShuffleState()
     engine.cancelPreload()
+    if (engine.setQueue) void engine.setQueue(this.queue, this.queueIndex, false, { mode: this.mode, quality: this.preferredLevel }).catch(error => this._setPlayerError('NativeQueue', error))
     if (clearStorage) {
       removeStorage(STORAGE_KEYS.PLAYER_QUEUE)
       removeStorage(STORAGE_KEYS.PLAYER_QI)
@@ -552,8 +575,10 @@ class PlayerState {
     engine.cancelPreload()
 
     const requestId = ++this._playRequestId
-    observeListening('suspend', engine.getState(), this.currentTrack)
-    beginListening(playableTrack)
+    if (!engine.native) {
+      observeListening('suspend', engine.getState(), this.currentTrack)
+      beginListening(playableTrack)
+    }
     this._fallback.updateUrls([])
     this.id = playableTrack.id
     this.title = playableTrack.name
@@ -584,6 +609,12 @@ class PlayerState {
     this._persistState()
     void initializeListening().catch(() => {}).then(() => dbHistory.add(playableTrack))
     this._syncTimedMedia(this.currentTime, { force: true })
+
+    if (engine.setQueue) {
+      void engine.setQueue(this.queue, this.queueIndex, true, { mode: this.mode, quality: this.preferredLevel })
+        .catch(error => { this.loading = false; this._clearLoadingTimer(); this._setPlayerError('NativePlayback', error) })
+      return
+    }
 
     if (playableTrack.source === 'local') {
       this._playLocalTrack(playableTrack, requestId)
@@ -766,6 +797,7 @@ class PlayerState {
 
   /** 下一首 */
   next(): void {
+    if (engine.next) { engine.next(); return }
     abortAllRequests()
     engine.cancelPreload()
     if (this.queue.length === 0) return
@@ -822,6 +854,7 @@ class PlayerState {
 
   /** 上一首 */
   prev(): void {
+    if (engine.previous) { engine.previous(); return }
     abortAllRequests()
     engine.cancelPreload()
     if (this.queue.length === 0) return
@@ -894,6 +927,7 @@ class PlayerState {
       }
     }
     this.mode = setSetting(STORAGE_KEYS.MODE, m) as PlayMode
+    engine.setMode?.(this.mode)
   }
 
   /**
@@ -918,6 +952,10 @@ class PlayerState {
    * 失败就静默留在旧 URL 上，不报错：用户只是换了个偏好，歌还在正常播。
    */
   async _reloadCurrentAtPreferredLevel(): Promise<void> {
+    if (engine.setQueue) {
+      await engine.setQueue(this.queue, this.queueIndex, this.playing, { mode: this.mode, quality: this.preferredLevel, position: this.currentTime })
+      return
+    }
     const track = this.currentTrack
     // 本地 / WebDAV 曲目没有音质档位
     if (!this.id || !track || track.source === 'local' || track.source === 'webdav') return
@@ -951,7 +989,7 @@ class PlayerState {
       const first = this._fallback.next()
       if (first.status !== 'playing') return
       // 新档位拿到的还是同一个 URL（该档位不可用，解析回落了）→ 不打断当前播放
-      if (first.url === engine.currentUrl) return
+      if (first.url === engine.src) return
 
       // 到这里才读播放态：解析期间用户可能已经按了暂停，不该再把歌拉起来
       const wasPlaying = this.playing
@@ -1059,6 +1097,10 @@ class PlayerState {
 
   /** 恢复播放状态（页面加载时调用） */
   restore(): void {
+    if (engine.connect) {
+      void engine.connect().catch(error => this._setPlayerError('NativeConnect', error))
+      return
+    }
     if (!getBooleanSetting(STORAGE_KEYS.RESTORE_SESSION, 'true')) return
 
     const savedId = parseStoredTrackId(getStorage(STORAGE_KEYS.PLAYER_ID, '0'))

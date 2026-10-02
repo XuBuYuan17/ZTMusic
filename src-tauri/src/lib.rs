@@ -140,7 +140,10 @@ pub fn run() {
         .build()
         .expect("failed to create HTTP client");
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_zt_player::init());
+    builder
         .manage(AppState { client })
         .plugin(native_media_plugin())
         .setup(|app| {

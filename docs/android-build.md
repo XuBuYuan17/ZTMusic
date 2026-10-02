@@ -34,14 +34,14 @@
 
 ## 本轮能力边界
 
-本轮是可安装测试壳及云端打包流程，沿用 Svelte UI、Rust API 请求和现有 HTML Audio 播放链路。Android 不会被识别为 Linux 桌面，不显示桌面标题栏，也不调用 Linux MPRIS。
+Android 分支已接入本地 `tauri-plugin-zt-player`：Svelte UI 通过 MediaController 控制 MediaSessionService，Service 持有唯一的 ExoPlayer。桌面与普通浏览器保留 HTML Audio 播放链路。Android 不会被识别为 Linux 桌面，不显示桌面标题栏，也不调用 Linux MPRIS。
 
-Media3 / ExoPlayer、MediaSessionService、后台／锁屏播放、耳机与蓝牙控制、原生悬浮歌词、厂商实况展示均未实现。后续按 Svelte UI → Tauri 插件 → Kotlin 原生播放服务逐步迁移，不把 Android 播放生命周期交给 WebView，也不改写桌面播放引擎。
+Media3 / ExoPlayer、原生媒体会话、音频焦点、耳机拔出暂停、原生悬浮歌词和原生听歌记录已有源码实现，尚需远程编译及真机验收。厂商增强默认关闭。详细边界与验收步骤见 [Android 原生播放](android-native.md)。
 
 ## 验证
 
 本地可运行 `pnpm check`、`pnpm test`。工作流配置及 Android 平台边界检查为 `node scripts/android-build.test.mjs`。
 
-完整 Rust Android 编译、Gradle 打包及 APK 签名验证只能由本工作流确认。第一次运行成功后，还需在手机检查启动、登录、API 请求、前台播放、歌词、队列、软键盘、安全区和返回操作。构建成功不代表后台播放已具备原生能力。
+完整 Rust Android 编译、Gradle 打包及 APK 签名验证只能由本工作流确认。第一次运行成功后，还需在手机检查启动、登录、API 请求、前台播放、歌词、队列、软键盘、安全区和返回操作。构建成功不能替代后台播放的真机验收。
 
 参考：[Tauri Android CLI](https://v2.tauri.app/reference/cli/)、[Android 环境要求](https://v2.tauri.app/start/prerequisites/#android)、[Android 签名](https://v2.tauri.app/distribute/sign/android/)。

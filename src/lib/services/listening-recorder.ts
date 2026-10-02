@@ -1,7 +1,7 @@
 import { listeningDB, ListeningCheckpoints } from '../db/listening.ts'
 import { dbHistory } from '../db/history.ts'
 import { summarizeLocalListening } from './listening-stats.ts'
-import { ListeningSession, type ListeningArchive } from './listening-report.ts'
+import { ListeningSession, type ListeningArchive, type ListeningRecord } from './listening-report.ts'
 import { ncm } from '../api/client.ts'
 import { apiSession } from '../api/session.ts'
 import type { CompactTrack } from '../player/queue.ts'
@@ -22,6 +22,14 @@ const checkpoints = new ListeningCheckpoints(rows => listeningDB.save(rows))
 
 function notify(): void { window.dispatchEvent(new Event(LISTENING_CHANGE)) }
 export function listeningSaveError(): string { return saveError }
+
+export async function importNativeListening(rows: unknown[]): Promise<void> {
+  await initializeListening()
+  const records = rows as ListeningRecord[]
+  if (records.some(row => !row || typeof row.key !== 'string' || !row.session?.startsWith('android:') || !row.track?.key || !Number.isFinite(row.milliseconds) || row.milliseconds < 0 || !Number.isFinite(row.lastAt) || !Number.isFinite(row.plays))) throw new Error('Invalid native listening records')
+  try { await listeningDB.save(records); saveError = ''; if (records.length) notify() }
+  catch (error) { saveError = error instanceof Error ? error.message : '原生听歌统计同步失败'; notify(); throw error }
+}
 
 /**
  * 听歌打卡：把这次有效播放写进服务端，日推、听歌排行、年度报告都吃这份数据。

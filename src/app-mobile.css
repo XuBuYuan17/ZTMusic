@@ -172,12 +172,15 @@ html.mobile-runtime .mobile-page-content {
 }
 
 html.mobile-runtime .mobile-page-content__inner {
+  position: relative;
   width: 100%;
   max-width: 1080px;
   min-width: 0;
   margin-inline: auto;
   padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom)) max(var(--mobile-content-gutter), env(safe-area-inset-left));
 }
+
+html.mobile-runtime .mobile-route-page .fade-in { animation: none !important; }
 
 /* 导航以 main-area 为定位包含块，与外部 fixed 播放条对齐。 */
 html.mobile-runtime .mobile-tab-bar {

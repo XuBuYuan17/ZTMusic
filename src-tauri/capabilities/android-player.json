@@ -1,0 +1,7 @@
+{
+  "identifier": "android-player",
+  "description": "Android native playback and explicit overlay controls",
+  "platforms": ["android"],
+  "windows": ["main"],
+  "permissions": ["zt-player:default"]
+}

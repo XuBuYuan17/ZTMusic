@@ -8,6 +8,9 @@ import type {
   ListeningSignal,
 } from '../types/player.ts'
 
+import { AndroidEngine } from './android-engine.ts'
+import { isTauriRuntime, runtimePlatform } from '../utils/runtime.ts'
+
 function createAudioElement(): HTMLAudioElement {
   const audio = new Audio()
   audio.preload = 'auto'
@@ -23,7 +26,7 @@ function getCodecSupport(audio: HTMLAudioElement) {
   }
 }
 
-class AudioEngine implements PlayerEngine {
+export class AudioEngine implements PlayerEngine {
   audio: HTMLAudioElement
   currentUrl = ''
   // 隐藏预加载器：用于后台加载下一首歌的音频
@@ -257,4 +260,4 @@ class AudioEngine implements PlayerEngine {
   }
 }
 
-export const engine = new AudioEngine()
+export const engine: PlayerEngine = isTauriRuntime() && /Android/i.test(runtimePlatform()) ? new AndroidEngine() : new AudioEngine()
