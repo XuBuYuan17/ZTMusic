@@ -20,9 +20,9 @@ export function runtimePlatform(): string {
   ].filter(Boolean).join(' ')
 }
 
-/** 当前项目只提供 Tauri 桌面构建。 */
+/** Tauri 桌面平台；Android 的 UA 也包含 Linux，需要先排除移动系统。 */
 export function isTauriDesktop(): boolean {
   if (!isTauriRuntime()) return false
   const p = runtimePlatform()
-  return /Linux|Win|Mac/i.test(p)
+  return !/Android|iPhone|iPad|iPod/i.test(p) && /Linux|Win|Mac/i.test(p)
 }
