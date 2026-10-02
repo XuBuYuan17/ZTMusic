@@ -6,6 +6,7 @@
   import { formatWallpaperSize } from '../../services/wallpaper-storage.ts'
   import { ACCENT_THEME_OPTIONS } from '../../theme/accent.ts'
   import pkg from '../../../../package.json'
+  import SettingSelect from '../../components/SettingSelect.svelte'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme }: {
     theme?: string
@@ -126,10 +127,7 @@
         <div class="settings-label">{t('settings.language', '语言')}</div>
         <div class="settings-desc">{t('settings.languageDesc', '界面语言')}</div>
       </div>
-      <select class="settings-select" value={settings.currentLocale} onchange={(e) => settings.handleLocale((e.target as HTMLSelectElement).value)}>
-        <option value="zh">中文</option>
-        <option value="en">English</option>
-      </select>
+      <SettingSelect label={t('settings.language', '语言')} value={settings.currentLocale} options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }]} onChange={settings.handleLocale} />
     </div>
 
     <!-- 默认音质 -->
@@ -138,11 +136,7 @@
         <div class="settings-label">{t('settings.quality', '默认音质')}</div>
         <div class="settings-desc">{t('settings.qualityDesc', '优先使用的音质等级')}</div>
       </div>
-      <select class="settings-select" value={settings.preferredQuality} onchange={(e) => settings.handleQuality((e.target as HTMLSelectElement).value)}>
-        {#each Object.entries(qualityLabels) as [val, label]}
-          <option value={val}>{label}</option>
-        {/each}
-      </select>
+      <SettingSelect label={t('settings.quality', '默认音质')} value={settings.preferredQuality} options={Object.entries(qualityLabels).map(([value, label]) => ({ value, label }))} onChange={settings.handleQuality} />
     </div>
 
     <!-- 默认页面 -->
@@ -151,11 +145,7 @@
         <div class="settings-label">{t('settings.defaultPage', '启动默认页面')}</div>
         <div class="settings-desc">{t('settings.defaultPageDesc', '启动时自动打开的页面')}</div>
       </div>
-      <select class="settings-select" value={settings.defaultPage} onchange={(e) => settings.handleDefaultPage((e.target as HTMLSelectElement).value)}>
-        <option value="home">{t('page.home', '主页')}</option>
-        <option value="explore">{t('page.explore', '发现')}</option>
-        <option value="library">{t('page.library', '资料库')}</option>
-      </select>
+      <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage} options={['home', 'explore', 'library'].map(value => ({ value, label: t(`page.${value}`, value === 'library' ? '资料库' : value === 'home' ? '主页' : '发现') }))} onChange={settings.handleDefaultPage} />
     </div>
 
     <!-- 布局模式 -->
@@ -164,11 +154,7 @@
         <div class="settings-label">布局模式</div>
         <div class="settings-desc">竖屏手机使用移动布局；设备横屏时自动切换到 PC 布局</div>
       </div>
-      <select class="settings-select" value={settings.layoutMode} onchange={(e) => settings.handleLayoutMode((e.target as HTMLSelectElement).value)}>
-        <option value="auto">自动</option>
-        <option value="pc">PC 布局（大屏推荐）</option>
-        <option value="mobile">移动布局</option>
-      </select>
+      <SettingSelect label="布局模式" value={settings.layoutMode} options={[{ value: 'auto', label: '自动' }, { value: 'pc', label: 'PC 布局（大屏推荐）' }, { value: 'mobile', label: '移动布局' }]} onChange={settings.handleLayoutMode} />
     </div>
 
     <!-- 记住播放 -->
@@ -587,7 +573,7 @@
     color: var(--text-secondary);
   }
 
-  .settings-select {
+  .settings-page :global(.settings-select) {
     min-width: 138px;
     min-height: 36px;
     padding: 0 34px 0 12px;
@@ -601,7 +587,7 @@
     cursor: pointer;
     transition: border-color 0.15s;
   }
-  .settings-select:focus {
+  .settings-page :global(.settings-select:focus) {
     border-color: var(--accent);
   }
 
@@ -729,7 +715,7 @@
       font-size: 12px;
     }
 
-    .settings-select {
+    .settings-page :global(.settings-select) {
       min-width: 116px;
       min-height: 34px;
       font-size: 12px;

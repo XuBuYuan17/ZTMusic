@@ -11,24 +11,35 @@ html.mobile-runtime .ly-container .apple-music-player {
   gap: 20px; padding: calc(64px + env(safe-area-inset-top)) max(24px, calc((100vw - 480px) / 2)) calc(20px + env(safe-area-inset-bottom));
   font-family: var(--font); overflow: hidden; transform: none; opacity: 1;
 }
-html.mobile-runtime .ly-container .am-bg-overlay { background: linear-gradient(180deg, rgba(0,0,0,.2), rgba(0,0,0,.68)); }
-html.mobile-runtime .ly-container .am-flying-cover {
+html.mobile-runtime .ly-container .am-bg-overlay { background: linear-gradient(180deg, rgba(12,8,12,.48), rgba(12,8,12,.82)); }
+html.mobile-runtime .ly-container .am-flying-cover { box-shadow: none;
   position: relative; inset: auto; grid-row: 1; grid-column: 1; align-self: end; justify-self: center;
-  width: min(100%, calc(100dvh - 360px), 380px); height: auto; aspect-ratio: 1;
-  border-radius: var(--radius-xl); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
+  width: min(100%, max(0px, calc(100dvh - 400px - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 380px); height: auto; aspect-ratio: 1;
+  border-radius: var(--radius-sm); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
 }
 html.mobile-runtime .ly-container .am-flying-cover-img { transform: none; width: 100%; height: 100%; object-fit: cover; }
 html.mobile-runtime .ly-container .am-track-info {
   position: relative; inset: auto; grid-row: 2; grid-column: 1; width: 100%; min-width: 0; max-width: none; margin: 0; opacity: 1; transform: none; text-align: left;
 }
-html.mobile-runtime .ly-container .am-track-title { font-size: 24px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; }
-html.mobile-runtime .ly-container .am-track-artist { color: rgba(255,255,255,.75); font-size: 15px; margin-top: 6px; }
+html.mobile-runtime .ly-container .am-track-title { font-size: 24px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; overflow: hidden; }
+html.mobile-runtime .ly-container .am-track-artist { color: rgba(255,255,255,.75); font-size: 15px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html.mobile-runtime .ly-container .am-bottom-controls {
   position: relative; inset: auto; grid-row: 3; grid-column: 1; width: 100%; margin: 0; opacity: 1; transform: none; pointer-events: auto; transition: none;
 }
-html.mobile-runtime .ly-container .am-play-row { justify-content: space-between; gap: 4px; }
-html.mobile-runtime .ly-container .am-ctrl-btn { width: 44px; height: 52px; color: rgba(255,255,255,.85); }
-html.mobile-runtime .ly-container .am-play-btn { width: 64px; height: 64px; }
+html.mobile-runtime .ly-container .am-play-row { justify-content: space-between; gap: 2px; padding-top: 12px; }
+html.mobile-runtime .ly-container .am-ctrl-btn { width: 48px; height: 48px; color: #f8eff4; background: rgba(255,255,255,.1); border-radius: var(--radius-md); }
+html.mobile-runtime .ly-container .am-ctrl-btn.active { color: #28151e; background: color-mix(in srgb, var(--accent) 25%, #ffffff); }
+html.mobile-runtime .ly-container .am-play-btn { display: grid; place-items: center; width: 72px; height: 72px; color: #28151e; background: color-mix(in srgb, var(--accent) 25%, #ffffff); border-radius: 50%; }
+html.mobile-runtime .ly-container .am-play-btn.playing { border-radius: var(--radius-xl); }
+html.mobile-runtime .ly-container .am-play-btn .am-icon--play { display: block; grid-area: 1 / 1; transition: opacity 180ms var(--ease-out), transform 240ms var(--ease-out); }
+html.mobile-runtime .ly-container .am-play-btn .am-pause-symbol,
+html.mobile-runtime .ly-container .am-play-btn.playing .am-play-symbol { opacity: 0; transform: scale(.5) rotate(-60deg); }
+html.mobile-runtime .ly-container .am-play-btn.playing .am-pause-symbol { opacity: 1; transform: none; }
+html.mobile-runtime .ly-container :is(.am-play-btn, .am-ctrl-btn) { transition: border-radius 240ms var(--ease-spring), transform 240ms var(--ease-spring), background-color 240ms var(--ease-out); }
+html.mobile-runtime .ly-container :is(.am-play-btn, .am-ctrl-btn):active { transform: scale(.94); transition-duration: var(--motion-press); }
+html.mobile-runtime .ly-container .am-progress-bar { height: 48px; }
+html.mobile-runtime .ly-container .am-progress-track { height: 6px; background: rgba(255,255,255,.28); }
+html.mobile-runtime .ly-container .am-progress-fill { background: color-mix(in srgb, var(--accent) 25%, #ffffff); }
 html.mobile-runtime .ly-container .am-corner-info, html.mobile-runtime .ly-container .am-lyrics-area { display: none; }
 html.mobile-runtime .ly-container .lyrics-mode { align-content: stretch; grid-template-rows: 56px minmax(0, 1fr) auto; }
 html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { align-self: center; justify-self: start; width: 48px; height: 48px; border-radius: var(--radius-sm); }
@@ -45,7 +56,7 @@ html.mobile-runtime .ly-container .am-lyric-line.active .am-lyric-text { color: 
 html.mobile-runtime .ly-container .am-lyric-trans { color: rgba(255,255,255,.7); }
 html.mobile-runtime .ly-container .am-lyrics-fade-top, html.mobile-runtime .ly-container .am-lyrics-fade-bottom { display: none; }
 html.mobile-runtime .ly-container .am-more-shell { top: calc(8px + env(safe-area-inset-top)); right: 16px; }
-html.mobile-runtime .ly-container .am-more-btn { width: 44px; height: 44px; background: none; box-shadow: none; }
+html.mobile-runtime .ly-container .am-more-btn { width: 48px; height: 48px; background: rgba(255,255,255,.1); border-radius: var(--radius-md); box-shadow: none; }
 html.mobile-runtime .m-player-dismiss { position: absolute; top: env(safe-area-inset-top); left: calc(50% - 48px); width: 96px; height: 48px; z-index: 1001; display: grid; place-items: center; background: none; touch-action: none; }
 html.mobile-runtime .m-player-dismiss span { width: 36px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.7); }
 html.mobile-runtime .ly-container .vinyl-theme .am-flying-cover::before { width: 90%; height: 90%; right: -12%; top: 5%; }
@@ -53,5 +64,7 @@ html.mobile-runtime .ly-container .vinyl-theme .am-vinyl-label { width: 36%; hei
 html.mobile-runtime .ly-container .lyrics-mode.vinyl-theme .am-flying-cover::before { display: none; }
 @media (max-height: 700px) and (orientation: portrait) {
   html.mobile-runtime .ly-container .apple-music-player { gap: 12px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  html.mobile-runtime .ly-container .am-flying-cover { width: min(100%, max(0px, calc(100dvh - 360px - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 380px); }
+  html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { width: 48px; }
   html.mobile-runtime .ly-container .am-track-title { font-size: 21px; }
 }

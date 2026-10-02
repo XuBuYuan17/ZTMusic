@@ -1,6 +1,9 @@
 <script lang="ts">
-  import { mobileDrag } from '../app/mobile-interaction.ts'
-  import { dialogFocus, desktopFeedback, desktopPanel } from '../app/desktop-motion.ts'
+  import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts'
+  import { fade } from 'svelte/transition'
+  import { tick } from 'svelte'
+  import { responsive } from '../utils/responsive.ts'
+  import { dialogFocus, desktopFeedback, desktopPanel, reducedMotion } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import { auth } from '../stores/auth.svelte.ts'
   import { ncm } from '../api/client.ts'
@@ -45,6 +48,8 @@
   } = $props()
 
   let playlistMode = $state<PlaylistMode>('menu')
+  let menuBody = $state<HTMLElement | null>(null)
+  let menuScroll = 0
   let liked = $state(false)
   let likeLoading = $state(false)
   let toastText = $state('')
@@ -212,7 +217,20 @@
       showToast('登录状态异常')
       return
     }
+    const mobile = document.documentElement.classList.contains('mobile-runtime')
+    if (mobile) menuScroll = menuBody?.scrollTop || 0
     playlistMode = mode
+    if (mobile) tick().then(() => menuBody?.querySelector<HTMLElement>('[aria-label="返回"]')?.focus({ preventScroll: true }))
+  }
+
+  function returnToMenu(): void {
+    const mode = playlistMode
+    playlistMode = 'menu'
+    if (document.documentElement.classList.contains('mobile-runtime')) tick().then(() => {
+      if (!menuBody) return
+      menuBody.scrollTop = menuScroll
+      menuBody.querySelector<HTMLElement>(`[data-playlist-action="${mode}"]`)?.focus({ preventScroll: true })
+    })
   }
 
   function openArtist(): void {
@@ -245,18 +263,22 @@
   function handleContextmenu(event: MouseEvent): void {
     event.preventDefault()
   }
+  function menuTransition(node: HTMLElement, options: { duration: number }) {
+    return document.documentElement.classList.contains('mobile-runtime') ? mobileSheet(node, options) : desktopPanel(node)
+  }
 </script>
 
 {#if show && mt}
   <div class="song-menu-portal" use:portal>
-    <button class="song-menu-scrim" type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
+    <button class="song-menu-scrim" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
     <div
       class="song-menu"
-      transition:desktopPanel
+      in:menuTransition={{ duration: 280 }} out:menuTransition={{ duration: 240 }}
       use:dialogFocus={() => onClose?.()} use:desktopFeedback
       class:panel={playlistMode !== 'menu'}
       style="left:{menuLeft}px;top:{menuTop}px"
-      role="menu"
+      role={$responsive.isMobile ? 'dialog' : 'menu'}
+      aria-modal={$responsive.isMobile ? true : undefined}
       tabindex="-1"
       aria-label="歌曲操作菜单"
       oncontextmenu={handleContextmenu}
@@ -274,8 +296,9 @@
         <strong>{mt.name || '未知歌曲'}</strong>
         <span>{artistText(mt) || '未知歌手'}</span>
       </div>
+      <button class="song-menu__close" type="button" aria-label="关闭歌曲操作" onclick={onClose}><Icon name="close" size={20} /></button>
     </header>
-
+    <div class="song-menu__body" bind:this={menuBody}>
     {#if playlistMode === 'menu'}
       <div class="song-menu__group">
         <button class="song-menu__item primary" onclick={toggleLike} disabled={likeLoading}>
@@ -283,11 +306,11 @@
           <span>{liked ? '取消喜欢' : '喜欢'}</span>
           {#if likeLoading}<em>处理中</em>{/if}
         </button>
-        <button class="song-menu__item" onclick={() => openPlaylistPanel('add')}>
+        <button class="song-menu__item" data-playlist-action="add" onclick={() => openPlaylistPanel('add')}>
           <span class="song-menu__icon"><Icon name="add" size={16} /></span>
           <span>添加到歌单</span>
         </button>
-        <button class="song-menu__item" onclick={() => openPlaylistPanel('remove')}>
+        <button class="song-menu__item" data-playlist-action="remove" onclick={() => openPlaylistPanel('remove')}>
           <span class="song-menu__icon"><Icon name="trash" size={16} /></span>
           <span>从歌单移除</span>
         </button>
@@ -312,15 +335,16 @@
         </button>
       </div>
     {/if}
-    <div hidden={playlistMode === 'menu'}>
+    <div class="song-menu__playlist-page" hidden={playlistMode === 'menu'}>
       <SongPlaylistPanel
         active={playlistMode !== 'menu'}
         mode={playlistMode === 'remove' ? 'remove' : 'add'}
         trackId={mt.id ?? null}
         trackName={mt.name}
-        onBack={() => playlistMode = 'menu'}
+        onBack={returnToMenu}
         onToast={showToast}
       />
+    </div>
     </div>
     </div>
 
@@ -331,6 +355,9 @@
 {/if}
 
 <style>
+  .song-menu__close { display: none; }
+  :global(html.mobile-runtime) .song-menu__header { grid-template-columns: 42px minmax(0, 1fr) 48px; }
+  :global(html.mobile-runtime) .song-menu__close { display: grid; place-items: center; width: 48px; height: 48px; color: var(--text-secondary); border-radius: 999px; }
   .song-menu-portal {
     display: contents;
   }
@@ -360,9 +387,9 @@
     box-shadow: var(--shadow-xl);
   }
 
-  /* 桌面入场走 desktopPanel（220ms）；移动端保留原有 CSS 入场 */
+  /* 移动端由 mobileSheet 接管位移。 */
   :global(html.mobile-runtime) .song-menu {
-    animation: songMenuIn 120ms var(--ease-out) both;
+    animation: none;
   }
 
   .song-menu.panel {

@@ -1,6 +1,6 @@
 // 移动端滑动时收起底部 chrome（底栏淡出 + 播放条下降到底栏槽位），停手后恢复。
 
-const HIDE_DELAY = 400
+const HIDE_DELAY = 1000
 const TOP_GUARD = 8
 const CLASS = 'mobile-chrome-hidden'
 
@@ -30,14 +30,18 @@ export function createScrollChrome(apply: (hidden: boolean) => void, delay = HID
     hidden = next
     apply(next)
   }
+  const restore = () => {
+    clearTimeout(timer)
+    if (!interacting && hidden) timer = setTimeout(() => set(false), delay)
+  }
   return {
-    interact(on) { interacting = on },
+    interact(on) { interacting = on; restore() },
     scroll(top) {
       clearTimeout(timer)
       // 回到顶部直接恢复，不用等满 delay
       if (top <= TOP_GUARD) return set(false)
       if (interacting) set(true)
-      timer = setTimeout(() => set(false), delay)
+      restore()
     },
     destroy() {
       clearTimeout(timer)
@@ -50,18 +54,50 @@ export function createScrollChrome(apply: (hidden: boolean) => void, delay = HID
 export function scrollChrome(node: HTMLElement) {
   const root = document.documentElement
   const chrome = createScrollChrome((hidden) => root.classList.toggle(CLASS, hidden))
-  const onScroll = () => chrome.scroll(node.scrollTop)
+  const onScroll = () => { if (!root.classList.contains('mobile-panel-open')) chrome.scroll(node.scrollTop) }
   const on = () => chrome.interact(true)
-  const off = () => chrome.interact(false)
+  const off = () => chrome.interact(root.classList.contains('mobile-panel-open'))
+  let wheelTimer: ReturnType<typeof setTimeout> | undefined
+  const wheel = () => {
+    if (root.classList.contains('mobile-panel-open')) return
+    clearTimeout(wheelTimer)
+    chrome.interact(true)
+    wheelTimer = setTimeout(off, 80)
+  }
+  let resetPending = false
+  const reset = () => {
+    if (root.classList.contains('mobile-panel-open')) { resetPending = true; return }
+    resetPending = false
+    chrome.interact(false)
+    chrome.scroll(0)
+  }
+  let panelOpen = root.classList.contains('mobile-panel-open')
+  const observer = new MutationObserver(() => {
+    const next = root.classList.contains('mobile-panel-open')
+    if (next !== panelOpen) {
+      panelOpen = next
+      if (!next && resetPending) reset()
+      else chrome.interact(next)
+    }
+  })
+  observer.observe(root, { attributes: true, attributeFilter: ['class'] })
   const events: [string, EventListener][] = [
     ['pointerdown', on], ['pointerup', off], ['pointercancel', off],
     ['touchstart', on], ['touchend', off], ['touchcancel', off],
-    ['wheel', on],
+    ['wheel', wheel],
   ]
   node.addEventListener('scroll', onScroll, { passive: true })
   for (const [type, handler] of events) node.addEventListener(type, handler, { passive: true })
+  window.addEventListener('pointerup', off, { passive: true })
+  window.addEventListener('pointercancel', off, { passive: true })
+  node.addEventListener('mobile-view-change', reset)
   return {
     destroy() {
+      clearTimeout(wheelTimer)
+      observer.disconnect()
+      window.removeEventListener('pointerup', off)
+      window.removeEventListener('pointercancel', off)
+      node.removeEventListener('mobile-view-change', reset)
       node.removeEventListener('scroll', onScroll)
       for (const [type, handler] of events) node.removeEventListener(type, handler)
       chrome.destroy()

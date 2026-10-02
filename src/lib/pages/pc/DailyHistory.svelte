@@ -80,7 +80,7 @@
   }
 
   function handleSongKeydown(event: KeyboardEvent, track: NormalizedSong): void {
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
       playTrack(track)
     }
@@ -190,6 +190,7 @@
                       {/if}
                     {/each}
                   </em>
+                  <small class="mobile-track-meta"><span>{albumOf(track)}</span>{#if track.dt || track.duration}<time>{formatDuration((track.duration as number) || track.dt)}</time>{/if}</small>
                 </span>
                 <span class="daily-song-album">{albumOf(track)}</span>
                 <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>

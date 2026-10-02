@@ -1,6 +1,8 @@
 <script lang="ts">
   import { coverUrl } from '../utils/image.ts'
   import { flyCover } from '../app/desktop-motion.ts'
+  import { responsive } from '../utils/responsive.ts'
+  import CoverPreview from './CoverPreview.svelte'
   import Icon from './ui/Icon.svelte'
 
   interface HeroDetail {
@@ -39,6 +41,11 @@
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
   const creator = $derived(rec(detail?.creator))
+  let previewOpen = $state(false)
+  let descriptionExpanded = $state(false)
+  let coverFailed = $state(false)
+  $effect(() => { detail; previewOpen = false; descriptionExpanded = false; coverFailed = false })
+  $effect(() => { if (!$responsive.isMobile) previewOpen = false })
 
   function durationText(ms: number): string {
     const minutes = Math.round(ms / 60000)
@@ -70,7 +77,11 @@
   <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
     {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${coverUrl(cover, 320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
-    {#if cover}
+    {#if cover && $responsive.isMobile}
+      <button class="playlist-cover-open" type="button" aria-label={`查看${detail.name}的封面`} aria-haspopup="dialog" aria-expanded={previewOpen} onclick={event => { event.currentTarget.focus({ preventScroll: true }); previewOpen = true }}>
+        {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" src={coverUrl(cover, 320)} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
+      </button>
+    {:else if cover}
       <img class="playlist-cover" src={coverUrl(cover, 320)} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
     {:else}
       <div class="playlist-cover playlist-cover--empty">
@@ -91,7 +102,11 @@
         {creator?.nickname ?? ''}{#if totalCount} · {totalCount} 首{:else if loading} · 正在加载歌曲{/if}{#if totalDuration} · {durationText(totalDuration)}{/if}{#if loadingMore} · 正在补全{/if}
       </div>
       {#if detail.description}
-        <div class="playlist-desc" title={detail.description}>{detail.description}</div>
+        {#if $responsive.isMobile}
+          <div class="playlist-desc-wrap"><div class="playlist-desc" class:is-expanded={descriptionExpanded}>{detail.description}</div><button class="playlist-desc-toggle" type="button" aria-label={descriptionExpanded ? '收起简介' : '展开简介'} aria-expanded={descriptionExpanded} onclick={() => descriptionExpanded = !descriptionExpanded}>{descriptionExpanded ? '收起' : '展开'}<Icon name="chevron-down" size={16} /></button></div>
+        {:else}
+          <div class="playlist-desc" title={detail.description}>{detail.description}</div>
+        {/if}
       {/if}
       <div class="playlist-hero-actions">
         <button class="playlist-play-btn" onclick={() => onPlayAll?.()} disabled={!visibleCount}>
@@ -108,6 +123,8 @@
     </div>
   </div>
 {/if}
+
+{#if previewOpen && detail}<CoverPreview src={coverUrl(cover, 1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
 
 <style>
   .playlist-detail-hero {
@@ -298,16 +315,27 @@
     62%, 100% { transform: translateX(110%); }
   }
 
-  :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; margin: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
+  :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; padding: 12px 0; border: 0; border-radius: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--playlist-hero-color, var(--accent)) 7%, var(--md-surface)), transparent 92%); animation: none; overflow: visible; }
+  :global(html.mobile-runtime) .playlist-detail-hero::after { content: none; }
   :global(html.mobile-runtime) .playlist-back-btn { display: none; }
-  :global(html.mobile-runtime) .playlist-cover { justify-self: center; width: min(56vw, 240px); height: auto; aspect-ratio: 1; border-radius: var(--radius-lg); }
-  :global(html.mobile-runtime) .playlist-hero-copy { width: 100%; min-width: 0; gap: 8px; padding: 0; }
+  :global(html.mobile-runtime) .playlist-cover { grid-column: 1; grid-row: 1 / span 2; justify-self: start; width: 112px; height: 112px; aspect-ratio: 1; border-radius: var(--radius-sm); box-shadow: none; animation: none; transform: scale(calc(1 - var(--hero-p, 0) * .04)); }
+  :global(html.mobile-runtime) .playlist-cover-open { grid-column: 1; grid-row: 1 / span 2; width: 112px; height: 112px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; }
+  :global(html.mobile-runtime) .playlist-cover-open .playlist-cover { display: grid; }
+  :global(html.mobile-runtime) .playlist-hero-copy { display: contents; }
+  :global(html.mobile-runtime) .playlist-detail-hero--loading .playlist-hero-copy { display: grid; min-width: 0; gap: 8px; padding: 0; }
+  :global(html.mobile-runtime) .playlist-hero-topline { display: none; }
   :global(html.mobile-runtime) .playlist-kicker { font-size: 11px; color: var(--text-secondary); }
-  :global(html.mobile-runtime) .playlist-hero-copy h1 { font-size: 26px; line-height: 1.25; line-clamp: 3; -webkit-line-clamp: 3; }
-  :global(html.mobile-runtime) .playlist-meta { min-width: 0; flex-wrap: wrap; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-  :global(html.mobile-runtime) .playlist-desc { display: -webkit-box; line-clamp: 3; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
-  :global(html.mobile-runtime) .playlist-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
-  :global(html.mobile-runtime) .playlist-play-btn, :global(html.mobile-runtime) .playlist-shuffle-btn { min-height: 44px; justify-content: center; padding: 0 16px; border-radius: var(--radius-md); font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-hero-copy h1 { grid-column: 2; grid-row: 1; align-self: end; min-width: 0; font-size: 22px; line-height: 1.3; overflow-wrap: anywhere; line-clamp: 2; -webkit-line-clamp: 2; }
+  :global(html.mobile-runtime) .playlist-meta { grid-column: 2; grid-row: 2; align-self: start; min-width: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; line-clamp: 3; -webkit-line-clamp: 3; overflow: hidden; }
+  :global(html.mobile-runtime) .playlist-desc { grid-column: 1 / -1; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-desc-wrap { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: start; gap: 8px; min-width: 0; }
+  :global(html.mobile-runtime) .playlist-desc-wrap .playlist-desc { grid-column: 1; }
+  :global(html.mobile-runtime) .playlist-desc.is-expanded { display: block; overflow: visible; white-space: pre-line; }
+  :global(html.mobile-runtime) .playlist-desc-toggle { display: inline-flex; flex-direction: column; align-items: center; gap: 0; min-height: 48px; padding: 0; border: 0; border-radius: 999px; color: var(--md-primary); background: transparent; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-desc-toggle[aria-expanded="true"] :global(svg) { transform: rotate(180deg); }
+  :global(html.mobile-runtime) .playlist-hero-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 0; }
+  :global(html.mobile-runtime) .playlist-play-btn, :global(html.mobile-runtime) .playlist-shuffle-btn { width: 100%; min-height: 48px; margin: 0; justify-content: center; padding: 0 8px; border-radius: 999px; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-play-btn { background: var(--md-primary); color: var(--md-on-primary); }
   :global(html.mobile-runtime) .playlist-shuffle-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-elevated); color: var(--text); }
 
   @media (max-width: 680px) {
@@ -325,6 +353,16 @@
     .playlist-hero-copy h1 {
       font-size: 23px;
     }
+  }
+
+  @media (max-width: 359px) {
+    :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: 96px minmax(0, 1fr); }
+    :global(html.mobile-runtime) .playlist-cover,
+    :global(html.mobile-runtime) .playlist-cover-open { width: 96px; height: 96px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(html.mobile-runtime) .playlist-cover { transform: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {

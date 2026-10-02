@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { tick, untrack } from 'svelte'
+  import { tick, untrack, onDestroy } from 'svelte'
+  import { reducedMotion, hasCoverOrigin } from '../app/desktop-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
   import { scrollChrome } from '../app/scroll-chrome.ts'
   import type { SongId } from '../types/music.ts'
@@ -60,7 +61,45 @@
   let rootEl = $state<HTMLElement | null>(null)
   let previousKey: string | null = null
   const scrollPositions = new Map<string, number>()
-  const viewKey = $derived(`${activeView}:${router.selectedId ?? ''}:${router.routeStack.length}`)
+  const viewKey = $derived(primaryViews.includes(activeView) || activeView === 'search' ? activeView : `${activeView}:${router.selectedId ?? ''}:${router.routeStack.length}`)
+  let outgoing: HTMLElement | null = null
+  let outgoingAnimation: Animation | null = null
+
+  function clearOutgoing(): void {
+    outgoingAnimation?.cancel()
+    outgoingAnimation = null
+    outgoing?.remove()
+    outgoing = null
+  }
+  function leaveDetail(scroller: HTMLElement): void {
+    clearOutgoing()
+    const page = scroller.querySelector<HTMLElement>('.mobile-detail-page')
+    if (!page || reducedMotion()) return
+    const viewport = scroller.getBoundingClientRect()
+    const bounds = page.getBoundingClientRect()
+    const layer = document.createElement('div')
+    layer.className = 'mobile-detail-outro'
+    layer.inert = true
+    layer.setAttribute('aria-hidden', 'true')
+    Object.assign(layer.style, { top: `${viewport.top}px`, left: `${viewport.left}px`, width: `${viewport.width}px`, height: `${viewport.height}px` })
+    // 仅保留离场画面，路由立即切换；快照没有事件，也不会继续更新歌曲数据。
+    const image = page.cloneNode(true) as HTMLElement
+    image.removeAttribute('id')
+    image.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'))
+    image.querySelectorAll<HTMLElement>('button, a, input, select, textarea, [tabindex]').forEach(node => node.tabIndex = -1)
+    Object.assign(image.style, { position: 'absolute', top: `${bounds.top - viewport.top}px`, left: `${bounds.left - viewport.left}px`, width: `${bounds.width}px` })
+    layer.appendChild(image)
+    rootEl?.appendChild(layer)
+    outgoing = layer
+    outgoingAnimation = layer.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 220, easing: 'cubic-bezier(.2, 0, 0, 1)' })
+    outgoingAnimation.finished.then(() => { if (outgoing === layer) clearOutgoing() }).catch(() => {})
+  }
+  function enterDetail(node: HTMLElement) {
+    const sharedCover = hasCoverOrigin()
+    const animation = reducedMotion() ? null : node.animate([{ opacity: 0, transform: sharedCover ? 'translateY(0)' : 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 280, easing: 'cubic-bezier(.2, 0, 0, 1)' })
+    return { destroy() { animation?.cancel() } }
+  }
+  onDestroy(clearOutgoing)
 
   $effect(() => {
     const view = activeView
@@ -72,6 +111,8 @@
     const scroller = contentEl
     return untrack(() => {
       if (!scroller || key === previousKey) return
+      leaveDetail(scroller)
+      scroller.dispatchEvent(new Event('mobile-view-change'))
       if (previousKey) scrollPositions.set(previousKey, scroller.scrollTop)
       previousKey = key
       const position = scrollPositions.get(key) ?? 0
@@ -179,10 +220,14 @@
       {:else if activeView === 'messages'}
         <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
       {:else if activeView === 'playlist' || activeView === 'album'}
+        {#key `${activeView}:${router.selectedId}`}
+        <div class="mobile-detail-page" use:enterDetail>
         <PlaylistPage playlistDetail={router.playlistDetail} loading={router.playlistDetailLoading} loadingMore={router.playlistLoadingMore}
           hasMore={router.playlistHasMore} error={router.playlistDetailError} selectedId={router.selectedId} heroColor={router.heroColor}
           detailType={activeView === 'album' ? '专辑' : '歌单'} onBack={onBack} onPlayAll={router.playAll} onPlayTrack={router.playTrack}
           onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onLoadMore={router.loadMorePlaylist} />
+        </div>
+        {/key}
       {:else if activeView === 'artist'}
         <ArtistPage artist={router.artistDetail} songs={router.artistSongs} albums={router.artistAlbums} loading={router.artistLoading}
           error={router.artistError} onBack={onBack} onPlayAll={router.playArtistAll} onPlayTrack={router.playArtistTrack}
@@ -196,16 +241,21 @@
 
   <nav class="mobile-tab-bar" aria-label="主导航">
     <button class="mobile-tab" class:active={activeView === 'home'} data-view="home" aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
-      <Icon name="home" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__icon"><Icon name="home" size={24} strokeWidth={1.8} /></span>
       <span class="mobile-tab__label">主页</span>
     </button>
     <button class="mobile-tab" class:active={activeView === 'explore'} data-view="explore" aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
-      <Icon name="compass" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__icon"><Icon name="compass" size={24} strokeWidth={1.8} /></span>
       <span class="mobile-tab__label">发现</span>
     </button>
     <button class="mobile-tab" class:active={activeView === 'library'} data-view="library" aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
-      <Icon name="liked" size={22} strokeWidth={1.5} />
+      <span class="mobile-tab__icon"><Icon name="liked" size={24} strokeWidth={1.8} /></span>
       <span class="mobile-tab__label">我的收藏</span>
     </button>
   </nav>
 </div>
+
+<style>
+  :global(.mobile-detail-outro) { position: fixed; z-index: 2; overflow: hidden; pointer-events: none; background: var(--bg); }
+  :global(.mobile-detail-outro *) { pointer-events: none !important; animation: none !important; }
+</style>

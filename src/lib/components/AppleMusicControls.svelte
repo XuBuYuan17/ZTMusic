@@ -66,15 +66,12 @@
 
   <!-- Play/Pause -->
   <button class="am-play-btn" class:playing={player.playing} onclick={(event) => handleButton(event, () => player.togglePlay())} aria-label={player.playing ? '暂停' : '播放'} disabled={disabled || player.loading}>
-    {#if player.playing}
-      <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play am-pause-symbol" aria-hidden="true">
         <path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"/>
       </svg>
-    {:else}
-      <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play">
+      <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play am-play-symbol" aria-hidden="true">
         <path d="M19.5 14.598c2-1.155 2-4.041 0-5.196l-9-5.196C8.5 3.05 6 4.494 6 6.804v10.392c0 2.31 2.5 3.753 4.5 2.598z" fill-rule="evenodd" clip-rule="evenodd"/>
       </svg>
-    {/if}
   </button>
 
   <!-- Next -->
@@ -167,6 +164,9 @@
     width: 36px;
     height: 36px;
   }
+
+  .am-pause-symbol, .playing .am-play-symbol { display: none; }
+  .playing .am-pause-symbol { display: block; }
 
   .am-icon--fill {
     opacity: 0.95;

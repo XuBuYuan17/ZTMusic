@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
   import { responsive } from '../utils/responsive.ts';
   import { mobileDrag } from '../app/mobile-interaction.ts';
   import Icon from './ui/Icon.svelte';
@@ -45,6 +47,9 @@
   } = $props();
 
   let lyricsMode = $state(false);
+  let playerRoot: HTMLElement;
+  const modeMotion = createMobilePlayerMotion();
+  onDestroy(modeMotion.destroy);
   let showMoreMenu = $state(false);
   let menuMessage = $state('');
   let actionBusy = $state('');
@@ -110,7 +115,8 @@
   }
 
   function toggleLyricsMode(): void {
-    lyricsMode = !lyricsMode;
+    if ($responsive.isMobile) void modeMotion.change(playerRoot, () => { lyricsMode = !lyricsMode; });
+    else lyricsMode = !lyricsMode;
   }
 
   function handlePlayerPointerDown(event: PointerEvent): void {
@@ -263,7 +269,7 @@
 
 </script>
 
-<div class="apple-music-player" class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" bind:this={playerRoot} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">

@@ -49,6 +49,16 @@
   const weekdayCells = $derived<WallCell[]>(report.weekdays.map((value, index) => ({ key: weekdayNames[index]!, label: weekdayNames[index]!, caption: `周${weekdayNames[index]}`, value, level: levelOf(value, weekdayMax) })))
   const wallLabel = $derived(`${periodLabel}聆听分布，${dayCells[0]?.key || '—'} 至 ${dayCells.at(-1)?.key || '—'}，${report.activeDays} 天有聆听记录`)
 
+  function revealLatestDays(node: HTMLElement) {
+    const observer = new ResizeObserver(() => {
+      if (document.documentElement.classList.contains('mobile-runtime')) node.scrollLeft = node.scrollWidth
+    })
+    observer.observe(node)
+    const grid = node.querySelector('.wall-grid-heat')
+    if (grid) observer.observe(grid)
+    return { destroy: () => observer.disconnect() }
+  }
+
   async function load() {
     const id = ++request
     saveError = listeningSaveError()
@@ -75,7 +85,7 @@
   <!-- ponytail: 365 个格子逐个做 tab 停靠点会毁掉键盘导航，所以整块图当成一张 role="img" 用汇总标签念，
        逐格详情只在 title 里。要逐格键盘可达就得改成 roving tabindex。 -->
   {#snippet heat(slots: (WallCell | null)[], cols: number, label: string)}
-    <div class="wall-figure" role="img" aria-label={label}>
+    <div class="wall-figure" role="img" aria-label={label} use:revealLatestDays>
       <div class="wall-months" style={`grid-template-columns:repeat(${cols},minmax(0,1fr))`}>
         {#each monthMarks as mark (mark.key)}<span style={`grid-column:${mark.start + 1}/span ${mark.span}`}>{mark.label}</span>{/each}
       </div>

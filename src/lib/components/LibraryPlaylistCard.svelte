@@ -2,6 +2,9 @@
   import type { NormalizedPlaylist } from '../utils/normalize.ts'
   import { coverUrl } from '../utils/image.ts'
   import Spinner from './Spinner.svelte'
+  import Icon from './ui/Icon.svelte'
+  import { responsive } from '../utils/responsive.ts'
+  import { mobileLongPress } from '../app/mobile-interaction.ts'
 
   let {
     pl,
@@ -16,6 +19,7 @@
     onUnsubscribe,
     onEdit,
     onDelete,
+    onOptions,
   }: {
     pl: NormalizedPlaylist
     index?: number
@@ -31,7 +35,14 @@
     onUnsubscribe?: (pl: NormalizedPlaylist) => void
     onEdit?: (pl: NormalizedPlaylist) => void
     onDelete?: (pl: NormalizedPlaylist) => void
+    onOptions?: (pl: NormalizedPlaylist, origin: HTMLElement) => void
   } = $props()
+  let card: HTMLElement
+  function openOptions() {
+    if (!$responsive.isMobile || !onOptions) return
+    card.focus({ preventScroll: true })
+    onOptions(pl, card)
+  }
 
   // 双列瀑布流：左列取偶数位封面、右列奇数位；不足 4 张循环补足以保证无缝滚动
   function padColumn(list: string[]): string[] {
@@ -55,6 +66,8 @@
   })
 
   function handleKeydown(e: KeyboardEvent): void {
+    if (e.target !== e.currentTarget) return
+    if ($responsive.isMobile && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) { e.preventDefault(); openOptions(); return }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onOpen?.(pl)
@@ -73,7 +86,12 @@
   role="button"
   tabindex="0"
   aria-label={`打开歌单 ${pl.name}`}
+  aria-haspopup={$responsive.isMobile && onOptions ? 'dialog' : undefined}
+  aria-keyshortcuts={$responsive.isMobile && onOptions ? 'Shift+F10' : undefined}
+  bind:this={card}
+  use:mobileLongPress={{ enabled: () => $responsive.isMobile && !!onOptions && !card.closest('[inert]'), open: openOptions }}
   onclick={() => onOpen?.(pl)}
+  oncontextmenu={(event) => { if ($responsive.isMobile) { event.preventDefault(); openOptions() } }}
   onkeydown={handleKeydown}
 >
   <div class="library-card-cover">
@@ -121,7 +139,7 @@
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
       </div>
     {/if}
-    {#if onPlay}
+    {#if onPlay && !$responsive.isMobile}
       <button
         class="library-card-play-btn"
         type="button"
@@ -140,19 +158,22 @@
   </div>
   <div class="library-card-info">
     <div class="library-card-name">{pl.name}{#if liked}<span class="library-card-liked-star" aria-hidden="true">★</span>{/if}</div>
-    {#if !liked}
+    {#if !liked || $responsive.isMobile}
       <div class="library-card-meta">
         {#if pl.trackCount}<span>{pl.trackCount} 首</span>{/if}
         {#if managed && pl.creator}<span class="library-card-creator">· {pl.creator}</span>{/if}
       </div>
     {/if}
+    {#if $responsive.isMobile && onOptions}
+      <button class="library-card-more" type="button" aria-label={`管理歌单 ${pl.name}`} onclick={(event) => { event.stopPropagation(); openOptions() }}><Icon name="more" size={18} /></button>
+    {/if}
   </div>
-  {#if managed}
+  {#if managed && !$responsive.isMobile}
     <button class="library-card-action library-card-action-danger" type="button" onclick={(e) => { e.stopPropagation(); onUnsubscribe?.(pl) }} aria-label={`取消收藏 ${pl.name}`}>
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   {/if}
-  {#if owned}
+  {#if owned && !$responsive.isMobile}
     <div class="library-card-actions">
       <button class="library-card-action" type="button" onclick={(e) => { e.stopPropagation(); onEdit?.(pl) }} aria-label={`编辑歌单 ${pl.name}`}>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>

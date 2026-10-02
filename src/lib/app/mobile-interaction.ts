@@ -74,7 +74,7 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
       dismissing = true
       if (options.panel && target && !reduced()) {
         animation = target.animate([{ translate: from }, { translate: `0px ${target.getBoundingClientRect().height}px` }], { duration: 220, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })
-        animation.finished.then(options.close).catch(() => {})
+        animation.finished.then(() => { if (target) target.dataset.sheetDismissed = 'true'; options.close() }).catch(() => {})
       } else options.close()
       return
     }
@@ -99,6 +99,53 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
     node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move)
     node.removeEventListener('pointerup', finish); node.removeEventListener('pointercancel', finish)
     node.removeEventListener('lostpointercapture', finish); node.removeEventListener('click', click, true)
+  } }
+}
+
+export function mobileLongPress(node: HTMLElement, options: { enabled: () => boolean; open: () => void }) {
+  let pointer: number | null = null
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let start = { x: 0, y: 0 }
+  let suppressClick = false
+  function cancel() { clearTimeout(timer); timer = undefined; pointer = null }
+  function down(event: PointerEvent) {
+    if (!options.enabled() || !event.isPrimary || event.button !== 0 || pointer !== null) return
+    if ((event.target as Element).closest('button, a, input, textarea, select')) return
+    suppressClick = false
+    pointer = event.pointerId
+    start = { x: event.clientX, y: event.clientY }
+    timer = setTimeout(() => {
+      timer = undefined
+      if (pointer !== null && options.enabled()) { suppressClick = true; options.open() }
+    }, 500)
+  }
+  function move(event: PointerEvent) {
+    if (event.pointerId === pointer && Math.hypot(event.clientX - start.x, event.clientY - start.y) >= 10) { suppressClick = true; cancel() }
+  }
+  function up(event: PointerEvent) {
+    if (event.pointerId !== pointer) return
+    move(event)
+    cancel()
+  }
+  function click(event: MouseEvent) {
+    if (suppressClick && event.detail !== 0) { event.preventDefault(); event.stopImmediatePropagation(); suppressClick = false }
+  }
+  node.addEventListener('pointerdown', down)
+  node.addEventListener('click', click, true)
+  window.addEventListener('pointermove', move, true)
+  window.addEventListener('pointerup', up, true)
+  window.addEventListener('pointercancel', up, true)
+  window.addEventListener('blur', cancel)
+  window.addEventListener('scroll', cancel, true)
+  return { destroy() {
+    cancel()
+    node.removeEventListener('pointerdown', down)
+    node.removeEventListener('click', click, true)
+    window.removeEventListener('pointermove', move, true)
+    window.removeEventListener('pointerup', up, true)
+    window.removeEventListener('pointercancel', up, true)
+    window.removeEventListener('blur', cancel)
+    window.removeEventListener('scroll', cancel, true)
   } }
 }
 
@@ -130,22 +177,20 @@ export function mobileViewport(_node: HTMLElement) {
 }
 
 /**
- * 移动端底部 sheet 的「从屏幕顶外降下」过渡 —— `desktopPanel`（desktop-motion.ts:7）的镜像。
+ * 移动端面板从底部进入，与把手向下关闭保持同一方向。
  * 桌面端与 reduced-motion 下返回 duration: 0，桌面那套 CSS slideIn 照常跑。
  *
  * 用独立属性 `translate` 而非 `transform`：mobileDrag 也用 translate 拖同一个面板，同属性下
  * WAAPI 的 fill:'forwards' 能盖住这里的补间；换成 transform 两个位移会叠加，面板会飞出屏幕。
  *
- * 行程必须是 100dvh 而不是 -100%：面板是 bottom:0 + height:min(75dvh,640px)，
- * -100% 只挪 75dvh，底部还会露 25dvh 在屏幕里。
+ * 行程为面板自身高度；拖动已完成退出时跳过补间，避免重复下落。
  */
-export function mobileSheet(_node: HTMLElement, options: { duration?: number } = {}) {
+export function mobileSheet(node: HTMLElement, options: { duration?: number } = {}) {
   if (reduced() || !document.documentElement.classList.contains('mobile-runtime')) return { duration: 0 }
+  if (node.dataset?.sheetDismissed === 'true') return { duration: 0 }
   return {
-    duration: options.duration ?? 480,
-    // expoOut 与 desktopPanel 用的 cubic-bezier(0.16,1,0.3,1) 基本重合（t=0.3 时两者都是 0.875）：
-    // 100dvh 的行程需要「快速落下 + 稳稳停住」。TransitionConfig.easing 只收函数，不收 CSS 字符串。
+    duration: options.duration ?? 280,
     easing: expoOut,
-    css: (t: number) => `translate: 0 ${(1 - t) * -100}dvh`,
+    css: (t: number) => `translate: 0 ${(1 - t) * 100}%`,
   }
 }

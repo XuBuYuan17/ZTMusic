@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition'
   import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts';
-  import { dialogFocus, desktopFeedback } from '../app/desktop-motion.ts'
+  import { dialogFocus, desktopFeedback, reducedMotion } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
   import type { CompactTrack, CompactArtist } from '../player/queue.ts'
   import { player } from '../stores/player.svelte.ts'
@@ -42,6 +42,7 @@
   }
 
   function handleItemKeyDown(e: KeyboardEvent, track: CompactTrack, index: number): void {
+    if (e.target !== e.currentTarget) return
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       handlePlayTrack(track, index)
@@ -118,8 +119,8 @@
 
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} transition:fade={{ duration: mobileVisible ? 240 : 0 }} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
-  <div class="queue-panel" in:mobileSheet={{ duration: 480 }} out:mobileSheet={{ duration: 360 }} use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
+  <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} transition:fade={{ duration: mobileVisible && !reducedMotion() ? 240 : 0 }} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
+  <div class="queue-panel" in:mobileSheet={{ duration: 280 }} out:mobileSheet={{ duration: 240 }} use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" aria-modal={mobileVisible ? true : undefined} tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="queue-header">
       <div class="queue-title">待播清单</div>
@@ -142,14 +143,15 @@
         </div>
       {:else}
         {#each player.queue as track, i}
+          <!-- svelte-ignore a11y_no_noninteractive_tabindex (mobile rows group independent controls; desktop rows remain keyboard buttons) -->
           <div
             class="queue-item"
             class:active={player.queueIndex === i}
             class:drag-over={dragOverIndex === i}
             class:dragging={dragIndex === i}
-            draggable="true"
-            role="button"
-            tabindex="0"
+            draggable={!mobileVisible}
+            role={mobileVisible ? 'group' : 'button'}
+            tabindex={mobileVisible ? -1 : 0}
             onclick={() => handlePlayTrack(track, i)}
             onkeydown={(e) => handleItemKeyDown(e, track, i)}
             ondragstart={(e) => handleDragStart(e, i)}
@@ -158,6 +160,7 @@
             ondrop={(e) => handleDrop(e, i)}
             ondragend={handleDragEnd}
           >
+            {#if mobileVisible}<button class="queue-item-open" type="button" aria-label={`播放 ${track.name}`} onclick={(e) => { e.stopPropagation(); handlePlayTrack(track, i) }}></button>{/if}
             <div class="queue-item-cover">
               {#if coverOf(track)}
                 <img

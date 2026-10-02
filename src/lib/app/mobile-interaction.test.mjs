@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { compileModule } from 'svelte/compiler'
 import ts from 'typescript'
-import { createMobileSwipe, mobileDrag, mobileSheet } from './mobile-interaction.ts'
+import { createMobileSwipe, mobileDrag, mobileSheet, mobileLongPress } from './mobile-interaction.ts'
 
 const swipe = createMobileSwipe(true)
 swipe.start(100, 100)
@@ -42,9 +42,12 @@ globalThis.window = { matchMedia: () => ({ matches: true }) }
 const media = globalThis.window.matchMedia
 globalThis.window.matchMedia = () => ({ matches: false })
 const sheetMotion = mobileSheet(node)
-assert.equal(sheetMotion.duration, 480, '入场默认 480ms')
-assert.equal(sheetMotion.css(0), 'translate: 0 -100dvh', '起点完全在屏幕上方外')
-assert.equal(sheetMotion.css(1), 'translate: 0 0dvh', '终点落回原位')
+assert.equal(sheetMotion.duration, 280, '入场默认 280ms')
+assert.equal(sheetMotion.css(0), 'translate: 0 100%', '起点在面板下方')
+assert.equal(sheetMotion.css(1), 'translate: 0 0%', '终点回到原位')
+node.dataset = { sheetDismissed: 'true' }
+assert.equal(mobileSheet(node).duration, 0, '拖动完成关闭不重复退出')
+delete node.dataset.sheetDismissed
 assert.equal(mobileSheet(node, { duration: 360 }).duration, 360, '出场时长可覆盖')
 globalThis.document.documentElement.classList.contains = () => false
 assert.equal(mobileSheet(node).duration, 0, '桌面端不播下落动画')
@@ -107,6 +110,137 @@ coverAction.destroy()
 assert.equal(rootStyle.translate, undefined)
 assert.equal(listeners.size, 0)
 
+// Long press owns only the card gesture; scrolling and independent controls cancel it.
+const originalGlobals = { window: globalThis.window, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout }
+const pressTimers = new Map()
+let clock = 0
+let timerId = 0
+function advancePress(ms) {
+  const end = clock + ms
+  for (;;) {
+    const next = [...pressTimers].filter(([, timer]) => timer.at <= end).sort((a, b) => a[1].at - b[1].at)[0]
+    if (!next) break
+    clock = next[1].at
+    pressTimers.delete(next[0])
+    next[1].fn()
+  }
+  clock = end
+}
+function eventSurface() {
+  const handlers = new Map()
+  return {
+    handlers,
+    addEventListener(type, fn, capture = false) { handlers.set(`${type}:${!!capture}`, fn) },
+    removeEventListener(type, fn, capture = false) {
+      const key = `${type}:${!!capture}`
+      assert.equal(handlers.get(key), fn, `remove the registered ${type} listener`)
+      handlers.delete(key)
+    },
+    emit(type, event = {}) { for (const [key, fn] of handlers) if (key.startsWith(`${type}:`)) fn(event) },
+  }
+}
+const pressWindow = eventSurface()
+const pressCard = eventSurface()
+const pressEvent = (extra = {}) => ({ pointerId: 1, isPrimary: true, button: 0, clientX: 100, clientY: 100, target: { closest: () => null }, ...extra })
+let mobile = true
+let canManage = true
+let opens = 0
+let longPressAction
+try {
+  globalThis.window = pressWindow
+  globalThis.setTimeout = (fn, ms) => {
+    const id = ++timerId
+    pressTimers.set(id, { at: clock + ms, fn })
+    return id
+  }
+  globalThis.clearTimeout = id => pressTimers.delete(id)
+  longPressAction = mobileLongPress(pressCard, { enabled: () => mobile && canManage, open: () => opens++ })
+
+  pressCard.emit('pointerdown', pressEvent())
+  advancePress(499)
+  assert.equal(opens, 0, '499ms does not open the actions')
+  advancePress(1)
+  assert.equal(opens, 1, '500ms opens the actions')
+  advancePress(1000)
+  assert.equal(opens, 1, 'a held gesture opens only once')
+  pressWindow.emit('pointerup', pressEvent())
+  let prevented = false
+  let stopped = false
+  const pressClick = detail => ({ detail, preventDefault() { prevented = true }, stopImmediatePropagation() { stopped = true } })
+  pressCard.emit('click', pressClick(0))
+  assert.equal(prevented, false, 'keyboard-generated click remains available after long press')
+  pressCard.emit('click', pressClick(1))
+  assert.equal(prevented && stopped, true, 'release click cannot open the playlist after long press')
+  prevented = stopped = false
+  pressCard.emit('click', pressClick(1))
+  assert.equal(prevented || stopped, false, 'only the gesture release click is suppressed')
+
+  pressCard.emit('pointerdown', pressEvent())
+  advancePress(200)
+  pressWindow.emit('pointerup', pressEvent())
+  advancePress(500)
+  assert.equal(opens, 1, 'short clicks do not open the actions')
+  pressCard.emit('click', pressClick(1))
+  assert.equal(prevented || stopped, false, 'short click remains an ordinary card click')
+
+  pressCard.emit('pointerdown', pressEvent())
+  pressWindow.emit('pointermove', pressEvent({ pointerId: 2, clientX: 140 }))
+  assert.equal(pressTimers.size, 1, 'another pointer does not cancel the primary gesture')
+  pressWindow.emit('pointermove', pressEvent({ clientX: 110 }))
+  advancePress(500)
+  assert.equal(opens, 1, 'movement at the 10px threshold cancels long press')
+  assert.equal(pressTimers.size, 0, 'movement clears the timer')
+  pressCard.emit('click', pressClick(1))
+  assert.equal(prevented && stopped, true, 'a moved gesture cannot open the playlist')
+  prevented = stopped = false
+
+  for (const type of ['pointercancel', 'scroll', 'blur']) {
+    pressCard.emit('pointerdown', pressEvent())
+    advancePress(200)
+    pressWindow.emit(type, pressEvent())
+    advancePress(500)
+    assert.equal(opens, 1, `${type} cancels a pending long press`)
+    assert.equal(pressTimers.size, 0, `${type} clears the timer`)
+  }
+
+  pressCard.emit('pointerdown', pressEvent({ target: { closest: () => ({ tagName: 'BUTTON' }) } }))
+  advancePress(500)
+  assert.equal(opens, 1, 'independent card buttons do not start long press')
+  assert.equal(pressTimers.size, 0)
+  for (const extra of [{ isPrimary: false }, { button: 2 }]) {
+    pressCard.emit('pointerdown', pressEvent(extra))
+    assert.equal(pressTimers.size, 0, 'only the primary left-button gesture starts a timer')
+  }
+
+  canManage = false
+  pressCard.emit('pointerdown', pressEvent())
+  assert.equal(pressTimers.size, 0, 'disabled card does not start long press')
+  canManage = true
+  mobile = false
+  pressCard.emit('pointerdown', pressEvent())
+  assert.equal(pressTimers.size, 0, 'the desktop enabled callback does not start long press')
+  mobile = true
+  pressCard.emit('pointerdown', pressEvent())
+  canManage = false
+  advancePress(500)
+  assert.equal(opens, 1, 'permission changes before the threshold cancel opening')
+  pressWindow.emit('pointerup', pressEvent())
+  canManage = true
+
+  pressCard.emit('pointerdown', pressEvent())
+  assert.equal(pressTimers.size, 1)
+  longPressAction.destroy()
+  longPressAction = undefined
+  assert.equal(pressTimers.size, 0, 'destroy clears the pending timer')
+  assert.equal(pressCard.handlers.size, 0, 'destroy removes card listeners')
+  assert.equal(pressWindow.handlers.size, 0, 'destroy removes global listeners')
+  advancePress(500)
+  assert.equal(opens, 1, 'destroyed actions cannot open later')
+} finally {
+  longPressAction?.destroy()
+  Object.assign(globalThis, originalGlobals)
+}
+
 // Compile the real router, replacing only network/player dependencies.
 const source = new URL('../stores/router.svelte.ts', import.meta.url)
 let js = ts.transpileModule(await readFile(source, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext } }).outputText
@@ -145,4 +279,4 @@ router.handleNav('explore')
 assert.equal(router.routeStack.length, 0, 'tab navigation resets secondary history')
 router.handleNav('settings')
 assert.equal(router.routeStack.length, 0, 'desktop default keeps existing navigation behavior')
-console.log('mobile interaction: navigation, axis lock, thresholds, cancellation, click suppression and cleanup passed')
+console.log('mobile interaction: navigation, axis lock, long press, thresholds, cancellation, click suppression and cleanup passed')

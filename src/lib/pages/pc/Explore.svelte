@@ -81,9 +81,9 @@
   const editorials = $derived(exploreBanners.slice(1, 4))
   const playlistBlocks = $derived(exploreBlocks.filter(block => block.kind === 'playlist'))
   const songBlocks = $derived(exploreBlocks.filter(block => block.kind === 'song'))
-  const primaryPlaylists = $derived<CoverCard[]>((
+  const primaryPlaylists = $derived<CoverCard[]>(((
     playlistBlocks[0]?.items?.length ? playlistBlocks[0].items : [...explorePersonalized, ...exploreTopPlaylists]
-  ) as unknown as CoverCard[])
+  ) as unknown as CoverCard[]).filter((item, index, items) => items.findIndex(other => other.id === item.id) === index))
   const secondaryPlaylistBlock = $derived(playlistBlocks[1])
   const secondaryPlaylists = $derived<CoverCard[]>(
     secondaryPlaylistBlock ? secondaryPlaylistBlock.items as unknown as CoverCard[] : []
@@ -199,7 +199,7 @@
       </section>
 
     {#if secondaryPlaylists.length}
-      <section class="music-discovery-section">
+      <section class="music-discovery-section music-extra-playlists">
         <div class="music-section-head">
           <h2>{secondaryPlaylistBlock?.title}</h2>
         </div>
@@ -265,3 +265,26 @@
         </div>
     </section>
 </div>
+
+<style>
+  :global(html.mobile-runtime) .music-discovery { display: flex; flex-direction: column; gap: 24px; }
+  :global(html.mobile-runtime) .music-discovery-header { order: 0; margin: 0; }
+  :global(html.mobile-runtime) .music-discovery-feature { order: 1; display: block; margin: 0; }
+  :global(html.mobile-runtime) .music-feature-stack,
+  :global(html.mobile-runtime) .music-feature-copy small,
+  :global(html.mobile-runtime) .music-feature-copy em { display: none; }
+  :global(html.mobile-runtime) .music-discovery-section { order: 2; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  :global(html.mobile-runtime) .music-new-albums-panel { order: 3; }
+  :global(html.mobile-runtime) .music-new-songs-section,
+  :global(html.mobile-runtime) .music-toplist-panel { order: 4; }
+  :global(html.mobile-runtime) .music-section-head h2 { font-size: 18px; }
+  :global(html.mobile-runtime) .music-discovery .music-feature-card.primary { display: block; width: 100%; min-height: 0; aspect-ratio: 16 / 9; border: 0; border-radius: var(--radius-sm); }
+  :global(html.mobile-runtime) .music-discovery .music-feature-copy strong { font-size: 22px; }
+  :global(html.mobile-runtime) .music-extra-playlists { display: none; }
+  :global(html.mobile-runtime) .music-section-head { border: 0; }
+  :global(html.mobile-runtime) .music-card-rail { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 12px; overflow: visible; scroll-snap-type: none; }
+  :global(html.mobile-runtime) .music-cover-card { padding: 0; border: 0; border-radius: 0; background: transparent; }
+  :global(html.mobile-runtime) .music-cover-card strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; white-space: normal; font-size: 15px; line-height: 20px; }
+  @media (max-width: 359px) { :global(html.mobile-runtime) .music-card-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (min-width: 600px) { :global(html.mobile-runtime) .music-card-rail { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+</style>

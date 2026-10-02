@@ -1,10 +1,13 @@
+import { mobileSheet } from './mobile-interaction.ts'
+
 export const motion = { press: 90, release: 280, menu: 220, panel: 320, page: 300, lyrics: 480 } as const
 
 export function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-export function desktopPanel(node: Element) {
+export function desktopPanel(node: Element, options: { duration?: number } = {}) {
+  if (document.documentElement.classList.contains('mobile-runtime') && node.matches('.am-more-menu, .am-secondary-sheet')) return mobileSheet(node as HTMLElement, options)
   if (document.documentElement.classList.contains('mobile-runtime') || reducedMotion()) return { duration: 0 }
   const isMenu = node.getAttribute('role') === 'menu'
   // WAAPI：避免 Svelte css 补间把 translate/scale 转成 matrix 后与 transform: translateX(-50%) 嵌套合成
@@ -87,9 +90,12 @@ function freshOrigin(): CoverOrigin | null {
   return coverOrigin && performance.now() - coverOrigin.at < 800 ? coverOrigin : null
 }
 
-function rememberCardOrigin(event: Event) {
+export function hasCoverOrigin(): boolean { return !!freshOrigin() }
+
+export function rememberCardOrigin(event: Event) {
   coverOrigin = null
-  if (reducedMotion() || document.documentElement.classList.contains('mobile-runtime')) return
+  if (reducedMotion()) return
+  if ((event.target as Element).closest('.library-card-play-btn, .library-card-actions')) return
   const img = (event.target as Element).closest('[data-motion="card"]')?.querySelector('img')
   if (!img?.complete || !img.naturalWidth) return
   const rect = img.getBoundingClientRect()
@@ -104,6 +110,7 @@ export function flyCover(target: HTMLElement) {
   if (!origin) return {}
   target.style.opacity = '0'
   const clone = document.createElement('img')
+  clone.className = 'shared-cover-flight'
   clone.src = origin.src
   clone.alt = ''
   clone.setAttribute('aria-hidden', 'true')
@@ -117,7 +124,7 @@ export function flyCover(target: HTMLElement) {
   }
   // 等一帧让详情页完成布局（含滚回顶部）再测目标位置
   const frame = requestAnimationFrame(() => {
-    coverOrigin = null
+    if (coverOrigin === origin) coverOrigin = null
     const to = target.getBoundingClientRect()
     if (!to.width) { finish(); return }
     const from = origin.rect
@@ -128,7 +135,7 @@ export function flyCover(target: HTMLElement) {
     animation = clone.animate([
       { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
       { transform: 'none', borderRadius: targetRadius },
-    ], { duration: motion.panel + 60, easing: 'cubic-bezier(.22,1.18,.36,1)' })
+    ], { duration: motion.panel + 60, easing: document.documentElement.classList.contains('mobile-runtime') ? 'cubic-bezier(.2,0,0,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
     animation.finished.then(() => {
       // 真封面未解码完时稍等，避免落位瞬间闪空
       const img = target instanceof HTMLImageElement ? target : null
@@ -139,10 +146,18 @@ export function flyCover(target: HTMLElement) {
 }
 
 const layers: HTMLElement[] = []
+const mobileIsolation = new Map<HTMLElement, number>()
+const bottomPanels = new Map<HTMLElement, () => void>()
 export function dialogFocus(node: HTMLElement, close: () => void) {
   const previous = document.activeElement as HTMLElement | null
   const isolated: HTMLElement[] = []
   layers.push(node)
+  const mobile = document.documentElement.classList.contains('mobile-runtime')
+  if (mobile) document.documentElement.classList.add('mobile-panel-open')
+  if (mobile && node.matches('.queue-panel, .song-menu, .sort-sheet, [data-bottom-panel]')) {
+    for (const [panel, dismiss] of bottomPanels) { panel.hidden = true; dismiss() }
+    bottomPanels.set(node, close)
+  }
   const items = () => [...node.querySelectorAll<HTMLElement>('button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), textarea, select, a[href], [tabindex="0"]')].filter(el => el.getClientRects().length && !el.closest('[inert]'))
   queueMicrotask(() => {
     if (!node.isConnected || layers.at(-1) !== node) return
@@ -150,7 +165,8 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
       let branch: HTMLElement = node
       while (branch.parentElement && branch !== document.body) {
         for (const sibling of branch.parentElement.children) {
-          if (!(sibling instanceof HTMLElement) || sibling === branch || sibling.inert || sibling.matches('script, style, [class*="backdrop"]')) continue
+          if (!(sibling instanceof HTMLElement) || sibling === branch || (sibling.inert && !mobileIsolation.has(sibling)) || sibling.matches('script, style, [class*="backdrop"], [class*="scrim"]')) continue
+          mobileIsolation.set(sibling, (mobileIsolation.get(sibling) || 0) + 1)
           sibling.inert = true
           isolated.push(sibling)
         }
@@ -174,7 +190,13 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
     const top = layers.at(-1) === node
     const index = layers.indexOf(node)
     if (index >= 0) layers.splice(index, 1)
-    isolated.forEach(element => { element.inert = false })
+    if (mobile && !layers.length) document.documentElement.classList.remove('mobile-panel-open')
+    bottomPanels.delete(node)
+    isolated.forEach(element => {
+      const owners = (mobileIsolation.get(element) || 1) - 1
+      if (owners) mobileIsolation.set(element, owners)
+      else { mobileIsolation.delete(element); element.inert = false }
+    })
     window.removeEventListener('keydown', key, true)
     if (top && previous?.isConnected) queueMicrotask(() => {
       if (!previous.closest('[inert]')) previous.focus({ preventScroll: true })

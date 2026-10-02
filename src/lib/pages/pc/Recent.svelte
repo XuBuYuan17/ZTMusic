@@ -46,7 +46,7 @@
   function playAll(): void { if (recentTracks.length) player.playQueue(recentTracks as unknown as CompactTrackInput[], 0) }
 
   function handleRowKeydown(event: KeyboardEvent, track: RecentTrack): void {
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); playTrack(track) }
+    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playTrack(track) }
   }
 
   $effect(() => {
@@ -65,7 +65,7 @@
   }
 </script>
 
-<div class="fade-in">
+<div class="recent-page fade-in">
   <div class="page-header">
     <h1>最近播放</h1>
     <div class="subtitle">共 {recentTracks.length} 首歌曲{#if !auth.isLoggedIn} · 本地记录{/if}</div>
@@ -138,7 +138,7 @@
               {/each}
             </td>
             <td class="col-album">{albumNameOf(track)}</td>
-            <td class="col-dur">{formatDuration((track.duration as number) || track.dt || 0)}</td>
+            <td class="col-dur" data-duration-missing={!track.dt && !track.duration}>{formatDuration((track.duration as number) || track.dt || 0)}</td>
           </tr>
         {/each}
       </tbody>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mobileDrag } from '../app/mobile-interaction.ts';
-  import { dialogFocus } from '../app/desktop-motion.ts';
+  import { dialogFocus, desktopPanel, reducedMotion } from '../app/desktop-motion.ts';
+  import { fade } from 'svelte/transition';
   import type { SongId } from '../types/music.ts';
   import { player } from '../stores/player.svelte.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
@@ -56,8 +57,8 @@
 </script>
 
 {#if panel}
-  <div class="am-secondary-backdrop" role="presentation" onclick={() => onClose?.()}></div>
-  <div class="am-secondary-sheet" use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
+  <div class="am-secondary-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
+  <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel={{ duration: 240 }} use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="am-secondary-header">
       <div class="am-secondary-title">{title}</div>
@@ -69,7 +70,7 @@
     {#if panel === 'quality'}
       <div class="am-secondary-list">
         {#each QUALITY_ORDER as level}
-          <button class="am-secondary-row" class:active={player.preferredLevel === level} type="button" onclick={() => onSetQuality(level)}>
+          <button class="am-secondary-row" class:active={player.preferredLevel === level} aria-pressed={player.preferredLevel === level} type="button" onclick={() => onSetQuality(level)}>
             <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={18} strokeWidth={1.8} />
             <span>{qualityLabels[level] || level}</span>
           </button>
@@ -78,7 +79,7 @@
     {:else if panel === 'theme'}
       <div class="am-secondary-list">
         {#each playerThemeOptions as option}
-          <button class="am-secondary-row" class:active={playerTheme === option.value} type="button" onclick={() => onSetPlayerTheme(option.value)}>
+          <button class="am-secondary-row" class:active={playerTheme === option.value} aria-pressed={playerTheme === option.value} type="button" onclick={() => onSetPlayerTheme(option.value)}>
             <Icon name={playerTheme === option.value ? 'check' : option.icon} size={18} strokeWidth={1.8} />
             <span>{option.label}</span>
           </button>

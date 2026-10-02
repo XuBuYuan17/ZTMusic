@@ -38,7 +38,16 @@
   .social-preview button:hover img, .social-preview button:hover > span { transform: scale(1.04); box-shadow: var(--shadow-md); }
   .social-preview strong { width: 100%; overflow: hidden; font-size: 11px; font-weight: 500; text-align: center; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
   .social-preview__empty { min-height: 76px; display: grid; place-items: center; color: var(--text-tertiary); font-size: 12px; }
-  :global(html.mobile-runtime) .social-preview { padding: 16px; border-radius: var(--radius-lg); }
+  :global(html.mobile-runtime) .social-preview { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  :global(html.mobile-runtime) .social-preview header { min-height: 48px; margin-bottom: 8px; }
+  :global(html.mobile-runtime) .social-preview h3 { font-size: 18px; line-height: 24px; }
+  :global(html.mobile-runtime) .social-preview header span { font-size: 13px; }
   :global(html.mobile-runtime) .social-preview__rail { display: flex; gap: 14px; overflow-x: auto; scrollbar-width: none; }
-  :global(html.mobile-runtime) .social-preview button { flex: 0 0 62px; }
+  :global(html.mobile-runtime) .social-preview button { flex: 0 0 72px; min-height: 48px; }
+  :global(html.mobile-runtime) .social-preview img,
+  :global(html.mobile-runtime) .social-preview button > span { width: 48px; height: 48px; }
+  :global(html.mobile-runtime) .social-preview strong { font-size: 13px; line-height: 18px; }
+  :global(html.mobile-runtime) .social-preview__empty { min-height: 48px; font-size: 13px; text-align: left; justify-items: start; }
+  :global(html.mobile-runtime) .social-preview button:hover img,
+  :global(html.mobile-runtime) .social-preview button:hover > span { transform: none; box-shadow: none; }
 </style>

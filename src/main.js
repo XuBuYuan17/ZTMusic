@@ -124,17 +124,10 @@ function hideSplash() {
     mount(App, { target: document.getElementById('app') })
     hideSplash()
   } catch (e) {
-    // HMR 重载时的临时编译错误不覆盖页面
+    console.error('[哲听] 初始加载错误:', e)
     if (import.meta.hot) {
-      console.warn('[哲听] 初始加载错误，等待 HMR 重试:', e)
       import.meta.hot.on('vite:error', () => window.location.reload())
-      return
     }
-    document.getElementById('app').innerHTML = `
-      <div style="padding:40px;color:white;font-family:sans-serif">
-        <h2>哲听 加载失败</h2>
-        <pre style="color:#ff6a6a;margin-top:16px;white-space:pre-wrap">${e.stack || e.message || e}</pre>
-      </div>
-    `
+    window.dispatchEvent(new CustomEvent('ztmusic:startup-error', { detail: e }))
   }
 })()

@@ -158,6 +158,7 @@
             <span class="local-track-copy">
               <strong>{track.name}</strong>
               <small>{track.source === 'webdav' ? 'WebDAV' : track.ar?.map((artist) => artist.name).join(' / ') || '未知歌手'}</small>
+              <small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small>
             </span>
             <span class="local-track-album">{track.al?.name || '本地音乐'}</span>
             <span class="local-track-size">{formatSize(track.fileSize)}</span>
