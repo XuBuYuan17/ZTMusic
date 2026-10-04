@@ -1,4 +1,4 @@
-/* Playlist cover becomes a record while the current track belongs to this page.
+/* Playlist cover becomes a record only while the current playlist track is playing.
  * Rotation is driven independently from transform so shared-cover navigation can
  * keep using transform without fighting the disc motion. */
 html.mobile-runtime .playlist-cover,
@@ -24,7 +24,7 @@ html.mobile-runtime .playlist-cover-open::after {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 24%;
+  width: 20%;
   aspect-ratio: 1;
   border-radius: 50%;
   background: var(--bg);
