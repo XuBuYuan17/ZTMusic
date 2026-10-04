@@ -26,6 +26,8 @@ export interface PlaylistDetailRecord extends Loose {
   tracks: Loose[]
   trackIds?: TrackIdRef[]
   tracksPartial?: boolean
+  /** 已经尝试解析到 trackIds 的哪个位置；与实际成功渲染的 tracks.length 分离。 */
+  trackLoadCursor?: number
 }
 
 export interface PlaylistDetailResult {
@@ -102,6 +104,18 @@ export function reconstructPlaylistTracks(
   }).filter((track): track is Loose => track !== null)
 }
 
+/**
+ * 分页游标必须按“已经尝试过多少个 trackId”推进，而不是 tracks.length。
+ * 个别歌曲详情缺失时，tracks.length 会变小；若拿它做游标会反复请求同一批 ID。
+ */
+export function playlistLoadCursor(detail: Pick<PlaylistDetailRecord, 'trackIds' | 'tracks' | 'trackLoadCursor'>): number {
+  const total = detail.trackIds?.length || 0
+  const explicit = Number(detail.trackLoadCursor)
+  const fallback = detail.tracks?.length || 0
+  const cursor = Number.isFinite(explicit) ? explicit : fallback
+  return Math.max(0, Math.min(total, Math.trunc(cursor)))
+}
+
 /** 有限并发跑异步任务，结果保持入参顺序 */
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -132,18 +146,23 @@ export async function loadPlaylistMore(
   const activeDetail = detail
   const trackIds = activeDetail.trackIds || []
   if (!trackIds.length) return { detail: activeDetail, heroColor: '' }
-  const loadedCount = activeDetail.tracks?.length || 0
-  if (loadedCount >= trackIds.length) return { detail: activeDetail, heroColor: '' }
+  const cursor = playlistLoadCursor(activeDetail)
+  if (cursor >= trackIds.length) {
+    activeDetail.tracksPartial = false
+    return { detail: activeDetail, heroColor: '' }
+  }
 
-  const batchIds = trackIds.slice(loadedCount, loadedCount + LOAD_MORE_BATCH_SIZE).map(track => track.id)
+  const batchIds = trackIds.slice(cursor, cursor + LOAD_MORE_BATCH_SIZE).map(track => track.id)
   const groups: SongId[][] = []
   for (let index = 0; index < batchIds.length; index += 50) {
     groups.push(batchIds.slice(index, index + 50))
   }
   const groupSongs = await mapWithConcurrency(groups, 4, (group) => loadSongsByIds(group).catch(() => []))
-  const tracks = reconstructPlaylistTracks(trackIds, activeDetail.tracks || [], groupSongs.flat(), loadedCount + batchIds.length)
+  const nextCursor = Math.min(trackIds.length, cursor + batchIds.length)
+  const tracks = reconstructPlaylistTracks(trackIds, activeDetail.tracks || [], groupSongs.flat(), nextCursor)
   if (tracks.length) activeDetail.tracks = tracks
-  activeDetail.tracksPartial = activeDetail.tracks.length < trackIds.length
+  activeDetail.trackLoadCursor = nextCursor
+  activeDetail.tracksPartial = nextCursor < trackIds.length
   if (onProgress) onProgress({ detail: activeDetail, heroColor: '' })
   return { detail: activeDetail, heroColor: '' }
 }
@@ -184,11 +203,13 @@ export async function loadPlaylistDetail(
       }).filter((track): track is Loose => track !== null)
     }
 
-    // 播种当前已展示的行（含 loadMore 追加的部分），保证初期渐进写入只增不减
+    // 播种当前已展示的行（含 API 自带 tracks），先把详情壳和首屏行交给 UI。
     const songMap = new Map<SongId, Loose>((activeDetail.tracks || []).map(track => [track.id as SongId, track as Loose]))
     let loadedCount = Math.min(50, idsToLoad.length)
     let tracks = buildTracks(songMap, loadedCount)
     if (tracks.length) activeDetail.tracks = tracks
+    activeDetail.trackLoadCursor = 0
+    activeDetail.tracksPartial = trackIds.length > 0
     if (onProgress) onProgress({ detail: activeDetail, heroColor })
 
     for (let i = 0; i < idsToLoad.length; i += 50) {
@@ -199,10 +220,13 @@ export async function loadPlaylistDetail(
       loadedCount = Math.max(loadedCount, i + batch.length)
       tracks = buildTracks(songMap, Math.max(loadedCount, activeDetail.tracks?.length || 0))
       if (tracks.length) activeDetail.tracks = tracks
+      activeDetail.trackLoadCursor = Math.min(trackIds.length, i + batch.length)
+      activeDetail.tracksPartial = activeDetail.trackLoadCursor < trackIds.length
       if (onProgress) onProgress({ detail: activeDetail, heroColor })
     }
 
-    activeDetail.tracksPartial = shouldDeferFullLoad
+    activeDetail.trackLoadCursor = Math.min(trackIds.length, idsToLoad.length)
+    activeDetail.tracksPartial = activeDetail.trackLoadCursor < trackIds.length
     heroColor = await colorPromise
     return { detail: activeDetail, heroColor }
   }
