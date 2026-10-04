@@ -88,6 +88,8 @@ try {
   await page.evaluate(() => window.mobileFixture.back())
   metrics.playlistReturnProbe = await probeFlight('.shared-cover-flight', 'playlist_return')
   near(metrics.playlistReturnProbe[0], metrics.heroAfter, 'playlist return launch')
+  metrics.outgoingHero = await box('.mobile-route-outgoing .playlist-cover')
+  assert.ok(Math.abs(metrics.outgoingHero.y - metrics.heroAfter.y) <= 13, 'outgoing playlist jumps after source restoration')
   metrics.playlistReturn = await sample('.shared-cover-flight, img[data-shared-cover-return]')
   await page.waitForTimeout(600)
   metrics.cardAfter = await box('.mobile-cover-item img')
@@ -132,6 +134,27 @@ try {
   await capture('comments')
   await page.locator('.ly-context-comment-list').evaluate(n => { n.scrollTop = n.scrollHeight })
   await capture('comments_scrolled')
+  for (const width of [360, 412]) {
+    await page.setViewportSize({ width, height:844 })
+    const rows = await page.locator('.ly-context-comment-row').evaluateAll(nodes => nodes.map(n => {
+      const r=n.getBoundingClientRect(), p=n.querySelector('p').getBoundingClientRect()
+      return { top:r.top, bottom:r.bottom, contentBottom:p.bottom, right:r.right, contentRight:p.right }
+    }))
+    assert.ok(rows.every(r => r.contentBottom <= r.bottom + 1 && r.contentRight <= r.right + 1), 'comments overflow at width ' + width)
+  }
+  await page.setViewportSize({ width:390, height:844 })
+  await page.locator('.am-secondary-close').click()
+  await page.waitForTimeout(350)
+  await page.evaluate(() => window.mobileFixture.closePlayer())
+  await page.waitForTimeout(350)
+  await page.locator('.mobile-cover-item').first().click()
+  metrics.cachedEnterProbe = await probeFlight('.shared-cover-flight', 'playlist_cached')
+  await page.waitForTimeout(700)
+  near(metrics.cachedEnterProbe[2], await box('.mobile-route-page:not([inert]) .playlist-cover'), 'cached playlist landing')
+  await page.evaluate(() => window.mobileFixture.back())
+  await page.waitForTimeout(600)
+  assert.equal(await page.locator('.shared-cover-flight,.mobile-player-cover-flight').count(), 0, 'flight cleanup')
+  assert.equal(errors.length, 0, 'browser runtime errors')
 } catch (e) {
   metrics.failure = String(e)
   await capture('failure')

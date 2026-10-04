@@ -55,6 +55,13 @@ html.mobile-runtime .mobile-detail-page:has(.playlist-detail-page) {
 }
 
 html.mobile-runtime .mobile-route-outgoing.mobile-detail-page:has(.playlist-detail-page) {
+  /* Keep the captured viewport layout: the detail rule above must not turn an
+   * outgoing page back into normal flow after the source page is restored. */
+  position: fixed;
+  top: var(--route-outgoing-top, 0px);
+  left: var(--route-outgoing-left, 0px);
+  width: var(--route-outgoing-width, 100%);
+  right: auto;
   z-index: 3;
   background: var(--bg);
 }
