@@ -98,13 +98,12 @@ export function createPlaylistDiscMotion(node: HTMLElement, options: PlaylistDis
     animation.finished.catch(() => {}).then(() => {
       if (reset !== animation) return
       reset = null
-      if (active && !playing) setRotate(0)
+      if (!playing) setRotate(0)
       animation.cancel()
     })
   }
 
   const update = (next: PlaylistDiscState) => {
-    const wasActive = active
     const wasPlaying = playing
     active = next.active
     playing = next.playing
@@ -118,8 +117,8 @@ export function createPlaylistDiscMotion(node: HTMLElement, options: PlaylistDis
       return
     }
 
-    node.classList.add('is-disc')
     if (reduced) {
+      node.classList.toggle('is-disc', playing)
       cancelStart()
       cancelSpin()
       cancelReset()
@@ -128,18 +127,19 @@ export function createPlaylistDiscMotion(node: HTMLElement, options: PlaylistDis
     }
 
     if (playing) {
-      if (spin || startTimer != null || (wasActive && wasPlaying)) return
+      node.classList.add('is-disc')
+      if (spin || startTimer != null || wasPlaying) return
       cancelReset()
       setRotate(0)
-      beginSpin(wasActive ? 0 : morphDelay)
+      beginSpin(morphDelay)
       return
     }
 
-    if (wasActive && wasPlaying) returnToZero()
-    else {
-      cancelStart()
-      if (!reset) setRotate(0)
-    }
+    node.classList.remove('is-disc')
+    if (wasPlaying) returnToZero()
+    cancelStart()
+    cancelSpin()
+    if (!reset) setRotate(0)
   }
 
   return {
