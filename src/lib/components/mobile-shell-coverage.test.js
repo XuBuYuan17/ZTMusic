@@ -1,4 +1,4 @@
-// Mobile shares page components and playback state, with dedicated touch controls.
+// Mobile shares core page components and playback state, with dedicated touch-first surfaces where needed.
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
@@ -16,8 +16,8 @@ const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCs
 for (const page of ['Explore', 'Library']) {
   assert.ok(mobileApp.includes(`../pages/pc/${page}.svelte`), `mobile must render the PC ${page} page`)
 }
-assert.ok(mobileApp.includes('../pages/pc/Settings.svelte'), 'mobile settings must reuse the PC page')
-assert.ok(!mobileApp.includes('../pages/mobile/'), 'mobile shell must not import a second set of page components')
+assert.ok(mobileApp.includes('../pages/mobile/Settings.svelte'), 'mobile settings must use the dedicated restrained settings page')
+assert.ok(!mobileApp.includes('../pages/pc/Settings.svelte'), 'mobile shell must not fall back to the desktop settings hierarchy')
 
 const navTargets = [...sidebar.matchAll(/nav\('([^']+)'\)/g)].map((match) => match[1])
 const handled = new Set([...mobileApp.matchAll(/(?:activeView|page\.view) === '([^']+)'/g)].map((match) => match[1]))
@@ -41,4 +41,4 @@ assert.ok(!mobileApp.includes('use:scrollChrome'), 'bottom navigation must stay 
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')
 assert.ok(!loadingCss.includes("content: 'ZT'"), 'shared loading styles must not recreate the removed ZT animation')
-console.log('mobile shell coverage: shared PC pages, Sidebar and PlayerBar passed')
+console.log('mobile shell coverage: shared core pages, dedicated settings, Sidebar and PlayerBar passed')
