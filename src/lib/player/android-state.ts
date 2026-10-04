@@ -18,6 +18,26 @@ export interface AndroidPlaybackState {
   revision?: number
 }
 
+/**
+ * Native player state is normally pushed from Media3 through the Tauri plugin.
+ * WebView/plugin event delivery can occasionally miss a transition though. While a
+ * source is buffering, or immediately after a playback-changing command, reconcile
+ * aggressively so a stale `loading=true` snapshot cannot live forever in the UI.
+ * Once stable, keep only a cheap low-frequency safety poll.
+ */
+export const ANDROID_STATE_RECONCILE_ACTIVE_MS = 600
+export const ANDROID_STATE_RECONCILE_IDLE_MS = 5000
+
+export function androidStateReconcileInterval(
+  state: Pick<AndroidPlaybackState, 'loading'>,
+  now: number,
+  reconcileUntil: number,
+): number {
+  return state.loading || now < reconcileUntil
+    ? ANDROID_STATE_RECONCILE_ACTIVE_MS
+    : ANDROID_STATE_RECONCILE_IDLE_MS
+}
+
 export function androidPosition(state: AndroidPlaybackState, now = Date.now()): number {
   const elapsed = state.playing ? Math.max(0, now - state.anchorTimestamp) * state.playbackSpeed : 0
   const position = Math.max(0, state.anchorPosition + elapsed)
