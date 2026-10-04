@@ -1,0 +1,237 @@
+/* Appearance only: keep the existing library grids, row geometry and menu order. */
+html.mobile-runtime body .library-page .user-profile-hero {
+  color: var(--text);
+}
+html.mobile-runtime body .library-page .user-profile-hero__avatar {
+  background: var(--md-container);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+html.mobile-runtime body .library-page .user-profile-hero h1,
+html.mobile-runtime body .library-page .user-profile-hero__stats strong {
+  color: var(--text);
+}
+html.mobile-runtime body .library-page .user-profile-hero__stats span,
+html.mobile-runtime body .library-page .user-profile-hero p {
+  color: var(--text-secondary);
+}
+html.mobile-runtime body .library-page .user-profile-hero__level {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+  border-color: transparent;
+}
+html.mobile-runtime body .library-page .user-profile-hero__identity-label {
+  color: var(--text-secondary);
+  background: var(--md-container);
+  border-color: var(--border);
+}
+html.mobile-runtime body .library-page .profile-home__quick > button {
+  color: var(--text);
+  background: var(--md-container);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+html.mobile-runtime body .library-page .profile-home__quick-icon {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+  border-radius: var(--radius-md);
+}
+html.mobile-runtime body .library-page .profile-home__quick em {
+  color: var(--text-secondary);
+}
+html.mobile-runtime body .library-page .profile-home__quick > button:hover,
+html.mobile-runtime body .library-page .profile-home__quick > button:active {
+  background: var(--md-container-high);
+}
+html.mobile-runtime body .library-page .profile-home__quick > button:hover .profile-home__quick-icon {
+  background: var(--md-primary-container);
+}
+html.mobile-runtime body .library-page .library-mobile-tools {
+  border-color: var(--border);
+}
+html.mobile-runtime body .library-page .library-mobile-tools button {
+  color: var(--md-primary);
+}
+html.mobile-runtime body .library-page .library-mobile-section header h2,
+html.mobile-runtime body .library-page .library-card-name {
+  color: var(--text);
+}
+html.mobile-runtime body .library-page .library-mobile-section header > span {
+  color: var(--text-secondary);
+  background: var(--md-container);
+}
+html.mobile-runtime body .library-page :is(.library-card-meta, .library-card-creator) {
+  color: var(--text-secondary);
+}
+html.mobile-runtime body .library-page .library-card {
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border);
+}
+html.mobile-runtime body .library-page .library-card:last-child {
+  box-shadow: none;
+}
+html.mobile-runtime body .library-page .library-card:hover,
+html.mobile-runtime body .library-page .library-card:active {
+  background: var(--md-container);
+}
+html.mobile-runtime body .library-page .library-card-cover {
+  background: var(--md-container);
+  box-shadow: none;
+}
+html.mobile-runtime body .library-page .library-card-placeholder {
+  color: var(--text-secondary);
+  background: var(--md-container);
+}
+html.mobile-runtime body .library-page :is(.library-section-empty, .library-hero-icon) {
+  background: var(--md-container);
+  border-color: var(--border);
+  box-shadow: none;
+}
+html.mobile-runtime body .library-page .library-section-empty {
+  color: var(--text-secondary);
+}
+html.mobile-runtime body .library-page .library-hero-icon {
+  color: var(--md-primary);
+}
+html.mobile-runtime body .library-page .library-notice {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+
+/* Library management uses the same floating panel surface as the player menus. */
+html.mobile-runtime body .library-options-portal .playlist-action-sheet {
+  background: var(--md-container);
+  border-color: var(--border);
+}
+html.mobile-runtime body .library-options-portal .library-options-cover {
+  background: var(--md-container-high);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+html.mobile-runtime body .library-options-portal .library-options-header h2,
+html.mobile-runtime body .library-options-portal .library-option {
+  color: var(--text);
+}
+html.mobile-runtime body .library-options-portal .library-option:hover,
+html.mobile-runtime body .library-options-portal .library-option:active {
+  background: var(--md-container-high);
+}
+html.mobile-runtime body .library-options-portal .library-option--danger {
+  color: var(--danger);
+}
+html.mobile-runtime body .library-options-portal .library-option--danger > svg {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--md-container));
+}
+html.mobile-runtime body .library-options-portal .library-option--danger:hover,
+html.mobile-runtime body .library-options-portal .library-option--danger:active {
+  background: color-mix(in srgb, var(--danger) 8%, var(--md-container));
+}
+html.mobile-runtime body .library-page :is(.library-modal, .confirm-card) {
+  background: var(--md-container-highest);
+  box-shadow: var(--md-shadow);
+}
+html.mobile-runtime body .library-page :is(.library-modal-input, .library-modal-textarea) {
+  color: var(--text);
+  background: var(--md-container);
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+}
+html.mobile-runtime body .library-page :is(.library-modal-input, .library-modal-textarea):focus {
+  border-color: var(--md-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-primary) 16%, transparent);
+}
+html.mobile-runtime body .library-page .library-modal-check input {
+  accent-color: var(--md-primary);
+}
+html.mobile-runtime body .library-page :is(.library-modal-btn-cancel, .confirm-btn-cancel) {
+  background: var(--md-container-high);
+  color: var(--text-secondary);
+}
+html.mobile-runtime body .library-page :is(.library-modal-btn-confirm, .library-login-btn) {
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+}
+html.mobile-runtime body .library-page .confirm-btn-confirm.danger {
+  background: var(--danger);
+}
+
+/* Secondary pages retain their existing lists, date chips and report sections. */
+html.mobile-runtime body :is(.liked-page .liked-song-row, .recent-page .track-table tbody tr, .daily-page .daily-song-row):hover {
+  background: var(--md-container);
+}
+html.mobile-runtime body :is(.liked-page .liked-song-row, .recent-page .track-table tbody tr, .daily-page .daily-song-row).active {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+html.mobile-runtime body :is(.liked-page .liked-song-row.active strong, .daily-page .daily-song-row.active strong, .recent-page .track-table tr.active .col-title) {
+  color: var(--md-primary);
+}
+html.mobile-runtime body :is(.liked-page .m-track-more, .recent-page .m-track-more, .daily-page .m-track-more) {
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+}
+html.mobile-runtime body :is(.liked-page .liked-cover-placeholder, .recent-page .track-cover-placeholder, .daily-page .daily-cover-placeholder) {
+  color: var(--text-secondary);
+  background: var(--md-container);
+}
+html.mobile-runtime body .listening-report .report-header nav button.active {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+html.mobile-runtime body .listening-report :is(.report-rhythm, .fact-list > div, .track-ranking li, footer) {
+  border-color: var(--border);
+}
+html.mobile-runtime body .listening-report :is(.legacy-report, .rank-placeholder) {
+  background: var(--md-container);
+}
+html.mobile-runtime body .listening-report .artist-initial {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+html.mobile-runtime body .local-page .local-btn--primary {
+  color: var(--md-on-primary);
+  background: var(--md-primary);
+  box-shadow: none;
+}
+html.mobile-runtime body .local-page :is(.local-btn--secondary, .local-search, .local-webdav-form input) {
+  color: var(--text);
+  background: var(--md-container);
+  border-color: var(--border);
+}
+html.mobile-runtime body .local-page :is(.local-btn, .local-search, .local-webdav-form input) {
+  border-radius: var(--radius-md);
+}
+html.mobile-runtime body .local-page :is(.local-search:focus-within, .local-webdav-form input:focus) {
+  border-color: var(--md-primary);
+}
+html.mobile-runtime body .local-page :is(.local-kicker, .local-clear) {
+  color: var(--md-primary);
+}
+html.mobile-runtime body .local-page .local-clear {
+  color: var(--danger);
+}
+html.mobile-runtime body .local-page :is(.local-empty-icon, .local-message:not(.error), .local-import-status) {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+html.mobile-runtime body .local-page .local-empty {
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+html.mobile-runtime body :is(
+  .library-page .profile-home__quick > button,
+  .library-page .library-card,
+  .library-page .library-mobile-tools button,
+  .library-page .library-modal-btn,
+  .library-options-portal .library-option,
+  .library-options-portal .mobile-choice-done,
+  .liked-page .m-track-more,
+  .recent-page .m-track-more,
+  .daily-page .daily-date-chip,
+  .listening-report nav button,
+  .local-page button
+):focus-visible {
+  outline: 2px solid var(--md-primary);
+  outline-offset: -2px;
+}

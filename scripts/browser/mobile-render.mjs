@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { reviewLibraryAppearance } from './library-appearance.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 const { chromium } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
@@ -159,6 +160,7 @@ try {
   await page.evaluate(() => window.mobileFixture.back())
   await page.waitForTimeout(600)
   assert.equal(await page.locator('.shared-cover-flight,.mobile-player-cover-flight').count(), 0, 'flight cleanup')
+  await reviewLibraryAppearance(page, capture, metrics)
   assert.equal(errors.length, 0, 'browser runtime errors')
 } catch (e) {
   metrics.failure = String(e)

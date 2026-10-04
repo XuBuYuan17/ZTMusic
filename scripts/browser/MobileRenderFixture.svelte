@@ -6,6 +6,8 @@
   import { desktopFeedback } from '../../src/lib/app/desktop-motion.ts'
   import { mobileFeedback } from '../../src/lib/app/mobile-feedback.ts'
   import { installPlaylistDiscMotion } from '../../src/lib/app/playlist-disc-motion.ts'
+  import { auth } from '../../src/lib/stores/auth.svelte.ts'
+  let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
   let showPlayer = $state(false)
   onMount(() => {
     installPlaylistDiscMotion()
@@ -13,6 +15,9 @@
       openPlayer: () => { showPlayer = true },
       closePlayer: () => { showPlayer = false },
       back: () => router.goBack(),
+      login: () => auth.setUser(user, 'account'),
+      logout: () => auth.clear(),
+      navigate: (view: string) => router.handleNav(view),
     } })
   })
 </script>
