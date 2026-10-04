@@ -24,5 +24,5 @@ jobs:
           apk="$(find . -type f -name '*.apk' -print -quit)"
           test -n "$apk"
           test "$(sha256sum "$apk" | cut -d' ' -f1)" = "d55d96d1eb0f5dd77d3741fd6b9b6978f244236c0c6b215c2386db71565e8baa"
-          url="$(curl --fail --show-error --silent --upload-file "$apk" https://temp.sh/ZTMusic-PR9-arm64-debug.apk)"
+          url="$(curl --fail --show-error --silent --upload-file "$apk" https://temp.sh)"
           echo "DIRECT_APK_URL=$url"
