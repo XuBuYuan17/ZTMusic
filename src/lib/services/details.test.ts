@@ -1,7 +1,6 @@
 /**
  * 歌单分页合并逻辑自检
- * reconstructPlaylistTracks 是纯函数，不打网络，直接喂假数据验证：
- * trackIds 顺序保持、playlistIndex 正确、addTime 回退、已展示行只增不减。
+ * reconstructPlaylistTracks / playlistLoadCursor 都是纯函数，不打网络。
  * Run: node src/lib/services/details.test.ts
  */
 
@@ -21,7 +20,7 @@ globalThis.sessionStorage = {
   removeItem: (k: string) => { session.delete(k) },
 } as unknown as Storage
 
-const { reconstructPlaylistTracks } = await import('./details.ts')
+const { reconstructPlaylistTracks, playlistLoadCursor } = await import('./details.ts')
 
 let passed = 0
 function check(name: string, fn: () => void) {
@@ -74,6 +73,20 @@ check('trackIds 里没有附加时间的用详情里的 addTime', () => {
 check('limit 内缺失详情的行跳过（不渲染占位幽灵行）', () => {
   const tracks = reconstructPlaylistTracks([{ id: 1 }, { id: 2 }], [], [{ id: 1, name: 'A' }], 2)
   assert.deepEqual(tracks.map(t => t.id), [1])
+})
+
+check('分页游标与实际成功渲染行数分离，缺失详情不会导致重复请求', () => {
+  const detail = { trackIds, tracks: [{ id: 1 }, { id: 3 }], trackLoadCursor: 4 }
+  assert.equal(playlistLoadCursor(detail), 4)
+})
+
+check('旧缓存没有显式游标时仍回退到 tracks.length', () => {
+  assert.equal(playlistLoadCursor({ trackIds, tracks: [{ id: 1 }, { id: 2 }] }), 2)
+})
+
+check('异常游标会被限制在 trackIds 范围内', () => {
+  assert.equal(playlistLoadCursor({ trackIds, tracks: [], trackLoadCursor: 999 }), 4)
+  assert.equal(playlistLoadCursor({ trackIds, tracks: [], trackLoadCursor: -8 }), 0)
 })
 
 console.log(`details playlist pagination: ${passed} passed${process.exitCode ? ', 有失败' : ', 0 failed'}`)
