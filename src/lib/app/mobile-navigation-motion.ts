@@ -1,5 +1,3 @@
-import { router } from '../stores/router.svelte.ts'
-
 export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
   tab: 220,
@@ -327,7 +325,7 @@ export function createMobileNavigationMotion() {
         if (returnGeometry) {
           dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, () => {
             skipNextInteractivePop = true
-            router.goBack()
+            void import('../stores/router.svelte.ts').then(({ router }) => router.goBack())
           })
         }
         done()
