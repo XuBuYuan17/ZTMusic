@@ -1,0 +1,465 @@
+html.mobile-runtime {
+  --mobile-action-panel-gap: 14px;
+  --mobile-action-panel-bottom: calc(max(12px, env(safe-area-inset-bottom)) + max(0px, calc(100dvh - var(--mobile-viewport-height, 100dvh) - var(--mobile-viewport-top, 0px))));
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-backdrop,
+  .song-menu-scrim,
+  .queue-panel-backdrop.queue-panel-mobile-visible,
+  .am-more-backdrop,
+  .am-secondary-backdrop
+) {
+  background: rgb(0 0 0 / .28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-sheet,
+  .am-more-menu[data-bottom-panel],
+  .am-secondary-sheet[data-bottom-panel],
+  .song-menu,
+  .queue-panel.queue-panel-mobile-visible
+) {
+  position: fixed;
+  left: max(var(--mobile-action-panel-gap), env(safe-area-inset-left));
+  right: max(var(--mobile-action-panel-gap), env(safe-area-inset-right));
+  bottom: var(--mobile-action-panel-bottom);
+  width: auto;
+  max-width: 620px;
+  margin-inline: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--md-container);
+  box-shadow: 0 18px 48px rgb(0 0 0 / .2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-sheet,
+  .am-more-menu[data-bottom-panel],
+  .am-secondary-sheet[data-bottom-panel],
+  .song-menu
+) {
+  max-height: min(62dvh, 520px);
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible {
+  top: auto;
+  height: min(64dvh, 540px);
+  max-height: min(64dvh, 540px);
+}
+
+html.mobile-runtime body .song-menu {
+  top: auto !important;
+  left: max(var(--mobile-action-panel-gap), env(safe-area-inset-left)) !important;
+  right: max(var(--mobile-action-panel-gap), env(safe-area-inset-right)) !important;
+  bottom: var(--mobile-action-panel-bottom) !important;
+  width: auto !important;
+  max-width: 620px;
+  padding: 0;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-sheet,
+  .playlist-action-sheet.mobile-choice-sheet,
+  .am-more-menu[data-bottom-panel],
+  .am-secondary-sheet[data-bottom-panel]
+) {
+  padding-bottom: 8px;
+}
+
+html.mobile-runtime body .m-sheet-handle {
+  position: relative !important;
+  inset: auto !important;
+  display: block;
+  flex: none;
+  width: 52px;
+  min-width: 52px;
+  height: 18px;
+  min-height: 18px;
+  margin: 2px auto 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+html.mobile-runtime body .m-sheet-handle::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 7px;
+  width: 34px;
+  height: 4px;
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--text-secondary) 42%, transparent);
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-sheet > header,
+  .mobile-more-header,
+  .am-secondary-header,
+  .queue-header
+) {
+  min-height: 48px;
+  padding: 2px 8px 7px 14px;
+  gap: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-sheet h2,
+  .mobile-more-header h2,
+  .am-secondary-title,
+  .queue-title
+) {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-done,
+  .mobile-more-header button,
+  .am-secondary-close,
+  .queue-close-btn,
+  .song-menu__close
+) {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-body,
+  .am-more-body,
+  .am-secondary-list
+) {
+  min-height: 0;
+  padding: 5px 8px 8px;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+html.mobile-runtime body :is(
+  .mobile-choice-option,
+  .am-more-item,
+  .am-secondary-row,
+  .sort-sheet-option,
+  .song-menu__item,
+  .library-option
+) {
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 7px 10px;
+  gap: 10px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+html.mobile-runtime body :is(
+  .am-more-item,
+  .am-secondary-row,
+  .library-option
+) > svg {
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+  flex: 0 0 30px;
+  border-radius: var(--radius-md);
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+
+html.mobile-runtime body .mobile-choice-option.active,
+html.mobile-runtime body .am-secondary-row.active,
+html.mobile-runtime body .song-menu__item.primary {
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+
+/* Player “more” menu: compact metadata header instead of a large card. */
+html.mobile-runtime body .mobile-more-header {
+  display: flex;
+}
+
+html.mobile-runtime body .am-more-track {
+  min-height: 54px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0 10px 2px;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 12%, transparent);
+}
+
+html.mobile-runtime body .am-more-track img {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile-runtime body .am-more-track strong {
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 700;
+}
+
+html.mobile-runtime body .am-more-track small,
+html.mobile-runtime body .am-more-message {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+html.mobile-runtime body .am-more-message {
+  min-height: 20px;
+  padding: 2px 12px 0;
+}
+
+/* Song context menu follows the same floating card rhythm. */
+html.mobile-runtime body .song-menu__header {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 7px 8px 7px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+html.mobile-runtime body .song-menu__cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+html.mobile-runtime body .song-menu__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+html.mobile-runtime body .song-menu__title {
+  min-width: 0;
+}
+
+html.mobile-runtime body .song-menu__title strong {
+  display: block;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime body .song-menu__title span {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime body .song-menu__body {
+  min-height: 0;
+  padding: 4px 8px 8px;
+  overflow-y: auto;
+}
+
+html.mobile-runtime body .song-menu__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent);
+}
+
+html.mobile-runtime body .song-menu__group:last-child {
+  border-bottom: 0;
+}
+
+html.mobile-runtime body .song-menu__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: var(--radius-md);
+  color: var(--md-primary);
+  background: var(--md-primary-container);
+}
+
+html.mobile-runtime body .song-menu__item em {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* Playlist/album actions: keep cover context, but shrink it to toolbar scale. */
+html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 5px 8px 8px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+}
+
+html.mobile-runtime body .playlist-action-sheet .library-options-cover {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile-runtime body .playlist-action-sheet h2 {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+}
+
+html.mobile-runtime body .playlist-action-sheet .mobile-choice-done {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+html.mobile-runtime body .playlist-action-sheet .playlist-sheet-play {
+  left: calc(50% - 15px);
+  top: calc(50% - 15px);
+  width: 30px;
+  height: 30px;
+}
+
+html.mobile-runtime body .playlist-action-sheet .playlist-sheet-play svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Queue is still a list, but behaves like the same middle-lower floating panel. */
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-header {
+  flex: none;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-subtitle {
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-clear-btn {
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-list {
+  min-height: 0;
+  padding: 4px 6px 8px;
+  scroll-padding-block: 4px;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item {
+  min-height: 52px;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item.active {
+  width: 100%;
+  margin: 0;
+  border-radius: var(--radius-md);
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-title {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-artist,
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-duration {
+  font-size: 11px;
+  line-height: 15px;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible :is(.queue-item-playnext, .queue-item-remove) {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
+
+/* Secondary player sheets share the same compact controls; detail content gets a little more room. */
+html.mobile-runtime body .am-secondary-sheet.compact {
+  height: auto;
+  max-height: min(54dvh, 430px);
+}
+
+html.mobile-runtime body .am-secondary-sheet.detail {
+  height: min(62dvh, 520px);
+  max-height: min(62dvh, 520px);
+}
+
+html.mobile-runtime body .am-secondary-context {
+  padding-bottom: 8px;
+}
+
+html.mobile-runtime body .am-secondary-context .ly-context-detail-playlist {
+  min-height: 54px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 10px;
+  padding: 7px 10px;
+}
+
+html.mobile-runtime body .am-secondary-context :is(.ly-context-detail-playlist img, .ly-context-detail-playlist .ly-context-cover-ph) {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 390px) {
+  html.mobile-runtime {
+    --mobile-action-panel-gap: 10px;
+  }
+
+  html.mobile-runtime body :is(
+    .mobile-choice-sheet,
+    .am-more-menu[data-bottom-panel],
+    .am-secondary-sheet[data-bottom-panel],
+    .song-menu
+  ) {
+    max-height: min(64dvh, 500px);
+  }
+}
