@@ -4,6 +4,7 @@
   import Spinner from './Spinner.svelte'
   import { responsive } from '../utils/responsive.ts'
   import { mobileLongPress } from '../app/mobile-interaction.ts'
+  import { router } from '../stores/router.svelte.ts'
 
   let {
     pl,
@@ -43,6 +44,9 @@
     if (!$responsive.isMobile || !onOptions) return
     card.focus({ preventScroll: true })
     onOptions(pl, card)
+  }
+  function prefetch(): void {
+    router.prefetchPlaylist(Number(pl.id))
   }
 
   // 双列瀑布流：左列取偶数位封面、右列奇数位；不足 4 张循环补足以保证无缝滚动
@@ -91,6 +95,9 @@
   aria-keyshortcuts={$responsive.isMobile && onOptions ? 'Shift+F10' : undefined}
   bind:this={card}
   use:mobileLongPress={{ enabled: () => $responsive.isMobile && !!onOptions && !card.closest('[inert]'), open: openOptions }}
+  onpointerenter={prefetch}
+  onpointerdown={prefetch}
+  onfocus={prefetch}
   onclick={() => onOpen?.(pl)}
   oncontextmenu={(event) => { if ($responsive.isMobile) { event.preventDefault(); openOptions() } }}
   onkeydown={handleKeydown}

@@ -73,8 +73,19 @@ export class AudioEngine implements PlayerEngine {
         this._onListening?.('suspend', this.getState())
         if (this._onPause) this._onPause(this.getState())
       },
-      playing: () => this._onListening?.('resume', this.getState()),
-      waiting: () => this._onListening?.('suspend', this.getState()),
+      // `play` 只代表 paused=false，不代表音频真的开始出声。
+      // `playing` 才是缓冲结束/恢复播放的可靠信号：在这里同步 ready，
+      // 让 PlayerState 清掉 loading，避免“已经响了但 UI 还在载入”。
+      playing: () => {
+        this._onListening?.('resume', this.getState())
+        if (this.audio.readyState >= 3) this._onCanPlay?.(this.getState())
+      },
+      // waiting 是播放中的再缓冲，不会重新触发 loadstart；显式转成 loading，
+      // 下一次 playing/canplay 会把状态收回来。
+      waiting: () => {
+        this._onListening?.('suspend', this.getState())
+        if (!this.audio.paused) this._onLoadStart?.(this.getState())
+      },
       seeking: () => this._onListening?.('reset', this.getState()),
       seeked: () => {
         if (!this.audio.paused && this.audio.readyState >= 3) this._onListening?.('resume', this.getState())

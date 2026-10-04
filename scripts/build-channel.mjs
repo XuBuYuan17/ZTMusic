@@ -7,16 +7,21 @@ export function selectBuildContext({ event, ref, sha, buildWindows, buildLinux }
     throw new Error('Unsupported build event')
   }
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid build SHA')
+
   const publish = event !== 'pull_request' && /^refs\/tags\/v\d+\.\d+\.\d+$/.test(ref)
   const channel = event === 'pull_request' || ref === 'refs/heads/dev' ? 'dev' : 'stable'
+
   if (event !== 'pull_request' && !publish && !['refs/heads/main', 'refs/heads/dev'].includes(ref)) {
     throw new Error('Only main, dev and official version tags can be built')
   }
+
+  const manual = event === 'workflow_dispatch'
+
   return {
     channel,
     'short-sha': sha.slice(0, 8),
-    'build-windows': String(publish || event !== 'workflow_dispatch' || buildWindows === 'true'),
-    'build-linux': String(publish || (event === 'workflow_dispatch' ? buildLinux === 'true' : channel === 'stable')),
+    'build-windows': String(publish || (manual && buildWindows === 'true')),
+    'build-linux': String(publish || (manual && buildLinux === 'true')),
     publish: String(publish),
   }
 }

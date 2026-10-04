@@ -6,6 +6,7 @@ export interface LruCacheOptions {
 
 export interface LruCache<V> {
   get(key: unknown): V | null
+  age(key: unknown): number | null
   set(key: unknown, value: V): V
   clear(key?: unknown): void
 }
@@ -22,16 +23,27 @@ export function createLruCache<V = unknown>({
 }: LruCacheOptions = {}): LruCache<V> {
   const entries = new Map<unknown, Entry<V>>()
 
-  function get(key: unknown): V | null {
+  function readEntry(key: unknown): Entry<V> | null {
     const entry = entries.get(key)
     if (!entry) return null
     if (now() - entry.createdAt > ttlMs) {
       entries.delete(key)
       return null
     }
+    return entry
+  }
+
+  function get(key: unknown): V | null {
+    const entry = readEntry(key)
+    if (!entry) return null
     entries.delete(key)
     entries.set(key, entry)
     return entry.value
+  }
+
+  function age(key: unknown): number | null {
+    const entry = readEntry(key)
+    return entry ? Math.max(0, now() - entry.createdAt) : null
   }
 
   function set(key: unknown, value: V): V {
@@ -46,5 +58,5 @@ export function createLruCache<V = unknown>({
     else entries.clear()
   }
 
-  return { get, set, clear }
+  return { get, age, set, clear }
 }

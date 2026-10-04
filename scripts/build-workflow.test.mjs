@@ -12,6 +12,8 @@ const dev = JSON.parse(await readFile(new URL('../src-tauri/tauri.dev.conf.json'
 
 assert.ok(workflow.includes('build_windows:'), 'workflow_dispatch should expose the Windows build switch')
 assert.ok(workflow.includes('build_linux:'), 'workflow_dispatch should expose the Linux build switch')
+assert.match(workflow, /build_windows:[\s\S]*?default: false/, 'Windows packaging must be opt-in by default')
+assert.match(workflow, /build_linux:[\s\S]*?default: false/, 'Linux packaging must be opt-in by default')
 assert.ok(workflow.includes('needs: [source-check, windows, linux]'), 'release should wait for validation and both desktop builds')
 assert.ok(workflow.includes('artifacts/**/*.exe'), 'tag releases should include Windows installers')
 assert.ok(workflow.includes('artifacts/**/*.deb'), 'tag releases should include Debian packages')
@@ -26,7 +28,7 @@ assert.ok(!releasePrepare.includes('HEAD:main'), 'release preparation must not b
 assert.ok(releasePublish.includes('types: [closed]'), 'tagging must wait for a closed release PR')
 assert.ok(releasePublish.includes('github.event.pull_request.merged == true'), 'unmerged PRs must not publish')
 assert.ok(releasePublish.includes('github.event.pull_request.head.repo.full_name == github.repository'), 'tagging must reject foreign release branches')
-assert.ok(workflow.includes('branches: [main, dev]'), 'builds should support both long-lived branches')
+assert.ok(workflow.includes('branches: [main, dev]'), 'checks should support both long-lived branches')
 assert.ok(workflow.includes('retention-days: 14'), 'development artifacts should expire after 14 days')
 assert.ok(workflow.includes('github.run_number') && workflow.includes('outputs.short-sha'), 'artifact names should identify their build')
 assert.ok(workflow.includes('permissions:\n  contents: read') || workflow.includes('permissions:\r\n  contents: read'), 'PR builds should default to read-only permissions')
@@ -44,19 +46,38 @@ assert.equal(stable.bundle.linux.deb.files, undefined, 'packages must not instal
 
 const sha = 'a'.repeat(40)
 const context = (event, ref, overrides = {}) => selectBuildContext({ event, ref, sha, ...overrides })
+
 assert.deepEqual(context('push', 'refs/heads/dev'), {
-  channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'true', 'build-linux': 'false', publish: 'false',
+  channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'false', 'build-linux': 'false', publish: 'false',
 })
-assert.equal(context('push', 'refs/heads/main')['build-linux'], 'true')
-assert.equal(context('pull_request', 'refs/tags/v1.4.1').publish, 'false', 'PR events must never publish')
+assert.deepEqual(context('push', 'refs/heads/main'), {
+  channel: 'stable', 'short-sha': 'aaaaaaaa', 'build-windows': 'false', 'build-linux': 'false', publish: 'false',
+})
+
 for (const base of ['dev', 'main']) {
   const pr = context('pull_request', 'refs/pull/12/merge', { base })
   assert.equal(pr.channel, 'dev')
+  assert.equal(pr['build-windows'], 'false')
   assert.equal(pr['build-linux'], 'false')
   assert.equal(pr.publish, 'false')
 }
-assert.equal(context('workflow_dispatch', 'refs/heads/dev', { buildWindows: 'false', buildLinux: 'true' })['build-linux'], 'true')
-assert.equal(context('workflow_dispatch', 'refs/heads/main', { buildWindows: 'true', buildLinux: 'false' })['build-linux'], 'false')
+
+const manualNone = context('workflow_dispatch', 'refs/heads/main', { buildWindows: 'false', buildLinux: 'false' })
+assert.equal(manualNone['build-windows'], 'false')
+assert.equal(manualNone['build-linux'], 'false')
+
+const manualWindows = context('workflow_dispatch', 'refs/heads/main', { buildWindows: 'true', buildLinux: 'false' })
+assert.equal(manualWindows['build-windows'], 'true')
+assert.equal(manualWindows['build-linux'], 'false')
+
+const manualLinux = context('workflow_dispatch', 'refs/heads/dev', { buildWindows: 'false', buildLinux: 'true' })
+assert.equal(manualLinux['build-windows'], 'false')
+assert.equal(manualLinux['build-linux'], 'true')
+
+const manualBoth = context('workflow_dispatch', 'refs/heads/dev', { buildWindows: 'true', buildLinux: 'true' })
+assert.equal(manualBoth['build-windows'], 'true')
+assert.equal(manualBoth['build-linux'], 'true')
+
 for (const event of ['push', 'workflow_dispatch']) {
   const tag = context(event, 'refs/tags/v1.4.1', { buildWindows: 'false', buildLinux: 'false' })
   assert.equal(tag.channel, 'stable')
@@ -64,10 +85,12 @@ for (const event of ['push', 'workflow_dispatch']) {
   assert.equal(tag['build-linux'], 'true')
   assert.equal(tag.publish, 'true')
 }
+
 assert.throws(() => context('push', 'refs/tags/v1.4.1-dev'), /Only main/)
 assert.throws(() => context('workflow_dispatch', 'refs/heads/feature/ui'), /Only main/)
 assert.throws(() => context('pull_request_target', 'refs/heads/main'), /Unsupported/)
 assert.throws(() => context('push', 'refs/heads/dev', { sha: 'bad' }), /Invalid build SHA/)
+
 const release = { version: '1.4.1', changelog: '## [1.4.1] - 2026-09-30\r\n', onMain: true }
 validateReleaseTag('v1.4.1', release)
 assert.throws(() => validateReleaseTag('v1.4.2', release), /source version/)
@@ -75,4 +98,4 @@ assert.throws(() => validateReleaseTag('v1.4.1-dev', release), /source version/)
 assert.throws(() => validateReleaseTag('v1.4.1', { ...release, onMain: false }), /belong to main/)
 assert.throws(() => validateReleaseTag('v1.4.1', { ...release, changelog: '## [Unreleased]' }), /changelog/)
 
-console.log('build workflow self-check passed: branch matrix, release guards and channel isolation')
+console.log('build workflow self-check passed: checks by default, manual installers, automatic release packaging')

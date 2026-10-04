@@ -22,8 +22,10 @@ import './styles/mobile/lyrics.css'
 import './styles/mobile/responsive.css'
 import { isMobileDevice } from './lib/utils/responsive.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
+import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
 
 installNativeShell()
+installMobileResumeGuard()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')

@@ -4,8 +4,10 @@ import { coverUrl } from '../utils/image.ts'
 import { musicService } from '../music/service.ts'
 
 const SONG_DETAIL_BATCH_SIZE = 500
-const INITIAL_PLAYLIST_DETAIL_LIMIT = 500
-const LOAD_MORE_BATCH_SIZE = 500
+// 详情页先把首屏和一小段滚动缓冲准备好，避免大歌单首次进入就拉数百首。
+// 100 行也足以把底部 sentinel 推离 240px 预加载区，防止 observer 连续续页。
+const INITIAL_PLAYLIST_DETAIL_LIMIT = 100
+const LOAD_MORE_BATCH_SIZE = 100
 
 type Loose = Record<string, unknown>
 
@@ -141,7 +143,7 @@ export async function loadPlaylistMore(
   const groupSongs = await mapWithConcurrency(groups, 4, (group) => loadSongsByIds(group).catch(() => []))
   const tracks = reconstructPlaylistTracks(trackIds, activeDetail.tracks || [], groupSongs.flat(), loadedCount + batchIds.length)
   if (tracks.length) activeDetail.tracks = tracks
-  activeDetail.tracksPartial = true
+  activeDetail.tracksPartial = activeDetail.tracks.length < trackIds.length
   if (onProgress) onProgress({ detail: activeDetail, heroColor: '' })
   return { detail: activeDetail, heroColor: '' }
 }
