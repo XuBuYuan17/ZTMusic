@@ -72,6 +72,11 @@ interface ArtistResult {
   albums: unknown[]
 }
 
+interface PlaylistRequestEntry {
+  promise: Promise<PlaylistResult>
+  progressListeners: Set<(partial: PlaylistDetailResult) => void>
+}
+
 // 缓存按 key 前缀区分歌单/专辑与歌手，读取处按前缀收窄
 type DetailCacheValue = PlaylistResult | ArtistResult
 
@@ -95,6 +100,10 @@ function pickErrorMessage(error: unknown, fallback: string): string {
 
 // 侧边栏可直达的顶层视图；不在这个集合里的（歌单/专辑/歌手/用户/喜欢/听歌报告/历史日推）算二级页
 const TOP_LEVEL_VIEWS = new Set(['home', 'explore', 'search', 'library', 'recent', 'localMusic', 'messages', 'settings', 'about'])
+const PLAYLIST_CACHE_TTL_MS = 10 * 60 * 1000
+const PLAYLIST_REVALIDATE_AFTER_MS = 90 * 1000
+const PLAYLIST_PREFETCH_CONCURRENCY = 2
+const PLAYLIST_PREFETCH_BURST = 4
 
 // ── 导航状态 ──
 let _activeView = $state('home')
@@ -120,43 +129,97 @@ let _artistError = $state('')
 let _detailRequestId = 0
 let _artistRequestId = 0
 // 详情缓存覆盖一次常见的“浏览资料库 → 进歌单 → 返回 → 再进入”会话。
-// 命中后先展示缓存，再静默刷新；避免把网络新鲜度和首屏速度绑死。
-const detailCache = createLruCache<DetailCacheValue>({ maxEntries: 32, ttlMs: 10 * 60 * 1000 })
-const playlistRequests = new Map<number, Promise<PlaylistResult>>()
+// 命中后先展示缓存，再按新鲜度决定是否静默刷新；避免把网络新鲜度和首屏速度绑死。
+const detailCache = createLruCache<DetailCacheValue>({ maxEntries: 32, ttlMs: PLAYLIST_CACHE_TTL_MS })
+const playlistRequests = new Map<number, PlaylistRequestEntry>()
+const playlistPrefetchQueue: number[] = []
+const playlistPrefetchQueued = new Set<number>()
+let playlistPrefetchActive = 0
 
 // ── 工具 ──
 function currentRoute(): RouteEntry { return { view: _activeView, id: _selectedId } }
 function pushRoute(): void { _routeStack = [..._routeStack, currentRoute()] }
 function invalidateDetailRequests(): void { _detailRequestId++; _artistRequestId++ }
 
-/** 同一歌单只保留一个进行中的详情请求，预取和真正导航共享这条 Promise。 */
+/**
+ * 同一歌单只保留一个进行中的详情请求。
+ * 预取先发起、随后用户真正进入时，会把页面 progress listener 挂到同一条 Promise 上，
+ * 因此请求去重不会牺牲渐进首屏。
+ */
 function requestPlaylistDetail(
   id: number,
   onProgress?: (partial: PlaylistDetailResult) => void,
 ): Promise<PlaylistResult> {
   const existing = playlistRequests.get(id)
-  if (existing) return existing
-  const request = (loadPlaylistDetail(extractColor, id, onProgress) as unknown as Promise<PlaylistResult>)
+  if (existing) {
+    if (onProgress) existing.progressListeners.add(onProgress)
+    return existing.promise
+  }
+
+  const progressListeners = new Set<(partial: PlaylistDetailResult) => void>()
+  if (onProgress) progressListeners.add(onProgress)
+  const notifyProgress = (partial: PlaylistDetailResult) => {
+    for (const listener of progressListeners) {
+      try { listener(partial) } catch { /* one stale view must not break shared prefetch */ }
+    }
+  }
+
+  const promise = (loadPlaylistDetail(extractColor, id, notifyProgress) as unknown as Promise<PlaylistResult>)
     .finally(() => { playlistRequests.delete(id) })
-  playlistRequests.set(id, request)
-  return request
+  playlistRequests.set(id, { promise, progressListeners })
+  return promise
 }
 
-/** 在卡片 hover / pointer-down 时预热详情；失败静默，正式进入仍可正常重试。 */
+function removeQueuedPlaylistPrefetch(id: number): void {
+  if (!playlistPrefetchQueued.delete(id)) return
+  const index = playlistPrefetchQueue.indexOf(id)
+  if (index >= 0) playlistPrefetchQueue.splice(index, 1)
+}
+
+function drainPlaylistPrefetchQueue(): void {
+  while (playlistPrefetchActive < PLAYLIST_PREFETCH_CONCURRENCY && playlistPrefetchQueue.length) {
+    const id = playlistPrefetchQueue.shift()!
+    playlistPrefetchQueued.delete(id)
+    const cacheKey = 'playlist:' + id
+    if (detailCache.age(cacheKey) !== null || playlistRequests.has(id)) continue
+
+    playlistPrefetchActive++
+    void requestPlaylistDetail(id)
+      .then((data) => { if (data.detail) detailCache.set(cacheKey, data) })
+      .catch(() => {})
+      .finally(() => {
+        playlistPrefetchActive--
+        drainPlaylistPrefetchQueue()
+      })
+  }
+}
+
+/**
+ * 卡片 hover / focus / pointer-down 触发预热。
+ * 后台最多并发两张歌单，避免鼠标扫过卡片时瞬间把首屏详情接口打满。
+ */
 function prefetchPlaylist(id: SongId | null | undefined): void {
   const numericId = Number(id)
   if (!Number.isFinite(numericId) || numericId <= 0) return
   const cacheKey = 'playlist:' + numericId
-  if (detailCache.get(cacheKey) || playlistRequests.has(numericId)) return
-  void requestPlaylistDetail(numericId)
-    .then((data) => { if (data.detail) detailCache.set(cacheKey, data) })
-    .catch(() => {})
+  if (detailCache.age(cacheKey) !== null || playlistRequests.has(numericId) || playlistPrefetchQueued.has(numericId)) return
+  playlistPrefetchQueued.add(numericId)
+  playlistPrefetchQueue.push(numericId)
+  drainPlaylistPrefetchQueue()
+}
+
+/** 搜索/资料库等批量出现卡片时，只预热最靠前的一小批，避免“预加载”变成全量下载。 */
+function prefetchPlaylists(ids: Array<SongId | null | undefined>, limit = PLAYLIST_PREFETCH_BURST): void {
+  const unique = [...new Set(ids.map(Number).filter(id => Number.isFinite(id) && id > 0))]
+  for (const id of unique.slice(0, Math.max(0, limit))) prefetchPlaylist(id)
 }
 
 /** 歌单被改名 / 改描述 / 删除后调用：丢掉详情缓存。
  *  不丢的话缓存窗口内再进详情页看到的还是旧名字。 */
 function invalidatePlaylist(id: SongId): void {
+  const numericId = Number(id)
   detailCache.clear('playlist:' + id)
+  if (Number.isFinite(numericId)) removeQueuedPlaylistPrefetch(numericId)
   if (_playlistDetail && String(_playlistDetail.id) === String(id)) _playlistDetail = null
 }
 
@@ -184,28 +247,38 @@ async function goPlaylist(id: number | null, shouldPushRoute = true, preview: Pl
   _activeView = 'playlist'; _selectedId = id; _heroColor = '#141414'; _playlistDetail = createPlaylistPreview(preview, id)
   _playlistDetailError = ''; _playlistDetailLoading = true; _playlistLoadingMore = false
 
+  // 用户真的点进来时，不能在后台预取队列里排队；直接加入/发起共享请求。
+  removeQueuedPlaylistPrefetch(id)
+
   const cacheKey = 'playlist:' + id
+  const cachedAge = detailCache.age(cacheKey)
   const cached = detailCache.get(cacheKey) as PlaylistResult | null
   if (cached) {
     _playlistDetail = cached.detail; _heroColor = cached.heroColor; _playlistDetailLoading = false
-    // stale-while-revalidate：缓存负责首屏速度，后台请求负责数据新鲜度。
-    void requestPlaylistDetail(id)
-      .then((fresh) => {
-        if (fresh.detail) detailCache.set(cacheKey, fresh)
-        if (rid !== _detailRequestId || _activeView !== 'playlist' || _selectedId !== id) return
-        _playlistDetail = fresh.detail; _heroColor = fresh.heroColor
-      })
-      .catch(() => {})
+    // 刚刚预热完成的缓存直接用，避免“预加载完 → 点击 → 马上又请求一遍”。
+    // 只有缓存经过一段时间后才 SWR 静默刷新。
+    if (cachedAge !== null && cachedAge >= PLAYLIST_REVALIDATE_AFTER_MS) {
+      void requestPlaylistDetail(id)
+        .then((fresh) => {
+          if (fresh.detail) detailCache.set(cacheKey, fresh)
+          if (rid !== _detailRequestId || _activeView !== 'playlist' || _selectedId !== id) return
+          _playlistDetail = fresh.detail; _heroColor = fresh.heroColor
+        })
+        .catch(() => {})
+    }
     return
   }
 
-  let loadedFirstBatch = false
+  let shownProgress = false
   let data: PlaylistResult
   try {
     data = await requestPlaylistDetail(id, (partial: PlaylistDetailResult) => {
       if (rid !== _detailRequestId) return
       _playlistDetail = partial.detail as PlaylistDetail | null; _heroColor = partial.heroColor
-      if (!loadedFirstBatch) { loadedFirstBatch = true; _playlistDetailLoading = false; if ((partial.detail?.trackIds?.length || 0) > (partial.detail?.tracks?.length || 0)) _playlistLoadingMore = true }
+      if (!shownProgress && partial.detail) {
+        shownProgress = true
+        _playlistDetailLoading = false
+      }
     })
   } catch (e) {
     if (rid !== _detailRequestId) return
@@ -414,7 +487,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist,
+  handleNav, goBack, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,
