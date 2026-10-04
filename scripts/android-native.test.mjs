@@ -34,11 +34,24 @@ assert.ok(service.includes('BluetoothLyricsPublisher(player, resolver)') && serv
 assert.ok(service.includes('put("bluetoothLyricsEnabled"') && service.includes('getSharedPreferences("bluetooth-lyrics"'), 'Bluetooth lyric preference must persist and be returned to settings')
 assert.ok(service.includes('id == lastJournalTrackId'), 'metadata-only lyric updates must not be counted as track transitions')
 assert.ok(bluetoothLyrics.includes('request("/lyric"') && bluetoothLyrics.includes('player.currentPosition'), 'Bluetooth lyrics must use native lyrics and the native playback clock')
-assert.ok(bluetoothLyrics.includes('.setTitle(line)') && bluetoothLyrics.includes('joinToString(" - ")'), 'current lyric line must be mirrored to title while keeping track identity in artist')
+assert.ok(
+  bluetoothLyrics.includes('.setTitle(line)') &&
+  bluetoothLyrics.includes('.setDisplayTitle(line)') &&
+  bluetoothLyrics.includes('.setArtist(null)') &&
+  bluetoothLyrics.includes('.setAlbumTitle(null)'),
+  'Bluetooth/island lyrics must expose one primary lyric tier without secondary media text',
+)
+assert.ok(
+  bluetoothLyrics.includes('.setTitle(canonical.title)') &&
+  bluetoothLyrics.includes('.setDisplayTitle(null)') &&
+  bluetoothLyrics.includes('.setArtist(canonical.artist)') &&
+  bluetoothLyrics.includes('.setAlbumTitle(canonical.album)'),
+  'canonical title, artist and album metadata must be restored after lyric publishing',
+)
 assert.ok(bluetoothLyrics.includes('player.replaceMediaItem') && bluetoothLyrics.includes('restoreTrack('), 'MediaSession metadata updates must preserve playback and restore canonical metadata')
 assert.ok(bluetoothLyrics.includes('line == lastPublishedTitle'), 'metadata must update only when the lyric line changes')
 assert.ok(settings.includes("androidCommand<OverlayState>('bluetoothLyrics'") && settings.includes('蓝牙 / 灵动岛歌词'), 'Android settings must expose an explicit Bluetooth/island lyric toggle')
 assert.ok(!system.includes('XiaomiIslandAdapter('), 'unverified OEM APIs cannot be silently enabled')
 assert.match(system, /XIAOMI_ISLAND = false/)
 assert.match(system, /OPPO_FLUID_CLOUD = false/)
-console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, overlay lyrics, Bluetooth/island lyric metadata, OEM defaults and Android-only permissions passed (not an APK/device test)')
+console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, overlay lyrics, Bluetooth/island single-tier metadata, OEM defaults and Android-only permissions passed (not an APK/device test)')
