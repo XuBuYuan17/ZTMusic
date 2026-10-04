@@ -128,7 +128,7 @@ function clearSharedCoverReturn(): void {
 function attachPlaylistDismiss(
   page: HTMLElement,
   geometry: SharedReturnGeometry,
-  commit: () => void,
+  commit: () => Promise<void>,
 ): (preserve?: boolean) => void {
   const maybeScroller = page.closest<HTMLElement>('.mobile-page-content')
   if (!maybeScroller) return () => {}
@@ -216,7 +216,15 @@ function attachPlaylistDismiss(
       })
       animation.finished.then(() => {
         page.style.clipPath = target
-        commit()
+        void commit().catch(() => {
+          committing = false
+          page.style.removeProperty('will-change')
+          animation = page.animate([{ clipPath: target }, { clipPath: fullClip }], {
+            duration: 220,
+            easing: 'cubic-bezier(.22,.8,.2,1)',
+          })
+          animation.finished.then(reset).catch(reset)
+        })
       }).catch(() => {})
       return
     }
@@ -323,9 +331,15 @@ export function createMobileNavigationMotion() {
         animations.clear()
         if (surface && kind === 'pop') clearSharedCoverReturn()
         if (returnGeometry) {
-          dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, () => {
+          dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, async () => {
             skipNextInteractivePop = true
-            void import('../stores/router.svelte.ts').then(({ router }) => router.goBack())
+            try {
+              const { router } = await import('../stores/router.svelte.ts')
+              router.goBack()
+            } catch (error) {
+              skipNextInteractivePop = false
+              throw error
+            }
           })
         }
         done()
