@@ -1,7 +1,7 @@
 import { invoke, addPluginListener } from '@tauri-apps/api/core'
 import type { PlayerEngine, PlayerEngineState, EngineTimeListener, EngineStateListener, EngineErrorListener, ListeningSignal, PlayMode, QualityLevel } from '../types/player.ts'
 import type { CompactTrack } from './queue.ts'
-import { androidPosition, parseAndroidState, type AndroidPlaybackState } from './android-state.ts'
+import { androidPosition, androidStateReconcileInterval, parseAndroidState, type AndroidPlaybackState } from './android-state.ts'
 import { apiSession } from '../api/session.ts'
 import { getStorage, setStorage } from '../utils/storage.ts'
 
@@ -19,6 +19,9 @@ export class AndroidEngine implements PlayerEngine {
   private syncingJournal = false
   private sources = new Map<string, string>()
   private generation = 0
+  private lastStateReconcileAt = 0
+  private stateReconcilePending = false
+  private reconcileUntil = 0
   private handlers: {
     time?: EngineTimeListener; ended?: EngineStateListener; load?: EngineStateListener; ready?: EngineStateListener
     error?: EngineErrorListener; play?: EngineStateListener; pause?: EngineStateListener
@@ -32,7 +35,14 @@ export class AndroidEngine implements PlayerEngine {
       const state = await androidCommand('state')
       if (this.destroyed) { await this.listener?.unregister(); return }
       this.accept(state)
-      this.progressTimer = setInterval(() => { if (!document.hidden) this.handlers.time?.(this.currentTime) }, 250)
+      this.lastStateReconcileAt = Date.now()
+      this.progressTimer = setInterval(() => {
+        if (document.hidden) return
+        this.handlers.time?.(this.currentTime)
+        const now = Date.now()
+        const interval = androidStateReconcileInterval(this.snapshot, now, this.reconcileUntil)
+        if (now - this.lastStateReconcileAt >= interval) void this.reconcileNativeState(now)
+      }, 250)
       this.journalTimer = setInterval(() => { if (!document.hidden) void this.syncJournal() }, 10000)
       document.addEventListener('visibilitychange', this.visibility)
       void this.syncJournal()
@@ -43,12 +53,37 @@ export class AndroidEngine implements PlayerEngine {
       throw error
     })
   }
-  private visibility = () => { if (!document.hidden) { void this.command('state'); void this.syncJournal() } }
+
+  private visibility = () => {
+    if (!document.hidden) {
+      this.lastStateReconcileAt = 0
+      void this.reconcileNativeState()
+      void this.syncJournal()
+    }
+  }
+
+  private markStateUnsettled(duration = 5000): void {
+    this.reconcileUntil = Math.max(this.reconcileUntil, Date.now() + duration)
+    this.lastStateReconcileAt = 0
+  }
+
+  private async reconcileNativeState(now = Date.now()): Promise<void> {
+    if (this.destroyed || document.hidden || this.stateReconcilePending) return
+    this.stateReconcilePending = true
+    this.lastStateReconcileAt = now
+    try {
+      await this.command('state')
+    } finally {
+      this.stateReconcilePending = false
+    }
+  }
+
   private accept(value: unknown): void {
     const previous = this.snapshot
     const state = parseAndroidState(value)
     if (state.revision != null && previous.revision != null && state.revision < previous.revision) return
     this.snapshot = state
+    if (state.playing && !state.loading) this.reconcileUntil = 0
     for (const track of state.tracks) if (track.nativeUri) this.sources.set(String(track.id), track.nativeUri)
     this.handlers.state?.(state)
     const engineState = this.getState()
@@ -59,10 +94,15 @@ export class AndroidEngine implements PlayerEngine {
     if (state.ended && !previous.ended) this.handlers.ended?.(engineState)
     if (state.error && state.error !== previous.error) this.reportError(new Error(state.error))
   }
+
   private reportError(error: unknown): void {
     this.handlers.error?.({ ...this.getState(), event: new Event('error'), code: 4, message: error instanceof Error ? error.message : 'Native playback failed', codecSupport: { mp3: 'native', aac: 'native', mp4: 'native', flac: 'native' } })
   }
+
   command(action: string, data: unknown = {}): Promise<void> {
+    if (action === 'start' || action === 'play' || action === 'next' || action === 'previous' || action === 'seek') {
+      this.markStateUnsettled()
+    }
     const result = this.pending.then(async () => {
       await this.connect()
       if (this.destroyed) return
@@ -71,6 +111,7 @@ export class AndroidEngine implements PlayerEngine {
     this.pending = result.catch(error => { this.reportError(error) })
     return result
   }
+
   async setQueue(tracks: readonly CompactTrack[], index: number, play: boolean, options: { mode: PlayMode; quality: QualityLevel; position?: number }): Promise<void> {
     const version = ++this.generation
     const nativeTracks = tracks.map(track => ({ ...track, nativeUri: track.source === 'local' || track.source === 'webdav' ? '' : `ztmusic://song/${track.id}` }))
@@ -99,7 +140,9 @@ export class AndroidEngine implements PlayerEngine {
     if (version !== this.generation || this.destroyed) return
     await this.command(play ? 'start' : 'queue', { tracks: nativeTracks, index: Math.max(0, index), base: apiSession.getBase(), cookie: apiSession.getCookie(), quality: options.quality, mode: options.mode, position: (options.position ?? 0) * 1000 })
   }
+
   onNativeState(listener: (state: AndroidPlaybackState) => void): void { this.handlers.state = listener }
+
   private async syncJournal(): Promise<void> {
     if (this.syncingJournal || this.destroyed) return
     this.syncingJournal = true
@@ -117,6 +160,7 @@ export class AndroidEngine implements PlayerEngine {
     } catch (error) { console.warn('[Media3] listening journal sync failed', error instanceof Error ? error.message : 'unknown') }
     finally { this.syncingJournal = false }
   }
+
   getState(): PlayerEngineState { return { src: this.src, currentTime: this.currentTime, duration: this.duration, ended: this.snapshot.ended, networkState: this.snapshot.loading ? 2 : 1, readyState: this.snapshot.loading ? 2 : 4, paused: this.paused } }
   get currentTime(): number { return androidPosition(this.snapshot) }
   get duration(): number { return this.snapshot.duration / 1000 }
@@ -143,6 +187,7 @@ export class AndroidEngine implements PlayerEngine {
   onPlay(listener: EngineStateListener): void { this.handlers.play = listener }
   onPause(listener: EngineStateListener): void { this.handlers.pause = listener }
   onListening(_listener: (signal: ListeningSignal, state: PlayerEngineState) => void): void {}
+
   destroy(): void {
     this.destroyed = true; this.generation++
     clearInterval(this.progressTimer); clearInterval(this.journalTimer)
