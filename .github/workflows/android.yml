@@ -1,6 +1,9 @@
 name: Android APK
 
 on:
+  push:
+    branches:
+      - codex/mobile-fixes-round-2
   workflow_dispatch:
 
 permissions:
