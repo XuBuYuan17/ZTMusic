@@ -52,7 +52,7 @@ export function mobilePageFrames(
       : null
 
     if (kind === 'pop') {
-      if (surfaceClip) {
+      if (clippedSurface) {
         return entering
           ? [fullSurface, fullSurface]
           : [fullSurface, clippedSurface]
