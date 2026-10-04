@@ -376,12 +376,16 @@
               {#if songComments.length > 0}<div class="ly-context-comment-list">
                 {#each songComments as c, i (c.commentId || i)}
                   <article class="ly-context-comment-row">
-                    <div class="ly-context-comment-author">
+                    <div class="ly-context-comment-avatar">
                       {#if c.user?.avatarUrl}<img src={coverUrl(c.user.avatarUrl, 72)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span>{commentInitial(c)}</span>{/if}
-                      <div><strong>{c.user?.nickname || '听众'}</strong><small>{c.timeStr || '网易云音乐热评'}</small></div>
-                      {#if c.likedCount}<em>♥ {formatCount(c.likedCount)}</em>{/if}
                     </div>
-                    <p>{c.content}</p>
+                    <div class="ly-context-comment-main">
+                      <div class="ly-context-comment-heading">
+                        <div class="ly-context-comment-meta"><strong>{c.user?.nickname || '听众'}</strong><small>{c.timeStr || '网易云音乐热评'}</small></div>
+                        {#if c.likedCount}<em>♥ {formatCount(c.likedCount)}</em>{/if}
+                      </div>
+                      <p>{c.content}</p>
+                    </div>
                   </article>
                 {/each}
               </div>

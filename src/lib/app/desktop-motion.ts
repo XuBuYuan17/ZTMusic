@@ -134,7 +134,7 @@ export function flyCover(target: HTMLElement) {
     const to = target.getBoundingClientRect()
     if (!to.width) { finish(); return }
     const from = origin.rect
-    Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', zIndex: '30', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)' })
+    Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', opacity: '1', visibility: 'visible', zIndex: '1100', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)' })
     document.body.append(clone)
     const sx = from.width / to.width, sy = from.height / to.height
     const targetRadius = getComputedStyle(target).borderRadius

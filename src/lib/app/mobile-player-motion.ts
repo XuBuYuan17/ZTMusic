@@ -143,7 +143,8 @@ export function createMobilePlayerMotion() {
         Object.assign(overlay.style, {
           position: 'fixed', inset: 'auto', left: `${to.left}px`, top: `${to.top}px`,
           width: `${to.width}px`, height: `${to.height}px`, margin: '0',
-          pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform', zIndex: '48',
+          pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform',
+          opacity: '1', visibility: 'visible', zIndex: '1010',
         })
         rememberStyle(cover)
         cover.style.opacity = '0'

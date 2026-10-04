@@ -374,12 +374,12 @@
 
   .am-secondary-context :global(.ly-context-comment-row) {
     width: 100%;
-    height: auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto;
-    column-gap: 10px;
-    padding: 13px 0 15px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 14px 0 16px;
     border: 0;
     border-radius: 0;
     border-bottom: 1px solid var(--border);
@@ -390,19 +390,17 @@
     border-bottom: 0;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author) {
-    display: contents;
+  .am-secondary-context :global(.ly-context-comment-avatar) {
+    width: 38px;
+    height: 38px;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author > img),
-  .am-secondary-context :global(.ly-context-comment-author > span:first-child),
-  .am-secondary-context :global(.ly-context-comment-author > .ly-context-avatar-ph) {
+  .am-secondary-context :global(.ly-context-comment-avatar img),
+  .am-secondary-context :global(.ly-context-comment-avatar span) {
     width: 38px;
     height: 38px;
     display: grid;
     place-items: center;
-    grid-row: 1 / 3;
-    grid-column: 1;
     margin: 0;
     border-radius: 50%;
     object-fit: cover;
@@ -413,21 +411,29 @@
     font-style: normal;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author > div) {
-    grid-column: 2;
-    grid-row: 1;
+  .am-secondary-context :global(.ly-context-comment-main) {
+    min-width: 0;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-heading) {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-meta) {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 2px;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author strong) {
-    display: block;
+  .am-secondary-context :global(.ly-context-comment-meta strong) {
     min-width: 0;
     margin: 0;
-    color: rgba(255,255,255,0.9);
+    color: var(--text);
     font-size: 14px;
     line-height: 1.3;
     font-weight: 500;
@@ -436,36 +442,27 @@
     text-overflow: ellipsis;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author small),
-  .am-secondary-context :global(.ly-context-comment-author > div > span) {
-    color: rgba(255,255,255,0.42);
+  .am-secondary-context :global(.ly-context-comment-meta small) {
+    color: var(--text-tertiary);
     font-size: 11px;
     line-height: 1.3;
   }
 
-  .am-secondary-context :global(.ly-context-comment-author em),
-  .am-secondary-context :global(.ly-context-comment-likes) {
-    grid-column: 3;
-    grid-row: 1;
-    align-self: center;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin: 1px 0 0 8px;
-    color: rgba(255,255,255,0.48);
+  .am-secondary-context :global(.ly-context-comment-heading em) {
+    flex: 0 0 auto;
+    margin: 1px 0 0;
+    color: var(--text-tertiary);
     font-size: 12px;
     line-height: 1.3;
     font-style: normal;
     white-space: nowrap;
   }
 
-  .am-secondary-context :global(.ly-context-comment-row p) {
-    grid-column: 2 / -1;
-    grid-row: 2;
+  .am-secondary-context :global(.ly-context-comment-main p) {
     min-width: 0;
-    margin: 6px 0 0;
+    margin: 7px 0 0;
     padding: 0;
-    color: rgba(255,255,255,0.76);
+    color: var(--text-secondary);
     font-size: 14px;
     line-height: 1.55;
     overflow-wrap: anywhere;
@@ -474,10 +471,10 @@
 
   @media (max-width: 380px) {
     .am-secondary-context :global(.ly-context-comment-list) { padding-inline: 14px; }
-    .am-secondary-context :global(.ly-context-comment-row) { grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 9px; }
-    .am-secondary-context :global(.ly-context-comment-author > img),
-    .am-secondary-context :global(.ly-context-comment-author > span:first-child),
-    .am-secondary-context :global(.ly-context-comment-author > .ly-context-avatar-ph) { width: 36px; height: 36px; }
+    .am-secondary-context :global(.ly-context-comment-row) { grid-template-columns: 36px minmax(0, 1fr); gap: 9px; }
+    .am-secondary-context :global(.ly-context-comment-avatar),
+    .am-secondary-context :global(.ly-context-comment-avatar img),
+    .am-secondary-context :global(.ly-context-comment-avatar span) { width: 36px; height: 36px; }
   }
 
   .am-secondary-context :global(.ly-context-comment-compose) {

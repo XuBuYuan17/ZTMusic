@@ -314,7 +314,8 @@ export function createMobileNavigationMotion() {
           Object.assign(clone.style, {
             position: 'fixed', inset: 'auto', left: `${sourceRect.left}px`, top: `${sourceRect.top}px`,
             width: `${sourceRect.width}px`, height: `${sourceRect.height}px`, margin: '0',
-            pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform', zIndex: '60',
+            pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform',
+            opacity: '1', visibility: 'visible', zIndex: '1100',
           })
           source.style.opacity = '0'
           heroCover.style.opacity = '0'
