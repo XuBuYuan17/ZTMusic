@@ -53,17 +53,11 @@ export function mobilePageFrames(
 
     if (kind === 'pop') {
       if (surfaceClip) {
-        // Reverse the same shared-surface reveal used on entry. The restored source page
-        // stays completely still underneath while the detail surface collapses into the
-        // exact cover rect, so the last animated frame and the real card occupy the same
-        // pixels. This makes Back feel like closing the object instead of changing routes.
         return entering
           ? [fullSurface, fullSurface]
           : [fullSurface, clippedSurface]
       }
 
-      // A source card can disappear after filtering/reloading. Fall back to a short page
-      // transition rather than collapsing toward a guessed rectangle.
       if (entering) {
         return [
           { opacity: .84, transform: 'translate3d(-10px,0,0) scale(.985)', clipPath: 'inset(0 0 0 0 round 0px)' },
@@ -77,8 +71,6 @@ export function mobilePageFrames(
       ]
     }
 
-    // Entering a playlist grows the whole page surface from the tapped cover region.
-    // The source page stays still so the card and detail surface read as one object.
     return entering
       ? [clippedSurface, fullSurface]
       : [fullSurface, fullSurface]
@@ -140,8 +132,9 @@ function attachPlaylistDismiss(
   geometry: SharedReturnGeometry,
   commit: () => void,
 ): (preserve?: boolean) => void {
-  const scroller = page.closest<HTMLElement>('.mobile-page-content')
-  if (!scroller) return () => {}
+  const maybeScroller = page.closest<HTMLElement>('.mobile-page-content')
+  if (!maybeScroller) return () => {}
+  const scroller: HTMLElement = maybeScroller
 
   let pointer: number | null = null
   let startX = 0
@@ -301,9 +294,6 @@ export function createMobileNavigationMotion() {
 
       if (reduced) { if (surface && kind === 'pop') clearSharedCoverReturn(); done(); return }
 
-      // The return marker deliberately survives the forward transition. MobileApp restores
-      // the destination page/scroll position before this runs, so Back can re-measure the
-      // real card and reverse the surface into its current on-screen rectangle.
       const source = surface ? sharedCoverSource() : null
       const sourceRect = source?.getBoundingClientRect() ?? null
       const sourceRadius = source ? (getComputedStyle(source).borderRadius || getComputedStyle(source.parentElement!).borderRadius || '22px') : '22px'
