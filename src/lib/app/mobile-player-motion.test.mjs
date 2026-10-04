@@ -16,7 +16,7 @@ let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
 const calls = []
 const element = (rect) => ({
-  style: {}, isConnected: true, rect,
+  style: { cssText: '' }, isConnected: true, rect,
   getBoundingClientRect() { return this.rect },
   getAnimations() { return [] },
   animate(frames, options) {
@@ -61,11 +61,18 @@ await controller.change(root, change)
 assert.equal(mode, true)
 assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
-assert.ok(calls.every(call => call.options.duration === mobilePlayerTiming.duration && call.options.easing === mobilePlayerTiming.easing), 'mode elements share one timing')
+assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover snaps into lyrics mode without a half-second drift')
+assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')
+assert.equal(calls[2].options.duration, mobilePlayerTiming.contentDuration, 'lyrics content takes over faster than the cover morph')
+assert.equal(calls[2].options.delay, mobilePlayerTiming.contentDelay, 'lyrics takeover follows the initial cover response')
+assert.equal(calls[0].options.easing, mobilePlayerTiming.easing)
+assert.equal(calls[2].options.easing, mobilePlayerTiming.contentEasing)
+assert.equal(cover.style.transition, 'none', 'CSS layout transitions are frozen while FLIP owns the cover motion')
 const pending = [...calls]
 await controller.change(root, change)
 assert.equal(mode, false)
 assert.ok(pending.every(call => call.animation.cancelled), 'reversal cancels old animations')
+assert.equal(calls.at(-3).options.duration, mobilePlayerTiming.exitDuration, 'returning to artwork gets a slightly softer expansion')
 const count = calls.length
 reduce = true
 await controller.change(root, change)
@@ -106,4 +113,4 @@ assert.equal(removed, true, 'navigation cleans up the floating cover')
 reduce = true
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), false, 'reduced motion does not record cover origins')
-console.log('mobile player motion: lyric/status, interruption, layout, reduced motion and shared cover passed')
+console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, reduced motion and shared cover passed')
