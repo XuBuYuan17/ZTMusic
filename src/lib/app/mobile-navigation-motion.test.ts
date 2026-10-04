@@ -2,17 +2,18 @@ import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
 import { createMobileNavigationMotion, mobileNavigationKind, mobilePageFrames, mobileMotion } from './mobile-navigation-motion.ts'
 
-assert.equal(mobilePageFrames('tab', true)[0].transform, 'none', 'tabs fade without moving the page')
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
 assert.equal(mobileNavigationKind('forward', true), 'tab')
-assert.equal(mobilePageFrames('push', true)[0].transform, 'translate3d(64px,0,0)')
-assert.equal(mobilePageFrames('pop', false)[1].transform, 'translate3d(64px,0,0)')
-assert.equal(mobilePageFrames('pop', true)[0].transform, 'translate3d(-20px,0,0)')
+assert.equal(mobilePageFrames('tab', true)[0].transform, 'translate3d(14px,0,0)', 'tab pages use a small directional entrance')
+assert.equal(mobilePageFrames('push', true)[0].transform, 'translate3d(24px,0,0)')
+assert.equal(mobilePageFrames('pop', false)[1].transform, 'translate3d(24px,0,0)')
+assert.equal(mobilePageFrames('pop', true)[0].transform, 'translate3d(-24px,0,0)')
 assert.equal(mobilePageFrames('push', true, true)[0].transform, 'none')
-assert.equal(mobilePageFrames('push', true, true, true)[0].transform, 'translate3d(0,28px,0)')
-assert.equal(mobilePageFrames('push', false, true, true)[1].transform, 'translate3d(0,-8px,0)')
-assert.equal(mobilePageFrames('pop', false, false, true)[1].transform, 'translate3d(0,32px,0)')
+assert.equal(mobilePageFrames('push', true, true, true)[0].clipPath, 'inset(8% 8% 72% 8% round 22px)')
+assert.equal(mobilePageFrames('push', true, true, true, 'inset(10px 20px 30px 40px round 16px)')[0].clipPath, 'inset(10px 20px 30px 40px round 16px)')
+assert.equal(mobilePageFrames('push', false, true, true)[1].transform, 'translate3d(-12px,0,0)')
+assert.equal(mobilePageFrames('pop', false, false, true)[1].clipPath, 'inset(8% 8% 72% 8% round 22px)')
 
 const pending: Array<{ resolve: () => void; cancelled: boolean; duration: number }> = []
 const node = { animate(_frames: Keyframe[], options: KeyframeAnimationOptions) {
@@ -20,7 +21,7 @@ const node = { animate(_frames: Keyframe[], options: KeyframeAnimationOptions) {
   const finished = new Promise<void>(resolve => { entry.resolve = resolve })
   pending.push(entry)
   return { finished, cancel() { entry.cancelled = true; entry.resolve() } }
-}, querySelectorAll() { return [] } } as unknown as HTMLElement
+}, querySelectorAll() { return [] }, getBoundingClientRect() { return { width: 300, height: 600 } } } as unknown as HTMLElement
 const motion = createMobileNavigationMotion()
 let stale = 0
 let completed = 0
@@ -44,4 +45,4 @@ pending[3]!.resolve()
 await setImmediate()
 assert.equal(surfaceCompleted, 1)
 motion.cancel()
-console.log('Mobile navigation: direction, timings, shared cover, interruption and reduced motion passed')
+console.log('Mobile navigation: reference direction, surface clip, timings, interruption and reduced motion passed')
