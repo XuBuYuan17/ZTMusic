@@ -2,6 +2,11 @@ name: Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/mobile-fixes-round-2
+    paths:
+      - '.github/workflows/android.yml'
 
 permissions:
   contents: read
