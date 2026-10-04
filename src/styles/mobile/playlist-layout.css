@@ -1,0 +1,64 @@
+/* Mobile playlist hero: keep the cover as the hero, but spend less of the first
+ * viewport on metadata so the first tracks remain visible below the controls. */
+html.mobile-runtime .playlist-detail-page .playlist-detail-hero {
+  gap: 14px;
+  padding: 4px 0 10px;
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-cover,
+html.mobile-runtime .playlist-detail-page .playlist-cover-open {
+  width: min(58vw, 292px);
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-hero-copy {
+  gap: 5px;
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-hero-copy h1 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.22;
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-mobile-creator {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-hero-actions {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-play-btn {
+  min-height: 48px;
+  gap: 8px;
+  font-size: 16px;
+}
+
+html.mobile-runtime .playlist-detail-page .playlist-shuffle-btn,
+html.mobile-runtime .playlist-detail-page .playlist-more-btn {
+  width: 44px;
+  height: 44px;
+}
+
+@media (max-width: 380px) {
+  html.mobile-runtime .playlist-detail-page .playlist-cover,
+  html.mobile-runtime .playlist-detail-page .playlist-cover-open {
+    width: min(56vw, 250px);
+  }
+
+  html.mobile-runtime .playlist-detail-page .playlist-hero-actions {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 10px;
+  }
+
+  html.mobile-runtime .playlist-detail-page .playlist-shuffle-btn,
+  html.mobile-runtime .playlist-detail-page .playlist-more-btn {
+    width: 42px;
+    height: 42px;
+  }
+}
