@@ -29,7 +29,6 @@ import '../../src/styles/mobile/interaction-polish.css'
 import { mount } from 'svelte'
 import Fixture from './MobileRenderFixture.svelte'
 import { ncm } from '../../src/lib/api/client.ts'
-import { musicService } from '../../src/lib/music/service.ts'
 import { player } from '../../src/lib/stores/player.svelte.ts'
 import { router } from '../../src/lib/stores/router.svelte.ts'
 const cover = '/scripts/browser/cover.svg'
@@ -57,11 +56,9 @@ Object.assign(ncm, {
     content: i % 2 ? '这是一条较长的评论。正文要完整显示，多行文字不能覆盖头像、昵称或下一条评论。\n第二行仍然属于这条评论。' : '这首歌很好听，评论正文应该在昵称下面。',
     timeStr: '昨天 18:30', likedCount: i === 3 ? 0 : 128 + i,
   })) }),
+  playlistDetail: async id => ({ playlist: { ...playlists.find(p => p.id === Number(id)), tracks, trackIds: [] } }),
+  songDetail: async () => ({ songs: tracks }),
   lyric: async () => ({ lrc: { lyric: '[00:00.00]第一行测试歌词\n[00:10.00]第二行测试歌词' } }),
-})
-Object.assign(musicService, {
-  getPlaylist: async id => ({ ...playlists.find(p => p.id === Number(id)), tracks, trackIds: [] }),
-  getTracks: async () => tracks,
 })
 Object.assign(player, { id: tracks[0].id, title: '动画渲染测试歌曲', artist: '测试歌手', cover, duration: 180, currentTrack: tracks[0], queue: tracks })
 router.activeView = 'explore'
