@@ -35,6 +35,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private lateinit var resolver: StreamResolver
     private lateinit var journal: ListeningJournal
+    private lateinit var lyricMetadata: LyricMetadataPublisher
     private var session: MediaSession? = null
     private var overlay: LyricsOverlayConnection? = null
     private val overlayPrefs by lazy { getSharedPreferences("overlay-lyrics", MODE_PRIVATE) }
@@ -55,10 +56,12 @@ class PlaybackService : MediaSessionService() {
             setHandleAudioBecomingNoisy(true)
         }
         journal = ListeningJournal(this)
+        lyricMetadata = LyricMetadataPublisher(player, resolver)
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 checkpointListening()
                 liveActivity.update(LivePlayerState(player.currentMediaItem?.mediaId.orEmpty(), player.mediaMetadata.title?.toString().orEmpty(), player.mediaMetadata.artist?.toString().orEmpty(), player.isPlaying, player.currentPosition))
+                lyricMetadata.trackChanged()
                 overlay?.trackChanged()
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -242,6 +245,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         checkpointListening(); journal.close()
+        lyricMetadata.close()
         overlay?.close(); liveActivity.stop()
         session?.release(); session = null
         player.release()
