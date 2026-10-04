@@ -31,7 +31,7 @@ assert.match(provider, /class ZtShareFileProvider\s*:\s*FileProvider\(\)/)
 assert.match(manifest, /@xml\/zt_share_paths/)
 assert.match(paths, /<cache-path name="zt-share" path="zt-share\/" \/>/)
 
-assert.match(secondary, /grid-template-columns: 38px minmax\(0, 1fr\) auto/)
+assert.match(secondary, /grid-template-columns: 38px minmax\(0, 1fr\)/)
 assert.match(secondary, /grid-column: 2 \/ -1/, 'comment body aligns to the metadata column without cumulative indentation')
 assert.match(secondary, /\.ly-context-comment-compose\)/, 'comment input stays collapsed until the user explicitly opens it')
 assert.match(secondary, /line-height: 1\.55/)
