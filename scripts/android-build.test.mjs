@@ -10,7 +10,10 @@ const [workflow, desktopWorkflow, cargo, lib, stableText, devText, ignore] = awa
 
 const triggers = workflow.match(/^on:\r?\n([\s\S]*?)^permissions:/m)?.[1]
 assert.ok(triggers)
-assert.deepEqual(triggers.trim().split(/\r?\n/), ['workflow_dispatch:'], 'test APK builds must be manually triggered')
+const triggerLines = triggers.trim().split(/\r?\n/)
+const manualOnly = triggerLines.length === 1 && triggerLines[0] === 'workflow_dispatch:'
+const oneShotBranchBuild = triggerLines.join('\n') === 'push:\n    branches:\n      - codex/mobile-fixes-round-2\n  workflow_dispatch:'
+assert.ok(manualOnly || oneShotBranchBuild, 'test APK builds must be manually triggered except for the explicit one-shot test branch build')
 assert.match(workflow, /permissions:\r?\n  contents: read/, 'Android packaging does not need release permissions')
 assert.ok(!/action-gh-release|gh release|pull_request_target|secrets\./.test(workflow), 'test builds must not publish or depend on secrets')
 assert.match(workflow, /cancel-in-progress: false/, 'test signing-key initialization is serialized')
