@@ -35,10 +35,13 @@ class PlaybackService : MediaSessionService() {
     private lateinit var player: ExoPlayer
     private lateinit var resolver: StreamResolver
     private lateinit var journal: ListeningJournal
+    private lateinit var bluetoothLyrics: BluetoothLyricsPublisher
     private var session: MediaSession? = null
     private var overlay: LyricsOverlayConnection? = null
     private val overlayPrefs by lazy { getSharedPreferences("overlay-lyrics", MODE_PRIVATE) }
+    private val bluetoothLyricsPrefs by lazy { getSharedPreferences("bluetooth-lyrics", MODE_PRIVATE) }
     private var revision = 0L
+    private var lastJournalTrackId = ""
     private val liveActivity = LiveActivityRouter()
     private val handler = Handler(Looper.getMainLooper())
     private val checkpoint = object : Runnable {
@@ -55,13 +58,20 @@ class PlaybackService : MediaSessionService() {
             setHandleAudioBecomingNoisy(true)
         }
         journal = ListeningJournal(this)
+        bluetoothLyrics = BluetoothLyricsPublisher(player, resolver).apply {
+            setEnabled(bluetoothLyricsPrefs.getBoolean("enabled", false))
+        }
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
                 checkpointListening()
-                liveActivity.update(LivePlayerState(player.currentMediaItem?.mediaId.orEmpty(), player.mediaMetadata.title?.toString().orEmpty(), player.mediaMetadata.artist?.toString().orEmpty(), player.isPlaying, player.currentPosition))
+                bluetoothLyrics.sync()
+                liveActivity.update(LivePlayerState(player.currentMediaItem?.mediaId.orEmpty(), canonicalTitle(), canonicalArtist(), player.isPlaying, player.currentPosition))
                 overlay?.trackChanged()
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                val id = mediaItem?.mediaId.orEmpty()
+                if (id == lastJournalTrackId) return
+                lastJournalTrackId = id
                 try { journal.transition(player) }
                 catch (_: android.database.SQLException) { Log.w("ZTMusic", "[Listening] native storage unavailable") }
             }
@@ -133,6 +143,7 @@ class PlaybackService : MediaSessionService() {
                 }
                 applyMode(data.optString("mode", "list"))
                 ensureOverlay()
+                bluetoothLyrics.sync()
                 if (payload.getString("action") == "start") player.play()
             }
             "play" -> { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play() }
@@ -142,8 +153,17 @@ class PlaybackService : MediaSessionService() {
             "seek" -> { val position = data.getDouble("position"); require(position.isFinite() && position >= 0); player.seekTo(position.toLong()) }
             "volume" -> { val value = data.getDouble("volume"); require(value.isFinite()); player.volume = value.toFloat().coerceIn(0f, 1f) }
             "mode" -> applyMode(data.getString("mode"))
-            "stop" -> { player.stop(); player.clearMediaItems(); overlay?.close(); overlay = null; liveActivity.stop() }
+            "stop" -> {
+                bluetoothLyrics.playbackStopped()
+                player.stop(); player.clearMediaItems(); overlay?.close(); overlay = null; liveActivity.stop()
+                lastJournalTrackId = ""
+            }
             "journal" -> { journal.sample(player); return journal.read(data.optLong("cursor", 0)) }
+            "bluetoothLyrics" -> {
+                val enabled = data.optBoolean("enabled", false)
+                bluetoothLyricsPrefs.edit().putBoolean("enabled", enabled).apply()
+                bluetoothLyrics.setEnabled(enabled)
+            }
             "overlay" -> {
                 if (data.optBoolean("enabled")) {
                     require(android.provider.Settings.canDrawOverlays(this))
@@ -201,6 +221,25 @@ class PlaybackService : MediaSessionService() {
         return MediaItem.Builder().setMediaId(id).setUri(uri).setMediaMetadata(metadata.build()).build()
     }
 
+    private fun canonicalTitle(): String {
+        val item = player.currentMediaItem ?: return ""
+        return try {
+            JSONObject(item.mediaMetadata.extras?.getString("track") ?: "{}").optString("name").ifBlank {
+                item.mediaMetadata.title?.toString().orEmpty()
+            }
+        } catch (_: Exception) { item.mediaMetadata.title?.toString().orEmpty() }
+    }
+
+    private fun canonicalArtist(): String {
+        val item = player.currentMediaItem ?: return ""
+        return try {
+            val raw = JSONObject(item.mediaMetadata.extras?.getString("track") ?: "{}")
+            val artists = raw.optJSONArray("ar") ?: JSONArray()
+            (0 until artists.length()).map { artists.optJSONObject(it)?.optString("name").orEmpty() }
+                .filter { it.isNotBlank() }.joinToString(" / ").ifBlank { item.mediaMetadata.artist?.toString().orEmpty() }
+        } catch (_: Exception) { item.mediaMetadata.artist?.toString().orEmpty() }
+    }
+
     private fun snapshot(): JSONObject {
         syncOverlayPermission()
         val overlayPermission = android.provider.Settings.canDrawOverlays(this)
@@ -211,6 +250,7 @@ class PlaybackService : MediaSessionService() {
             put("overlayRequested", overlayRequested)
             put("overlayEnabled", overlayPermission && overlayRequested && overlay != null)
             put("overlayVisible", overlay?.visible == true)
+            put("bluetoothLyricsEnabled", bluetoothLyrics.isEnabled)
             put("overlaySettings", JSONObject().apply {
                 put("locked", overlayPrefs.getBoolean("locked", false))
                 put("through", overlayPrefs.getBoolean("through", false))
@@ -242,6 +282,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         checkpointListening(); journal.close()
+        bluetoothLyrics.close()
         overlay?.close(); liveActivity.stop()
         session?.release(); session = null
         player.release()
