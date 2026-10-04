@@ -128,9 +128,14 @@ export function createMobilePlayerMotion() {
       const coverDuration = entering ? mobilePlayerTiming.enterDuration : mobilePlayerTiming.exitDuration
       const to = cover?.getBoundingClientRect()
       if (cover && from?.width && from.height && to?.width && to.height) {
-        const sx = from.width / to.width, sy = from.height / to.height
+        // Android WebView can report width/height on adjacent layout frames with a
+        // tiny ratio mismatch. A two-axis FLIP scale makes that mismatch visible as
+        // a brief squeeze. Use one scale and center it in the previous artwork rect.
+        const scale = Math.min(from.width / to.width, from.height / to.height)
+        const dx = from.left - to.left + (from.width - to.width * scale) / 2
+        const dy = from.top - to.top + (from.height - to.height * scale) / 2
         pending.push(animate(cover, [
-          { transformOrigin: '0 0', transform: `translate(${from.left - to.left}px,${from.top - to.top}px) scale(${sx},${sy})`, borderRadius: `calc(${radius} / ${sx})` },
+          { transformOrigin: '0 0', transform: `translate(${dx}px,${dy}px) scale(${scale})`, borderRadius: `calc(${radius} / ${scale})` },
           { transformOrigin: '0 0', transform: 'none', borderRadius: getComputedStyle(cover).borderRadius },
         ], { duration: coverDuration }))
       }
