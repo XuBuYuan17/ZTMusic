@@ -22,9 +22,13 @@
   let switchingTrack = $state(false)
   let trackDirection = $state(1)
   let cover = $derived(coverUrl(player.cover, 88))
+  // Android native state can briefly report loading=true after playback is already active.
+  // Once playing=true, playback is the stronger UI truth and the mini player must not
+  // remain stuck on “正在载入…”.
+  let playbackLoading = $derived(player.loading && !player.playing)
   let status = $derived(player.error || (player.webdavDownloading
     ? `正在下载 ${player.webdavDownloading.name}${player.webdavDownloading.percent >= 0 ? ` ${player.webdavDownloading.percent}%` : ''}`
-    : player.loading ? '正在载入…' : ''))
+    : playbackLoading ? '正在载入…' : ''))
   $effect(() => { cover; coverFailed = false })
 
   function down(event: PointerEvent) {
@@ -96,7 +100,7 @@
   }
 </script>
 
-<div class="player-bar mobile-mini-player" role="group" aria-label="迷你播放器">
+<div class="player-bar mobile-mini-player" role="group" aria-label="迷你播放器" aria-busy={playbackLoading}>
   <button class="mini-player-open" class:dragging={draggingTrack} class:switching={switchingTrack} style={`--mini-track-x:${swipeX}px`} type="button" aria-label={`打开播放器：${player.title || '未在播放'}`} disabled={!player.id}
     onclick={open} onpointerdown={down} onpointermove={move} onpointerup={finish} onpointercancel={finish}>
     {#key player.id}
@@ -105,7 +109,7 @@
           {#if cover && !coverFailed}<img class="lcd-artwork__img" use:progressiveCover={{ source: player.cover, size: 88 }} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
           {:else}<Icon name="music" size={22} />{/if}
         </span>
-        <span class="mini-player-info"><strong class:error={!!player.error} aria-live={player.error || player.loading ? 'polite' : 'off'}>{status || player.title || '未在播放'}</strong></span>
+        <span class="mini-player-info"><strong class:error={!!player.error} aria-live={player.error || playbackLoading ? 'polite' : 'off'}>{status || player.title || '未在播放'}</strong></span>
       </span>
     {/key}
   </button>
