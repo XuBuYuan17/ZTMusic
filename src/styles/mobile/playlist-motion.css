@@ -1,5 +1,6 @@
-/* Playlist motion borrowed from the mobile reference without changing layout.
- * The cover only morphs while a track from the visible playlist is actually playing. */
+/* Playlist cover becomes a record while the current track belongs to this page.
+ * Rotation is driven independently from transform so shared-cover navigation can
+ * keep using transform without fighting the disc motion. */
 html.mobile-runtime .playlist-cover,
 html.mobile-runtime .playlist-cover-open {
   transition:
@@ -11,6 +12,11 @@ html.mobile-runtime .playlist-cover-open {
 html.mobile-runtime .playlist-cover-open {
   position: relative;
   overflow: hidden;
+  transform-origin: center;
+}
+
+html.mobile-runtime .playlist-cover-open.is-disc {
+  will-change: rotate;
 }
 
 html.mobile-runtime .playlist-cover-open::after {
@@ -28,15 +34,12 @@ html.mobile-runtime .playlist-cover-open::after {
   transition: transform .6s cubic-bezier(.2, 0, 0, 1);
 }
 
-html.mobile-runtime body:has(.mobile-mini-player .mini-player-play.playing)
-  .playlist-detail-page:has(.playlist-track-table tr.active)
-  :is(.playlist-cover, .playlist-cover-open) {
+html.mobile-runtime .playlist-cover-open.is-disc,
+html.mobile-runtime .playlist-cover-open.is-disc .playlist-cover {
   border-radius: 50%;
 }
 
-html.mobile-runtime body:has(.mobile-mini-player .mini-player-play.playing)
-  .playlist-detail-page:has(.playlist-track-table tr.active)
-  .playlist-cover-open::after {
+html.mobile-runtime .playlist-cover-open.is-disc::after {
   transform: translate(-50%, -50%) scale(1);
 }
 
@@ -45,5 +48,9 @@ html.mobile-runtime body:has(.mobile-mini-player .mini-player-play.playing)
   html.mobile-runtime .playlist-cover-open,
   html.mobile-runtime .playlist-cover-open::after {
     transition-duration: .01s;
+  }
+
+  html.mobile-runtime .playlist-cover-open.is-disc {
+    will-change: auto;
   }
 }
