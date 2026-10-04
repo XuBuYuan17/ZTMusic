@@ -95,4 +95,4 @@ assert.equal(markerRemoved, true, 'return marker is cleared only after the detai
 assert.equal(pending.length, 6, 'playlist back uses the two page layers without a separate floating-cover phase')
 
 motion.cancel()
-console.log('Mobile navigation: reversible playlist surface, swipe dismissal thresholds, interruption and reduced motion passed')
+console.log('Mobile navigation: reversible playlist surface, swipe dismissal thresholds/recovery, interruption and reduced motion passed')
