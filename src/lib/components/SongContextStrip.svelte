@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { dialogFocus } from '../app/desktop-motion.ts';
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
@@ -52,6 +53,8 @@
   let similarPlaylists = $state<SimilarPlaylist[]>([])
 
   let commentDraft = $state('')
+  let commentComposerOpen = $state(false)
+  let commentInput: HTMLTextAreaElement | null = null
   let commentSending = $state(false)
   let commentError = $state('')
 
@@ -202,6 +205,12 @@
     return (comment.user?.nickname || '听众').trim().slice(0, 1) || '听'
   }
 
+  async function openCommentComposer(): Promise<void> {
+    commentComposerOpen = true
+    await tick()
+    commentInput?.focus({ preventScroll: true })
+  }
+
   async function submitComment(): Promise<void> {
     const content = commentDraft.trim()
     const id = player.id
@@ -212,6 +221,7 @@
       const r = rec(await ncm.commentAdd(id, content))
       if (r && r.code !== 200) throw new Error((r.message || r.msg || '发表失败') as string)
       commentDraft = ''
+      commentComposerOpen = false
       // 本地插到最前面而不是重拉：热评只取 6 条，刚发的评论不可能挤进热评榜，
       // 重拉会让用户以为没发出去。下次打开这个面板自然会重新拉
       songComments = [{
@@ -376,24 +386,24 @@
                 {/each}
               </div>
               {:else}<div class="ly-context-empty">暂时没有热门评论</div>{/if}
-              <form class="ly-context-comment-form" onsubmit={(e) => { e.preventDefault(); void submitComment() }}>
-                <textarea
-                  class="ly-context-comment-input"
-                  bind:value={commentDraft}
-                  placeholder="说点什么…（Enter 发表，Shift+Enter 换行）"
-                  rows="2"
-                  maxlength="140"
-                  disabled={commentSending}
-                  aria-label="发表评论"
-                  onkeydown={handleCommentKeydown}
-                ></textarea>
-                <div class="ly-context-comment-foot">
-                  {#if commentError}<span class="ly-context-comment-error" role="status">{commentError}</span>{/if}
-                  <button class="ly-context-comment-submit" type="submit" disabled={commentSending || !commentDraft.trim()}>
-                    {commentSending ? '发表中…' : '发表'}
-                  </button>
-                </div>
-              </form>
+              {#if commentComposerOpen}
+                <form class="ly-context-comment-form" onsubmit={(e) => { e.preventDefault(); void submitComment() }}>
+                  <textarea class="ly-context-comment-input" bind:this={commentInput} bind:value={commentDraft}
+                    placeholder="说点什么…（Enter 发表，Shift+Enter 换行）" rows="2" maxlength="140"
+                    disabled={commentSending} aria-label="发表评论" onkeydown={handleCommentKeydown}></textarea>
+                  <div class="ly-context-comment-foot">
+                    <button class="ly-context-comment-cancel" type="button" onclick={() => { commentComposerOpen = false; commentInput?.blur() }}>取消</button>
+                    {#if commentError}<span class="ly-context-comment-error" role="status">{commentError}</span>{/if}
+                    <button class="ly-context-comment-submit" type="submit" disabled={commentSending || !commentDraft.trim()}>
+                      {commentSending ? '发表中…' : '发表'}
+                    </button>
+                  </div>
+                </form>
+              {:else}
+                <button class="ly-context-comment-compose" type="button" onclick={() => void openCommentComposer()}>
+                  <Icon name="messages" size={16} strokeWidth={1.8}/><span>发表评论</span>
+                </button>
+              {/if}
             </div>
           {/if}
         </div>

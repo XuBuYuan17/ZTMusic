@@ -376,9 +376,13 @@
     width: 100%;
     height: auto;
     min-height: 0;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    column-gap: 10px;
     padding: 13px 0 15px;
+    border: 0;
     border-radius: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.065);
+    border-bottom: 1px solid var(--border);
     background: transparent;
   }
 
@@ -387,12 +391,7 @@
   }
 
   .am-secondary-context :global(.ly-context-comment-author) {
-    display: grid;
-    grid-template-columns: 38px minmax(0, 1fr) auto;
-    align-items: center;
-    column-gap: 10px;
-    min-width: 0;
-    margin-bottom: 0;
+    display: contents;
   }
 
   .am-secondary-context :global(.ly-context-comment-author > img),
@@ -402,7 +401,7 @@
     height: 38px;
     display: grid;
     place-items: center;
-    grid-row: 1;
+    grid-row: 1 / 3;
     grid-column: 1;
     margin: 0;
     border-radius: 50%;
@@ -416,6 +415,7 @@
 
   .am-secondary-context :global(.ly-context-comment-author > div) {
     grid-column: 2;
+    grid-row: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -446,7 +446,8 @@
   .am-secondary-context :global(.ly-context-comment-author em),
   .am-secondary-context :global(.ly-context-comment-likes) {
     grid-column: 3;
-    align-self: start;
+    grid-row: 1;
+    align-self: center;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -459,8 +460,11 @@
   }
 
   .am-secondary-context :global(.ly-context-comment-row p) {
-    margin: 7px 0 0 48px;
-    padding-left: 0;
+    grid-column: 2 / -1;
+    grid-row: 2;
+    min-width: 0;
+    margin: 6px 0 0;
+    padding: 0;
     color: rgba(255,255,255,0.76);
     font-size: 14px;
     line-height: 1.55;
@@ -470,11 +474,30 @@
 
   @media (max-width: 380px) {
     .am-secondary-context :global(.ly-context-comment-list) { padding-inline: 14px; }
-    .am-secondary-context :global(.ly-context-comment-author) { grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 9px; }
+    .am-secondary-context :global(.ly-context-comment-row) { grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 9px; }
     .am-secondary-context :global(.ly-context-comment-author > img),
     .am-secondary-context :global(.ly-context-comment-author > span:first-child),
     .am-secondary-context :global(.ly-context-comment-author > .ly-context-avatar-ph) { width: 36px; height: 36px; }
-    .am-secondary-context :global(.ly-context-comment-row p) { margin-left: 45px; }
+  }
+
+  .am-secondary-context :global(.ly-context-comment-compose) {
+    flex: 0 0 auto;
+    width: calc(100% - 32px);
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 8px 16px 2px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    background: var(--bg-layer);
+  }
+
+  .am-secondary-context :global(.ly-context-comment-cancel) {
+    color: var(--text-secondary);
+    font-size: 13px;
   }
 
   @keyframes queue-slide-up {

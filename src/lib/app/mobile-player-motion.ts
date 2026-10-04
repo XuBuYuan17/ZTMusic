@@ -57,6 +57,7 @@ export function createMobilePlayerMotion() {
   let generation = 0
   const animations = new Set<Animation>()
   const restores = new Map<HTMLElement, string>()
+  const overlays = new Set<HTMLElement>()
 
   function rememberStyle(node: HTMLElement) {
     if (!restores.has(node)) restores.set(node, node.style.cssText)
@@ -72,6 +73,8 @@ export function createMobilePlayerMotion() {
     generation++
     animations.forEach(animation => animation.cancel())
     animations.clear()
+    overlays.forEach(node => node.remove())
+    overlays.clear()
     restores.forEach((style, node) => { node.style.cssText = style })
     restores.clear()
   }
@@ -128,26 +131,27 @@ export function createMobilePlayerMotion() {
       const coverDuration = entering ? mobilePlayerTiming.enterDuration : mobilePlayerTiming.exitDuration
       const to = cover?.getBoundingClientRect()
       if (cover && from?.width && from.height && to?.width && to.height) {
-        // Animate the real artwork through fixed geometry instead of scaling it.
-        // The final painted size now exactly matches layout, so Android WebView has
-        // no transformed bitmap to resize for one extra frame after it lands.
+        // Animate a compositor-only copy. The real cover is already at its exact
+        // destination size, so the GPU flight cannot cause layout work or a late resize.
+        const overlay = cover.cloneNode(true) as HTMLElement
+        overlay.removeAttribute('id')
+        overlay.setAttribute('aria-hidden', 'true')
         const targetRadius = getComputedStyle(cover).borderRadius
-        rememberStyle(cover)
-        Object.assign(cover.style, {
-          position: 'fixed',
-          inset: 'auto',
-          left: `${to.left}px`,
-          top: `${to.top}px`,
-          width: `${to.width}px`,
-          height: `${to.height}px`,
-          margin: '0',
-          transform: 'none',
-          transition: 'none',
-          zIndex: '3',
+        const scale = Math.min(from.width / to.width, from.height / to.height)
+        const dx = from.left - to.left + (from.width - to.width * scale) / 2
+        const dy = from.top - to.top + (from.height - to.height * scale) / 2
+        Object.assign(overlay.style, {
+          position: 'fixed', inset: 'auto', left: `${to.left}px`, top: `${to.top}px`,
+          width: `${to.width}px`, height: `${to.height}px`, margin: '0',
+          pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform', zIndex: '48',
         })
-        pending.push(animate(cover, [
-          { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', borderRadius: radius },
-          { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, transform: 'none', borderRadius: targetRadius },
+        rememberStyle(cover)
+        cover.style.opacity = '0'
+        document.body.append(overlay)
+        overlays.add(overlay)
+        pending.push(animate(overlay, [
+          { transform: `translate3d(${dx}px,${dy}px,0) scale(${scale})`, borderRadius: `calc(${radius} / ${scale})` },
+          { transform: 'translate3d(0,0,0) scale(1)', borderRadius: targetRadius },
         ], { duration: coverDuration }))
       }
 

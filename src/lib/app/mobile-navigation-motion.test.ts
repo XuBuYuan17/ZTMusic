@@ -22,7 +22,7 @@ assert.equal(mobilePageFrames('push', true, true)[0].transform, 'none')
 assert.equal(mobilePageFrames('push', true, true, true)[0].clipPath, 'inset(0 0 0 0 round 0px)')
 assert.equal(mobilePageFrames('push', true, true, true)[0].opacity, 0, 'missing source geometry falls back to a safe page entrance')
 assert.equal(mobilePageFrames('push', true, true, true)[0].transform, 'translate3d(0,12px,0)')
-assert.equal(mobilePageFrames('push', true, true, true, 'inset(10px 20px 30px 40px round 16px)')[0].clipPath, 'inset(10px 20px 30px 40px round 16px)')
+assert.equal(mobilePageFrames('push', true, true, true, 'inset(10px 20px 30px 40px round 16px)')[0].clipPath, 'inset(0 0 0 0 round 0px)')
 assert.equal(mobilePageFrames('push', false, true, true)[1].transform, 'none', 'source page remains still below the detail reveal')
 
 const sourceClip = 'inset(40px 180px 460px 20px round 16px)'
@@ -30,9 +30,9 @@ const returnIncoming = mobilePageFrames('pop', true, false, true, sourceClip)
 const returnOutgoing = mobilePageFrames('pop', false, false, true, sourceClip)
 assert.equal(returnIncoming[0].transform, 'none', 'restored source page stays still during shared-element return')
 assert.equal(returnIncoming.at(-1)?.clipPath, 'inset(0 0 0 0 round 0px)', 'source page remains fully visible below the closing detail')
-assert.equal(returnOutgoing.at(-1)?.clipPath, sourceClip, 'detail surface closes into the exact source cover rectangle')
-assert.equal(returnOutgoing.at(-1)?.opacity, 1, 'detail stays opaque until it lands on the real source cover')
-assert.equal(returnOutgoing.at(-1)?.transform, 'none', 'shared return uses clipping rather than distorting the page')
+assert.equal(returnOutgoing.at(-1)?.clipPath, 'inset(0 0 0 0 round 0px)', 'page content no longer compresses into the artwork')
+assert.equal(returnOutgoing.at(-1)?.opacity, 0, 'detail content fades while the cover independently returns')
+assert.equal(returnOutgoing.at(-1)?.transform, 'translate3d(0,12px,0)')
 
 const missingSourceReturn = mobilePageFrames('pop', false, false, true)
 assert.equal(missingSourceReturn.at(-1)?.opacity, 0, 'missing source geometry falls back to a safe page dismissal')
@@ -45,7 +45,7 @@ const node = { animate(frames: Keyframe[], options: KeyframeAnimationOptions) {
   const finished = new Promise<void>(resolve => { entry.resolve = resolve })
   pending.push(entry)
   return { finished, cancel() { entry.cancelled = true; entry.resolve() } }
-}, querySelectorAll() { return [] }, getBoundingClientRect() { return { left: 20, top: 80, right: 320, bottom: 680, width: 300, height: 600 } } } as unknown as HTMLElement
+}, querySelector() { return null }, querySelectorAll() { return [] }, getBoundingClientRect() { return { left: 20, top: 80, right: 320, bottom: 680, width: 300, height: 600 } } } as unknown as HTMLElement
 const motion = createMobileNavigationMotion()
 let stale = 0
 let completed = 0
@@ -87,7 +87,7 @@ assert.equal(pending[5]!.duration, mobileMotion.dismiss, 'detail page uses the s
 assert.equal(pending[4]!.easing, mobileMotion.shared)
 assert.equal(pending[5]!.easing, mobileMotion.shared)
 assert.equal(pending[4]!.frames.at(-1)?.clipPath, 'inset(0 0 0 0 round 0px)', 'destination remains a stable full page')
-assert.equal(pending[5]!.frames.at(-1)?.clipPath, sourceClip, 'runtime geometry closes detail into the live source card')
+assert.equal(pending[5]!.frames.at(-1)?.opacity, 0, 'detail content fades behind the returning shared cover')
 pending[4]!.resolve()
 pending[5]!.resolve()
 await setImmediate()

@@ -15,17 +15,24 @@ assert.equal(finishPlayerDrag(.8, -.8, 500, true), false, 'pointer cancellation 
 let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
 const calls = []
-const element = (rect) => ({
-  style: { cssText: '' }, isConnected: true, rect,
-  getBoundingClientRect() { return this.rect },
-  getAnimations() { return [] },
-  animate(frames, options) {
-    let finish
-    const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true } }
-    calls.push({ node: this, frames, options, animation, finish })
-    return animation
-  },
-})
+const element = (rect) => {
+  const node = {
+    style: { cssText: '' }, isConnected: true, rect,
+    getBoundingClientRect() { return this.rect },
+    getAnimations() { return [] },
+    removeAttribute() {},
+    setAttribute() {},
+    remove() { this.removed = true },
+    cloneNode() { return element({ ...this.rect }) },
+    animate(frames, options) {
+      let finish
+      const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true } }
+      calls.push({ node: this, frames, options, animation, finish })
+      return animation
+    },
+  }
+  return node
+}
 const lyric = miniLyricMotion(element(), { text: '第一行', lyric: true, song: 1 })
 lyric.update({ text: '第一行', lyric: true, song: 1 })
 assert.equal(calls.length, 0, 'playback ticks do not replay the same line')
@@ -54,23 +61,16 @@ const cover = element(large), title = element({ left: 24, top: 470, width: 300, 
 let mode = false
 const root = { isConnected: true, classList: { contains: () => mode }, querySelector: selector => selector.includes('cover') ? cover : selector.includes('info') ? title : lyrics }
 globalThis.getComputedStyle = () => ({ borderRadius: '12px' })
+globalThis.document = { body: { append() {} } }
 const controller = createMobilePlayerMotion()
 const change = () => { mode = !mode; cover.rect = mode ? small : large }
 calls.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
-assert.deepEqual(
-  { left: calls[0].frames[0].left, top: calls[0].frames[0].top, width: calls[0].frames[0].width, height: calls[0].frames[0].height },
-  { left: '24px', top: '150px', width: '300px', height: '300px' },
-  'cover starts at its exact previous geometry',
-)
-assert.deepEqual(
-  { left: calls[0].frames[1].left, top: calls[0].frames[1].top, width: calls[0].frames[1].width, height: calls[0].frames[1].height },
-  { left: '24px', top: '64px', width: '48px', height: '48px' },
-  'cover lands on the exact layout geometry',
-)
-assert.equal(calls[0].frames[0].transform, 'none')
-assert.equal(calls[0].frames[1].transform, 'none', 'player/lyrics morph never uses a scale transform')
+assert.notEqual(calls[0].node, cover, 'the real cover stays at its final layout geometry')
+assert.match(calls[0].frames[0].transform, /translate3d\(0px,86px,0\) scale\(6.25\)/, 'GPU overlay starts at the previous cover geometry')
+assert.equal(calls[0].frames[1].transform, 'translate3d(0,0,0) scale(1)')
+assert.equal(cover.style.opacity, '0', 'the real cover is hidden only while its overlay is moving')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
 assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover snaps into lyrics mode without a half-second drift')
 assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')
@@ -105,7 +105,8 @@ let frame
 const sourceImage = { complete: true, naturalWidth: 100, src: 'cover.jpg', dataset: {}, getBoundingClientRect: () => small }
 const event = { target: { closest: selector => selector.startsWith('.library') ? null : { querySelector: () => sourceImage } } }
 const target = element(large)
-globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null }
+const clone = { ...element(), setAttribute() {}, remove() {} }
+globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null, createElement: () => clone, body: { append() {} } }
 globalThis.requestAnimationFrame = callback => { frame = callback; return 1 }
 globalThis.cancelAnimationFrame = () => { frame = null }
 globalThis.HTMLImageElement = class {}
@@ -113,11 +114,13 @@ rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), true, 'mobile clicks remember the card cover')
 assert.equal(sourceImage.dataset.sharedCoverReturn, 'true', 'shared cover keeps a return marker for reverse navigation')
 const beforeFlightCalls = calls.length
-flyCover(target)
-assert.equal(hasCoverOrigin(), false, 'the route surface consumes its card origin')
-assert.equal(target.style.opacity, undefined, 'mobile detail does not hide its real cover for a second animation')
-assert.equal(frame, undefined, 'mobile detail skips the competing floating-cover phase')
-assert.equal(calls.length, beforeFlightCalls)
+const flight = flyCover(target)
+frame()
+assert.equal(hasCoverOrigin(), false, 'the shared cover flight consumes its card origin')
+assert.equal(target.style.opacity, '0')
+assert.match(calls.at(-1).frames[0].transform, /translate3d\([^)]*\) scale\(0.16, 0.16\)/)
+assert.equal(calls.length, beforeFlightCalls + 1)
+flight.destroy()
 reduce = true
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), false, 'reduced motion does not record cover origins')

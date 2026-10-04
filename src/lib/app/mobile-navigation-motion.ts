@@ -47,39 +47,14 @@ export function mobilePageFrames(
 ): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
-    const clippedSurface = surfaceClip
-      ? { opacity: 1, transform: 'none', clipPath: surfaceClip }
-      : null
-
     if (kind === 'pop') {
-      if (clippedSurface) {
-        return entering
-          ? [fullSurface, fullSurface]
-          : [fullSurface, clippedSurface]
-      }
-
-      if (entering) {
-        return [
-          { opacity: .84, transform: 'translate3d(-10px,0,0) scale(.985)', clipPath: 'inset(0 0 0 0 round 0px)' },
-          fullSurface,
-        ]
-      }
-      return [
-        fullSurface,
-        { opacity: .96, transform: 'translate3d(18px,0,0) scale(.997)', clipPath: 'inset(0 0 0 0 round 0px)', offset: .48 },
-        { opacity: 0, transform: 'translate3d(44px,0,0) scale(.992)', clipPath: 'inset(0 0 0 0 round 0px)' },
-      ]
-    }
-
-    if (clippedSurface) {
       return entering
-        ? [clippedSurface, fullSurface]
-        : [fullSurface, fullSurface]
+        ? [{ opacity: .92, transform: 'translate3d(0,-4px,0)', clipPath: fullSurface.clipPath }, fullSurface]
+        : [fullSurface, { opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }]
     }
-
     return entering
       ? [{ opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }, fullSurface]
-      : [fullSurface, fullSurface]
+      : [fullSurface, { opacity: .96, transform: 'none', clipPath: fullSurface.clipPath }]
   }
 
   if (kind === 'tab') {
@@ -279,6 +254,7 @@ export function createMobileNavigationMotion() {
   let generation = 0
   const animations = new Set<Animation>()
   let dismissCleanup: ((preserve?: boolean) => void) | null = null
+  let sharedCleanup: (() => void) | null = null
   let skipNextInteractivePop = false
 
   function cancel() {
@@ -287,6 +263,8 @@ export function createMobileNavigationMotion() {
     animations.clear()
     dismissCleanup?.(skipNextInteractivePop)
     dismissCleanup = null
+    sharedCleanup?.()
+    sharedCleanup = null
   }
 
   return {
@@ -322,6 +300,39 @@ export function createMobileNavigationMotion() {
         ? { rect: copyRect(sourceRect), radius: sourceRadius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
         : null
 
+      const sharedPending: Promise<unknown>[] = []
+      if (surface && kind === 'pop' && source && outgoing) {
+        const heroCover = outgoing.querySelector<HTMLElement>('.playlist-cover')
+        const from = heroCover?.getBoundingClientRect()
+        if (heroCover && from?.width && sourceRect?.width) {
+          const clone = heroCover.cloneNode(true) as HTMLElement
+          clone.removeAttribute('id')
+          clone.setAttribute('aria-hidden', 'true')
+          const sourceOpacity = source.style.opacity
+          const heroOpacity = heroCover.style.opacity
+          const scale = Math.min(from.width / sourceRect.width, from.height / sourceRect.height)
+          Object.assign(clone.style, {
+            position: 'fixed', inset: 'auto', left: `${sourceRect.left}px`, top: `${sourceRect.top}px`,
+            width: `${sourceRect.width}px`, height: `${sourceRect.height}px`, margin: '0',
+            pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform', zIndex: '60',
+          })
+          source.style.opacity = '0'
+          heroCover.style.opacity = '0'
+          document.body.append(clone)
+          const flight = clone.animate([
+            { transform: `translate3d(${from.left - sourceRect.left}px,${from.top - sourceRect.top}px,0) scale(${scale})`, borderRadius: getComputedStyle(heroCover).borderRadius },
+            { transform: 'translate3d(0,0,0) scale(1)', borderRadius: sourceRadius },
+          ], { duration, easing: mobileMotion.shared })
+          animations.add(flight)
+          sharedCleanup = () => {
+            source.style.opacity = sourceOpacity
+            heroCover.style.opacity = heroOpacity
+            clone.remove()
+          }
+          sharedPending.push(flight.finished.catch(() => {}))
+        }
+      }
+
       const pending = [incoming, outgoing].filter((node): node is HTMLElement => !!node).map((node, index) => {
         const entering = index === 0
         const clip = entering ? incomingClip : outgoingClip
@@ -333,10 +344,12 @@ export function createMobileNavigationMotion() {
         return animation.finished.catch(() => {})
       })
 
-      Promise.all(pending).then(() => {
+      Promise.all([...pending, ...sharedPending]).then(() => {
         if (current !== generation) return
         animations.forEach(animation => animation.cancel())
         animations.clear()
+        sharedCleanup?.()
+        sharedCleanup = null
         if (surface && kind === 'pop') clearSharedCoverReturn()
         if (returnGeometry) {
           dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, async () => {

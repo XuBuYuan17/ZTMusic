@@ -114,12 +114,6 @@ export function rememberCardOrigin(event: Event) {
 export function flyCover(target: HTMLElement) {
   const origin = freshOrigin()
   if (!origin) return {}
-  // Mobile navigation already morphs the whole detail surface from this source.
-  // Skipping the floating clone prevents two shared-element animations from racing.
-  if (document.documentElement.classList.contains('mobile-runtime')) {
-    if (coverOrigin === origin) coverOrigin = null
-    return {}
-  }
   target.style.opacity = '0'
   const clone = document.createElement('img')
   clone.className = 'shared-cover-flight'
@@ -146,9 +140,9 @@ export function flyCover(target: HTMLElement) {
     const targetRadius = getComputedStyle(target).borderRadius
     const mobile = document.documentElement.classList.contains('mobile-runtime')
     animation = clone.animate([
-      { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
-      { transform: 'none', borderRadius: targetRadius },
-    ], { duration: mobile ? 420 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.2,0,0,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
+      { transform: `translate3d(${from.left - to.left}px, ${from.top - to.top}px, 0) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
+      { transform: 'translate3d(0,0,0) scale(1)', borderRadius: targetRadius },
+    ], { duration: mobile ? 520 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.16,1,.3,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
     animation.finished.then(() => {
       // 真封面未解码完时稍等，避免落位瞬间闪空
       const img = target instanceof HTMLImageElement ? target : null
@@ -195,7 +189,8 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
         branch = branch.parentElement
       }
     }
-    ;(items()[0] || node).focus({ preventScroll: true })
+    const initialFocus = mobile && node.matches('.ly-context-detail--mobile') ? node : items()[0] || node
+    initialFocus.focus({ preventScroll: true })
   })
   function key(event: KeyboardEvent) {
     if (layers.at(-1) !== node) return
