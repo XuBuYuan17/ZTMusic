@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
-import { createMobileNavigationMotion, mobileNavigationKind, mobilePageFrames, mobileMotion } from './mobile-navigation-motion.ts'
+import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, playlistDismissProgress } from './mobile-navigation-motion.ts'
 
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
 assert.equal(mobileNavigationKind('forward', true), 'tab')
+assert.equal(playlistDismissProgress(100, 400), .25)
+assert.equal(playlistDismissProgress(-20, 400), 0)
+assert.equal(playlistDismissProgress(500, 400), 1)
+assert.equal(playlistDismissProgress(100, 0), 0)
+assert.equal(finishPlaylistDismiss(.24, .2, 96), false, 'short slow pulls spring back')
+assert.equal(finishPlaylistDismiss(.25, .2, 100), true, 'quarter travel completes dismissal')
+assert.equal(finishPlaylistDismiss(.1, .6, 70), true, 'a deliberate downward flick completes')
+assert.equal(finishPlaylistDismiss(.1, .6, 20), false, 'tiny flicks do not dismiss')
+assert.equal(finishPlaylistDismiss(.8, .8, 500, true), false, 'pointer cancellation always springs back')
 assert.equal(mobilePageFrames('tab', true)[0].transform, 'translate3d(14px,0,0)', 'tab pages use a small directional entrance')
 assert.equal(mobilePageFrames('push', true)[0].transform, 'translate3d(24px,0,0)')
 assert.equal(mobilePageFrames('pop', false)[1].transform, 'translate3d(24px,0,0)')
@@ -86,4 +95,4 @@ assert.equal(markerRemoved, true, 'return marker is cleared only after the detai
 assert.equal(pending.length, 6, 'playlist back uses the two page layers without a separate floating-cover phase')
 
 motion.cancel()
-console.log('Mobile navigation: reversible playlist surface, direction, timings, interruption and reduced motion passed')
+console.log('Mobile navigation: reversible playlist surface, swipe dismissal thresholds, interruption and reduced motion passed')
