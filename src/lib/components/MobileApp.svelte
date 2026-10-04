@@ -10,7 +10,7 @@
 
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
-  import SettingsPage from '../pages/pc/Settings.svelte'
+  import SettingsPage from '../pages/mobile/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
   import RecentPage from '../pages/pc/Recent.svelte'
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
