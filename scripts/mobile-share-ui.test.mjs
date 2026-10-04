@@ -32,5 +32,8 @@ assert.match(paths, /<cache-path name="zt-share" path="zt-share\/" \/>/)
 assert.match(secondary, /grid-template-columns: 38px minmax\(0, 1fr\) auto/)
 assert.match(secondary, /margin: 7px 0 0 48px/)
 assert.match(secondary, /line-height: 1\.55/)
+assert.match(secondary, /\.ly-context-comments\) \{[\s\S]*height: 100%/, 'comments own the secondary sheet height')
+assert.match(secondary, /\.ly-context-comments \.ly-context-comment-list\) \{[\s\S]*flex: 1 1 auto/, 'comment list scrolls inside the remaining space')
+assert.match(secondary, /\.ly-context-comment-form\) \{[\s\S]*flex: 0 0 auto/, 'composer stays visible above the bottom safe area')
 
 console.log('Mobile share poster, Android native share bridge and compact hot comments are guarded')
