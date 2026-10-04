@@ -54,7 +54,7 @@
 
   let commentDraft = $state('')
   let commentComposerOpen = $state(false)
-  let commentInput: HTMLTextAreaElement | null = null
+  let commentInput = $state<HTMLTextAreaElement | null>(null)
   let commentSending = $state(false)
   let commentError = $state('')
 
