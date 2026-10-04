@@ -8,11 +8,15 @@
     <meta name="referrer" content="no-referrer" />
     <title>哲听</title>
     <style>
+      html,
+      body,
+      #app {
+        min-height: 100%;
+      }
+
       body {
         margin: 0;
         background: #0a0a0a;
-        /* 与 app.css 的 --font 保持一致，避免开屏到应用的字体跳变。
-           此处不能用 var(--font)：app.css 尚未加载。改这里请同步改 app.css。 */
         font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
         user-select: none;
         -webkit-font-smoothing: antialiased;
@@ -22,413 +26,70 @@
       @media (max-width: 600px) {
         html:not(.mobile-runtime) body { overflow-x: hidden; }
       }
-
-      /* ── 开屏：ZTmusic 唱片声波 ── */
-      #splash {
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        background:
-          radial-gradient(circle at 50% 48%, rgba(255, 49, 64, 0.14), transparent 32%),
-          radial-gradient(circle at 50% 54%, #202023 0%, #0a0a0a 66%);
-        opacity: 1;
-        animation: splash-bg-fade-in 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-        transition: opacity 180ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        -webkit-tap-highlight-color: transparent;
-      }
-      #splash.splash-hide {
-        opacity: 0 !important;
-        pointer-events: none;
-        animation: none;
-      }
-
-      @keyframes splash-bg-fade-in {
-        0% { opacity: 0; }
-        100% { opacity: 1; }
-      }
-
-      .splash-glow {
-        position: absolute;
-        width: clamp(220px, 42vw, 520px);
-        height: clamp(220px, 42vw, 520px);
-        border-radius: 50%;
-        background:
-          conic-gradient(from 110deg, transparent 0 16%, rgba(255, 49, 64, .22) 24%, transparent 34% 72%, rgba(255,255,255,.08) 80%, transparent 88%),
-          radial-gradient(circle, rgba(255,255,255,.05) 0 18%, transparent 19%),
-          radial-gradient(circle, rgba(255, 49, 64, 0.08) 0%, transparent 68%);
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-        opacity: 0;
-        animation: splash-disc-in 620ms cubic-bezier(.22, 1, .36, 1) 40ms both, splash-disc-spin 2.8s linear 660ms infinite;
-      }
-
-      .splash-glow::before,
-      .splash-glow::after {
-        content: "";
-        position: absolute;
-        inset: 18%;
-        border: 1px solid rgba(255,255,255,.08);
-        border-radius: 50%;
-      }
-
-      .splash-glow::after {
-        inset: 42%;
-        background: radial-gradient(circle, #f4f4f5 0 12%, #ff3140 13% 32%, #111 34%);
-        border: 0;
-        box-shadow: 0 0 34px rgba(255, 49, 64, .22);
-      }
-
-      @keyframes splash-disc-in {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(.82) rotate(-22deg); filter: blur(10px); }
-        100% { opacity: .95; transform: translate(-50%, -50%) scale(1) rotate(0); filter: blur(0); }
-      }
-
-      @keyframes splash-disc-spin {
-        to { transform: translate(-50%, -50%) rotate(360deg); }
-      }
-
-      .splash-top-line {
-        position: absolute;
-        top: clamp(32px, 6vh, 60px);
-        left: 50%;
-        transform: translateX(-50%);
-        width: clamp(52px, 8vw, 104px);
-        height: 1px;
-        background: linear-gradient(to right, transparent, rgba(255, 49, 64, .65), rgba(255,255,255,.3), transparent);
-        opacity: 0;
-        animation: splash-line-in 280ms ease-out 100ms forwards;
-      }
-
-      @keyframes splash-line-in {
-        0% { opacity: 0; width: 0; }
-        100% { opacity: 1; width: clamp(40px, 6vw, 80px); }
-      }
-
-      .splash-hero {
-        position: relative;
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        flex-direction: column;
-        align-items: center;
-        gap: 7px;
-        transform: translateY(8px) scale(.98);
-        opacity: 0;
-        animation: splash-hero-entry 520ms cubic-bezier(.22, 1, .36, 1) 120ms forwards;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      @keyframes splash-hero-entry {
-        0% { transform: translateY(8px) scale(.98); opacity: 0; filter: blur(8px); }
-        100% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
-      }
-
-      .splash-zt {
-        position: relative;
-        display: inline-block;
-      }
-
-      .splash-zt-base,
-      .splash-zt-mask {
-        font-size: clamp(58px, 15vw, 132px);
-        font-weight: 900;
-        letter-spacing: 0;
-        line-height: 1;
-        display: block;
-      }
-
-      .splash-zt-base {
-        color: rgba(244, 244, 245, .92);
-        position: relative;
-        z-index: 1;
-        text-shadow: 0 2px 40px rgba(0, 0, 0, 0.6);
-      }
-
-      .splash-zt-mask {
-        color: #ff3140;
-        position: absolute;
-        top: 0;
-        left: 0;
-        z-index: 2;
-        -webkit-mask-image: radial-gradient(ellipse 35% 90% at center, #000 0%, #000 45%, transparent 70%, transparent 100%);
-        -webkit-mask-size: 32% 100%;
-        -webkit-mask-position: -32% 0;
-        -webkit-mask-repeat: no-repeat;
-        mask-image: radial-gradient(ellipse 35% 90% at center, #000 0%, #000 45%, transparent 70%, transparent 100%);
-        mask-size: 32% 100%;
-        mask-position: -32% 0;
-        mask-repeat: no-repeat;
-        animation: splash-arc-sweep 420ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 60ms forwards;
-      }
-
-      @keyframes splash-arc-sweep {
-        0% {
-          -webkit-mask-position: -32% 0;
-          mask-position: -32% 0;
-        }
-        70% {
-          -webkit-mask-position: 70% 0;
-          mask-position: 70% 0;
-        }
-        100% {
-          -webkit-mask-position: 100% 0;
-          mask-position: 100% 0;
-        }
-      }
-
-      .splash-zt-mask.revealed {
-        -webkit-mask-image: none !important;
-        mask-image: none !important;
-        -webkit-mask-size: auto !important;
-        mask-size: auto !important;
-        -webkit-mask-position: 0 0 !important;
-        mask-position: 0 0 !important;
-        animation: none !important;
-      }
-
-      .splash-music {
-        font-size: clamp(13px, 2.2vw, 19px);
-        font-weight: 700;
-        letter-spacing: 0;
-        color: rgba(244,244,245,.72);
-        margin-left: 0;
-        margin-bottom: 0;
-        opacity: 0;
-        transform: translateY(6px) scale(.98);
-        animation: splash-music-in 300ms cubic-bezier(.22, 1, .36, 1) 280ms forwards;
-        text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5);
-      }
-
-      @keyframes splash-music-in {
-        0% { opacity: 0; transform: translateY(6px); }
-        100% { opacity: 1; transform: translateY(0) scale(1); }
-      }
-
-      .splash-wave {
-        display: flex;
-        align-items: end;
-        justify-content: center;
-        gap: 4px;
-        height: 28px;
-        margin-top: 20px;
-        opacity: 0;
-        animation: splash-footer-in 260ms cubic-bezier(.22, 1, .36, 1) 360ms forwards;
-      }
-
-      .splash-wave span {
-        width: 3px;
-        height: 8px;
-        border-radius: 3px;
-        background: rgba(255,255,255,.5);
-        animation: splash-wave-bar .82s ease-in-out infinite;
-      }
-
-      .splash-wave span:nth-child(2) { animation-delay: .08s; }
-      .splash-wave span:nth-child(3) { animation-delay: .16s; }
-      .splash-wave span:nth-child(4) { animation-delay: .24s; }
-      .splash-wave span:nth-child(5) { animation-delay: .32s; }
-
-      @keyframes splash-wave-bar {
-        0%, 100% { height: 8px; background: rgba(255,255,255,.38); }
-        50% { height: 25px; background: #ff3140; }
-      }
-
-      .splash-footer {
-        position: absolute;
-        bottom: clamp(36px, 8vh, 72px);
-        left: 0;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        opacity: 0;
-        animation: splash-footer-in 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 150ms forwards;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      @keyframes splash-footer-in {
-        0% { opacity: 0; transform: translateY(8px); }
-        100% { opacity: 1; transform: translateY(0); }
-      }
-
-      .splash-footer-label {
-        font-size: clamp(12px, 1.8vw, 15px);
-        font-weight: 600;
-        letter-spacing: 0;
-        color: rgba(244,244,245,.46);
-        margin-right: 0;
-      }
-
-      .splash-dots {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-      }
-
-      .splash-dots span {
-        display: inline-block;
-        width: clamp(5px, 0.7vw, 8px);
-        height: clamp(5px, 0.7vw, 8px);
-        border-radius: 50%;
-        background: #7A7A80;
-        opacity: 0.3;
-        animation: splash-dot-pulse 1.2s ease-in-out infinite;
-      }
-
-      .splash-dots span:nth-child(1) { animation-delay: 0s; }
-      .splash-dots span:nth-child(2) { animation-delay: 0.3s; }
-      .splash-dots span:nth-child(3) { animation-delay: 0.6s; }
-
-      @keyframes splash-dot-pulse {
-        0%, 100% { opacity: 0.25; transform: scale(0.85); }
-        50% { opacity: 1; transform: scale(1.15); }
-      }
-
-      @media (max-width: 480px) {
-        .splash-zt-base,
-        .splash-zt-mask {
-          font-size: clamp(56px, 18vw, 80px);
-        }
-        .splash-footer {
-          bottom: clamp(24px, 5vh, 40px);
-        }
-      }
-
-      @media (min-width: 768px) and (max-width: 1024px) {
-        .splash-zt-base,
-        .splash-zt-mask {
-          font-size: clamp(100px, 16vw, 140px);
-        }
-      }
-
-      @supports not ((-webkit-mask-image: none) or (mask-image: none)) {
-        .splash-zt-mask {
-          color: #D42C2C;
-          opacity: 0;
-          animation: splash-fallback-fade 300ms ease-in 80ms forwards;
-        }
-        @keyframes splash-fallback-fade {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        #splash,
-        .splash-glow,
-        .splash-top-line,
-        .splash-hero,
-        .splash-zt-mask,
-        .splash-music,
-        .splash-footer,
-        .splash-wave,
-        .splash-dots span {
-          animation: none !important;
-        }
-        #splash { opacity: 1; }
-        .splash-hero,
-        .splash-music,
-        .splash-wave,
-        .splash-footer { opacity: 1; transform: none; }
-        .splash-zt-mask {
-          -webkit-mask-image: none;
-          mask-image: none;
-        }
-      }
     </style>
     <script>
-      // 同步判定移动端，提前设置 class，避免样式闪烁
-      if (window.innerWidth <= 600 || window.location.search.includes('mobile')) {
-        document.documentElement.classList.add('mobile-runtime')
-      }
+      ;(function () {
+        // 在模块和完整 CSS 之前同步设置移动布局与上次主题，避免首帧白闪/错布局。
+        if (window.innerWidth <= 600 || window.location.search.includes('mobile')) {
+          document.documentElement.classList.add('mobile-runtime')
+        }
+        try {
+          var theme = localStorage.getItem('zheting-theme')
+          if (theme === 'light' || theme === 'dark') {
+            var color = theme === 'light' ? '#e8e8ed' : '#0a0a0a'
+            document.documentElement.dataset.theme = theme
+            document.documentElement.style.colorScheme = theme
+            document.documentElement.style.backgroundColor = color
+            var themeMeta = document.querySelector('meta[name="theme-color"]')
+            if (themeMeta) themeMeta.setAttribute('content', color)
+            document.addEventListener('DOMContentLoaded', function () {
+              document.body.style.backgroundColor = color
+            }, { once: true })
+          }
+        } catch (_) {}
+      })()
     </script>
   </head>
   <body>
     <div id="app"></div>
-    <div id="splash">
-      <div class="splash-glow"></div>
-      <div class="splash-top-line"></div>
-      <div class="splash-hero">
-        <div class="splash-zt">
-          <span class="splash-zt-base">ZT</span>
-          <span class="splash-zt-mask" id="splashZtMask">ZT</span>
-        </div>
-        <span class="splash-music">ZTmusic</span>
-        <div class="splash-wave" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>
-      <div class="splash-footer">
-        <span class="splash-footer-label">少女祈祷中</span>
-        <span class="splash-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-      </div>
-    </div>
     <script>
-      (function () {
+      ;(function () {
         'use strict'
+        var startupPending = true
+
+        window.addEventListener('ztmusic:startup-ready', function () {
+          startupPending = false
+        }, { once: true })
+
+        function startupMessage(error) {
+          if (error && error.error) error = error.error
+          if (error && (error.stack || error.message)) return error.stack || error.message
+          if (error && error.target && error.target.src) return '无法加载：' + error.target.src
+          return String(error || '未知错误')
+        }
+
         function showStartupError(error) {
-          var splash = document.getElementById('splash')
+          if (!startupPending) return
+          startupPending = false
           var app = document.getElementById('app')
-          if (!splash || !app) return
-          splash.remove()
-          var panel = document.createElement('section')
-          panel.setAttribute('role', 'alert')
-          panel.style.cssText = 'padding:32px 20px;color:#f4f4f5;background:#0a0a0a;min-height:100vh;box-sizing:border-box'
-          var title = document.createElement('h2')
-          title.textContent = '哲听加载失败'
-          var detail = document.createElement('pre')
-          detail.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;color:#ffb4ab;font-size:14px;line-height:1.5;user-select:text'
-          detail.textContent = error && error.message
-            ? (error.name || 'Error') + ': ' + error.message + (error.stack ? '\n\n' + error.stack : '')
-            : String(error)
-          var retry = document.createElement('button')
-          retry.textContent = '重新加载'
-          retry.style.cssText = 'min-height:48px;padding:0 24px;margin-top:16px;border:0;border-radius:var(--radius-lg)'
-          retry.onclick = function () { window.location.reload() }
-          panel.append(title, detail, retry)
+          if (!app) return
           app.textContent = ''
+          var panel = document.createElement('pre')
+          panel.setAttribute('role', 'alert')
+          panel.style.cssText = 'box-sizing:border-box;max-width:760px;margin:12vh auto;padding:18px;white-space:pre-wrap;word-break:break-word;color:#fff;background:#2a0d10;border:1px solid rgba(255,49,64,.45);border-radius:12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;'
+          panel.textContent = '哲听启动失败\n\n' + startupMessage(error)
           app.appendChild(panel)
         }
-        window.addEventListener('ztmusic:startup-error', function (event) { showStartupError(event.detail) })
-        window.addEventListener('unhandledrejection', function (event) { showStartupError(event.reason) })
+
         window.addEventListener('error', function (event) {
-          if (event.message) showStartupError(event.error || event.message + '\n' + (event.filename || ''))
-          else if (event.target && event.target.tagName === 'SCRIPT') showStartupError('启动脚本加载失败：' + event.target.src)
-        }, true)
-        var ztMask = document.getElementById('splashZtMask')
-        if (!ztMask) return
-
-        function revealRed() {
-          ztMask.classList.add('revealed')
-        }
-
-        ztMask.addEventListener('animationend', function handler(e) {
-          if (e.animationName === 'splash-arc-sweep') {
-            revealRed()
-            ztMask.removeEventListener('animationend', handler)
-          }
+          showStartupError(event)
         })
-
-        // 光弧在短开屏周期内完成；兜底避免 animationend 未触发
-        setTimeout(function () {
-          if (!ztMask.classList.contains('revealed')) revealRed()
-        }, 620)
+        window.addEventListener('unhandledrejection', function (event) {
+          showStartupError(event.reason)
+        })
+        window.addEventListener('ztmusic:startup-error', function (event) {
+          showStartupError(event.detail)
+        })
       })()
     </script>
     <script type="module" src="/src/main.js"></script>
