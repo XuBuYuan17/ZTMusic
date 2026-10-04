@@ -28,7 +28,7 @@
 {#if show}
   <div class="sort-sheet-portal" use:portal>
     <button class="sort-sheet-backdrop" type="button" aria-label="关闭排序面板" onclick={onClose} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
-    <div class="sort-sheet" role="dialog" aria-modal="true" aria-label="歌曲排序" tabindex="-1" use:dialogFocus={onClose} in:mobileSheet={{ duration: 280 }} out:mobileSheet={{ duration: 240 }}>
+    <div class="sort-sheet" role="dialog" aria-modal="true" aria-label="歌曲排序" tabindex="-1" use:dialogFocus={onClose} in:mobileSheet out:mobileSheet>
       <button class="m-sheet-handle" type="button" aria-label="关闭排序面板" onclick={onClose} use:mobileDrag={{ close: onClose, panel: true }}></button>
       <header><h2>歌曲排序</h2><button class="sort-sheet-done" onclick={onClose}>完成</button></header>
       <div class="sort-sheet-body">
@@ -51,14 +51,14 @@
 <style>
   .sort-sheet-portal { display: contents; }
   :global(html.mobile-runtime) .sort-sheet-backdrop { position: fixed; inset: 0; z-index: 340; width: 100%; height: 100%; border: 0; border-radius: 0; background: rgb(0 0 0 / .4); }
-  :global(html.mobile-runtime) .sort-sheet { position: fixed; inset: auto 0 0; z-index: 350; display: flex; flex-direction: column; width: 100%; max-width: 760px; max-height: min(calc(var(--mobile-viewport-height, 100dvh) * .85), calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top)))); margin-inline: auto; padding: 0 16px calc(16px + env(safe-area-inset-bottom)); border: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--md-container-highest); color: var(--text); }
-  :global(html.mobile-runtime) .sort-sheet header { display: flex; align-items: center; justify-content: space-between; flex: none; }
+  :global(html.mobile-runtime) .sort-sheet { position: fixed; inset: auto 0 0; z-index: 350; display: flex; flex-direction: column; width: 100%; max-width: 760px; max-height: min(calc(var(--mobile-viewport-height, 100dvh) * .85), calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top)))); margin-inline: auto; padding: 0 12px calc(16px + env(safe-area-inset-bottom)); border: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--bg); color: var(--text); box-shadow: 0 -12px 40px rgb(0 0 0 / .14); }
+  :global(html.mobile-runtime) .sort-sheet header { display: flex; align-items: center; justify-content: space-between; flex: none; min-height: 60px; padding-left: 8px; border-bottom: 1px solid var(--border); }
   :global(html.mobile-runtime) .sort-sheet h2 { margin: 0; font-size: 20px; }
   :global(html.mobile-runtime) .sort-sheet button { min-height: 48px; border: 0; }
   :global(html.mobile-runtime) .sort-sheet-done { padding: 0 20px; border-radius: 999px; color: var(--md-primary); background: transparent; }
   :global(html.mobile-runtime) .sort-sheet-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-  :global(html.mobile-runtime) .sort-sheet-options { display: grid; gap: 4px; padding-block: 12px; }
-  :global(html.mobile-runtime) .sort-sheet-option { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-radius: var(--radius-xs); text-align: left; background: transparent; color: var(--text); }
+  :global(html.mobile-runtime) .sort-sheet-options { display: grid; gap: 4px; padding-block: 8px; }
+  :global(html.mobile-runtime) .sort-sheet-option { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 14px; border-radius: var(--radius-md); text-align: left; background: transparent; color: var(--text); }
   :global(html.mobile-runtime) .sort-sheet-direction { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   :global(html.mobile-runtime) .sort-sheet-direction button { border-radius: 999px; background: var(--md-container); color: var(--text); }
   :global(html.mobile-runtime) .sort-sheet .active { background: var(--md-primary-container); color: var(--text); }

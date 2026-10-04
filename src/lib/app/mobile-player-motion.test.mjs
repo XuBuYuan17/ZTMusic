@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
-import { miniLyricMotion, createMobilePlayerMotion } from './mobile-player-motion.ts'
+import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, mobilePlayerTiming, playerDragProgress, finishPlayerDrag } from './mobile-player-motion.ts'
 import { rememberCardOrigin, hasCoverOrigin, flyCover } from './desktop-motion.ts'
+
+assert.equal(playerDragProgress(700, 525, 700), .25)
+assert.equal(playerDragProgress(700, 750, 700), 0)
+assert.equal(playerDragProgress(700, -100, 700), 1)
+assert.equal(playerDragProgress(700, 525, 0), 0)
+assert.equal(finishPlayerDrag(.1, 0, 70), false, 'short slow pulls return to mini')
+assert.equal(finishPlayerDrag(.3, 0, 210), true)
+assert.equal(finishPlayerDrag(.1, -.8, 70), true, 'a deliberate upward flick completes')
+assert.equal(finishPlayerDrag(.1, -.8, 20), false, 'tiny movements do not open')
+assert.equal(finishPlayerDrag(.8, -.8, 500, true), false, 'pointer cancellation always returns')
 
 let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
@@ -36,6 +46,10 @@ assert.equal(calls.at(-1).animation.cancelled, true)
 
 const large = { left: 24, top: 150, width: 300, height: 300 }
 const small = { left: 24, top: 64, width: 48, height: 48 }
+const mini = { left: 20, top: 708, width: 44, height: 44 }
+assert.equal(sheetCoverTransform(large, mini, 700), 'translate(-4px, -142px) scale(0.14666666666666667, 0.14666666666666667)', 'opening compensates for the moving sheet so artwork starts at the mini player')
+assert.equal(sheetCoverTransform({ ...large, top: 270 }, mini, 580), sheetCoverTransform(large, mini, 700), 'a dragged sheet still closes to the same artwork position')
+assert.equal(sheetCoverTransform({ ...large, width: 0 }, mini), 'none', 'unmeasurable artwork never generates an infinite transform')
 const cover = element(large), title = element({ left: 24, top: 470, width: 300, height: 56 }), lyrics = element()
 let mode = false
 const root = { isConnected: true, classList: { contains: () => mode }, querySelector: selector => selector.includes('cover') ? cover : selector.includes('info') ? title : lyrics }
@@ -47,6 +61,7 @@ await controller.change(root, change)
 assert.equal(mode, true)
 assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
+assert.ok(calls.every(call => call.options.duration === mobilePlayerTiming.duration && call.options.easing === mobilePlayerTiming.easing), 'mode elements share one timing')
 const pending = [...calls]
 await controller.change(root, change)
 assert.equal(mode, false)
@@ -64,7 +79,8 @@ assert.equal(calls.length, count, 'unmount cancels a pending layout measurement'
 const first = controller.change(root, change)
 const second = controller.change(root, change)
 await Promise.all([first, second])
-assert.equal(calls.length, count + 2, 'two changes in one frame only animate the final mode')
+assert.equal(mode, false)
+assert.equal(calls.length, count + 4, 'two changes in one frame only animate the final mode, including controls and footer')
 controller.destroy()
 
 let frame, removed = false

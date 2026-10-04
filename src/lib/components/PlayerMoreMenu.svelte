@@ -40,11 +40,11 @@
 
 <div class="am-more-shell">
   <button class="am-more-btn" class:active={open} type="button" aria-label="更多操作" aria-expanded={open} onclick={() => onToggle?.()}>
-    <span class="am-more-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="am-more-dots" aria-hidden="true"><Icon name="more" size={24} /></span>
   </button>
   {#if open}
     <div class="am-more-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
-    <div class="am-more-menu" data-bottom-panel in:desktopPanel out:desktopPanel={{ duration: 240 }} use:dialogFocus={() => onClose?.()} tabindex="-1" role={$responsive.isMobile ? 'dialog' : 'menu'} aria-modal={$responsive.isMobile ? true : undefined} aria-label="更多操作菜单">
+    <div class="am-more-menu" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role={$responsive.isMobile ? 'dialog' : 'menu'} aria-modal={$responsive.isMobile ? true : undefined} aria-label="更多操作菜单">
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
       <header class="mobile-more-header"><h2>更多操作</h2><button type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button></header>
       <div class="am-more-body">
@@ -112,19 +112,10 @@
   }
 
   .am-more-dots {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
+    display: grid;
+    place-items: center;
   }
-
-  .am-more-dots span {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px rgba(255,255,255,0.14);
-  }
+  :global(html.mobile-runtime) .am-more-dots { rotate: 90deg; }
 
   .am-more-backdrop {
     position: fixed;

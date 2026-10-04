@@ -1,8 +1,14 @@
-import { expoOut } from 'svelte/easing'
+import { cubicIn } from 'svelte/easing'
 
 export type SwipeDirection = 'horizontal' | 'vertical' | null
 
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+export const mobileSheetTiming = { enter: 420, exit: 300, backdrop: 240 } as const
+
+function dampedOut(t: number): number {
+  const c = 0.55
+  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2)
+}
 
 export function createMobileSwipe(horizontal = false) {
   let start: { x: number; y: number } | null = null
@@ -73,7 +79,7 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
     if (result === 'dismiss') {
       dismissing = true
       if (options.panel && target && !reduced()) {
-        animation = target.animate([{ translate: from }, { translate: `0px ${target.getBoundingClientRect().height}px` }], { duration: 220, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })
+        animation = target.animate([{ translate: from }, { translate: `0px ${target.getBoundingClientRect().height}px` }], { duration: mobileSheetTiming.exit, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' })
         animation.finished.then(() => { if (target) target.dataset.sheetDismissed = 'true'; options.close() }).catch(() => {})
       } else options.close()
       return
@@ -82,7 +88,7 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
     if (result === 'next') options.next?.()
     if (result === 'previous') options.previous?.()
     if (target && moved && !reduced()) {
-      animation = target.animate([{ translate: from }, { translate: '0px 0px' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' })
+      animation = target.animate([{ translate: from }, { translate: '0px 0px' }], { duration: 360, easing: 'cubic-bezier(.22,.8,.2,1)' })
     }
   }
   function click(event: MouseEvent) { if (moved) { event.preventDefault(); event.stopImmediatePropagation(); moved = false } }
@@ -185,12 +191,12 @@ export function mobileViewport(_node: HTMLElement) {
  *
  * 行程为面板自身高度；拖动已完成退出时跳过补间，避免重复下落。
  */
-export function mobileSheet(node: HTMLElement, options: { duration?: number } = {}) {
+export function mobileSheet(node: HTMLElement, options: { duration?: number } = {}, context: { direction?: 'in' | 'out' | 'both' } = {}) {
   if (reduced() || !document.documentElement.classList.contains('mobile-runtime')) return { duration: 0 }
   if (node.dataset?.sheetDismissed === 'true') return { duration: 0 }
   return {
-    duration: options.duration ?? 280,
-    easing: expoOut,
+    duration: options.duration ?? (context.direction === 'out' ? mobileSheetTiming.exit : mobileSheetTiming.enter),
+    easing: context.direction === 'out' ? cubicIn : dampedOut,
     css: (t: number) => `translate: 0 ${(1 - t) * 100}%`,
   }
 }

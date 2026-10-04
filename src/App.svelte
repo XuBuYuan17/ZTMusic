@@ -43,6 +43,8 @@
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
 
+  let playerDrag = $state<import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag | null>(null)
+
   interface LyricsOrigin {
     x?: number
     y?: number
@@ -85,13 +87,14 @@
   })
   $effect(() => {
     if (!isMobile || !isTauriRuntime() || !/Android/i.test(runtimePlatform())) return
-    if (!mobileDialogOpen && !showMobileDrawer && !showSheet && !showQueuePanel && router.activeView === 'home') return
+    if (!mobileDialogOpen && !showMobileDrawer && !showSheet && !showQueuePanel && router.activeView === 'explore' && router.routeStack.length === 0) return
     return subscribeAndroidBack(() => {
       if (dismissTopDialog()) return
       if (showMobileDrawer) { closeMobileDrawer(); return }
       if (showSheet) { closeSheet(); return }
       if (showQueuePanel) { closeQueue(); return }
-      router.goBack()
+      if (router.routeStack.length) router.goBack()
+      else router.handleNav('explore')
     })
   })
   $effect(() => {
@@ -259,7 +262,8 @@
   })
 
   // ── UI 函数 ──
-  function openSheet(originEl?: Element | null): void {
+  function openSheet(originEl?: Element | null, drag?: import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag): void {
+    playerDrag = drag ?? null
     // 桌面走连续 morph 层；移动保持原有覆盖层链路
     if (!isMobile) { playerMorph.open(); return }
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.player-bar')
@@ -277,7 +281,7 @@
     } else lyricsOrigin = null
     showSheet = true
   }
-  function closeSheet(): void { showSheet = false }
+  function closeSheet(): void { showSheet = false; playerDrag = null }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
   function openMobileDrawer(trigger: HTMLButtonElement): void {
@@ -348,9 +352,7 @@
 
   <div class="main-area" inert={isMobile && showMobileDrawer}>
     {#if isMobile}
-      {#await loadMobileApp()}
-        <div class="loading-state" aria-busy="true" aria-label="正在加载移动端界面"></div>
-      {:then module}
+      {#await loadMobileApp() then module}
         <module.default
           activeView={router.activeView}
           {theme}
@@ -397,7 +399,7 @@
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}

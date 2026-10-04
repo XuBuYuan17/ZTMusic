@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { coverUrl } from '../utils/image.ts'
+  import { coverUrl, progressiveCover } from '../utils/image.ts'
   import { flyCover } from '../app/desktop-motion.ts'
   import { responsive } from '../utils/responsive.ts'
   import CoverPreview from './CoverPreview.svelte'
+  import { tick } from 'svelte'
+  import type { SongId } from '../types/music.ts'
+  import PlaylistActionSheet, { sharePlaylist, playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
   import Icon from './ui/Icon.svelte'
 
   interface HeroDetail {
+    id?: SongId
     name: string
     coverImgUrl?: string
     picUrl?: string
@@ -25,6 +29,9 @@
     onBack,
     onPlayAll,
     onShuffle,
+    onQueue,
+    onNext,
+    onTools,
   }: {
     detail?: HeroDetail | null
     loading?: boolean
@@ -37,10 +44,34 @@
     onBack?: () => void
     onPlayAll?: () => void
     onShuffle?: () => void
+    onQueue?: () => void
+    onNext?: () => void
+    onTools?: () => void
   } = $props()
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
   const creator = $derived(rec(detail?.creator))
+  let showMenu = $state(false)
+  let menuClosing = $state(false)
+  let pendingAction: (() => void) | null = null
+  function closeMenu(action: (() => void) | null = null) { pendingAction = action; menuClosing = true }
+  function finishMenu() { showMenu = false; const action = pendingAction; pendingAction = null; if (action) void tick().then(action) }
+  function heroActions(node: HTMLElement) {
+    const share = () => { if (!node.closest('[inert]') && detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }
+    const more = () => { if (!node.closest('[inert]')) { menuClosing = false; showMenu = true } }
+    node.addEventListener('playlist-share', share); node.addEventListener('playlist-more', more)
+    return { destroy() { node.removeEventListener('playlist-share', share); node.removeEventListener('playlist-more', more) } }
+  }
+  const menuActions = $derived<PlaylistAction[]>([
+    { label: '播放全部', icon: 'play', disabled: !visibleCount, onSelect: () => closeMenu(onPlayAll) },
+    ...(onShuffle ? [{ label: '随机播放', icon: 'shuffle-lg', disabled: !visibleCount, onSelect: () => closeMenu(onShuffle) }] : []),
+    ...(onQueue ? [{ label: '加入播放队列', icon: 'add', disabled: !visibleCount, onSelect: () => closeMenu(onQueue) }] : []),
+    ...(onNext ? [{ label: '下一首插播', icon: 'queue', disabled: !visibleCount, onSelect: () => closeMenu(onNext) }] : []),
+    { label: `分享${detailType}`, icon: 'share', disabled: detail?.id == null, onSelect: () => closeMenu(() => { if (detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }) },
+    ...(onTools ? [{ label: '搜索与排序', icon: 'search', onSelect: () => closeMenu(onTools) }] : []),
+    ...(detail?.description ? [{ label: `${detailType}简介`, icon: 'info', onSelect: () => closeMenu(() => descriptionExpanded = true) }] : []),
+  ])
+  const creatorName = $derived(typeof detail?.creator === 'string' ? detail.creator : typeof creator?.nickname === 'string' ? creator.nickname : typeof creator?.name === 'string' ? creator.name : '')
   let previewOpen = $state(false)
   let descriptionExpanded = $state(false)
   let coverFailed = $state(false)
@@ -74,15 +105,15 @@
     </div>
   </div>
 {:else}
-  <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
+  <div class="playlist-detail-hero" class:is-syncing={loading} use:heroActions style={`--playlist-hero-color:${heroColor}`}>
     {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${coverUrl(cover, 320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
     {#if cover && $responsive.isMobile}
       <button class="playlist-cover-open" type="button" aria-label={`查看${detail.name}的封面`} aria-haspopup="dialog" aria-expanded={previewOpen} onclick={event => { event.currentTarget.focus({ preventScroll: true }); previewOpen = true }}>
-        {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" src={coverUrl(cover, 320)} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
+        {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" use:progressiveCover={{ source: cover, size: 640 }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
       </button>
     {:else if cover}
-      <img class="playlist-cover" src={coverUrl(cover, 320)} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
+      <img class="playlist-cover" use:progressiveCover={{ source: cover, size: 320 }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
     {:else}
       <div class="playlist-cover playlist-cover--empty">
         <Icon name="music" size={42} strokeWidth={1.3} />
@@ -97,11 +128,12 @@
         <div class="playlist-kicker">{detailType}</div>
       </div>
       <h1>{detail.name}</h1>
+      <div class="playlist-mobile-creator">{creatorName}</div>
       <div class="playlist-meta">
         {#if creator?.avatarUrl}<img class="playlist-meta-avatar" src={coverUrl(creator.avatarUrl as string, 48)} alt="" referrerpolicy="no-referrer" />{/if}
-        {creator?.nickname ?? ''}{#if totalCount} · {totalCount} 首{:else if loading} · 正在加载歌曲{/if}{#if totalDuration} · {durationText(totalDuration)}{/if}{#if loadingMore} · 正在补全{/if}
+        {creatorName}{#if totalCount} · {totalCount} 首{:else if loading} · 正在加载歌曲{/if}{#if totalDuration} · {durationText(totalDuration)}{/if}{#if loadingMore} · 正在补全{/if}
       </div>
-      {#if detail.description}
+      {#if detail.description && (!$responsive.isMobile || descriptionExpanded)}
         {#if $responsive.isMobile}
           <div class="playlist-desc-wrap"><div class="playlist-desc" class:is-expanded={descriptionExpanded}>{detail.description}</div><button class="playlist-desc-toggle" type="button" aria-label={descriptionExpanded ? '收起简介' : '展开简介'} aria-expanded={descriptionExpanded} onclick={() => descriptionExpanded = !descriptionExpanded}>{descriptionExpanded ? '收起' : '展开'}<Icon name="chevron-down" size={16} /></button></div>
         {:else}
@@ -109,16 +141,17 @@
         {/if}
       {/if}
       <div class="playlist-hero-actions">
-        <button class="playlist-play-btn" onclick={() => onPlayAll?.()} disabled={!visibleCount}>
+        <button class="playlist-play-btn" aria-label="播放全部" onclick={() => onPlayAll?.()} disabled={!visibleCount}>
           <Icon name="play" size={17} fill="currentColor" />
-          播放全部
+          <span>{$responsive.isMobile ? '播放' : '播放全部'}</span>
         </button>
         {#if onShuffle}
-          <button class="playlist-shuffle-btn" onclick={onShuffle} disabled={!visibleCount}>
-            <Icon name="shuffle" size={16} />
-            随机播放
+          <button class="playlist-shuffle-btn" aria-label="随机播放" onclick={onShuffle} disabled={!visibleCount}>
+            <Icon name={$responsive.isMobile ? 'shuffle-lg' : 'shuffle'} size={$responsive.isMobile ? 24 : 16} />
+            <span>随机播放</span>
           </button>
         {/if}
+        {#if $responsive.isMobile}<button class="playlist-more-btn" type="button" aria-label={`${detailType}操作`} aria-haspopup="dialog" aria-expanded={showMenu} onclick={() => { menuClosing = false; showMenu = true }}><Icon name="more" size={24} /></button>{/if}
       </div>
     </div>
   </div>
@@ -126,7 +159,15 @@
 
 {#if previewOpen && detail}<CoverPreview src={coverUrl(cover, 1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
 
+{#if showMenu && detail && $responsive.isMobile}
+  <div class="library-options-portal" use:playlistPortal>
+  <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} actions={menuActions} label={`${detailType}操作`}
+    onPlay={visibleCount ? () => closeMenu(onPlayAll) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
+  </div>
+{/if}
+
 <style>
+  .playlist-mobile-creator { display: none; }
   .playlist-detail-hero {
     position: relative;
     display: grid;
@@ -315,28 +356,30 @@
     62%, 100% { transform: translateX(110%); }
   }
 
-  :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; padding: 12px 0; border: 0; border-radius: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--playlist-hero-color, var(--accent)) 7%, var(--md-surface)), transparent 92%); animation: none; overflow: visible; }
+  :global(html.mobile-runtime) .playlist-detail-hero { display: flex; flex-direction: column; align-items: center; gap: 18px; margin: 0; padding: 8px 0 16px; border: 0; border-radius: 0; background: transparent; animation: none; overflow: visible; }
   :global(html.mobile-runtime) .playlist-detail-hero::after { content: none; }
   :global(html.mobile-runtime) .playlist-back-btn { display: none; }
-  :global(html.mobile-runtime) .playlist-cover { grid-column: 1; grid-row: 1 / span 2; justify-self: start; width: 112px; height: 112px; aspect-ratio: 1; border-radius: var(--radius-sm); box-shadow: none; animation: none; transform: scale(calc(1 - var(--hero-p, 0) * .04)); }
-  :global(html.mobile-runtime) .playlist-cover-open { grid-column: 1; grid-row: 1 / span 2; width: 112px; height: 112px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; }
+  :global(html.mobile-runtime) .playlist-cover { width: min(64vw, 320px); height: auto; aspect-ratio: 1; border-radius: var(--radius-md); box-shadow: var(--shadow-md); animation: none; transform: none; }
+  :global(html.mobile-runtime) .playlist-cover-open { width: min(64vw, 320px); aspect-ratio: 1; height: auto; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; }
   :global(html.mobile-runtime) .playlist-cover-open .playlist-cover { display: grid; }
-  :global(html.mobile-runtime) .playlist-hero-copy { display: contents; }
-  :global(html.mobile-runtime) .playlist-detail-hero--loading .playlist-hero-copy { display: grid; min-width: 0; gap: 8px; padding: 0; }
+  :global(html.mobile-runtime) .playlist-hero-copy { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 0; animation: none; text-align: center; }
   :global(html.mobile-runtime) .playlist-hero-topline { display: none; }
-  :global(html.mobile-runtime) .playlist-kicker { font-size: 11px; color: var(--text-secondary); }
-  :global(html.mobile-runtime) .playlist-hero-copy h1 { grid-column: 2; grid-row: 1; align-self: end; min-width: 0; font-size: 22px; line-height: 1.3; overflow-wrap: anywhere; line-clamp: 2; -webkit-line-clamp: 2; }
-  :global(html.mobile-runtime) .playlist-meta { grid-column: 2; grid-row: 2; align-self: start; min-width: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; line-clamp: 3; -webkit-line-clamp: 3; overflow: hidden; }
-  :global(html.mobile-runtime) .playlist-desc { grid-column: 1 / -1; display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; }
-  :global(html.mobile-runtime) .playlist-desc-wrap { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: start; gap: 8px; min-width: 0; }
-  :global(html.mobile-runtime) .playlist-desc-wrap .playlist-desc { grid-column: 1; }
+  :global(html.mobile-runtime) .playlist-hero-copy h1 { min-width: 0; max-width: 100%; margin: 0; font-size: 24px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; line-clamp: 2; -webkit-line-clamp: 2; }
+  :global(html.mobile-runtime) .playlist-mobile-creator { display: block; max-width: 100%; font-size: 18px; line-height: 24px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :global(html.mobile-runtime) .playlist-meta { display: none; }
+  :global(html.mobile-runtime) .playlist-desc-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; width: 100%; min-width: 0; text-align: left; }
+  :global(html.mobile-runtime) .playlist-desc { font-size: 14px; }
   :global(html.mobile-runtime) .playlist-desc.is-expanded { display: block; overflow: visible; white-space: pre-line; }
-  :global(html.mobile-runtime) .playlist-desc-toggle { display: inline-flex; flex-direction: column; align-items: center; gap: 0; min-height: 48px; padding: 0; border: 0; border-radius: 999px; color: var(--md-primary); background: transparent; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-desc-toggle { min-width: 48px; min-height: 48px; border: 0; color: var(--md-primary); background: transparent; font-size: 13px; }
   :global(html.mobile-runtime) .playlist-desc-toggle[aria-expanded="true"] :global(svg) { transform: rotate(180deg); }
-  :global(html.mobile-runtime) .playlist-hero-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 0; }
-  :global(html.mobile-runtime) .playlist-play-btn, :global(html.mobile-runtime) .playlist-shuffle-btn { width: 100%; min-height: 48px; margin: 0; justify-content: center; padding: 0 8px; border-radius: 999px; font-size: 13px; }
-  :global(html.mobile-runtime) .playlist-play-btn { background: var(--md-primary); color: var(--md-on-primary); }
-  :global(html.mobile-runtime) .playlist-shuffle-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-elevated); color: var(--text); }
+  :global(html.mobile-runtime) .playlist-hero-actions { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 16px; width: 100%; margin-top: 12px; }
+  :global(html.mobile-runtime) .playlist-play-btn { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 12px; border-radius: 999px; font-size: 18px; background: var(--text); color: var(--bg); box-shadow: none; }
+  :global(html.mobile-runtime) .playlist-shuffle-btn, :global(html.mobile-runtime) .playlist-more-btn { display: grid; place-items: center; width: 48px; height: 48px; align-self: center; padding: 0; border: 0; border-radius: 999px; background: var(--bg-surface); color: var(--text); }
+  :global(html.mobile-runtime) .playlist-play-btn:hover:not(:disabled) { background: var(--text); filter: brightness(.95); }
+  :global(html.mobile-runtime) .playlist-shuffle-btn { grid-column: 1; grid-row: 1; }
+  :global(html.mobile-runtime) .playlist-shuffle-btn span { display: none; }
+  :global(html.mobile-runtime) .playlist-more-btn { grid-column: 3; grid-row: 1; }
+  :global(html.mobile-runtime) .playlist-more-btn :global(svg) { rotate: 90deg; }
 
   @media (max-width: 680px) {
     .playlist-detail-hero {
@@ -353,12 +396,6 @@
     .playlist-hero-copy h1 {
       font-size: 23px;
     }
-  }
-
-  @media (max-width: 359px) {
-    :global(html.mobile-runtime) .playlist-detail-hero { grid-template-columns: 96px minmax(0, 1fr); }
-    :global(html.mobile-runtime) .playlist-cover,
-    :global(html.mobile-runtime) .playlist-cover-open { width: 96px; height: 96px; }
   }
 
   @media (prefers-reduced-motion: reduce) {

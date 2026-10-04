@@ -448,10 +448,60 @@
   }
 
   @media (max-width: 760px) {
-    .plain-btn { padding-inline: 10px; }
-    .messages-toolbar { padding-inline: 8px; }
+    .messages-card {
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .messages-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      min-height: 49px;
+      padding: 0 0 8px;
+      background: var(--bg);
+      border-bottom-color: var(--border);
+    }
+
+    .filter-tabs { width: 100%; gap: 2px; }
+    .filter-tabs button {
+      flex: 1 0 auto;
+      justify-content: center;
+      min-height: 40px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+    .filter-tabs button.active { background: var(--md-primary-container); color: var(--md-primary); }
+    .filter-tabs button.active span { color: inherit; }
+    .plain-btn { min-height: 48px; padding-inline: 12px; }
     .message-summary { display: none; }
-    .message-item { padding-inline: 9px; }
+
+    .messages-list,
+    .messages-skeleton { overflow: visible; padding: 0; }
+    .message-item {
+      min-height: 72px;
+      padding: 10px 0;
+      gap: 12px;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+      contain-intrinsic-size: 72px;
+    }
+    .message-item + .message-item { margin-top: 0; }
+    .message-item:hover { border-color: var(--border); background: transparent; }
+    .message-item.unread { border-color: var(--border); background: transparent; }
+    .message-item.unread .msg-name { color: var(--md-primary); }
+    .msg-avatar { width: 48px; height: 48px; border-radius: var(--radius-sm); box-shadow: none; }
+    .msg-name { font-size: 15px; font-weight: 500; }
+    .msg-preview { margin-top: 2px; font-size: 13px; line-height: 18px; }
+    .msg-time { font-size: 11px; }
+    .msg-unread-count { min-width: 18px; height: 18px; padding-inline: 5px; }
+    .item-chevron { width: 16px; height: 16px; }
     .msg-kind { display: none; }
+    .empty-state { min-height: 260px; padding: 32px 16px; border-bottom: 1px solid var(--border); }
   }
 </style>

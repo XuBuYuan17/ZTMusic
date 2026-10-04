@@ -263,8 +263,8 @@
   function handleContextmenu(event: MouseEvent): void {
     event.preventDefault()
   }
-  function menuTransition(node: HTMLElement, options: { duration: number }) {
-    return document.documentElement.classList.contains('mobile-runtime') ? mobileSheet(node, options) : desktopPanel(node)
+  function menuTransition(node: HTMLElement, options: { duration?: number } = {}, context: { direction?: 'in' | 'out' | 'both' } = {}) {
+    return document.documentElement.classList.contains('mobile-runtime') ? mobileSheet(node, options, context) : desktopPanel(node, options, context)
   }
 </script>
 
@@ -273,7 +273,7 @@
     <button class="song-menu-scrim" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
     <div
       class="song-menu"
-      in:menuTransition={{ duration: 280 }} out:menuTransition={{ duration: 240 }}
+      in:menuTransition out:menuTransition
       use:dialogFocus={() => onClose?.()} use:desktopFeedback
       class:panel={playlistMode !== 'menu'}
       style="left:{menuLeft}px;top:{menuTop}px"

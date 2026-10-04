@@ -8,7 +8,8 @@
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
   import { player } from '../stores/player.svelte.ts';
   import { ncm } from '../api/client.ts';
-  import { coverUrl } from '../utils/image.ts';
+  import { coverUrl, progressiveCover } from '../utils/image.ts';
+  import { extractColor } from '../player/colors.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
@@ -47,9 +48,24 @@
   } = $props();
 
   let lyricsMode = $state(false);
+  let surfaceColor = $state('#37505e');
+  $effect(() => {
+    if (!$responsive.isMobile) return;
+    const url = coverUrl(player.cover, 100);
+    let active = true;
+    surfaceColor = '#37505e';
+    if (url) void extractColor(url).then(color => { if (active && color) surfaceColor = color; });
+    return () => { active = false; };
+  });
   let playerRoot: HTMLElement;
   const modeMotion = createMobilePlayerMotion();
   onDestroy(modeMotion.destroy);
+  $effect(() => {
+    if (!playerRoot) return;
+    const root = playerRoot;
+    root.addEventListener('mobile-player-dismiss', modeMotion.destroy);
+    return () => root.removeEventListener('mobile-player-dismiss', modeMotion.destroy);
+  });
   let showMoreMenu = $state(false);
   let menuMessage = $state('');
   let actionBusy = $state('');
@@ -269,7 +285,7 @@
 
 </script>
 
-<div class="apple-music-player" bind:this={playerRoot} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" style:--player-surface={surfaceColor} bind:this={playerRoot} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">
@@ -290,12 +306,12 @@
 
   {#snippet coverArtwork()}
     <img draggable="false" class="am-vinyl-label" src={coverUrl(player.cover, 300)} alt="" referrerpolicy="no-referrer" />
-    <img draggable="false" class="am-flying-cover-img" src={coverUrl(player.cover, 400)} alt="" referrerpolicy="no-referrer" />
+    <img draggable="false" class="am-flying-cover-img" use:progressiveCover={{ source: player.cover, size: 400 }} alt="" referrerpolicy="no-referrer" />
   {/snippet}
   {#if $responsive.isMobile}
     <div class="am-flying-cover" role="button" tabindex="0" aria-label="切换封面与歌词，左右滑动切歌" onclick={handleCoverClick}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode(); } }}
-      use:mobileDrag={{ close: () => onClose?.(), next: () => { if (player.id) player.next() }, previous: () => { if (player.id) player.prev() }, target: () => document.querySelector<HTMLElement>('.ly-fullscreen'), blocked: () => lyricsMode || !!(secondaryPanel || showMoreMenu || showLocalQueue) }}>
+      use:mobileDrag={{ close: () => onClose?.(), next: () => { if (player.id) player.next() }, previous: () => { if (player.id) player.prev() }, target: () => playerRoot?.closest<HTMLElement>('.ly-container') ?? null, blocked: () => !!(secondaryPanel || showMoreMenu || showLocalQueue) }}>
       {@render coverArtwork()}
     </div>
   {:else}
@@ -322,9 +338,9 @@
   </div>
 
   <!-- Bottom controls (no background) -->
-  <div class="am-bottom-controls">
+  <div class="am-bottom-controls" inert={lyricsMode} aria-hidden={lyricsMode}>
     <div class="am-bottom-progress">
-      <AppleMusicProgressBar currentTime={player.currentTime} duration={player.duration} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
+      <AppleMusicProgressBar currentTime={player.currentTime} duration={player.duration} remaining={$responsive.isMobile} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
     </div>
     <AppleMusicControls onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
   </div>
@@ -342,6 +358,17 @@
   />
 
   <PlayerLyrics active={lyricsMode} />
+
+  {#if $responsive.isMobile}
+    <button class="am-mobile-like" aria-label={like.liked ? '取消收藏' : '收藏'} aria-pressed={like.liked} disabled={!player.id || like.busy} onclick={like.toggle}>
+      <Icon name={like.liked ? 'heart-filled' : 'heart'} size={22} fill={like.liked ? 'currentColor' : 'none'} />
+    </button>
+    <div class="am-mobile-footer" inert={lyricsMode} aria-hidden={lyricsMode}>
+        <button class="am-lyrics-entry" aria-label="显示歌词" onclick={() => { toggleLyricsMode(); playerRoot.querySelector<HTMLElement>('.am-flying-cover')?.focus({ preventScroll: true }); }}>词</button>
+      <button aria-label={`播放模式：${player.mode === 'list' ? '顺序播放' : player.mode === 'repeat' ? '单曲循环' : '随机播放'}`} disabled={!player.id} onclick={() => player.setMode(player.mode === 'list' ? 'repeat' : player.mode === 'repeat' ? 'shuffle' : 'list')}><Icon name={player.mode === 'shuffle' ? 'shuffle-lg' : player.mode === 'repeat' ? 'repeat-1' : 'repeat'} size={25} /></button>
+      <button aria-label="播放队列" aria-expanded={showLocalQueue} disabled={!player.id} onclick={handleToggleLocalQueue}><Icon name="list" size={25} /></button>
+    </div>
+  {/if}
 
   <!-- Queue Panel -->
   {#if showLocalQueue}

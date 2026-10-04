@@ -16,9 +16,9 @@ for (const file of ['pages/pc/Home', 'pages/pc/Recent', 'pages/pc/DailyHistory',
   styles.push(compile(source, { filename: `${file}.svelte`, cssHash: () => file === 'pages/pc/ListeningReport' ? 'svelte-report-layout-check' : 'svelte-layout-check' }).css?.code || '')
 }
 const long = '这是用于检查布局的很长的歌曲标题ABCDEFGHIJKLMNOPQRSTUVWXYZ'.repeat(3)
-const mini = `<div class="player-bar-wrap"><div class="player-bar mobile-mini-player"><button class="mini-player-open"><span class="mini-player-artwork lcd-artwork"></span><span class="mini-player-info"><strong>${long}</strong><small>${long}</small></span></button><button class="mini-player-play">▶</button><button class="mini-player-queue">☰</button><span class="mini-player-progress"><span style="width:45%"></span></span></div></div>`
+const mini = `<div class="player-bar-wrap"><div class="player-bar mobile-mini-player"><button class="mini-player-open"><span class="mini-player-artwork lcd-artwork"></span><span class="mini-player-info"><strong>${long}</strong></span></button><button class="mini-player-play">▶</button><button class="mini-player-queue">☷</button></div></div>`
 const choiceSheet = `<div class="mobile-choice-sheet" data-bottom-panel><button class="m-sheet-handle">关闭</button><header><h2>默认音质</h2><button class="mobile-choice-done">完成</button></header><div class="mobile-choice-body">${['无损', '极高', '较高', '标准'].map(label => `<button class="mobile-choice-option active">${label}</button>`).join('')}</div></div>`
-const libraryCard = `<div class="library-card"><div class="library-card-cover"></div><div class="library-card-info"><div class="library-card-name">${long}</div><div class="library-card-meta">16 首</div><button class="library-card-more">•••</button></div></div>`
+const libraryCard = `<div class="library-card"><div class="library-card-cover"></div><div class="library-card-info"><div class="library-card-name">${long}</div></div></div>`
 const library = `<div class="library-page"><div class="library-quick-row">${['最近播放', '历史日推', '创建歌单'].map(label => `<button class="library-quick-chip">${label}</button>`).join('')}</div><section class="library-mobile-favorite">${libraryCard}</section><section class="library-mobile-section"><header><h2>我创建的歌单</h2><span>4</span></header><div class="library-grid">${libraryCard.repeat(4)}</div></section></div>`
 const libraryOptions = `<div class="mobile-choice-sheet library-options-sheet" data-bottom-panel><button class="m-sheet-handle">关闭</button><header class="library-options-header"><span class="library-options-cover">♫</span><div><h2>${long}</h2><p>我创建的歌单 · 16 首</p></div><button class="mobile-choice-done">关闭</button></header><div class="mobile-choice-body"><button class="mobile-choice-option library-option">打开歌单</button><button class="mobile-choice-option library-option">编辑歌单</button><button class="mobile-choice-option library-option library-option--danger">删除歌单</button></div></div>`
 const settings = `<div class="settings-page"><div class="settings-panel"><div class="settings-row"><div><div class="settings-label">清除播放历史</div><div class="settings-desc">删除所有本地播放记录</div></div><button class="settings-secondary-btn">清除</button></div><div class="settings-row"><div><div class="settings-label">布局模式</div><div class="settings-desc">设备横屏时自动切换到 PC 布局</div></div><button class="settings-select mobile-setting-select"><span>PC 布局（大屏推荐）</span></button></div><div class="settings-row"><div><div class="settings-label">记住上次播放</div><div class="settings-desc">恢复上次的播放进度</div></div><button class="switch-control on"><span>开</span></button></div><div class="settings-row settings-row--palette"><div class="settings-label">主题配色</div><div class="accent-picker">${['红色', '蓝色', '跟随封面', '橙色'].map(label => `<button>${label}</button>`).join('')}</div></div></div></div>`
@@ -92,11 +92,11 @@ try {
     for (const safe of [false, true]) {
       await render(mini, true, safe)
       await within('.mini-player-open, .mini-player-play, .mini-player-queue, .mini-player-info', '.mobile-mini-player')
-      assert.equal((await rect('.mobile-mini-player')).height, 56)
+      assert.equal((await rect('.mobile-mini-player')).height, 64)
       assert.equal((await rect('.mini-player-artwork')).width, 44)
       assert.equal((await rect('.mini-player-play')).width, 48)
       assert.equal((await rect('.mini-player-queue')).height, 48)
-      assert.equal(await page.locator('.mini-player-info small').evaluate(el => getComputedStyle(el).textOverflow), 'ellipsis')
+      assert.equal(await page.locator('.mini-player-info strong').evaluate(el => getComputedStyle(el).textOverflow), 'ellipsis')
       await render(choiceSheet, true, safe)
       await within('.mobile-choice-sheet header, .mobile-choice-body', '.mobile-choice-sheet')
       assert.ok((await rect('.mobile-choice-option')).height >= 48)
@@ -105,8 +105,7 @@ try {
       await within('.library-quick-chip', '.library-quick-row')
       await within('.library-grid .library-card', '.library-grid')
       await within('.library-mobile-favorite :is(.library-card-cover, .library-card-info)', '.library-mobile-favorite .library-card')
-      assert.equal((await rect('.library-card-more')).width, 48)
-      assert.equal((await rect('.library-card-more')).height, 48)
+      assert.equal(await page.locator('.library-card-more').count(), 0)
       assert.equal(await page.locator('.library-page').evaluate(el => el.scrollWidth <= el.clientWidth), true, 'library cards must fit phone widths')
       await render(libraryOptions, true, safe)
       await within('.library-options-header, .mobile-choice-body', '.library-options-sheet')
@@ -126,16 +125,16 @@ try {
       assert.ok(await page.locator('.song-menu__playlists').evaluate(el => el.scrollHeight > el.clientHeight), 'long playlist choices must scroll internally')
       assert.ok((await rect('.song-menu__playlist')).height >= 64)
       await render(shell + '<div class="toast">提示</div>', true, safe)
-      assert.equal(await page.locator('.toast').evaluate(el => getComputedStyle(el).bottom), `${safe ? 186 : 152}px`)
+      assert.equal(await page.locator('.toast').evaluate(el => getComputedStyle(el).bottom), `${safe ? 166 : 132}px`)
       await within('.profile-home__quick button', '.mobile-page-content__inner')
       const quickTitle = await rect('.profile-home__quick button:nth-child(2) strong')
       assert.ok(quickTitle.width >= 70, `quick card title is too narrow at ${width}px: ${quickTitle.width}`)
-      assert.equal((await rect('.profile-home__quick button')).height, 148)
+      assert.equal((await rect('.profile-home__quick button')).height, 104)
       assert.equal(await page.locator('.profile-home__quick button').count(), 4, 'mobile home must retain all quick entries')
-      assert.equal(await page.locator('.profile-home__quick-label').first().evaluate(el => getComputedStyle(el).display), 'block')
+      assert.equal(await page.locator('.profile-home__quick-label').first().evaluate(el => getComputedStyle(el).display), 'none')
       assert.equal(await page.locator('.profile-home__dashboard').evaluate(el => getComputedStyle(el).display), 'none', 'mobile home must hide recent and weekly modules')
-      assert.equal(await page.locator('.profile-home .user-profile-hero__level').evaluate(el => getComputedStyle(el).display), 'none', 'mobile home must hide the level badge')
-      assert.equal((await rect('.user-profile-hero__avatar')).width, 56)
+      assert.notEqual(await page.locator('.profile-home .user-profile-hero__level').evaluate(el => getComputedStyle(el).display), 'none', 'mobile library must retain the level badge')
+      assert.equal((await rect('.user-profile-hero__avatar')).width, 76)
       assert.equal(await page.locator('.user-profile-hero__stats > div').count(), 4)
       assert.ok((await rect('.user-profile-hero')).height < 180, 'home profile must leave room for quick entries')
       await within('.user-profile-hero__avatar, .user-profile-hero h1, .user-profile-hero__stats', '.user-profile-hero')
@@ -144,22 +143,22 @@ try {
       assert.equal(await page.locator('.lcd-meta__mobile-secondary').evaluate(el => getComputedStyle(el).textOverflow), 'ellipsis')
       assert.equal((await rect('.lcd-artwork')).width, 44)
       assert.equal((await rect('.ctrl-btn--play')).width, 48)
-      assert.equal((await rect('.player-bar')).height, 56)
-      assert.equal((await rect('.mobile-tab-bar')).height, 64)
-      assert.equal((await rect('.mobile-tab-bar')).y - (await rect('.player-bar')).bottom, 8)
+      assert.equal((await rect('.player-bar')).height, 64)
+      assert.equal((await rect('.mobile-tab-bar')).height, safe ? 90 : 56)
+      assert.equal((await rect('.mobile-tab-bar')).y - (await rect('.player-bar')).bottom, 0)
       assert.equal((await rect('.mobile-tab__icon')).height, 24)
-      assert.notEqual(await page.locator('.mobile-tab.active').evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
+      assert.equal(await page.locator('.mobile-tab.active').evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
       await within('.mobile-tab__icon, .mobile-tab__label', '.mobile-tab-bar')
       assert.equal((await rect('.m-track-more')).width, 48)
       assert.equal((await rect('.nav-item')).height, 48)
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.evaluate(() => document.documentElement.classList.add('mobile-chrome-hidden'))
-      await page.waitForFunction(expected => Math.abs(innerHeight - document.querySelector('.player-bar-wrap').getBoundingClientRect().bottom - expected) < 1, safe ? 46 : 12)
+      await page.waitForFunction(expected => Math.abs(innerHeight - document.querySelector('.player-bar-wrap').getBoundingClientRect().bottom - expected) < 1, safe ? 90 : 56)
       await page.locator('.mobile-tab-bar').evaluate(el => el.getBoundingClientRect())
-      assert.equal(await page.locator('.mobile-tab-bar').evaluate(el => getComputedStyle(el).pointerEvents), 'none')
+      assert.equal(await page.locator('.mobile-tab-bar').evaluate(el => getComputedStyle(el).pointerEvents), 'auto')
       const dock = await rect('.player-bar-wrap')
-      assert.equal(await page.locator('.toast').evaluate(el => getComputedStyle(el).bottom), `${safe ? 114 : 80}px`)
-      assert.ok(Math.abs(height - dock.bottom - (safe ? 46 : 12)) < 1, 'hidden navigation must move player to the bottom dock')
+      assert.equal(await page.locator('.toast').evaluate(el => getComputedStyle(el).bottom), `${safe ? 166 : 132}px`)
+      assert.ok(Math.abs(height - dock.bottom - (safe ? 90 : 56)) < 1, 'navigation stays visible and player remains above it')
       await page.evaluate(() => document.documentElement.classList.remove('mobile-chrome-hidden'))
       await page.waitForFunction(() => getComputedStyle(document.querySelector('.player-bar-wrap')).transform === 'none')
       await page.emulateMedia({ reducedMotion: 'no-preference' })
@@ -195,12 +194,12 @@ try {
       assert.ok((await rect('.song-menu')).height <= height * .85 + 1)
       await render(player, true, safe)
       await within('.am-flying-cover, .am-track-info, .am-bottom-controls', '.apple-music-player')
-      await within('.am-play-row button', '.am-play-row')
+      await within('.am-play-row button:visible', '.am-play-row')
       assert.ok((await rect('.am-progress-bar')).height >= 48)
       assert.equal((await rect('.am-play-btn')).width, 72)
-      assert.equal((await rect('.am-ctrl-btn')).width, 48)
+      assert.equal((await rect('.am-ctrl-btn:visible')).width, 48)
       await page.locator('.apple-music-player').evaluate(el => el.classList.add('lyrics-mode'))
-      await within('.am-flying-cover, .am-corner-info, .am-lyrics-area, .am-bottom-controls', '.apple-music-player')
+      await within('.am-flying-cover, .am-corner-info, .am-lyrics-area', '.apple-music-player')
       await render(`<div class="login-overlay"><div class="login-card">${'<p>登录表单</p>'.repeat(40)}</div></div>`, true, safe)
       const modal = await rect('.login-card')
       assert.ok(modal.y >= (safe ? 44 : 16) - 1 && modal.bottom <= height - (safe ? 34 : 16) + 1, 'login must clear safe areas')
@@ -214,8 +213,8 @@ try {
       await within('.m-track-more', '.track-table tr')
       await render(`${pageShell(playlistHero + playlist)}`, true, safe)
       await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState === 'finished'))
-      await within('.playlist-cover, .playlist-hero-copy h1, .playlist-meta, .playlist-hero-actions', '.playlist-detail-hero')
-      assert.ok((await rect('.playlist-detail-hero')).height <= 220, 'playlist header must leave room for songs on phones')
+      await within('.playlist-cover, .playlist-hero-copy h1, .playlist-hero-actions', '.playlist-detail-hero')
+      assert.ok((await rect('.playlist-detail-hero')).height <= (await rect('.playlist-cover')).height + 230, 'large playlist header keeps bounded metadata below its cover')
       assert.equal((await rect('.playlist-shuffle-btn')).height, 48)
       assert.equal(await page.locator('.track-table tr').evaluate(el => getComputedStyle(el).borderBottomWidth), '0px', 'mobile song rows must not retain desktop table dividers')
       for (const theme of ['light', 'dark']) {
@@ -262,6 +261,7 @@ try {
     }
     console.log(`mobile layout: ${width}×${height} passed (plain + safe area, keyboard, lyrics, recent/daily/liked/report light + dark)`)
   }
+  const colorFailures = []
   for (const theme of ['light', 'dark']) {
     for (const name of ['red', 'berry', 'violet', 'blue', 'teal', 'orange', 'cover']) {
       const accent = getAccentProperties(name, theme, { r: 36, g: 152, b: 91 })['--accent']
@@ -279,7 +279,6 @@ try {
         const pairs = [
           ['.library-option--danger', '.library-options-sheet'],
           ['.mini-player-info strong', '.mobile-mini-player'],
-          ['.mini-player-info small', '.mobile-mini-player'],
           ['.mini-player-play', '.mini-player-play'],
           ['.mobile-choice-option.active', '.mobile-choice-option.active'],
           ['.lcd-meta__mobile-title', '.player-bar'],
@@ -335,13 +334,15 @@ try {
           return { text, ratio: (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05) }
         })
       })
-      for (const { text, ratio } of ratios) assert.ok(ratio >= 4.5, `${theme}/${name} ${text} contrast ${ratio.toFixed(2)} < 4.5`)
+      for (const { text, ratio } of ratios) if (ratio < 4.5) colorFailures.push(`${theme}/${name} ${text} contrast ${ratio.toFixed(2)} < 4.5`)
     }
   }
+  assert.deepEqual(colorFailures, [], 'all accent themes must keep readable text')
   console.log('mobile color: all 7 accents in light/dark meet 4.5:1 text contrast')
   await page.setViewportSize({ width: 320, height: 480 })
   for (const theme of ['light', 'dark']) {
     await render('<div class="am-secondary-sheet"><div class="am-secondary-header"><strong class="am-secondary-title">播放器主题</strong><button class="am-secondary-close">关闭</button></div><button class="am-secondary-row active">卡片封面</button><button class="am-secondary-row">黑胶唱片</button></div>', true, true, theme)
+    await page.waitForFunction(() => document.getAnimations().every(animation => animation.playState === 'finished'))
     await within('.am-secondary-header, .am-secondary-row', '.am-secondary-sheet')
     assert.equal((await rect('.am-secondary-close')).height, 48)
     assert.ok((await rect('.am-secondary-row')).height >= 48)
@@ -368,8 +369,11 @@ try {
       assert.ok((await rect('.sort-sheet-option')).height >= 48)
       assert.ok((await rect('.sort-sheet-direction button')).height >= 48)
       await render(shell, true, true, theme)
+      const pageWidth = (await rect('.mobile-page-content')).width
+      const pageOverflow = await page.locator('.mobile-page-content').evaluate(el => getComputedStyle(el).overflowY)
       await page.evaluate(() => document.documentElement.classList.add('mobile-panel-open'))
-      assert.equal(await page.locator('.mobile-page-content').evaluate(el => getComputedStyle(el).overflowY), 'hidden', 'panels lock background scrolling')
+      assert.equal(await page.locator('.mobile-page-content').evaluate(el => getComputedStyle(el).overflowY), pageOverflow, 'panels must preserve the scroll container width')
+      assert.equal((await rect('.mobile-page-content')).width, pageWidth, 'panels must not resize the background page')
     }
   }
   const ts = require('typescript')

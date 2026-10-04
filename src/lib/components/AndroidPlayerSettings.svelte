@@ -11,12 +11,25 @@
   let font = $state('sans-serif')
   let status = $state('')
   let busy = $state(false)
+  let awaitingPermission = false
   async function refresh() {
     try {
       const capabilities = await androidCommand<{ overlayPermission: boolean }>('capabilities')
-      const state = await androidCommand<{ overlayEnabled: boolean }>('state')
+      const state = await androidCommand<{ overlayEnabled: boolean; overlaySettings?: { locked: boolean; through: boolean; bilingual: boolean; opacity: number; fontSize: number; font: string } }>('state')
       permission = capabilities.overlayPermission
       enabled = state.overlayEnabled && permission
+      if (state.overlaySettings) {
+        locked = state.overlaySettings.locked
+        through = state.overlaySettings.through
+        bilingual = state.overlaySettings.bilingual
+        opacity = state.overlaySettings.opacity
+        fontSize = state.overlaySettings.fontSize
+        font = state.overlaySettings.font
+      }
+      if (awaitingPermission && permission && !enabled) {
+        awaitingPermission = false
+        await update(true)
+      }
     } catch { status = '原生播放器连接暂不可用' }
   }
   onMount(() => { void refresh(); window.addEventListener('focus', refresh); return () => window.removeEventListener('focus', refresh) })
@@ -26,6 +39,12 @@
     catch { status = '桌面歌词未开启，请检查悬浮窗权限'; await refresh() }
     finally { busy = false }
   }
+  async function requestPermission() {
+    status = '请在系统页面允许哲听显示在其他应用上层'
+    awaitingPermission = true
+    try { await androidCommand('overlayPermission') }
+    catch { awaitingPermission = false; status = '无法打开悬浮窗权限设置' }
+  }
 </script>
 
 <div class="settings-row">
@@ -33,7 +52,7 @@
   {#if permission}
     <button class="settings-secondary-btn" disabled={busy} aria-pressed={enabled} onclick={() => update(!enabled)}>{enabled ? '关闭歌词' : '开启歌词'}</button>
   {:else}
-    <button class="settings-secondary-btn" onclick={() => androidCommand('overlayPermission').catch(() => { status = '无法打开悬浮窗权限设置' })}>授予悬浮窗权限</button>
+    <button class="settings-secondary-btn" onclick={requestPermission}>授予悬浮窗权限</button>
   {/if}
 </div>
 {#if permission}

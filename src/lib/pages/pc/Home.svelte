@@ -27,7 +27,8 @@
   import SocialPreview from '../../components/SocialPreview.svelte'
   import Icon from '../../components/ui/Icon.svelte'
 
-  let { onNavigate, onOpenLogin, onOpenPlaylist, onOpenUser }: {
+  let { onNavigate, onOpenLogin, onOpenPlaylist, onOpenUser, profileOnly = false }: {
+    profileOnly?: boolean
     onNavigate?: (view: string) => void
     onOpenLogin?: () => void
     onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
@@ -64,12 +65,12 @@
     try {
       const [profileData, homeData] = await Promise.all([
         loadUserProfileData(ncm, uid, { isOwn: true, fallbackUser: auth.user }),
-        loadHomeData(ncm, auth.user),
+        profileOnly ? Promise.resolve(null) : loadHomeData(ncm, auth.user),
       ])
       if (rid !== requestId) return
       profile = profileData
       save()
-      homeData.recommendPromise?.then((items) => { if (rid === requestId) { recommendPlaylists = items; save() } }).catch(() => {})
+      homeData?.recommendPromise?.then((items) => { if (rid === requestId) { recommendPlaylists = items; save() } }).catch(() => {})
     } catch (e) {
       if (rid === requestId && !profile) error = (e as { message?: string })?.message || '主页加载失败'
     } finally { if (rid === requestId) loading = false }
@@ -90,7 +91,7 @@
   function coverOf(track: NormalizedLocalHistorySong | NormalizedRecordSong): string { return track.picUrl || extractCover(track) }
 
   const quickCards = $derived([
-    { label: 'FAVORITES', title: '喜欢的音乐', value: `${profile?.likedPlaylist?.trackCount ?? 0} 首`, icon: 'heart-filled', action: () => profile?.likedPlaylist && onOpenPlaylist?.(profile.likedPlaylist.id, true, profile.likedPlaylist) },
+    { label: 'FAVORITES', title: '喜欢的音乐', value: `${profile?.likedPlaylist?.trackCount ?? 0} 首`, icon: 'heart-filled', action: () => profile?.likedPlaylist ? onOpenPlaylist?.(profile.likedPlaylist.id, true, profile.likedPlaylist) : onNavigate?.('liked') },
     { label: 'ON THIS DEVICE', title: '本地听歌统计', value: statsError ? '统计暂不可用 · 点击重试' : localStats.milliseconds ? `${localStats.plays} 次 · ${listeningTime(localStats.milliseconds)}` : '开始记录你的聆听', icon: 'music', action: () => onNavigate?.('listeningStats') },
     { label: 'CONTINUE', title: '最近播放', value: `${recentTracks.length} 首记录`, icon: 'clock', action: () => onNavigate?.('recent') },
     { label: 'DAILY', title: '历史日推', value: '回看每天为你推送的歌', icon: 'calendar', action: () => onNavigate?.('dailyHistory') },
@@ -121,10 +122,11 @@
 
     <section class="profile-home__quick">
       {#each quickCards as card}
-        <button data-motion="card" onclick={card.action}><span class="profile-home__quick-icon"><Icon name={card.icon} size={21} /></span><span class="profile-home__quick-label">{card.label}</span><strong>{card.title}</strong><em>{card.value}</em></button>
+        <button data-motion="card" onclick={card.action}><span class="profile-home__quick-icon"><Icon name={card.icon} size={21} fill={card.icon === 'calendar' ? 'none' : 'currentColor'} /></span><span class="profile-home__quick-label">{card.label}</span><strong>{card.title}</strong><em>{card.value}</em></button>
       {/each}
     </section>
 
+    {#if !profileOnly}
     <div class="profile-home__dashboard">
       <section class="profile-home__panel">
         <header><div><span>CONTINUE</span><h2>最近播放</h2></div><button onclick={() => onNavigate?.('recent')}>查看全部</button></header>
@@ -175,6 +177,7 @@
     {/if}
 
     <div class="profile-home__social"><SocialPreview title="我的关注" count={profile.follows} users={profile.followsPreview} {onOpenUser} /><SocialPreview title="我的粉丝" count={profile.followeds} users={profile.followersPreview} {onOpenUser} /></div>
+    {/if}
   {/if}
 </div>
 
@@ -232,16 +235,15 @@
   @media (max-width: 1100px) { .profile-home__quick { grid-template-columns: repeat(2, 1fr); } .profile-home__cover-grid { grid-template-columns: repeat(3, 1fr); } }
 
   :global(html.mobile-runtime) .profile-home { gap: 24px; }
-  :global(html.mobile-runtime) .profile-home__dashboard,
-  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__level) { display: none; }
+  :global(html.mobile-runtime) .profile-home__dashboard { display: none; }
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero),
   :global(html.mobile-runtime) .profile-home__hero-skeleton { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--text); }
-  :global(html.mobile-runtime) .profile-home__hero-skeleton { height: 120px; }
+  :global(html.mobile-runtime) .profile-home__hero-skeleton { height: 144px; background: var(--md-container); border-radius: var(--radius-md); }
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__background),
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__wash) { display: none; }
-  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__content) { min-height: 0; gap: 16px; padding: 4px 0; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__content) { min-height: 144px; gap: 16px; padding: 4px 0; }
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__identity) { align-items: center; gap: 12px; }
-  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__avatar) { width: 56px; height: 56px; border: 0; }
+  :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__avatar) { width: 76px; height: 76px; border: 0; }
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__label),
   :global(html.mobile-runtime) .profile-home__panel header span,
   :global(html.mobile-runtime) .profile-home__section header span { display: none; }
@@ -255,12 +257,12 @@
   :global(html.mobile-runtime) .profile-home :global(.user-profile-hero__stats span) { font-size: 13px; line-height: 1.3; }
   :global(html.mobile-runtime) .profile-home__quick,
   :global(html.mobile-runtime) .profile-home__quick-skeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  :global(html.mobile-runtime) .profile-home__quick > button { min-height: 148px; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(4, auto); align-content: start; gap: 8px; padding: 12px; border: 0; border-radius: var(--radius-xl); background: var(--md-container); }
-  :global(html.mobile-runtime) .profile-home__quick > button:nth-child(-n+3) { background: var(--md-primary-container); }
-  :global(html.mobile-runtime) .profile-home__quick-skeleton span { min-height: 148px; border-radius: var(--radius-xl); }
-  :global(html.mobile-runtime) .profile-home__quick-icon { grid-row: auto; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--md-surface); color: var(--md-primary); }
+  :global(html.mobile-runtime) .profile-home__quick > button { min-height: 104px; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(3, auto); align-content: start; gap: 4px; padding: 12px; border: 0; border-radius: var(--radius-sm); background: var(--bg-surface); }
+  :global(html.mobile-runtime) .profile-home__quick > button:nth-child(-n+3) { background: var(--bg-surface); }
+  :global(html.mobile-runtime) .profile-home__quick-skeleton span { min-height: 104px; border-radius: var(--radius-sm); }
+  :global(html.mobile-runtime) .profile-home__quick-icon { grid-row: auto; width: 32px; height: 32px; border-radius: var(--radius-md); background: var(--md-surface); color: var(--md-primary); }
   :global(html.mobile-runtime) .profile-home__quick > button:hover .profile-home__quick-icon { background: var(--md-surface); }
-  :global(html.mobile-runtime) .profile-home__quick-label { display: block; font-size: 12px; line-height: 16px; color: var(--md-primary); letter-spacing: .04em; }
+  :global(html.mobile-runtime) .profile-home__quick-label { display: none; font-size: 12px; line-height: 16px; color: var(--md-primary); letter-spacing: .04em; }
   :global(html.mobile-runtime) .profile-home__quick strong { font-size: 16px; line-height: 22px; color: var(--text); }
   :global(html.mobile-runtime) .profile-home__quick em { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
   :global(html.mobile-runtime) .profile-home__panel,

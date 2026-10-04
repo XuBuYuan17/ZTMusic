@@ -13,8 +13,10 @@
 </script>
 
 <script lang="ts">
+  import SongListActions from '../../components/SongListActions.svelte'
+  import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
-  import { coverUrl, coverRectUrl } from '../../utils/image.ts'
+  import { coverUrl, coverRectUrl, progressiveCover } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import { ncm } from '../../api/client.ts'
   import { loadExploreData as fetchExploreData } from '../../services/explore.ts'
@@ -24,6 +26,7 @@
   interface CoverCard { id: SongId; name?: unknown; picUrl?: string; copywriter?: string; trackCount?: number }
   interface SongCard { id: SongId; name?: unknown; picUrl?: string; ar?: TrackArtist[]; artists?: TrackArtist[] }
   let {
+    mobile = false,
     onSearch,
     onBannerClick,
     onOpenPlaylist,
@@ -31,6 +34,7 @@
     onPlaySong,
     onOpenArtist,
   }: {
+    mobile?: boolean
     onSearch?: () => void
     onBannerClick?: (banner: ExploreData['banners'][number]) => void
     onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
@@ -55,6 +59,7 @@
   let toplistsLoading = $state(false)
   let toplistsLoaded = $state(toplistsAreFresh)
   let error = $state('')
+  let bindSongRow = $state<((track: unknown) => { oncontextmenu: (event: MouseEvent) => void }) | null>(null)
 
   function errorMessage(e: unknown): string {
     return (e as { message?: string } | null | undefined)?.message || '加载失败'
@@ -62,7 +67,7 @@
 
   async function loadExplore(): Promise<void> {
     exploreLoading = !exploreSnapshot; error = ''
-    try { const d = await fetchExploreData(ncm); exploreSnapshot = d; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks }
+    try { const d = await fetchExploreData(ncm); exploreSnapshot = d; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks; if (d.allFailed && !d.banners.length && !d.blocks.length) error = '发现页加载失败' }
     catch (e) { if (!exploreSnapshot) error = errorMessage(e) }
     exploreLoading = false; exploreLoaded = true
   }
@@ -75,7 +80,7 @@
   }
 
   $effect(() => { if (!exploreLoaded) loadExplore() })
-  $effect(() => { if (!toplistsLoaded && !toplistsLoading) loadToplists() })
+  $effect(() => { if (!mobile && !toplistsLoaded && !toplistsLoading) loadToplists() })
 
   const hero = $derived(exploreBanners[0])
   const editorials = $derived(exploreBanners.slice(1, 4))
@@ -95,6 +100,84 @@
   ) as unknown as SongCard[])
 </script>
 
+{#if mobile}
+  <div class="mobile-discovery">
+    {#if error}<ErrorBlock message={error} onRetry={loadExplore} />{/if}
+    {#if exploreBanners.length || exploreLoading}
+      <section class="mobile-feature-rail" aria-label="精选推荐">
+        {#if exploreLoading && !exploreBanners.length}
+          {#each Array(2) as _}<div class="mobile-feature-item"><span class="skeleton-line"></span><span class="mobile-feature-image skeleton-block"></span></div>{/each}
+        {:else}
+          {#each exploreBanners as banner, index (`${banner.id}:${index}`)}
+            <button class="mobile-feature-item" type="button" onclick={() => onBannerClick?.(banner)}>
+              <small>精选推荐</small><strong>{banner.title || '今日推荐'}</strong>
+              <span class="mobile-feature-image">{#if banner.pic}<img src={coverRectUrl(banner.pic, 900, 600)} alt="" onerror={(event) => { event.currentTarget.setAttribute('hidden', '') }} referrerpolicy="no-referrer" loading={index ? 'lazy' : 'eager'} />{:else}<Icon name="music" size={44} />{/if}</span>
+            </button>
+          {/each}
+        {/if}
+      </section>
+    {/if}
+    {#if songs.length || exploreLoading}
+      <section class="mobile-discovery-section" aria-label="新歌精选">
+        <h2>新歌精选</h2>
+        <div class="mobile-song-rail">
+          {#if exploreLoading && !songs.length}
+            {#each Array(2) as _}<div class="mobile-song-group">{#each Array(3) as _}<div class="mobile-song-row"><span class="mobile-song-cover skeleton-block"></span><span class="skeleton-line"></span></div>{/each}</div>{/each}
+          {:else}
+            {#each Array.from({ length: Math.ceil(Math.min(songs.length, 12) / 3) }, (_, i) => songs.slice(i * 3, i * 3 + 3)) as group}
+              <div class="mobile-song-group">
+                {#each group as track (track.id)}
+                  <div class="mobile-song-row">
+                    <button class="mobile-song-play" type="button" onclick={() => onPlaySong?.(track)} aria-label={`播放 ${track.name}`}>
+                      <span class="mobile-song-cover">{#if track.picUrl}<img use:progressiveCover={{ source: track.picUrl, size: 120 }} alt="" onerror={(event) => { event.currentTarget.setAttribute('hidden', '') }} loading="lazy" referrerpolicy="no-referrer" />{:else}<Icon name="music" size={22} />{/if}</span>
+                      <span class="mobile-song-copy"><strong>{track.name}</strong><small>{(track.ar || track.artists || []).map(artist => artist.name).join(' / ') || '未知艺人'}</small></span>
+                    </button>
+                    <button class="mobile-song-more" type="button" aria-label={`更多操作：${track.name}`} onclick={(event) => bindSongRow?.(track).oncontextmenu(event)}><Icon name="more" size={22} /></button>
+                  </div>
+                {/each}
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </section>
+    {/if}
+    {#if primaryPlaylists.length || exploreLoading}
+      <section class="mobile-discovery-section" aria-label="推荐歌单">
+        <h2>推荐歌单</h2>
+        <div class="mobile-cover-rail">
+          {#if exploreLoading && !primaryPlaylists.length}
+            {#each Array(4) as _}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
+          {:else}
+            {#each primaryPlaylists.slice(0, 12) as playlist (playlist.id)}
+              <button class="mobile-cover-item" type="button" data-motion="card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
+                <span class="mobile-cover-image">{#if playlist.picUrl}<img use:progressiveCover={{ source: playlist.picUrl, size: 360 }} alt="" onerror={(event) => { event.currentTarget.setAttribute('hidden', '') }} loading="lazy" referrerpolicy="no-referrer" />{:else}<Icon name="music" size={32} />{/if}</span>
+                <strong>{playlist.name}</strong><small>{playlist.copywriter || (playlist.trackCount ? `${playlist.trackCount} 首歌曲` : '歌单')}</small>
+              </button>
+            {/each}
+          {/if}
+        </div>
+      </section>
+    {/if}
+    {#if exploreNewAlbums.length || exploreLoading}
+      <section class="mobile-discovery-section" aria-label="新专辑">
+        <h2>新专辑</h2>
+        <div class="mobile-cover-rail">
+          {#if exploreLoading && !exploreNewAlbums.length}
+            {#each Array(4) as _}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
+          {:else}
+            {#each exploreNewAlbums.slice(0, 12) as album (album.id)}
+              <button class="mobile-cover-item" type="button" data-motion="card" onclick={() => onOpenAlbum?.(album.id)}>
+                <span class="mobile-cover-image">{#if album.picUrl}<img use:progressiveCover={{ source: album.picUrl, size: 360 }} alt="" onerror={(event) => { event.currentTarget.setAttribute('hidden', '') }} loading="lazy" referrerpolicy="no-referrer" />{:else}<Icon name="music" size={32} />{/if}</span>
+                <strong>{album.name}</strong><small>{album.artistName || '新专辑'}</small>
+              </button>
+            {/each}
+          {/if}
+        </div>
+      </section>
+    {/if}
+  </div>
+  <SongListActions onOpenArtist={(id) => { if (typeof id === 'string' || typeof id === 'number') onOpenArtist?.(id) }} {onOpenAlbum} onBindRow={(bindRow) => { bindSongRow = bindRow }} />
+{:else}
 <div class="music-discovery">
   <header class="music-discovery-header">
     <div>
@@ -163,7 +246,7 @@
         {:else}
         {#each exploreNewAlbums.slice(0, 10) as album (album.id as SongId)}
           <button class="music-cover-card" data-motion="card" onclick={() => onOpenAlbum?.(album.id)}>
-            {#if album.picUrl}<img src={coverUrl(album.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            {#if album.picUrl}<img use:progressiveCover={{ source: album.picUrl, size: 360 }} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <strong>{album.name}</strong>
             <em>{album.artistName || '新专辑'}</em>
           </button>
@@ -189,7 +272,7 @@
         {:else}
         {#each primaryPlaylists.slice(0, 14) as playlist (playlist.id)}
             <button class="music-cover-card" data-motion="card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-              {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              {#if playlist.picUrl}<img use:progressiveCover={{ source: playlist.picUrl, size: 360 }} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <strong>{playlist.name}</strong>
             {#if playlist.copywriter}<em>{playlist.copywriter}</em>{:else if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
             </button>
@@ -206,7 +289,7 @@
         <div class="music-card-rail">
           {#each secondaryPlaylists.slice(0, 12) as playlist (playlist.id)}
             <button class="music-cover-card" data-motion="card" onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-              {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              {#if playlist.picUrl}<img use:progressiveCover={{ source: playlist.picUrl, size: 360 }} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <strong>{playlist.name}</strong>
               {#if playlist.copywriter}<em>{playlist.copywriter}</em>{:else if playlist.trackCount}<em>{playlist.trackCount} 首歌曲</em>{/if}
             </button>
@@ -231,7 +314,7 @@
         {:else}
         {#each songs.slice(0, 12) as track, index (track.id || index)}
           <button class="music-cover-card" data-motion="card" onclick={() => onPlaySong?.(track)}>
-            {#if track.picUrl}<img src={coverUrl(track.picUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+            {#if track.picUrl}<img use:progressiveCover={{ source: track.picUrl, size: 360 }} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
             <strong>{track.name}</strong>
             <em><ArtistNames artists={track.ar || track.artists || []} {onOpenArtist} fallback="未知艺人" /></em>
           </button>
@@ -256,7 +339,7 @@
           {:else}
           {#each toplists.slice(0, 12) as chart, index (chart.id)}
             <button class="music-cover-card" data-motion="card" onclick={() => onOpenPlaylist?.(chart.id, true, chart)}>
-              {#if chart.coverImgUrl}<img src={coverUrl(chart.coverImgUrl, 360)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
+              {#if chart.coverImgUrl}<img use:progressiveCover={{ source: chart.coverImgUrl, size: 360 }} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="music-cover-placeholder">♪</span>{/if}
               <strong>{chart.name}</strong>
               <em>{chart.updateFrequency || '持续更新'}</em>
             </button>
@@ -265,6 +348,7 @@
         </div>
     </section>
 </div>
+{/if}
 
 <style>
   :global(html.mobile-runtime) .music-discovery { display: flex; flex-direction: column; gap: 24px; }

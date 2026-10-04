@@ -1,4 +1,5 @@
 import { mobileSheet } from './mobile-interaction.ts'
+import { preloadCover } from '../utils/image.ts'
 
 export const motion = { press: 90, release: 280, menu: 220, panel: 320, page: 300, lyrics: 480 } as const
 
@@ -6,8 +7,8 @@ export function reducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-export function desktopPanel(node: Element, options: { duration?: number } = {}) {
-  if (document.documentElement.classList.contains('mobile-runtime') && node.matches('.am-more-menu, .am-secondary-sheet')) return mobileSheet(node as HTMLElement, options)
+export function desktopPanel(node: Element, options: { duration?: number } = {}, context: { direction?: 'in' | 'out' | 'both' } = {}) {
+  if (document.documentElement.classList.contains('mobile-runtime') && node.matches('.am-more-menu, .am-secondary-sheet')) return mobileSheet(node as HTMLElement, options, context)
   if (document.documentElement.classList.contains('mobile-runtime') || reducedMotion()) return { duration: 0 }
   const isMenu = node.getAttribute('role') === 'menu'
   // WAAPI：避免 Svelte css 补间把 translate/scale 转成 matrix 后与 transform: translateX(-50%) 嵌套合成
@@ -102,6 +103,7 @@ export function rememberCardOrigin(event: Event) {
   if (!rect.width) return
   const own = getComputedStyle(img).borderRadius
   const radius = own && own !== '0px' ? own : getComputedStyle(img.parentElement!).borderRadius
+  void preloadCover(img.dataset?.coverSource || img.currentSrc || img.src, 640)
   coverOrigin = { rect, src: img.currentSrc || img.src, radius, at: performance.now() }
 }
 
@@ -132,10 +134,11 @@ export function flyCover(target: HTMLElement) {
     document.body.append(clone)
     const sx = from.width / to.width, sy = from.height / to.height
     const targetRadius = getComputedStyle(target).borderRadius
+    const mobile = document.documentElement.classList.contains('mobile-runtime')
     animation = clone.animate([
       { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
       { transform: 'none', borderRadius: targetRadius },
-    ], { duration: motion.panel + 60, easing: document.documentElement.classList.contains('mobile-runtime') ? 'cubic-bezier(.2,0,0,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
+    ], { duration: mobile ? 420 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.22,.8,.2,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
     animation.finished.then(() => {
       // 真封面未解码完时稍等，避免落位瞬间闪空
       const img = target instanceof HTMLImageElement ? target : null

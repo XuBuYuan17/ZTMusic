@@ -281,7 +281,7 @@
       <textarea
         class="chat-input"
         bind:value={draft}
-        placeholder="发消息…（Enter 发送，Shift+Enter 换行）"
+        placeholder="发消息…"
         rows="1"
         maxlength="500"
         disabled={sending}

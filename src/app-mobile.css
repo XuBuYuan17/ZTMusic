@@ -1,49 +1,49 @@
 html.mobile-runtime {
   --mobile-page-bar-h: 60px;
-  --mobile-player-h: 56px;
-  --mobile-tabs-h: 64px;
-  --mobile-stack-gap: 8px;
-  --mobile-dock-gap: 12px; /* 悬浮栏离屏幕边缘的内距；与播放条一致 */
-  --mobile-content-gutter: 16px;
+  --mobile-player-h: 64px;
+  --mobile-tabs-h: 56px;
+  --mobile-stack-gap: 0px;
+  --mobile-dock-gap: 0px;
+  --mobile-content-gutter: 20px;
   --mobile-section-gap: 24px;
   /* desktop-system.css:2-3 只在 html:not(.mobile-runtime) 下定义过这两个，移动端补一档。
      触摸比鼠标慢（手指按下/抬起的物理时间更长），所以比桌面的 90/280 各放慢一点。 */
-  --motion-press: 120ms;
-  --motion-release: 300ms;
+  --motion-press: 100ms;
+  --motion-release: 180ms;
   -webkit-tap-highlight-color: transparent;
-  --md-surface-base: #fdf8f6;
-  --md-container-base: #f2eae7;
-  --md-high-base: #eae1de;
-  --md-highest-base: #e3d8d4;
-  --md-surface: color-mix(in srgb, var(--accent) 2%, var(--md-surface-base));
-  --md-container: color-mix(in srgb, var(--accent) 4%, var(--md-container-base));
-  --md-container-high: color-mix(in srgb, var(--accent) 5%, var(--md-high-base));
-  --md-container-highest: color-mix(in srgb, var(--accent) 6%, var(--md-highest-base));
+  --md-surface-base: #ffffff;
+  --md-container-base: #f5f5f7;
+  --md-high-base: #ececef;
+  --md-highest-base: #e2e2e7;
+  --md-surface: var(--md-surface-base);
+  --md-container: var(--md-container-base);
+  --md-container-high: var(--md-high-base);
+  --md-container-highest: var(--md-highest-base);
   --md-primary: color-mix(in srgb, var(--accent) 42%, #24181c);
   --md-on-primary: #ffffff;
   --md-primary-container: color-mix(in srgb, var(--accent) 14%, var(--md-container-base));
-  --md-text: #211a1d;
-  --md-text-secondary: #62565c;
+  --md-text: #171719;
+  --md-text-secondary: #58585e;
   --md-shadow: 0 3px 12px rgb(33 26 29 / .1);
 }
 
 html.mobile-runtime[data-theme="dark"] {
-  --md-surface-base: #151215;
-  --md-container-base: #211c20;
-  --md-high-base: #30282d;
-  --md-highest-base: #393035;
+  --md-surface-base: #111113;
+  --md-container-base: #1c1c1e;
+  --md-high-base: #2c2c2e;
+  --md-highest-base: #3a3a3c;
   --md-primary: color-mix(in srgb, var(--accent) 55%, #ffffff);
   --md-on-primary: #28151e;
-  --md-text: #f4e9ed;
-  --md-text-secondary: #d0c1c8;
+  --md-text: #f5f5f7;
+  --md-text-secondary: #a7a7ac;
   --md-shadow: 0 3px 12px rgb(0 0 0 / .2);
 }
 
 html.mobile-runtime,
 html.mobile-runtime .app-shell {
-  --radius-xs: 8px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
   --radius-lg: 24px;
   --radius-xl: 28px;
   --bg: var(--md-surface);
@@ -183,22 +183,7 @@ html.mobile-runtime .mobile-page-content__inner {
 html.mobile-runtime .mobile-route-page .fade-in { animation: none !important; }
 
 /* 导航以 main-area 为定位包含块，与外部 fixed 播放条对齐。 */
-html.mobile-runtime .mobile-tab-bar {
-  position: absolute;
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
-  bottom: calc(var(--mobile-dock-gap) + env(safe-area-inset-bottom));
-  z-index: 10;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
-  height: var(--mobile-tabs-h);
-  padding: 6px;
-  border-radius: 999px;
-  background: var(--md-container-high);
-  box-shadow: var(--md-shadow);
-  transition: opacity 0.24s var(--ease-out);
-}
+html.mobile-runtime .mobile-tab-bar { position: absolute; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom)); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); gap: 0; border-radius: 0; border-top: 2px solid var(--border); background: var(--bg); box-shadow: none; }
 
 html.mobile-runtime .mobile-tab {
   display: flex;
@@ -217,10 +202,7 @@ html.mobile-runtime .mobile-tab {
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--motion-release) var(--ease-spring);
 }
 
-html.mobile-runtime .mobile-tab.active {
-  color: var(--text);
-  background: var(--md-primary-container);
-}
+html.mobile-runtime .mobile-tab.active { color: var(--md-primary); background: transparent; }
 
 html.mobile-runtime .mobile-tab__icon {
   display: grid;
@@ -299,8 +281,8 @@ html.mobile-runtime .mobile-sidebar-backdrop {
 html.mobile-runtime .player-bar-wrap,
 html.mobile-runtime .player-bar-wrap.sidebar-collapsed {
   position: fixed;
-  left: max(12px, env(safe-area-inset-left));
-  right: max(12px, env(safe-area-inset-right));
+  left: 0;
+  right: 0;
   bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-stack-gap) + env(safe-area-inset-bottom));
   z-index: 90;
   width: auto;
@@ -308,18 +290,28 @@ html.mobile-runtime .player-bar-wrap.sidebar-collapsed {
   transition: transform 0.24s var(--ease-out);
 }
 
-html.mobile-runtime .player-bar-wrap.queue-open { right: max(12px, env(safe-area-inset-right)); }
+html.mobile-runtime .player-bar-wrap.queue-open { right: 0; }
 
-/* 滚动隐藏导航时，播放条下降到导航原位置；保留 scroll-chrome 的交互状态机。 */
-html.mobile-runtime.mobile-chrome-hidden .mobile-tab-bar {
-  opacity: 0;
-  pointer-events: none;   /* 必须留着，否则透明状态下仍会吃掉点击 */
+html.mobile-runtime .player-bar-wrap::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -12px;
+  height: 12px;
+  pointer-events: none;
+  background: linear-gradient(to top, rgb(0 0 0 / .08), transparent);
 }
+
+html.mobile-runtime[data-theme="dark"] .player-bar-wrap::before {
+  background: linear-gradient(to top, rgb(255 255 255 / .08), transparent);
+}
+
+/* 底部导航常驻，兼容旧布局切换时残留的 class。 */
+html.mobile-runtime.mobile-chrome-hidden .mobile-tab-bar { opacity: 1; pointer-events: auto; }
 
 html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap,
-html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap.sidebar-collapsed {
-  transform: translateY(calc(var(--mobile-tabs-h) + var(--mobile-stack-gap)));
-}
+html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap.sidebar-collapsed { transform: none; }
 
 html.mobile-runtime .player-bar-wrap > .player-bar,
 html.mobile-runtime .player-bar-wrap > .player-bar.compact,
@@ -373,8 +365,8 @@ html.mobile-runtime .toast {
 html.mobile-runtime:has(.player-bar-wrap) .toast {
   bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + var(--mobile-stack-gap) + 12px + env(safe-area-inset-bottom));
 }
-html.mobile-runtime.mobile-chrome-hidden .toast { bottom: calc(var(--mobile-dock-gap) + 12px + env(safe-area-inset-bottom)); }
-html.mobile-runtime.mobile-chrome-hidden:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-player-h) + var(--mobile-dock-gap) + 12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime.mobile-chrome-hidden .toast { bottom: calc(var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime.mobile-chrome-hidden:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-player-h) + var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
 html.mobile-runtime.mobile-keyboard-open .toast,
 html.mobile-runtime.mobile-keyboard-open:has(.player-bar-wrap) .toast { bottom: calc(12px + env(safe-area-inset-bottom)); }
 
@@ -383,7 +375,6 @@ html.mobile-runtime.mobile-keyboard-open .player-bar-wrap {
   pointer-events: none;
 }
 html.mobile-runtime.mobile-keyboard-open .mobile-tab-bar { visibility: hidden; pointer-events: none; }
-html.mobile-runtime.mobile-panel-open .mobile-page-content { overflow-y: hidden; }
 
 /* 键盘展开时双栏都隐藏，取消对应的内容避让。 */
 html.mobile-runtime.mobile-keyboard-open .mobile-page-content {
@@ -414,8 +405,7 @@ html.mobile-runtime .profile-home__logged-out { min-height: calc(100dvh - 190px)
   html.mobile-runtime .player-bar__lcd { gap: 8px; }
 }
 
-/* 搜索入口从底栏搬到发现页顶部。PC 头部左半（ZTmusic + 大标题）由移动端页面栏承担，只留搜索栏；
-   explore.css:388 那条 max-width:760px 的 display:none 被这里的更高特异性盖掉。 */
+/* 共享页面的紧凑控件。 */
 html.mobile-runtime .music-discovery-header {
   display: block;
   min-height: 0;
@@ -532,7 +522,10 @@ html.mobile-runtime .player-bar.mobile-mini-player {
 }
 html.mobile-runtime .mobile-mini-player::before,
 html.mobile-runtime .mobile-mini-player::after { display: none; }
-html.mobile-runtime .mini-player-open { display: flex; align-items: center; gap: 10px; min-width: 0; height: 52px; padding: 0; border: 0; border-radius: var(--radius-lg); background: transparent; color: var(--text); text-align: left; touch-action: none; }
+html.mobile-runtime .mini-player-open { display: flex; align-items: center; min-width: 0; height: 52px; padding: 0; border: 0; border-radius: var(--radius-lg); background: transparent; color: var(--text); text-align: left; touch-action: none; transform: translateX(var(--mini-track-x, 0)); opacity: 1; transition: transform 180ms var(--ease-out), opacity 110ms linear; }
+html.mobile-runtime .mini-player-open.dragging { transition: none; }
+html.mobile-runtime .mini-player-open.switching { opacity: .08; }
+html.mobile-runtime .mini-player-track { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
 html.mobile-runtime .mini-player-artwork { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--md-primary-container); color: var(--md-primary); overflow: hidden; }
 html.mobile-runtime .mini-player-artwork img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 html.mobile-runtime .mini-player-info { display: grid; gap: 1px; flex: 1; min-width: 0; padding-right: 2px; }
@@ -572,15 +565,16 @@ html.mobile-runtime .settings-row { display: grid; grid-template-columns: minmax
 html.mobile-runtime .settings-row > :first-child { min-width: 0; }
 html.mobile-runtime .settings-label { font-size: 15px; line-height: 20px; }
 html.mobile-runtime .settings-desc { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-html.mobile-runtime .settings-group-label { padding: 24px 0 8px; border: 0; background: transparent; color: var(--text); font-size: 18px; line-height: 24px; font-weight: 500; }
-html.mobile-runtime .settings-row:has(.segmented-control),
+html.mobile-runtime .settings-group-label { padding: 22px 0 6px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--md-primary); font-size: 12px; line-height: 18px; font-weight: 700; letter-spacing: .04em; text-transform: none; }
 html.mobile-runtime :is(.settings-row--palette, .settings-row--wallpaper, .settings-row--developer-input) { grid-template-columns: minmax(0, 1fr); }
-html.mobile-runtime .settings-row .segmented-control { width: 100%; align-self: auto; }
+html.mobile-runtime .settings-row .segmented-control { width: 148px; align-self: center; }
 html.mobile-runtime .settings-row .segmented-control button { flex: 1; font-size: 14px; }
-html.mobile-runtime .settings-row .accent-picker { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-html.mobile-runtime .accent-picker button { min-height: 48px; padding: 8px 12px; border-radius: var(--radius-sm); font-size: 13px; background: var(--md-container-high); }
-html.mobile-runtime .accent-picker button.active { background: var(--md-primary-container); border-color: var(--md-primary); color: var(--text); }
-html.mobile-runtime .accent-swatch { width: 20px; height: 20px; box-shadow: none; }
+html.mobile-runtime .settings-row .accent-picker { display: flex; width: 100%; gap: 8px; padding: 2px 0 4px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+html.mobile-runtime .settings-row .accent-picker::-webkit-scrollbar { display: none; }
+html.mobile-runtime .accent-picker button { position: relative; flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 999px; background: transparent; scroll-snap-align: start; }
+html.mobile-runtime .accent-picker button > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+html.mobile-runtime .accent-picker button.active { background: transparent; box-shadow: inset 0 0 0 2px var(--md-primary); color: var(--text); }
+html.mobile-runtime .accent-swatch { width: 28px; height: 28px; box-shadow: none; }
 html.mobile-runtime .settings-row .settings-secondary-btn { width: auto; min-height: 48px; max-width: 140px; padding: 10px 16px; border-radius: 999px; font-size: 13px; background: var(--md-primary-container); color: var(--md-primary); white-space: normal; overflow-wrap: anywhere; }
 html.mobile-runtime .settings-row .wallpaper-actions { flex-wrap: wrap; }
 html.mobile-runtime .settings-page .mobile-setting-select { min-width: 112px; max-width: 140px; }
@@ -592,9 +586,6 @@ html.mobile-runtime .switch-control.on::before { background: var(--md-primary); 
 html.mobile-runtime .switch-control.on::after { left: 30px; top: 12px; width: 24px; height: 24px; background: var(--md-on-primary); transform: none; }
 html.mobile-runtime .developer-options > summary { min-height: 48px; padding: 16px 0; }
 html.mobile-runtime .developer-options > summary small { font-size: 13px; line-height: 1.5; }
-@media (min-width: 600px) {
-  html.mobile-runtime .settings-row .accent-picker { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 html.mobile-runtime .mobile-choice-backdrop { position: fixed; inset: 0; z-index: 340; width: 100%; height: 100%; border: 0; border-radius: 0; background: rgb(0 0 0 / .4); }
 html.mobile-runtime :is(.mobile-choice-sheet, .am-more-menu[data-bottom-panel], .am-secondary-sheet[data-bottom-panel]) {
   position: fixed;
@@ -609,25 +600,25 @@ html.mobile-runtime :is(.mobile-choice-sheet, .am-more-menu[data-bottom-panel], 
   flex-direction: column;
   padding: 0 0 calc(12px + env(safe-area-inset-bottom));
   border: 0;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: var(--md-container-highest);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--bg);
   color: var(--text);
   overflow: hidden;
   animation: none;
   overscroll-behavior: contain;
 }
 html.mobile-runtime .mobile-choice-sheet { z-index: 350; }
-html.mobile-runtime :is(.mobile-choice-sheet > header, .mobile-more-header, .am-secondary-header) { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 16px 8px; min-height: 56px; border-bottom: 1px solid var(--border); }
-html.mobile-runtime :is(.mobile-choice-sheet h2, .mobile-more-header h2) { margin: 0; font-size: 18px; line-height: 24px; font-weight: 700; }
+html.mobile-runtime :is(.mobile-choice-sheet > header, .mobile-more-header, .am-secondary-header) { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 2px 12px 8px 20px; min-height: 60px; border-bottom: 1px solid var(--border); }
+html.mobile-runtime :is(.mobile-choice-sheet h2, .mobile-more-header h2) { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; }
 html.mobile-runtime :is(.mobile-choice-done, .mobile-more-header button, .am-secondary-close) { display: grid; place-items: center; min-width: 48px; min-height: 48px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--md-primary); }
 html.mobile-runtime :is(.mobile-choice-body, .am-more-body, .am-secondary-list) { display: flex; flex-direction: column; min-height: 0; padding: 8px 12px; gap: 4px; overflow-y: auto; overscroll-behavior: contain; }
-html.mobile-runtime :is(.mobile-choice-option, .am-more-item, .am-secondary-row, .sort-sheet-option, .song-menu__item) { display: flex; align-items: center; min-height: 48px; flex-shrink: 0; padding: 12px 16px; gap: 12px; border: 0; border-radius: var(--radius-xs); color: var(--text); font-size: 15px; font-weight: 500; text-align: left; background: transparent; }
+html.mobile-runtime :is(.mobile-choice-option, .am-more-item, .am-secondary-row, .sort-sheet-option, .song-menu__item) { display: flex; align-items: center; min-height: 56px; flex-shrink: 0; padding: 12px 14px; gap: 14px; border: 0; border-radius: var(--radius-md); color: var(--text); font-size: 16px; font-weight: 500; text-align: left; background: transparent; }
 html.mobile-runtime .mobile-choice-option { justify-content: space-between; }
 html.mobile-runtime .mobile-choice-option.active { background: var(--md-primary-container); color: var(--md-primary); font-weight: 700; }
 html.mobile-runtime .am-more-backdrop,
 html.mobile-runtime .am-secondary-backdrop { background: rgb(0 0 0 / .4); }
 html.mobile-runtime .am-more-btn { width: 48px; height: 48px; border-radius: 999px; }
-html.mobile-runtime .am-more-track { flex-shrink: 0; margin: 4px 4px 8px; }
+html.mobile-runtime .am-more-track { flex-shrink: 0; margin: 0 12px 8px; padding: 8px; border: 0; border-radius: var(--radius-md); background: var(--md-container); }
 html.mobile-runtime .am-more-body .am-more-item svg { color: var(--md-primary); }
 html.mobile-runtime .am-secondary-sheet.detail { height: min(calc(var(--mobile-viewport-height, 100dvh) * .75), 680px); }
 html.mobile-runtime .am-secondary-context { min-height: 0; }
@@ -671,3 +662,117 @@ html.mobile-runtime :is(.segmented-control, .follow-dialog-tabs, .song-menu__tab
     scroll-behavior: auto !important;
   }
 }
+
+html.mobile-runtime .mobile-page-bar.primary { min-height: calc(48px + env(safe-area-inset-top)); grid-template-columns: 48px minmax(0, 1fr) 48px; border-bottom: 1px solid transparent; }
+html.mobile-runtime .mobile-page-bar.primary .mobile-page-bar__button { grid-column: 3; color: var(--accent); margin: 0; }
+html.mobile-runtime .mobile-page-bar.primary .mobile-compact-title { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 17px; font-weight: 700; opacity: 0; transition: opacity 160ms ease; }
+html.mobile-runtime .mobile-page-bar.primary.collapsed { border-bottom-color: var(--border); }
+html.mobile-runtime .mobile-page-bar.primary.collapsed .mobile-compact-title { opacity: 1; }
+html.mobile-runtime .mobile-large-title { margin: 4px 0 20px; padding-bottom: 12px; font-size: 34px; line-height: 1.2; font-weight: 700; border-bottom: 1px solid var(--border); }
+html.mobile-runtime .mobile-page-content__inner { padding-top: 12px; }
+html.mobile-runtime .mobile-tab { border-radius: 0; font-weight: 400; }
+html.mobile-runtime .mobile-tab__label { font-size: 11px; }
+html.mobile-runtime .player-bar-wrap > .player-bar.mobile-mini-player { height: var(--mobile-player-h); min-height: var(--mobile-player-h); border-radius: 0; border-top: 1px solid var(--border); background: var(--bg); box-shadow: none; padding-inline: max(16px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right)); }
+html.mobile-runtime .mini-player-open { height: 62px; border-radius: 0; }
+html.mobile-runtime .mini-player-info strong { font-size: 16px; font-weight: 400; }
+html.mobile-runtime .mini-player-info strong.error { color: var(--danger); }
+html.mobile-runtime :is(.mini-player-play, .mini-player-queue) { display: grid; place-items: center; width: 48px; height: 48px; padding: 0; background: transparent; color: var(--text); border: 0; border-radius: 0; }
+html.mobile-runtime :is(.mini-player-play, .mini-player-queue) > :is(span, svg) { display: grid; place-items: center; margin: 0; }
+html.mobile-runtime .mini-player-queue.active { background: transparent; color: var(--accent); }
+html.mobile-runtime .mini-player-play.playing { border-radius: 0; }
+html.mobile-runtime .mini-player-play > span { transition: opacity 160ms ease; transform: none; }
+html.mobile-runtime .mini-player-pause-icon, html.mobile-runtime .mini-player-play.playing .mini-player-play-icon { transform: none; }
+html.mobile-runtime .mobile-discovery { display: grid; gap: 32px; min-width: 0; }
+html.mobile-runtime .mobile-discovery-section { min-width: 0; }
+html.mobile-runtime .mobile-discovery-section h2 { margin: 0 0 14px; font-size: 22px; line-height: 1.3; font-weight: 700; }
+html.mobile-runtime :is(.mobile-feature-rail, .mobile-cover-rail, .mobile-song-rail) { display: grid; grid-auto-flow: column; grid-auto-columns: 92%; gap: 16px; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 4px; }
+html.mobile-runtime :is(.mobile-feature-rail, .mobile-cover-rail, .mobile-song-rail)::-webkit-scrollbar { display: none; }
+html.mobile-runtime :is(.mobile-feature-item, .mobile-cover-item) { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; text-align: left; color: var(--text); scroll-snap-align: start; }
+html.mobile-runtime .mobile-feature-item small { color: var(--text-secondary); font-size: 13px; }
+html.mobile-runtime .mobile-feature-item strong { font-size: 20px; line-height: 28px; font-weight: 400; }
+html.mobile-runtime .mobile-feature-image { display: grid; place-items: center; width: 100%; aspect-ratio: 3 / 2; margin-top: 8px; border-radius: var(--radius-md); overflow: hidden; background: var(--bg-surface); }
+html.mobile-runtime :is(.mobile-feature-image, .mobile-cover-image, .mobile-song-cover) img { width: 100%; height: 100%; object-fit: cover; }
+html.mobile-runtime .mobile-cover-rail { grid-auto-columns: 40%; gap: 12px; }
+html.mobile-runtime .mobile-cover-image { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: var(--radius-sm); background: var(--bg-surface); overflow: hidden; margin-bottom: 4px; }
+html.mobile-runtime .mobile-cover-item strong { font-size: 15px; font-weight: 400; line-height: 20px; }
+html.mobile-runtime .mobile-cover-item small { font-size: 13px; color: var(--text-secondary); line-height: 18px; }
+html.mobile-runtime .mobile-cover-item :is(strong, small) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+html.mobile-runtime .mobile-song-group { min-width: 0; scroll-snap-align: start; }
+html.mobile-runtime .mobile-song-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; min-height: 64px; position: relative; }
+html.mobile-runtime .mobile-song-row::after { content: ''; position: absolute; inset: auto 0 0 60px; height: 1px; background: var(--border); }
+html.mobile-runtime .mobile-song-play { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 6px 0; text-align: left; background: transparent; color: var(--text); border: 0; }
+html.mobile-runtime .mobile-song-cover { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: var(--radius-xs); overflow: hidden; background: var(--bg-surface); }
+html.mobile-runtime .mobile-song-copy { min-width: 0; display: grid; gap: 2px; }
+html.mobile-runtime .mobile-song-copy strong { font-size: 16px; font-weight: 400; }
+html.mobile-runtime .mobile-song-copy small { font-size: 13px; color: var(--text-secondary); }
+html.mobile-runtime .mobile-song-copy :is(strong, small) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.mobile-runtime .mobile-song-more { display: grid; place-items: center; width: 48px; height: 64px; background: transparent; color: var(--text); }
+html.mobile-runtime .library-mobile-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+html.mobile-runtime .library-mobile-tools span { font-size: 13px; color: var(--text-secondary); }
+html.mobile-runtime .library-mobile-tools button { display: flex; align-items: center; gap: 6px; min-height: 48px; color: var(--accent); background: transparent; font-size: 15px; }
+html.mobile-runtime .library-page .library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
+html.mobile-runtime .library-page .library-card { display: block; padding: 0; border-radius: 0; }
+html.mobile-runtime .library-page .library-card .library-card-cover { width: 100%; height: auto; aspect-ratio: 1; border-radius: var(--radius-sm); }
+html.mobile-runtime .library-page .library-card .library-card-info { margin-top: 6px; min-height: 48px; }
+html.mobile-runtime .library-mobile-section h2 { font-size: 22px; line-height: 28px; }
+html.mobile-runtime .library-mobile-section header > span { background: transparent; font-size: 13px; }
+html.mobile-runtime .library-page .profile-home__quick-label { display: none; }
+html.mobile-runtime .library-page .profile-home__quick > button { border: 0; border-radius: var(--radius-sm); box-shadow: none; min-height: 100px; padding: 12px; background: var(--bg-surface); }
+html.mobile-runtime .library-page .profile-home__quick strong { font-size: 15px; }
+html.mobile-runtime .library-page .user-profile-hero { min-height: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; color: var(--text); }
+html.mobile-runtime .library-page :is(.user-profile-hero__background, .user-profile-hero__wash, .user-profile-hero__label) { display: none; }
+html.mobile-runtime .library-page .user-profile-hero__content { min-height: 0; padding: 8px 0 16px; gap: 20px; }
+html.mobile-runtime .library-page .user-profile-hero__avatar { width: 76px; height: 76px; border: 0; box-shadow: none; }
+html.mobile-runtime .library-page .user-profile-hero__identity { gap: 16px; }
+html.mobile-runtime .library-page .user-profile-hero__name-line h1 { color: var(--text); font-size: 26px; }
+html.mobile-runtime .library-page .user-profile-hero__copy p { color: var(--text-secondary); }
+html.mobile-runtime .library-page .user-profile-hero__stats div { border: 0; border-radius: 0; background: transparent; backdrop-filter: none; }
+html.mobile-runtime .library-page .user-profile-hero__stats strong { color: var(--text); }
+html.mobile-runtime .library-page .user-profile-hero__stats span { color: var(--text-secondary); }
+html.mobile-runtime .settings-page .settings-panel { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+html.mobile-runtime .settings-page .settings-row { min-height: 64px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+html.mobile-runtime .settings-page .settings-label { font-size: 15px; font-weight: 500; }
+html.mobile-runtime .settings-page .settings-desc { font-size: 13px; }
+html.mobile-runtime .settings-page .segmented-control button { min-height: 40px; }
+html.mobile-runtime .search-page .search-input-wrap { background: var(--bg-surface); border-radius: var(--radius-sm); }
+html.mobile-runtime :is(.mobile-tab, .mobile-page-bar__button, .library-card, .mobile-cover-item, .mobile-feature-item) { transition: transform 180ms var(--ease-out), color 160ms ease; }
+html.mobile-runtime [data-mobile-pressed="control"] { scale: .97; transition-duration: 100ms; }
+html.mobile-runtime [data-mobile-pressed="row"] { background-color: var(--bg-hover); }
+@media (prefers-reduced-motion: reduce) { html.mobile-runtime [data-mobile-pressed="control"] { scale: 1; } }
+
+html.mobile-runtime .library-page :is(.user-profile-hero__level, .user-profile-hero__identity-label) { color: var(--accent); background: var(--accent-bg); border: 0; }
+html.mobile-runtime .search-page .search-header { display: none; }
+html.mobile-runtime .search-page .search-chart-panel { border: 0; border-radius: 0; background: transparent; padding: 0; }
+html.mobile-runtime .search-page .search-section-header h2 { font-size: 22px; }
+html.mobile-runtime .search-page .search-input { background: transparent; }
+html.mobile-runtime .toast { bottom: calc(var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-tabs-h) + var(--mobile-player-h) + 12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime.mobile-keyboard-open .toast { bottom: calc(12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime .mobile-page-bar.primary .mobile-page-bar__button svg, html.mobile-runtime .mobile-song-more svg { rotate: 90deg; }
+html.mobile-runtime .mobile-tab.active .mobile-tab__icon { color: var(--accent); }
+
+html.mobile-runtime .library-page .library-card .library-card-info { display: block; min-height: 0; margin-top: 8px; }
+html.mobile-runtime .library-card .library-card-name { font-size: 16px; line-height: 22px; font-weight: 400; }
+html.mobile-runtime .library-card :is(.library-card-meta, .library-card-more) { display: none; }
+html.mobile-runtime .library-page .library-grid { row-gap: 28px; }
+html.mobile-runtime .mobile-detail-actions { grid-column: 2 / 4; grid-row: 1; display: flex; justify-content: flex-end; gap: 4px; }
+html.mobile-runtime .mobile-detail-actions button { width: 48px; height: 48px; display: grid; place-items: center; background: transparent; color: var(--text); }
+html.mobile-runtime .mobile-detail-actions button:last-child svg { rotate: 90deg; }
+html.mobile-runtime .mobile-page-bar h1.mobile-playlist-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+html.mobile-runtime .playlist-detail-page .playlist-toolbar { display: none; }
+html.mobile-runtime .playlist-detail-page.show-mobile-tools .playlist-toolbar { display: grid; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr { grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 22px 18px; min-height: 64px; padding: 8px 48px 8px 0; gap: 2px 12px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 16px; font-weight: 400; line-height: 22px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 14px; line-height: 18px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-cover { grid-row: 1 / 3; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table :is(.col-album, .col-dur) { display: none; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr::after { content: ''; position: absolute; left: 60px; right: 0; bottom: 0; height: 1px; background: var(--border); }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active { background: transparent; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active .col-title { color: var(--md-primary); }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .m-track-more svg { rotate: 90deg; }
+
+html.mobile-runtime .mobile-page-content .playlist-detail-page:not(.show-mobile-tools) .playlist-toolbar { display: none; }
+
+html.mobile-runtime .library-card > .library-card-info > .library-card-creator { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .artist-link { color: var(--text-secondary); }

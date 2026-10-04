@@ -33,7 +33,7 @@
 {#if open}
   <div class="mobile-choice-portal" use:portal>
     <button class="mobile-choice-backdrop" type="button" aria-label={`关闭${label}`} onclick={() => open = false} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
-    <div class="mobile-choice-sheet" data-bottom-panel role="dialog" aria-modal="true" aria-label={label} tabindex="-1" use:dialogFocus={() => open = false} in:mobileSheet={{ duration: 280 }} out:mobileSheet={{ duration: 240 }}>
+    <div class="mobile-choice-sheet" data-bottom-panel role="dialog" aria-modal="true" aria-label={label} tabindex="-1" use:dialogFocus={() => open = false} in:mobileSheet out:mobileSheet>
       <button class="m-sheet-handle" type="button" aria-label={`关闭${label}`} onclick={() => open = false} use:mobileDrag={{ close: () => open = false, panel: true }}></button>
       <header><h2>{label}</h2><button class="mobile-choice-done" type="button" onclick={() => open = false}>完成</button></header>
       <div class="mobile-choice-body" role="group" aria-label={label}>

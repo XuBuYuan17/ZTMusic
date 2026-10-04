@@ -18,6 +18,7 @@ import {
   type PlaylistDetailRecord,
   type PlaylistDetailResult,
 } from '../services/details.ts'
+import { isMobileDevice } from '../utils/responsive.ts'
 import { createLruCache } from '../utils/lru-cache.ts'
 
 // 详情曲目兼容播放器队列输入，另带歌单内的附加字段
@@ -325,6 +326,7 @@ function playExploreSong(t: DetailTrack | null | undefined): void { if (t) playe
 function handleNav(view: string, extra?: number | null, preserveSource = false): void {
   invalidateDetailRequests()
   if (view === 'profile') view = 'home'
+  if (isMobileDevice() && view === 'home') view = 'library'
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
@@ -339,7 +341,7 @@ function handleNav(view: string, extra?: number | null, preserveSource = false):
 
 function goBack(): void {
   invalidateDetailRequests(); const prev = _routeStack[_routeStack.length - 1]; _routeStack = _routeStack.slice(0, -1)
-  if (!prev) { handleNav('home'); return }
+  if (!prev) { handleNav(isMobileDevice() ? 'explore' : 'home'); return }
   if (prev.view === 'playlist') { goPlaylist(prev.id, false); return }
   if (prev.view === 'album') { goAlbum(prev.id, false); return }
   if (prev.view === 'artist') { goArtist(prev.id, false); return }

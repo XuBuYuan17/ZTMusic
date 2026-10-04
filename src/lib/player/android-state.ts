@@ -6,6 +6,15 @@ export interface AndroidPlaybackState {
   playing: boolean; loading: boolean; ended: boolean; index: number; volume: number; mode: PlayMode; error: string
   tracks: Array<CompactTrack & { nativeUri?: string }>
   overlayEnabled?: boolean
+  overlayVisible?: boolean
+  overlaySettings?: {
+    locked: boolean
+    through: boolean
+    bilingual: boolean
+    opacity: number
+    fontSize: number
+    font: string
+  }
   revision?: number
 }
 

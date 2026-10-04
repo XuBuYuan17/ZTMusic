@@ -37,6 +37,7 @@ class PlaybackService : MediaSessionService() {
     private lateinit var journal: ListeningJournal
     private var session: MediaSession? = null
     private var overlay: LyricsOverlayConnection? = null
+    private val overlayPrefs by lazy { getSharedPreferences("overlay-lyrics", MODE_PRIVATE) }
     private var revision = 0L
     private val liveActivity = LiveActivityRouter()
     private val handler = Handler(Looper.getMainLooper())
@@ -131,6 +132,7 @@ class PlaybackService : MediaSessionService() {
                     player.prepare()
                 }
                 applyMode(data.optString("mode", "list"))
+                ensureOverlay()
                 if (payload.getString("action") == "start") player.play()
             }
             "play" -> { if (player.playbackState == Player.STATE_IDLE) player.prepare(); player.play() }
@@ -145,9 +147,13 @@ class PlaybackService : MediaSessionService() {
             "overlay" -> {
                 if (data.optBoolean("enabled")) {
                     require(android.provider.Settings.canDrawOverlays(this))
+                    overlayPrefs.edit().putBoolean("enabled", true).apply()
                     if (overlay == null) overlay = LyricsOverlayConnection(this, player, resolver)
                     overlay?.configure(data)
-                } else { overlay?.close(); overlay = null }
+                } else {
+                    overlayPrefs.edit().putBoolean("enabled", false).apply()
+                    overlay?.close(); overlay = null
+                }
             }
             else -> throw IllegalArgumentException("Unknown playback action")
         }
@@ -158,6 +164,12 @@ class PlaybackService : MediaSessionService() {
         require(mode in setOf("list", "shuffle", "repeat"))
         player.shuffleModeEnabled = mode == "shuffle"
         player.repeatMode = if (mode == "repeat") Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL
+    }
+
+    private fun ensureOverlay() {
+        if (player.mediaItemCount == 0 || overlay != null || !overlayPrefs.getBoolean("enabled", false)) return
+        if (!android.provider.Settings.canDrawOverlays(this)) return
+        overlay = LyricsOverlayConnection(this, player, resolver)
     }
 
     private fun mediaItem(track: JSONObject): MediaItem {
@@ -178,7 +190,16 @@ class PlaybackService : MediaSessionService() {
 
     private fun snapshot(): JSONObject = JSONObject().apply {
         put("revision", ++revision)
-        put("overlayEnabled", overlay?.visible == true)
+        put("overlayEnabled", overlayPrefs.getBoolean("enabled", false) && android.provider.Settings.canDrawOverlays(this@PlaybackService))
+        put("overlayVisible", overlay?.visible == true)
+        put("overlaySettings", JSONObject().apply {
+            put("locked", overlayPrefs.getBoolean("locked", false))
+            put("through", overlayPrefs.getBoolean("through", false))
+            put("bilingual", overlayPrefs.getBoolean("bilingual", true))
+            put("opacity", overlayPrefs.getFloat("opacity", 0.9f).toDouble())
+            put("fontSize", overlayPrefs.getFloat("fontSize", 18f).toDouble())
+            put("font", overlayPrefs.getString("font", "sans-serif") ?: "sans-serif")
+        })
         put("anchorPosition", player.currentPosition.coerceAtLeast(0))
         put("anchorTimestamp", System.currentTimeMillis())
         put("playbackSpeed", player.playbackParameters.speed)
