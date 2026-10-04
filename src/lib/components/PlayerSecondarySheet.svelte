@@ -321,21 +321,22 @@
     text-overflow: ellipsis;
   }
 
+  /* 热评在手机上按“头像 / 用户信息 / 点赞 / 正文”组织，不再让每条评论像四个独立区块一样纵向摊开。 */
   .am-secondary-context :global(.ly-context-comment-list) {
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding: 18px 16px 22px;
-    scroll-padding-top: 18px;
+    padding: 4px 16px 18px;
+    scroll-padding-top: 8px;
   }
 
   .am-secondary-context :global(.ly-context-comment-row) {
     width: 100%;
     height: auto;
     min-height: 0;
-    padding: 16px 0 18px;
+    padding: 13px 0 15px;
     border-radius: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.065);
     background: transparent;
   }
 
@@ -343,21 +344,93 @@
     border-bottom: 0;
   }
 
-  .am-secondary-context :global(.ly-context-comment-row strong) {
+  .am-secondary-context :global(.ly-context-comment-author) {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px;
+    min-width: 0;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-author > img),
+  .am-secondary-context :global(.ly-context-comment-author > span:first-child),
+  .am-secondary-context :global(.ly-context-comment-author > .ly-context-avatar-ph) {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    grid-row: 1;
+    grid-column: 1;
+    margin: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    overflow: hidden;
+    background: var(--bg-layer);
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-style: normal;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-author > div) {
+    grid-column: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-author strong) {
     display: block;
-    margin-bottom: 9px;
+    min-width: 0;
+    margin: 0;
     color: rgba(255,255,255,0.9);
     font-size: 14px;
-    line-height: 1.35;
-    font-weight: 700;
+    line-height: 1.3;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-author small),
+  .am-secondary-context :global(.ly-context-comment-author > div > span) {
+    color: rgba(255,255,255,0.42);
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-author em),
+  .am-secondary-context :global(.ly-context-comment-likes) {
+    grid-column: 3;
+    align-self: start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 1px 0 0 8px;
+    color: rgba(255,255,255,0.48);
+    font-size: 12px;
+    line-height: 1.3;
+    font-style: normal;
+    white-space: nowrap;
   }
 
   .am-secondary-context :global(.ly-context-comment-row p) {
-    margin: 0;
-    color: rgba(255,255,255,0.68);
+    margin: 7px 0 0 48px;
+    color: rgba(255,255,255,0.76);
     font-size: 14px;
-    line-height: 1.7;
+    line-height: 1.55;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  @media (max-width: 380px) {
+    .am-secondary-context :global(.ly-context-comment-list) { padding-inline: 14px; }
+    .am-secondary-context :global(.ly-context-comment-author) { grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 9px; }
+    .am-secondary-context :global(.ly-context-comment-author > img),
+    .am-secondary-context :global(.ly-context-comment-author > span:first-child),
+    .am-secondary-context :global(.ly-context-comment-author > .ly-context-avatar-ph) { width: 36px; height: 36px; }
+    .am-secondary-context :global(.ly-context-comment-row p) { margin-left: 45px; }
   }
 
   @keyframes queue-slide-up {
