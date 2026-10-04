@@ -49,7 +49,7 @@ export function mobilePageFrames(
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
     if (kind === 'pop') {
       return entering
-        ? [{ opacity: .92, transform: 'translate3d(0,-4px,0)', clipPath: fullSurface.clipPath }, fullSurface]
+        ? [fullSurface, fullSurface]
         : [fullSurface, { opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }]
     }
     return entering
