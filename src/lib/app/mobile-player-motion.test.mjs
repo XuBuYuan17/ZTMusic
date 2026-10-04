@@ -58,23 +58,15 @@ assert.equal(sheetCoverTransform(large, mini, 700), 'translate(-4px, -142px) sca
 assert.equal(sheetCoverTransform({ ...large, top: 270 }, mini, 580), sheetCoverTransform(large, mini, 700), 'a dragged sheet still closes to the same artwork position')
 assert.equal(sheetCoverTransform({ ...large, width: 0 }, mini), 'none', 'unmeasurable artwork never generates an infinite transform')
 const cover = element(large), title = element({ left: 24, top: 470, width: 300, height: 56 }), lyrics = element()
-cover.querySelector = () => ({ currentSrc: 'https://example.test/decoded-cover.jpg' })
 let mode = false
 const root = { isConnected: true, classList: { contains: () => mode }, querySelector: selector => selector.includes('cover') ? cover : selector.includes('info') ? title : lyrics }
 globalThis.getComputedStyle = () => ({ borderRadius: '12px' })
-globalThis.document = { createElement: () => element(large), body: { append() {} } }
 const controller = createMobilePlayerMotion()
 const change = () => { mode = !mode; cover.rect = mode ? small : large }
 calls.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
-assert.notEqual(calls[0].node, cover, 'the real cover stays at its final layout geometry')
-assert.match(calls[0].frames[0].transform, /translate3d\(0px,86px,0\) scale\(6.25\)/, 'GPU overlay starts at the previous cover geometry')
-assert.equal(calls[0].frames[1].transform, 'translate3d(0,0,0) scale(1)')
-assert.equal(calls[0].node.style.opacity, '1', 'detached overlay overrides the player rule that would hide it')
-assert.equal(calls[0].node.src, 'https://example.test/decoded-cover.jpg', 'flight reuses decoded main artwork instead of an ancestor-dependent component clone')
-assert.equal(calls[0].node.style.zIndex, '1010', 'cover flight stays above the player surface')
-assert.equal(cover.style.opacity, '0', 'the real cover is hidden only while its overlay is moving')
+assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
 assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover snaps into lyrics mode without a half-second drift')
 assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')

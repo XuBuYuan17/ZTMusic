@@ -49,8 +49,8 @@ const probeFlight = async (selector, name) => {
     const flight = node.getAnimations()[0]
     const duration = Number(flight.effect.getTiming().duration)
     const frames = []
-    for (const progress of [0, .5, .999]) {
-      flight.currentTime = duration * progress
+    for (const progress of [0, .25, .5, .999]) {
+      animations.forEach(a => { a.currentTime = duration * progress })
       await new Promise(requestAnimationFrame)
       const r = node.getBoundingClientRect()
       const pointer = node.style.pointerEvents
@@ -58,17 +58,21 @@ const probeFlight = async (selector, name) => {
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
       node.style.pointerEvents = pointer
       frames.push({ progress, x:r.left, y:r.top, width:r.width, height:r.height,
-        image:node.naturalWidth, onTop:hit===node || node.contains(hit), opacity:getComputedStyle(node).opacity })
+        image:node.tagName === 'IMG' ? node.naturalWidth : node.querySelector('.am-flying-cover-img')?.naturalWidth, onTop:hit===node || node.contains(hit), opacity:getComputedStyle(node).opacity })
     }
-    flight.currentTime = duration * .5
+    animations.forEach(a => { a.currentTime = duration * .5 })
     window.__resumeMotion = () => animations.forEach((a,i) => { a.currentTime = times[i]; a.play() })
     return frames
   }, selector)
   await capture(name + '_mid')
   await page.evaluate(() => { window.__resumeMotion(); delete window.__resumeMotion })
-  assert.equal(result.length, 3)
+  assert.equal(result.length, 4)
   assert.ok(result.every(f => f.onTop && f.image > 0 && f.opacity === '1'), name + ': flight is blank or covered')
   assert.ok(Math.abs(result[1].width - result[0].width) > 3, name + ': no visible intermediate size')
+  if (name.startsWith('playlist')) {
+    const progress = (result[1].width - result[0].width) / (result.at(-1).width - result[0].width)
+    assert.ok(progress > .1 && progress < .65, name + ': flight should ease in rather than snap through its first quarter')
+  }
   return result
 }
 try {
@@ -83,7 +87,7 @@ try {
   metrics.playlistEnter = await sample('.shared-cover-flight, .playlist-cover')
   await page.waitForTimeout(700)
   metrics.heroAfter = await box('.mobile-route-page:not([inert]) .playlist-cover')
-  near(metrics.playlistEnterProbe[2], metrics.heroAfter, 'playlist enter landing')
+  near(metrics.playlistEnterProbe.at(-1), metrics.heroAfter, 'playlist enter landing')
   await capture('playlist')
   await page.evaluate(() => window.mobileFixture.back())
   metrics.playlistReturnProbe = await probeFlight('.shared-cover-flight', 'playlist_return')
@@ -93,22 +97,23 @@ try {
   metrics.playlistReturn = await sample('.shared-cover-flight, img[data-shared-cover-return]')
   await page.waitForTimeout(600)
   metrics.cardAfter = await box('.mobile-cover-item img')
-  near(metrics.playlistReturnProbe[2], metrics.cardAfter, 'playlist return landing')
+  near(metrics.playlistReturnProbe.at(-1), metrics.cardAfter, 'playlist return landing')
   await page.evaluate(() => window.mobileFixture.openPlayer())
   await page.waitForSelector('.apple-music-player.entered')
   await page.waitForTimeout(600)
   metrics.controlsCover = await box('.apple-music-player > .am-flying-cover')
   await page.locator('.apple-music-player > .am-flying-cover').click()
-  metrics.playerLyricsProbe = await probeFlight('.mobile-player-cover-flight', 'player_lyrics')
-  metrics.playerToLyrics = await sample('.mobile-player-cover-flight, .apple-music-player > .am-flying-cover')
+  metrics.playerLyricsProbe = await probeFlight('.apple-music-player > .am-flying-cover', 'player_lyrics')
+  assert.equal(await page.locator('.mobile-player-cover-flight').count(), 0, 'restored player animates its original cover')
+  metrics.playerToLyrics = await sample('.apple-music-player > .am-flying-cover')
   await page.waitForTimeout(450)
   metrics.lyricsCover = await box('.apple-music-player > .am-flying-cover')
-  near(metrics.playerLyricsProbe[2], metrics.lyricsCover, 'lyrics landing')
+  near(metrics.playerLyricsProbe.at(-1), metrics.lyricsCover, 'lyrics landing')
   await page.locator('.apple-music-player > .am-flying-cover').click()
-  metrics.playerControlsProbe = await probeFlight('.mobile-player-cover-flight', 'player_controls')
-  metrics.playerToControls = await sample('.mobile-player-cover-flight, .apple-music-player > .am-flying-cover')
+  metrics.playerControlsProbe = await probeFlight('.apple-music-player > .am-flying-cover', 'player_controls')
+  metrics.playerToControls = await sample('.apple-music-player > .am-flying-cover')
   await page.waitForTimeout(500)
-  near(metrics.playerControlsProbe[2], await box('.apple-music-player > .am-flying-cover'), 'controls landing')
+  near(metrics.playerControlsProbe.at(-1), await box('.apple-music-player > .am-flying-cover'), 'controls landing')
   await page.locator('.am-more-btn').click()
   await page.getByText('热评', { exact: true }).click()
   await page.locator('.ly-context-comment-row').first().waitFor()
@@ -150,7 +155,7 @@ try {
   await page.locator('.mobile-cover-item').first().click()
   metrics.cachedEnterProbe = await probeFlight('.shared-cover-flight', 'playlist_cached')
   await page.waitForTimeout(700)
-  near(metrics.cachedEnterProbe[2], await box('.mobile-route-page:not([inert]) .playlist-cover'), 'cached playlist landing')
+  near(metrics.cachedEnterProbe.at(-1), await box('.mobile-route-page:not([inert]) .playlist-cover'), 'cached playlist landing')
   await page.evaluate(() => window.mobileFixture.back())
   await page.waitForTimeout(600)
   assert.equal(await page.locator('.shared-cover-flight,.mobile-player-cover-flight').count(), 0, 'flight cleanup')

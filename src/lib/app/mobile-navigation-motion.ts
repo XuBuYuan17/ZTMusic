@@ -4,11 +4,12 @@ export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
   tab: 220,
   page: 360,
-  expand: 520,
-  dismiss: 460,
+  expand: 460,
+  dismiss: 400,
   enter: 'cubic-bezier(.2,0,0,1)',
   exit: 'cubic-bezier(.32,0,.2,1)',
-  shared: 'cubic-bezier(.16,1,.3,1)',
+  // Gentle acceleration avoids finishing almost the whole flight in its first frames.
+  shared: 'cubic-bezier(.3,0,.2,1)',
   standard: 'cubic-bezier(.2,0,0,1)',
 } as const
 

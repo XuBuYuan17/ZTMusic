@@ -57,8 +57,6 @@ export function createMobilePlayerMotion() {
   let generation = 0
   const animations = new Set<Animation>()
   const restores = new Map<HTMLElement, string>()
-  const overlays = new Set<HTMLElement>()
-  let activeCover: HTMLElement | null = null
 
   function rememberStyle(node: HTMLElement) {
     if (!restores.has(node)) restores.set(node, node.style.cssText)
@@ -74,9 +72,6 @@ export function createMobilePlayerMotion() {
     generation++
     animations.forEach(animation => animation.cancel())
     animations.clear()
-    overlays.forEach(node => node.remove())
-    overlays.clear()
-    activeCover = null
     restores.forEach((style, node) => { node.style.cssText = style })
     restores.clear()
   }
@@ -97,8 +92,7 @@ export function createMobilePlayerMotion() {
       const entering = !node.classList.contains('lyrics-mode')
       const cover = node.querySelector<HTMLElement>('.am-flying-cover')
       const title = node.querySelector<HTMLElement>(entering ? '.am-track-info' : '.am-corner-info')
-      // Read the visible flight before cancellation, not the hidden destination.
-      const from = (activeCover || cover)?.getBoundingClientRect()
+      const from = cover?.getBoundingClientRect()
       const titleFrom = title?.getBoundingClientRect()
       const titleScale = titleFrom && title?.offsetHeight ? titleFrom.height / title.offsetHeight : 1
       const titleSize = title?.firstElementChild && getComputedStyle(title.firstElementChild).fontSize
@@ -134,38 +128,10 @@ export function createMobilePlayerMotion() {
       const coverDuration = entering ? mobilePlayerTiming.enterDuration : mobilePlayerTiming.exitDuration
       const to = cover?.getBoundingClientRect()
       if (cover && from?.width && from.height && to?.width && to.height) {
-        // Animate a compositor-only copy. The real cover is already at its exact
-        // destination size, so the GPU flight cannot cause layout work or a late resize.
-        // A detached component clone loses ancestor styles and can become blank.
-        // Reuse the decoded artwork only; the flight has no component/CSS dependencies.
-        const artwork = cover.querySelector<HTMLImageElement>('.am-flying-cover-img')
-        const overlay = document.createElement('img')
-        overlay.className = 'mobile-player-cover-flight'
-        overlay.src = artwork?.currentSrc || artwork?.src || ''
-        overlay.alt = ''
-        overlay.referrerPolicy = 'no-referrer'
-        overlay.setAttribute('aria-hidden', 'true')
-        const targetRadius = getComputedStyle(cover).borderRadius
-        const scale = Math.min(from.width / to.width, from.height / to.height)
-        const dx = from.left - to.left + (from.width - to.width * scale) / 2
-        const dy = from.top - to.top + (from.height - to.height * scale) / 2
-        Object.assign(overlay.style, {
-          position: 'fixed', inset: 'auto', left: `${to.left}px`, top: `${to.top}px`,
-          width: `${to.width}px`, height: `${to.height}px`, margin: '0',
-          pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform',
-          opacity: '1', visibility: 'visible', zIndex: '1010',
-          display: 'block', objectFit: 'cover', padding: '0', border: '0',
-          maxWidth: 'none', maxHeight: 'none', boxSizing: 'border-box',
-          boxShadow: getComputedStyle(cover).boxShadow, transition: 'none',
-        })
-        rememberStyle(cover)
-        cover.style.opacity = '0'
-        document.body.append(overlay)
-        overlays.add(overlay)
-        activeCover = overlay
-        pending.push(animate(overlay, [
-          { transform: `translate3d(${dx}px,${dy}px,0) scale(${scale})`, borderRadius: `calc(${radius} / ${scale})` },
-          { transform: 'translate3d(0,0,0) scale(1)', borderRadius: targetRadius },
+        const sx = from.width / to.width, sy = from.height / to.height
+        pending.push(animate(cover, [
+          { transformOrigin: '0 0', transform: `translate(${from.left - to.left}px,${from.top - to.top}px) scale(${sx},${sy})`, borderRadius: `calc(${radius} / ${sx})` },
+          { transformOrigin: '0 0', transform: 'none', borderRadius: getComputedStyle(cover).borderRadius },
         ], { duration: coverDuration }))
       }
 
