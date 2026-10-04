@@ -84,16 +84,17 @@ assert.equal(calls.length, count + 4, 'two changes in one frame only animate the
 controller.destroy()
 
 let frame, removed = false
-const sourceImage = { complete: true, naturalWidth: 100, src: 'cover.jpg', getBoundingClientRect: () => small }
+const sourceImage = { complete: true, naturalWidth: 100, src: 'cover.jpg', dataset: {}, getBoundingClientRect: () => small }
 const event = { target: { closest: selector => selector.startsWith('.library') ? null : { querySelector: () => sourceImage } } }
 const target = element(large)
 const clone = { ...element(), setAttribute() {}, remove() { removed = true } }
-globalThis.document = { documentElement: { classList: { contains: () => true } }, createElement: () => clone, body: { append() {} } }
+globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null, createElement: () => clone, body: { append() {} } }
 globalThis.requestAnimationFrame = callback => { frame = callback; return 1 }
 globalThis.cancelAnimationFrame = () => { frame = null }
 globalThis.HTMLImageElement = class {}
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), true, 'mobile clicks remember the card cover')
+assert.equal(sourceImage.dataset.sharedCoverReturn, 'true', 'shared cover keeps a return marker for reverse navigation')
 const flight = flyCover(target)
 frame()
 assert.equal(hasCoverOrigin(), false, 'the flight consumes its card origin')
