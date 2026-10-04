@@ -16,7 +16,7 @@ export async function reviewLibraryAppearance(page, capture, metrics) {
     await page.evaluate(() => new Promise(requestAnimationFrame))
     const before = await geometry(selector)
     await page.evaluate(() => { document.getElementById('library-appearance-fixture').sheet.disabled = false })
-    await page.evaluate(() => new Promise(requestAnimationFrame))
+    await page.waitForTimeout(250)
     assert.equal(after.length, before.length, name + ': element count')
     for (let i = 0; i < after.length; i++) {
       for (const key of ['x','y','width','height']) assert.ok(Math.abs(after[i][key] - before[i][key]) < .5, name + ': ' + key + ' changed')
@@ -71,6 +71,9 @@ export async function reviewLibraryAppearance(page, capture, metrics) {
         const s=getComputedStyle(e);return { class:e.className, rect:e.getBoundingClientRect().toJSON(), font:s.fontSize, line:s.lineHeight, columns:s.gridTemplateColumns, padding:s.padding }
       })
     }))
+    const headerParts = metrics.libraryMenu.elements
+    assert.ok(headerParts[1].rect.right <= headerParts[3].rect.left, 'menu cover overlaps title')
+    assert.ok(headerParts[3].rect.right <= headerParts[4].rect.left, 'menu title overlaps close')
     await colorIsToken(menu + ' .library-option--danger', '--danger')
     assert.ok(!['INPUT','TEXTAREA'].includes(await page.evaluate(() => document.activeElement?.tagName)), 'management menu unexpectedly focuses an editor')
     await noOverflow(menu)

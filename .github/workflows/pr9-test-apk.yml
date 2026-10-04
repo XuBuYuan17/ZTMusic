@@ -160,3 +160,4 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
 # Library appearance: verify scoped component overrides before packaging.
+# Allow theme color transitions to settle during browser comparison.
