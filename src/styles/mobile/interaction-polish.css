@@ -31,13 +31,16 @@ html.mobile-runtime body :is(
   animation: mobilePanelBackdropEnterFallback 220ms ease-out both;
 }
 
-/* Search used a literal “•••”, while playlist rows use the shared more icon.
- * Hide the glyph and draw the same neutral three-dot geometry everywhere. */
+/* Search and artist rows still contain a legacy literal “•••” in markup.
+ * Do not depend on :has() here: older Android WebViews can drop that selector.
+ * These two pages are known text-button call sites, so draw the same vertical
+ * three-dot geometry explicitly while playlist rows keep their real SVG icon. */
 html.mobile-runtime .m-track-more {
   font-size: 0 !important;
   line-height: 0;
 }
 
+html.mobile-runtime :is(.search-page, .artist-page) .m-track-more::before,
 html.mobile-runtime .m-track-more:not(:has(svg))::before {
   content: '';
   display: block;
