@@ -14,9 +14,14 @@ assert.equal(mobilePageFrames('push', true, true, true)[0].clipPath, 'inset(8% 8
 assert.equal(mobilePageFrames('push', true, true, true)[0].opacity, 1, 'detail reveal stays fully opaque')
 assert.equal(mobilePageFrames('push', true, true, true, 'inset(10px 20px 30px 40px round 16px)')[0].clipPath, 'inset(10px 20px 30px 40px round 16px)')
 assert.equal(mobilePageFrames('push', false, true, true)[1].transform, 'none', 'source page remains still below the detail surface')
-assert.equal(mobilePageFrames('pop', true, false, true)[0].transform, 'none', 'destination page remains still while detail collapses')
-assert.equal(mobilePageFrames('pop', false, false, true)[1].clipPath, 'inset(8% 8% 72% 8% round 22px)')
-assert.equal(mobilePageFrames('pop', false, false, true)[1].opacity, 1, 'collapse stays fully opaque')
+assert.equal(mobilePageFrames('pop', true, false, true)[0].transform, 'none', 'destination page remains still during detail dismissal')
+
+const dismissFrames = mobilePageFrames('pop', false, false, true)
+assert.equal(dismissFrames.at(-1)?.clipPath, 'inset(0 0 0 0 round 0px)', 'return must never squash the full detail page back into the source card')
+assert.equal(dismissFrames.at(-1)?.opacity, 0, 'detail content clears before the shared cover lands')
+assert.equal(dismissFrames.at(-1)?.transform, 'translate3d(0,10px,0) scale(.992)', 'detail dismissal uses only a subtle depth/downward cue')
+assert.equal(dismissFrames[1]?.offset, .72, 'detail content should visually finish before the cover flight completes')
+assert.ok(mobileMotion.dismiss < mobileMotion.expand, 'return should feel faster than the initial reveal')
 
 const pending: Array<{ resolve: () => void; cancelled: boolean; duration: number }> = []
 const node = { animate(_frames: Keyframe[], options: KeyframeAnimationOptions) {
@@ -41,11 +46,22 @@ assert.equal(completed, 1)
 motion.play(node, null, 'pop', false, false, true, () => { completed++ })
 assert.equal(pending.length, 3, 'reduced motion creates no animations')
 assert.equal(completed, 2)
+
 let surfaceCompleted = 0
 motion.play(node, null, 'push', true, true, false, () => { surfaceCompleted++ })
-assert.equal(pending[3]!.duration, mobileMotion.expand, 'cover detail uses the synchronized surface duration')
+assert.equal(pending[3]!.duration, mobileMotion.expand, 'cover detail reveal uses the synchronized surface duration')
 pending[3]!.resolve()
 await setImmediate()
 assert.equal(surfaceCompleted, 1)
+
+let dismissCompleted = 0
+motion.play(node, node, 'pop', false, true, false, () => { dismissCompleted++ })
+assert.equal(pending[4]!.duration, mobileMotion.dismiss, 'destination hold uses the short return duration')
+assert.equal(pending[5]!.duration, mobileMotion.dismiss, 'detail dismissal uses the short return duration')
+pending[4]!.resolve()
+pending[5]!.resolve()
+await setImmediate()
+assert.equal(dismissCompleted, 1)
+
 motion.cancel()
-console.log('Mobile navigation: opaque reference surface, direction, timings, interruption and reduced motion passed')
+console.log('Mobile navigation: natural playlist return, direction, timings, interruption and reduced motion passed')
