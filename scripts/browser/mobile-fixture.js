@@ -31,7 +31,7 @@ import Fixture from './MobileRenderFixture.svelte'
 import { ncm } from '../../src/lib/api/client.ts'
 import { player } from '../../src/lib/stores/player.svelte.ts'
 import { router } from '../../src/lib/stores/router.svelte.ts'
-const cover = '/scripts/browser/cover.svg'
+const cover = new URL('/scripts/browser/cover.svg', location.href).href
 const playlists = Array.from({ length: 4 }, (_, i) => ({
   id: 9001 + i, name: '渲染验证歌单 ' + (i + 1), picUrl: cover, coverImgUrl: cover,
   trackCount: 12, description: '同一封面应连续移动到详情页并返回', creator: { nickname: '测试账号' },
