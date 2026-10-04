@@ -1,0 +1,64 @@
+/* Mobile interaction polish: keep bottom-panel motion visible on Android WebView and
+ * make legacy text overflow buttons match the shared SVG-style three-dot control. */
+
+@keyframes mobilePanelEnterFallback {
+  from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes mobilePanelBackdropEnterFallback {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+html.mobile-runtime body :is(
+  .queue-panel.queue-panel-mobile-visible,
+  .playlist-action-sheet.mobile-choice-sheet,
+  .am-more-menu[data-bottom-panel],
+  .am-secondary-sheet[data-bottom-panel]
+) {
+  animation: mobilePanelEnterFallback 320ms cubic-bezier(.2, 0, 0, 1) both !important;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+html.mobile-runtime body :is(
+  .queue-panel-backdrop.queue-panel-mobile-visible,
+  .mobile-choice-backdrop,
+  .am-more-backdrop,
+  .am-secondary-backdrop
+) {
+  animation: mobilePanelBackdropEnterFallback 220ms ease-out both;
+}
+
+/* Search used a literal “•••”, while playlist rows use the shared more icon.
+ * Hide the glyph and draw the same neutral three-dot geometry everywhere. */
+html.mobile-runtime .m-track-more {
+  font-size: 0 !important;
+  line-height: 0;
+}
+
+html.mobile-runtime .m-track-more:not(:has(svg))::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: auto;
+  background:
+    radial-gradient(circle at 50% 24%, currentColor 0 1.7px, transparent 1.9px),
+    radial-gradient(circle at 50% 50%, currentColor 0 1.7px, transparent 1.9px),
+    radial-gradient(circle at 50% 76%, currentColor 0 1.7px, transparent 1.9px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime body :is(
+    .queue-panel.queue-panel-mobile-visible,
+    .playlist-action-sheet.mobile-choice-sheet,
+    .am-more-menu[data-bottom-panel],
+    .am-secondary-sheet[data-bottom-panel],
+    .queue-panel-backdrop.queue-panel-mobile-visible,
+    .mobile-choice-backdrop,
+    .am-more-backdrop,
+    .am-secondary-backdrop
+  ) { animation: none !important; }
+}
