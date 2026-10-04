@@ -1,4 +1,4 @@
-name: Publish PR9 test APK
+name: Upload PR9 APK direct
 
 on:
   push:
@@ -7,11 +7,11 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 jobs:
-  publish:
-    name: Publish direct APK
+  upload:
+    name: Upload direct APK
     runs-on: ubuntu-24.04
     steps:
       - name: Download verified APK artifact
@@ -19,16 +19,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh run download 37206312845 --repo ${{ github.repository }} --name zheting-android-arm64-debug-2-b5c3b85aec5ab63f77037e731d4083f5f8f61dfb
 
-      - name: Publish test prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Upload APK to temporary direct link
         run: |
           apk="$(find . -type f -name '*.apk' -print -quit)"
           test -n "$apk"
-          gh release create pr9-test-b5c3b85 \
-            --repo "${{ github.repository }}" \
-            --target b5c3b85aec5ab63f77037e731d4083f5f8f61dfb \
-            --prerelease \
-            --title "PR9 Android 测试包 b5c3b85" \
-            --notes "PR9 真机验收测试包。arm64 debug APK，包名 com.zheting.music.androidtest。APK SHA-256: d55d96d1eb0f5dd77d3741fd6b9b6978f244236c0c6b215c2386db71565e8baa" \
-            "$apk#ZTMusic-PR9-arm64-debug.apk"
+          test "$(sha256sum "$apk" | cut -d' ' -f1)" = "d55d96d1eb0f5dd77d3741fd6b9b6978f244236c0c6b215c2386db71565e8baa"
+          url="$(curl --fail --show-error --silent --upload-file "$apk" https://temp.sh/ZTMusic-PR9-arm64-debug.apk)"
+          echo "DIRECT_APK_URL=$url"
