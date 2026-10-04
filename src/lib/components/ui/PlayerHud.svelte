@@ -1,6 +1,7 @@
 <script lang="ts">
   import { player } from '../../stores/player.svelte.ts'
   import type { PlayMode } from '../../types/player.ts'
+  import { isTauriRuntime, runtimePlatform } from '../../utils/runtime.ts'
   import Icon from './Icon.svelte'
 
   const MODE_HUD: Record<PlayMode, { icon: string; text: string }> = {
@@ -18,6 +19,8 @@
   // 初值取 player 现状（挂载时 storage 已读完），这样首帧不会闪 HUD
   let lastVolume = player.volume
   let lastMode = player.mode
+  const androidStartup = isTauriRuntime() && /Android/i.test(runtimePlatform())
+  const startupHudDeadline = Date.now() + 1800
 
   function flash(nextIcon: string, nextText: string, label: boolean): void {
     iconName = nextIcon
@@ -29,13 +32,18 @@
   }
 
   // 追踪唯一数据源 player.volume / player.mode：滑块、键盘、底栏、歌单页的任意入口
-  // 都在此汇总，不必让每个按钮各自去弹提示
+  // 都在此汇总，不必让每个按钮各自去弹提示。
+  // Android Media3 服务首次连接时音量默认值可能先同步成 1.0；这属于启动握手，
+  // 不是用户主动调音量，因此只抑制启动窗口内这一次“100%”HUD。
   $effect(() => {
     const v = player.volume
     const m = player.mode
     if (v !== lastVolume) {
+      const suppressStartup100 = androidStartup && Date.now() <= startupHudDeadline && v === 1
       lastVolume = v
-      flash(v === 0 ? 'volume-off' : v < 0.5 ? 'volume' : 'volume-full', `${Math.round(v * 100)}%`, false)
+      if (!suppressStartup100) {
+        flash(v === 0 ? 'volume-off' : v < 0.5 ? 'volume' : 'volume-full', `${Math.round(v * 100)}%`, false)
+      }
     } else if (m !== lastMode) {
       lastMode = m
       flash(MODE_HUD[m].icon, MODE_HUD[m].text, true)
