@@ -53,6 +53,7 @@ function drawImageCover(ctx: CanvasRenderingContext2D, image: CanvasImageSource,
 }
 
 function drawCoverPlaceholder(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  ctx.save()
   const gradient = ctx.createLinearGradient(x, y, x + size, y + size)
   gradient.addColorStop(0, '#29292d')
   gradient.addColorStop(1, '#101012')
@@ -64,6 +65,7 @@ function drawCoverPlaceholder(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('折听', x + size / 2, y + size / 2)
+  ctx.restore()
 }
 
 async function loadBitmap(url: string): Promise<ImageBitmap | null> {
@@ -296,27 +298,53 @@ async function shareWithAndroid(blob: Blob, input: SongShareInput, url: string, 
   return true
 }
 
+async function copyShareUrl(url: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(url)
+    return
+  }
+  const field = document.createElement('textarea')
+  field.value = url
+  field.setAttribute('readonly', '')
+  field.style.position = 'fixed'
+  field.style.opacity = '0'
+  field.style.pointerEvents = 'none'
+  document.body.append(field)
+  field.select()
+  const copied = document.execCommand('copy')
+  field.remove()
+  if (!copied) throw new Error('Unable to copy share URL')
+}
+
 export async function shareSong(input: SongShareInput): Promise<SongShareResult> {
   const url = songUrl(input.id, input.url)
   const title = input.title || '折听歌曲'
   const text = input.artist ? `${title} - ${input.artist}` : title
   const poster = await createSongSharePoster(input)
 
-  if (await shareWithAndroid(poster, input, url, text)) return 'native-image'
-
-  const file = new File([poster], `zheting-${String(input.id)}.png`, { type: 'image/png' })
-  const canShare = typeof navigator.share === 'function'
-  if (canShare) {
-    const imagePayload = { title, text, url, files: [file] }
-    const canShareImage = typeof navigator.canShare !== 'function' || navigator.canShare(imagePayload)
-    if (canShareImage) {
-      await navigator.share(imagePayload)
-      return 'web-image'
-    }
-    await navigator.share({ title, text, url })
-    return 'web-link'
+  try {
+    if (await shareWithAndroid(poster, input, url, text)) return 'native-image'
+  } catch (error) {
+    console.warn('[share] Android native image share unavailable, falling back', error)
   }
 
-  await navigator.clipboard?.writeText(url)
+  const file = new File([poster], `zheting-${String(input.id)}.png`, { type: 'image/png' })
+  if (typeof navigator.share === 'function') {
+    const imagePayload = { title, text, url, files: [file] }
+    const canShareImage = typeof navigator.canShare !== 'function' || navigator.canShare(imagePayload)
+    try {
+      if (canShareImage) {
+        await navigator.share(imagePayload)
+        return 'web-image'
+      }
+      await navigator.share({ title, text, url })
+      return 'web-link'
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error
+      console.warn('[share] Web Share unavailable, copying link instead', error)
+    }
+  }
+
+  await copyShareUrl(url)
   return 'clipboard'
 }
