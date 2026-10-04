@@ -31,6 +31,49 @@ html.mobile-runtime body :is(
   animation: mobilePanelBackdropEnterFallback 220ms ease-out both;
 }
 
+/* Keep the tall playlist menu inside the visual viewport. The panel itself stays
+ * fixed while only the action list scrolls, so rounded corners and the gesture
+ * area never become part of the scrollable content. */
+html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: min(
+    78dvh,
+    calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-action-panel-bottom) - max(24px, env(safe-area-inset-top)))
+  );
+  padding-bottom: 8px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
+  flex: none;
+}
+
+html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .mobile-choice-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
+/* The drag handle already communicates dismissal on mobile. Removing the extra
+ * “更多操作” row gives the track context and actions the vertical space instead. */
+html.mobile-runtime body .am-more-menu[data-bottom-panel] .mobile-more-header {
+  display: none;
+}
+
+html.mobile-runtime body .am-more-menu[data-bottom-panel] .am-more-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
+}
+
 /* Search and artist rows still contain a legacy literal “•••” in markup.
  * Do not depend on :has() here: older Android WebViews can drop that selector.
  * These two pages are known text-button call sites, so draw the same vertical
