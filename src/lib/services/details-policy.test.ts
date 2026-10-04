@@ -15,8 +15,13 @@ assert.match(
 )
 assert.match(
   source,
-  /activeDetail\.tracksPartial = activeDetail\.tracks\.length < trackIds\.length/,
-  'tracksPartial must turn false after the final page is actually loaded',
+  /activeDetail\.trackLoadCursor = nextCursor/,
+  'pagination must advance an explicit request cursor even if some song details are missing',
+)
+assert.match(
+  source,
+  /activeDetail\.tracksPartial = nextCursor < trackIds\.length/,
+  'tracksPartial must turn false after the request cursor reaches the final track id',
 )
 
-console.log('playlist loading policy: bounded first page, bounded pagination and final-page completion passed')
+console.log('playlist loading policy: bounded first page, bounded pagination, cursor progress and final-page completion passed')
