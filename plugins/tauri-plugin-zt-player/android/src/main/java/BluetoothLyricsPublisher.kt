@@ -12,18 +12,19 @@ import java.util.concurrent.Executors
  * Mirrors the currently sung lyric line into the active MediaSession metadata.
  *
  * Android's Bluetooth AVRCP, lock-screen and many OEM lyric modules consume the
- * session title rather than an app-specific lyric field. We therefore publish
- * the current line as title only when the feature is explicitly enabled, keep
- * "artist - original title" in the artist field so the track remains
- * identifiable, and restore the canonical metadata when disabled or switching
- * tracks.
+ * session title rather than an app-specific lyric field. While lyric publishing
+ * is enabled we therefore expose the lyric as the single primary text tier and
+ * temporarily clear artist/album secondary tiers. This avoids OEM island UIs
+ * rendering the same media item as mismatched large/small text. Canonical track
+ * metadata is restored when the feature is disabled, playback stops, or tracks
+ * change.
  */
 class BluetoothLyricsPublisher(
     private val player: Player,
     private val resolver: StreamResolver,
 ) {
     private data class Line(val at: Long, val text: String)
-    private data class Identity(val title: String, val artist: String)
+    private data class Identity(val title: String, val artist: String, val album: String)
 
     companion object {
         private const val TICK_MS = 180L
@@ -37,7 +38,7 @@ class BluetoothLyricsPublisher(
     private var ticking = false
     private var generation = 0L
     private var trackId = ""
-    private var identity = Identity("", "")
+    private var identity = Identity("", "", "")
     private var lines: List<Line> = emptyList()
     private var lastPublishedTitle: String? = null
 
@@ -94,7 +95,12 @@ class BluetoothLyricsPublisher(
         trackId = nextId
         lines = emptyList()
         lastPublishedTitle = null
-        identity = identityOf(item?.mediaMetadata?.extras?.getString("track"), item?.mediaMetadata?.title?.toString().orEmpty(), item?.mediaMetadata?.artist?.toString().orEmpty())
+        identity = identityOf(
+            item?.mediaMetadata?.extras?.getString("track"),
+            item?.mediaMetadata?.title?.toString().orEmpty(),
+            item?.mediaMetadata?.artist?.toString().orEmpty(),
+            item?.mediaMetadata?.albumTitle?.toString().orEmpty(),
+        )
 
         if (!nextId.matches(Regex("[1-9][0-9]{0,18}"))) return
         val requestGeneration = generation
@@ -127,10 +133,11 @@ class BluetoothLyricsPublisher(
         val itemIndex = findTrack(trackId)
         if (itemIndex < 0 || itemIndex != player.currentMediaItemIndex) return
         val item = player.getMediaItemAt(itemIndex)
-        val artistLabel = listOf(identity.artist, identity.title).filter { it.isNotBlank() }.joinToString(" - ")
         val metadata = item.mediaMetadata.buildUpon()
             .setTitle(line)
-            .setArtist(artistLabel.ifBlank { identity.artist })
+            .setDisplayTitle(line)
+            .setArtist(null)
+            .setAlbumTitle(null)
             .build()
         player.replaceMediaItem(itemIndex, item.buildUpon().setMediaMetadata(metadata).build())
         lastPublishedTitle = line
@@ -141,13 +148,20 @@ class BluetoothLyricsPublisher(
         val index = findTrack(id)
         if (index < 0) return
         val item = player.getMediaItemAt(index)
-        val currentTitle = item.mediaMetadata.title?.toString().orEmpty()
-        if (currentTitle == canonical.title && item.mediaMetadata.artist?.toString().orEmpty() == canonical.artist) return
-        val metadata = item.mediaMetadata.buildUpon()
+        val metadata = item.mediaMetadata
+        if (
+            metadata.title?.toString().orEmpty() == canonical.title &&
+            metadata.displayTitle == null &&
+            metadata.artist?.toString().orEmpty() == canonical.artist &&
+            metadata.albumTitle?.toString().orEmpty() == canonical.album
+        ) return
+        val restored = metadata.buildUpon()
             .setTitle(canonical.title)
+            .setDisplayTitle(null)
             .setArtist(canonical.artist)
+            .setAlbumTitle(canonical.album)
             .build()
-        player.replaceMediaItem(index, item.buildUpon().setMediaMetadata(metadata).build())
+        player.replaceMediaItem(index, item.buildUpon().setMediaMetadata(restored).build())
     }
 
     private fun findTrack(id: String): Int {
@@ -155,7 +169,12 @@ class BluetoothLyricsPublisher(
         return -1
     }
 
-    private fun identityOf(rawTrack: String?, fallbackTitle: String, fallbackArtist: String): Identity {
+    private fun identityOf(
+        rawTrack: String?,
+        fallbackTitle: String,
+        fallbackArtist: String,
+        fallbackAlbum: String,
+    ): Identity {
         return try {
             val track = JSONObject(rawTrack ?: "{}")
             val title = track.optString("name").ifBlank { fallbackTitle }
@@ -165,9 +184,10 @@ class BluetoothLyricsPublisher(
                 .filter { it.isNotBlank() }
                 .joinToString(" / ")
                 .ifBlank { fallbackArtist }
-            Identity(title, artist)
+            val album = track.optJSONObject("al")?.optString("name").orEmpty().ifBlank { fallbackAlbum }
+            Identity(title, artist, album)
         } catch (_: Exception) {
-            Identity(fallbackTitle, fallbackArtist)
+            Identity(fallbackTitle, fallbackArtist, fallbackAlbum)
         }
     }
 
@@ -193,7 +213,7 @@ class BluetoothLyricsPublisher(
 
     private fun resetTrack() {
         trackId = ""
-        identity = Identity("", "")
+        identity = Identity("", "", "")
         lines = emptyList()
         lastPublishedTitle = null
     }
