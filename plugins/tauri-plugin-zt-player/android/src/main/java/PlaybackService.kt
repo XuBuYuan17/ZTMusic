@@ -166,10 +166,23 @@ class PlaybackService : MediaSessionService() {
         player.repeatMode = if (mode == "repeat") Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL
     }
 
+    private fun syncOverlayPermission() {
+        val requested = overlayPrefs.getBoolean("enabled", false)
+        val permitted = android.provider.Settings.canDrawOverlays(this)
+        if (!permitted) {
+            overlay?.close()
+            overlay = null
+            return
+        }
+        if (requested && overlay == null) overlay = LyricsOverlayConnection(this, player, resolver)
+        if (!requested && overlay != null) {
+            overlay?.close()
+            overlay = null
+        }
+    }
+
     private fun ensureOverlay() {
-        if (player.mediaItemCount == 0 || overlay != null || !overlayPrefs.getBoolean("enabled", false)) return
-        if (!android.provider.Settings.canDrawOverlays(this)) return
-        overlay = LyricsOverlayConnection(this, player, resolver)
+        syncOverlayPermission()
     }
 
     private fun mediaItem(track: JSONObject): MediaItem {
@@ -188,30 +201,37 @@ class PlaybackService : MediaSessionService() {
         return MediaItem.Builder().setMediaId(id).setUri(uri).setMediaMetadata(metadata.build()).build()
     }
 
-    private fun snapshot(): JSONObject = JSONObject().apply {
-        put("revision", ++revision)
-        put("overlayEnabled", overlayPrefs.getBoolean("enabled", false) && android.provider.Settings.canDrawOverlays(this@PlaybackService))
-        put("overlayVisible", overlay?.visible == true)
-        put("overlaySettings", JSONObject().apply {
-            put("locked", overlayPrefs.getBoolean("locked", false))
-            put("through", overlayPrefs.getBoolean("through", false))
-            put("bilingual", overlayPrefs.getBoolean("bilingual", true))
-            put("opacity", overlayPrefs.getFloat("opacity", 0.9f).toDouble())
-            put("fontSize", overlayPrefs.getFloat("fontSize", 18f).toDouble())
-            put("font", overlayPrefs.getString("font", "sans-serif") ?: "sans-serif")
-        })
-        put("anchorPosition", player.currentPosition.coerceAtLeast(0))
-        put("anchorTimestamp", System.currentTimeMillis())
-        put("playbackSpeed", player.playbackParameters.speed)
-        put("duration", player.duration.takeIf { it != C.TIME_UNSET } ?: 0)
-        put("playing", player.isPlaying)
-        put("loading", player.playbackState == Player.STATE_BUFFERING)
-        put("ended", player.playbackState == Player.STATE_ENDED)
-        put("index", if (player.mediaItemCount == 0) -1 else player.currentMediaItemIndex)
-        put("volume", player.volume)
-        put("mode", if (player.shuffleModeEnabled) "shuffle" else if (player.repeatMode == Player.REPEAT_MODE_ONE) "repeat" else "list")
-        put("error", player.playerError?.errorCodeName ?: "")
-        put("tracks", JSONArray().apply { for (i in 0 until player.mediaItemCount) put(JSONObject(player.getMediaItemAt(i).mediaMetadata.extras?.getString("track") ?: "{}")) })
+    private fun snapshot(): JSONObject {
+        syncOverlayPermission()
+        val overlayPermission = android.provider.Settings.canDrawOverlays(this)
+        val overlayRequested = overlayPrefs.getBoolean("enabled", false)
+        return JSONObject().apply {
+            put("revision", ++revision)
+            put("overlayPermission", overlayPermission)
+            put("overlayRequested", overlayRequested)
+            put("overlayEnabled", overlayPermission && overlayRequested && overlay != null)
+            put("overlayVisible", overlay?.visible == true)
+            put("overlaySettings", JSONObject().apply {
+                put("locked", overlayPrefs.getBoolean("locked", false))
+                put("through", overlayPrefs.getBoolean("through", false))
+                put("bilingual", overlayPrefs.getBoolean("bilingual", true))
+                put("opacity", overlayPrefs.getFloat("opacity", 0.9f).toDouble())
+                put("fontSize", overlayPrefs.getFloat("fontSize", 18f).toDouble())
+                put("font", overlayPrefs.getString("font", "sans-serif") ?: "sans-serif")
+            })
+            put("anchorPosition", player.currentPosition.coerceAtLeast(0))
+            put("anchorTimestamp", System.currentTimeMillis())
+            put("playbackSpeed", player.playbackParameters.speed)
+            put("duration", player.duration.takeIf { it != C.TIME_UNSET } ?: 0)
+            put("playing", player.isPlaying)
+            put("loading", player.playbackState == Player.STATE_BUFFERING)
+            put("ended", player.playbackState == Player.STATE_ENDED)
+            put("index", if (player.mediaItemCount == 0) -1 else player.currentMediaItemIndex)
+            put("volume", player.volume)
+            put("mode", if (player.shuffleModeEnabled) "shuffle" else if (player.repeatMode == Player.REPEAT_MODE_ONE) "repeat" else "list")
+            put("error", player.playerError?.errorCodeName ?: "")
+            put("tracks", JSONArray().apply { for (i in 0 until player.mediaItemCount) put(JSONObject(player.getMediaItemAt(i).mediaMetadata.extras?.getString("track") ?: "{}")) })
+        }
     }
 
     private fun checkpointListening() {
