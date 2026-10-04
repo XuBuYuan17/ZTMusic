@@ -392,6 +392,7 @@
     align-items: center;
     column-gap: 10px;
     min-width: 0;
+    margin-bottom: 0;
   }
 
   .am-secondary-context :global(.ly-context-comment-author > img),
@@ -459,6 +460,7 @@
 
   .am-secondary-context :global(.ly-context-comment-row p) {
     margin: 7px 0 0 48px;
+    padding-left: 0;
     color: rgba(255,255,255,0.76);
     font-size: 14px;
     line-height: 1.55;

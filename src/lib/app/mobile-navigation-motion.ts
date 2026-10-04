@@ -2,11 +2,11 @@ export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
   tab: 220,
   page: 360,
-  expand: 420,
-  dismiss: 360,
+  expand: 520,
+  dismiss: 460,
   enter: 'cubic-bezier(.2,0,0,1)',
   exit: 'cubic-bezier(.32,0,.2,1)',
-  shared: 'cubic-bezier(.2,.78,.15,1)',
+  shared: 'cubic-bezier(.16,1,.3,1)',
   standard: 'cubic-bezier(.2,0,0,1)',
 } as const
 
@@ -47,7 +47,9 @@ export function mobilePageFrames(
 ): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
-    const clippedSurface = { opacity: 1, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' }
+    const clippedSurface = surfaceClip
+      ? { opacity: 1, transform: 'none', clipPath: surfaceClip }
+      : null
 
     if (kind === 'pop') {
       if (surfaceClip) {
@@ -69,8 +71,14 @@ export function mobilePageFrames(
       ]
     }
 
+    if (clippedSurface) {
+      return entering
+        ? [clippedSurface, fullSurface]
+        : [fullSurface, fullSurface]
+    }
+
     return entering
-      ? [clippedSurface, fullSurface]
+      ? [{ opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }, fullSurface]
       : [fullSurface, fullSurface]
   }
 

@@ -114,6 +114,12 @@ export function rememberCardOrigin(event: Event) {
 export function flyCover(target: HTMLElement) {
   const origin = freshOrigin()
   if (!origin) return {}
+  // Mobile navigation already morphs the whole detail surface from this source.
+  // Skipping the floating clone prevents two shared-element animations from racing.
+  if (document.documentElement.classList.contains('mobile-runtime')) {
+    if (coverOrigin === origin) coverOrigin = null
+    return {}
+  }
   target.style.opacity = '0'
   const clone = document.createElement('img')
   clone.className = 'shared-cover-flight'

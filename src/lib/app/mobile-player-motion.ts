@@ -128,15 +128,26 @@ export function createMobilePlayerMotion() {
       const coverDuration = entering ? mobilePlayerTiming.enterDuration : mobilePlayerTiming.exitDuration
       const to = cover?.getBoundingClientRect()
       if (cover && from?.width && from.height && to?.width && to.height) {
-        // Android WebView can report width/height on adjacent layout frames with a
-        // tiny ratio mismatch. A two-axis FLIP scale makes that mismatch visible as
-        // a brief squeeze. Use one scale and center it in the previous artwork rect.
-        const scale = Math.min(from.width / to.width, from.height / to.height)
-        const dx = from.left - to.left + (from.width - to.width * scale) / 2
-        const dy = from.top - to.top + (from.height - to.height * scale) / 2
+        // Animate the real artwork through fixed geometry instead of scaling it.
+        // The final painted size now exactly matches layout, so Android WebView has
+        // no transformed bitmap to resize for one extra frame after it lands.
+        const targetRadius = getComputedStyle(cover).borderRadius
+        rememberStyle(cover)
+        Object.assign(cover.style, {
+          position: 'fixed',
+          inset: 'auto',
+          left: `${to.left}px`,
+          top: `${to.top}px`,
+          width: `${to.width}px`,
+          height: `${to.height}px`,
+          margin: '0',
+          transform: 'none',
+          transition: 'none',
+          zIndex: '3',
+        })
         pending.push(animate(cover, [
-          { transformOrigin: '0 0', transform: `translate(${dx}px,${dy}px) scale(${scale})`, borderRadius: `calc(${radius} / ${scale})` },
-          { transformOrigin: '0 0', transform: 'none', borderRadius: getComputedStyle(cover).borderRadius },
+          { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', borderRadius: radius },
+          { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, transform: 'none', borderRadius: targetRadius },
         ], { duration: coverDuration }))
       }
 

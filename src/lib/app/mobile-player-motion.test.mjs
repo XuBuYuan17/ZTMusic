@@ -59,8 +59,18 @@ const change = () => { mode = !mode; cover.rect = mode ? small : large }
 calls.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
-assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25\)/, 'cover starts at its previous size and position')
-assert.doesNotMatch(calls[0].frames[0].transform, /scale\([^)]*,/, 'player/lyrics morph never stretches artwork on separate axes')
+assert.deepEqual(
+  { left: calls[0].frames[0].left, top: calls[0].frames[0].top, width: calls[0].frames[0].width, height: calls[0].frames[0].height },
+  { left: '24px', top: '150px', width: '300px', height: '300px' },
+  'cover starts at its exact previous geometry',
+)
+assert.deepEqual(
+  { left: calls[0].frames[1].left, top: calls[0].frames[1].top, width: calls[0].frames[1].width, height: calls[0].frames[1].height },
+  { left: '24px', top: '64px', width: '48px', height: '48px' },
+  'cover lands on the exact layout geometry',
+)
+assert.equal(calls[0].frames[0].transform, 'none')
+assert.equal(calls[0].frames[1].transform, 'none', 'player/lyrics morph never uses a scale transform')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
 assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover snaps into lyrics mode without a half-second drift')
 assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')
@@ -91,27 +101,24 @@ assert.equal(mode, false)
 assert.equal(calls.length, count + 4, 'two changes in one frame only animate the final mode, including controls and footer')
 controller.destroy()
 
-let frame, removed = false
+let frame
 const sourceImage = { complete: true, naturalWidth: 100, src: 'cover.jpg', dataset: {}, getBoundingClientRect: () => small }
 const event = { target: { closest: selector => selector.startsWith('.library') ? null : { querySelector: () => sourceImage } } }
 const target = element(large)
-const clone = { ...element(), setAttribute() {}, remove() { removed = true } }
-globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null, createElement: () => clone, body: { append() {} } }
+globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null }
 globalThis.requestAnimationFrame = callback => { frame = callback; return 1 }
 globalThis.cancelAnimationFrame = () => { frame = null }
 globalThis.HTMLImageElement = class {}
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), true, 'mobile clicks remember the card cover')
 assert.equal(sourceImage.dataset.sharedCoverReturn, 'true', 'shared cover keeps a return marker for reverse navigation')
-const flight = flyCover(target)
-frame()
-assert.equal(hasCoverOrigin(), false, 'the flight consumes its card origin')
-assert.equal(target.style.opacity, '0')
-assert.match(calls.at(-1).frames[0].transform, /scale\(0.16, 0.16\)/)
-flight.destroy()
-assert.equal(target.style.opacity, '')
-assert.equal(removed, true, 'navigation cleans up the floating cover')
+const beforeFlightCalls = calls.length
+flyCover(target)
+assert.equal(hasCoverOrigin(), false, 'the route surface consumes its card origin')
+assert.equal(target.style.opacity, undefined, 'mobile detail does not hide its real cover for a second animation')
+assert.equal(frame, undefined, 'mobile detail skips the competing floating-cover phase')
+assert.equal(calls.length, beforeFlightCalls)
 reduce = true
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), false, 'reduced motion does not record cover origins')
-console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, uniform artwork scaling, reduced motion and shared cover passed')
+console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, exact artwork geometry, reduced motion and single-owner shared cover passed')
