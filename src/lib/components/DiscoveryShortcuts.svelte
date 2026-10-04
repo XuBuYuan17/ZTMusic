@@ -51,8 +51,8 @@
 <style>
   .discovery-shortcuts { margin: 0 0 24px; color: var(--text); }
   .discovery-shortcuts__row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .discovery-shortcut { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; min-width: 0; min-height: 80px; padding: 8px 0; border: 0; border-radius: 12px; background: transparent; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .discovery-shortcut__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--md-container-high, var(--bg-elevated)); color: var(--md-primary, var(--accent)); }
+  .discovery-shortcut { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; min-width: 0; min-height: 80px; padding: 8px 0; border: 0; border-radius: var(--radius-md); background: transparent; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .discovery-shortcut__icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--md-container-high, var(--bg-elevated)); color: var(--md-primary, var(--accent)); }
   .discovery-shortcut__label { font-size: 13px; line-height: 18px; font-weight: 500; white-space: nowrap; }
   .discovery-shortcut.active .discovery-shortcut__icon { background: var(--md-primary-container, var(--bg-elevated)); }
   .discovery-shortcut:active { background: var(--md-container, var(--bg-elevated)); }
