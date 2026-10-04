@@ -46,7 +46,7 @@
     onOptions(pl, card)
   }
   function prefetch(): void {
-    router.prefetchPlaylist(pl.id)
+    router.prefetchPlaylist(Number(pl.id))
   }
 
   // 双列瀑布流：左列取偶数位封面、右列奇数位；不足 4 张循环补足以保证无缝滚动
