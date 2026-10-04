@@ -6,6 +6,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 import app.tauri.plugin.Invoke
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
@@ -14,6 +15,7 @@ import android.util.Base64
 import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -55,6 +57,54 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
         }, ContextCompat.getMainExecutor(activity))
     }
 
+    private fun shareImage(invoke: Invoke, args: JSONObject) {
+        cacheExecutor.execute {
+            try {
+                val data = args.getJSONObject("data")
+                val encoded = data.getString("bytes")
+                require(encoded.length <= 16_000_000)
+                val bytes = Base64.decode(encoded, Base64.DEFAULT)
+                require(bytes.isNotEmpty() && bytes.size <= 12 * 1024 * 1024)
+
+                val directory = File(activity.cacheDir, "zt-share").apply { mkdirs() }
+                val now = System.currentTimeMillis()
+                directory.listFiles()?.forEach { file ->
+                    if (now - file.lastModified() > 24L * 60 * 60 * 1000) file.delete()
+                }
+
+                val requestedName = data.optString("fileName", "zheting-song.png")
+                val safeName = requestedName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(96).ifBlank { "zheting-song.png" }
+                val file = File(directory, if (safeName.endsWith(".png", ignoreCase = true)) safeName else "$safeName.png")
+                file.writeBytes(bytes)
+
+                val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.ztshare", file)
+                val title = data.optString("title", "分享歌曲").ifBlank { "分享歌曲" }
+                val text = data.optString("text").trim()
+                val url = data.optString("url").trim()
+                val extraText = listOf(text, url).filter { it.isNotBlank() }.distinct().joinToString("\n")
+                val share = Intent(Intent.ACTION_SEND).apply {
+                    type = data.optString("mime", "image/png").ifBlank { "image/png" }
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_TITLE, title)
+                    if (extraText.isNotBlank()) putExtra(Intent.EXTRA_TEXT, extraText)
+                    clipData = ClipData.newRawUri(title, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                activity.runOnUiThread {
+                    try {
+                        activity.startActivity(Intent.createChooser(share, title))
+                        invoke.resolve(JSObject().apply { put("shared", true) })
+                    } catch (_: Exception) {
+                        invoke.reject("Unable to open Android share sheet")
+                    }
+                }
+            } catch (_: Exception) {
+                invoke.reject("Unable to prepare shared image")
+            }
+        }
+    }
+
     @Command
     fun execute(invoke: Invoke) {
         val args = invoke.getArgs()
@@ -64,6 +114,7 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
             activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}")))
             invoke.resolve(); return
         }
+        if (action == "shareImage") { shareImage(invoke, args); return }
         if (action == "cacheStatus") {
             val key = args.optJSONObject("data")?.optString("key").orEmpty()
             if (!key.matches(Regex("[a-f0-9]{64}"))) { invoke.reject("Invalid audio cache key"); return }
