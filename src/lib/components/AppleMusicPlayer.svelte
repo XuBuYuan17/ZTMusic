@@ -11,6 +11,7 @@
   import { coverUrl, progressiveCover } from '../utils/image.ts';
   import { extractColor } from '../player/colors.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
+  import { shareSong } from '../share/song-share.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
@@ -205,17 +206,18 @@
   }
 
   async function shareTrack(): Promise<void> {
-    if (!player.id) return;
+    if (!player.id || actionBusy === 'share') return;
     actionBusy = 'share';
-    const url = `https://music.163.com/song?id=${player.id}`;
-    const title = player.title || '哲听歌曲';
-    const text = player.artist ? `${title} - ${player.artist}` : title;
-    // typeof 守卫：lib.dom 把 navigator.share 声明成必选，但旧 WebView 运行时可能没有（PCPlayer 同款）
-    const canShare = typeof navigator.share === 'function';
+    showMoreMenu = false;
     try {
-      if (canShare) await navigator.share({ title, text, url });
-      else await navigator.clipboard?.writeText(url);
-      showMenuMessage(canShare ? '已打开分享' : '链接已复制');
+      const result = await shareSong({
+        id: player.id,
+        title: player.title || '折听歌曲',
+        artist: player.artist || '',
+        album: album?.name || '',
+        cover: player.cover || '',
+      });
+      showMenuMessage(result === 'clipboard' ? '链接已复制' : '已打开分享');
     } catch (error) {
       const name = (error as { name?: unknown } | null | undefined)?.name;
       if (name !== 'AbortError') showMenuMessage('分享失败');
