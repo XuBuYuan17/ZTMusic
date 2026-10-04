@@ -25,9 +25,11 @@ import './styles/mobile/playlist-motion.css'
 import { isMobileDevice } from './lib/utils/responsive.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
+import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
 installNativeShell()
 installMobileResumeGuard()
+installPlaylistDiscMotion()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
