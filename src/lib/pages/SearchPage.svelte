@@ -68,6 +68,13 @@
       const searchResults = await musicService.search(kw, { songLimit: 30, artistLimit: 16, playlistLimit: 16 })
       if (currentRequest !== requestId) return
       results = searchResults
+      // Give the result list one paint first, then prewarm only the first few playlists.
+      // Mobile pointerdown has almost no lead time before click, so passive preheat is
+      // what makes the first playlist entry actually hit the shared detail cache.
+      setTimeout(() => {
+        if (currentRequest !== requestId) return
+        router.prefetchPlaylists(searchResults.playlists.map(playlist => playlist.id), 4)
+      }, 120)
     } catch {
       if (currentRequest === requestId) { resetResults(); searchError = '搜索失败，请重试' }
     }
