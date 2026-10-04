@@ -249,7 +249,8 @@ let js = ts.transpileModule(await readFile(source, 'utf8'), { compilerOptions: {
 js = js.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\r?\n/gm, '')
 js = `const isMobileDevice = () => !!globalThis.testMobileLayout;
 const ncm = {}, player = {}, auth = {}, extractColor = () => '#141414';
-const createLruCache = () => ({ get: () => null, set() {}, clear() {} });
+const createLruCache = () => ({ get: () => null, age: () => null, set() {}, clear() {} });
+const getPlaylistLoadCursor = detail => detail?.trackLoadCursor ?? detail?.tracks?.length ?? 0;
 const loadPlaylistDetail = async (_, id) => ({ detail: { id, tracks: [] }, heroColor: '#141414' });
 const loadAlbumDetail = loadPlaylistDetail;
 const loadPlaylistMore = async () => {};
