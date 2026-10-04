@@ -132,6 +132,12 @@ class PlaybackService : MediaSessionService() {
                 val same = items.size == player.mediaItemCount && items.indices.all { player.getMediaItemAt(it).mediaId == items[it].mediaId }
                 if (payload.getString("action") == "queue" && same) {
                     // Queue edits must not reset a currently playing source or its position.
+                } else if (payload.getString("action") == "queue"
+                    && items.size > player.mediaItemCount
+                    && selected == player.currentMediaItemIndex
+                    && (0 until player.mediaItemCount).all { player.getMediaItemAt(it).mediaId == items[it].mediaId }) {
+                    // Recommendation refills append without re-preparing the current source.
+                    player.addMediaItems(items.drop(player.mediaItemCount))
                 } else {
                     val requested = data.optDouble("position", 0.0)
                     require(requested.isFinite() && requested >= 0)

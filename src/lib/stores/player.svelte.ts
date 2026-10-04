@@ -100,6 +100,8 @@ class PlayerState {
   // ===== 队列 =====
   queue = $state<CompactTrack[]>([])
   queueIndex = $state(-1)
+  /** 用户队列修改的版本；原生状态回传不递增，推荐补歌据此识别普通点播。 */
+  queueRevision = $state(0)
 
   // ===== 内部状态（非响应式） =====
   /** 恢复播放时是否需要 seek */
@@ -477,6 +479,7 @@ class PlayerState {
   }
 
   _commitQueueState(state: QueueState, { clearStorage = false }: { clearStorage?: boolean } = {}): void {
+    this.queueRevision++
     this.queue = state.queue
     this.queueIndex = state.queueIndex
     this.shuffleState = state.shuffleState || createShuffleState()

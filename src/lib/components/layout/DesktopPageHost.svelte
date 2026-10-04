@@ -28,6 +28,7 @@
   } = $props()
 
   const loadExplorePage = lazyModule(() => import('../../pages/pc/Explore.svelte'))
+  const loadDailyRecommendationsPage = lazyModule(() => import('../../pages/pc/DailyRecommendations.svelte'))
   const loadDailyHistoryPage = lazyModule(() => import('../../pages/pc/DailyHistory.svelte'))
   const loadSearchPage = lazyModule(() => import('../../pages/SearchPage.svelte'))
   const loadArtistPage = lazyModule(() => import('../../pages/ArtistPage.svelte'))
@@ -128,6 +129,8 @@
       {:else if router.activeView === 'explore'}
         {#await loadExplorePage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
+            onNavigate={(view) => router.handleNav(view, null, true)}
+            {onOpenLogin}
             onSearch={() => router.handleNav('search')}
             onBannerClick={router.handleBannerClick}
             onOpenPlaylist={openPlaylistRef}
@@ -136,6 +139,8 @@
             onOpenArtist={openArtistRef}
           />
         {/await}
+      {:else if router.activeView === 'dailyRecommendations'}
+        {#await loadDailyRecommendationsPage() then module}<module.default {onOpenLogin} onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
       {:else if router.activeView === 'dailyHistory'}
         {#await loadDailyHistoryPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} />{/await}
       {:else if router.activeView === 'library'}

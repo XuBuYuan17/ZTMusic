@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { reviewDiscovery } from './discovery-recommendations.mjs'
 import { reviewLibraryAppearance } from './library-appearance.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
@@ -161,6 +162,7 @@ try {
   await page.waitForTimeout(600)
   assert.equal(await page.locator('.shared-cover-flight,.mobile-player-cover-flight').count(), 0, 'flight cleanup')
   await reviewLibraryAppearance(page, capture, metrics)
+  await reviewDiscovery(page, capture, metrics)
   assert.equal(errors.length, 0, 'browser runtime errors')
 } catch (e) {
   metrics.failure = String(e)

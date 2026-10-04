@@ -13,6 +13,7 @@
   import SettingsPage from '../pages/mobile/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
   import RecentPage from '../pages/pc/Recent.svelte'
+  import DailyRecommendationsPage from '../pages/pc/DailyRecommendations.svelte'
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
   import MessagesPage from '../pages/pc/Messages.svelte'
   import ListeningReportPage from '../pages/pc/ListeningReport.svelte'
@@ -56,7 +57,7 @@
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const titles: Record<string, string> = {
     home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
-    about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推',
+    about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', dailyRecommendations: '每日推荐',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
     album: '专辑', artist: '歌手', user: '个人主页',
   }
@@ -198,7 +199,7 @@
       {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
-          <ExplorePage mobile onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
+          <ExplorePage mobile onNavigate={handleNav} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
             onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)} onPlaySong={router.playExploreSong as (track: unknown) => void}
             onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} />
@@ -240,6 +241,8 @@
         <LocalMusicPage />
       {:else if page.view === 'listeningStats'}
         <ListeningReportPage />
+      {:else if page.view === 'dailyRecommendations'}
+        <DailyRecommendationsPage {onOpenArtist} {onOpenAlbum} {onOpenLogin} />
       {:else if page.view === 'dailyHistory'}
         <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
       {:else if page.view === 'messages'}

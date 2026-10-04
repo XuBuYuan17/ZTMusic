@@ -6,6 +6,7 @@
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
+  import { discoveryPlayback } from './lib/stores/discovery-playback.svelte.ts'
   import { playerMorph } from './lib/stores/player-morph.svelte.ts'
   import { auth } from './lib/stores/auth.svelte.ts'
   import { router } from './lib/stores/router.svelte.ts'
@@ -149,6 +150,13 @@
 
   // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
   $effect(() => { untrack(() => player.restore()) })
+
+  $effect(() => {
+    // 原生下一首的状态回传也经过这里，补歌不依赖发现页是否仍在显示。
+    auth.user; auth.isLoggedIn; auth.cookieOk
+    player.queueRevision; player.queueIndex; player.id; player.mode
+    untrack(() => discoveryPlayback.update())
+  })
 
   // 页面进入后台或窗口关闭前同步落盘，补上定时保存之间的最后一段进度与队列变化。
   $effect(() => {

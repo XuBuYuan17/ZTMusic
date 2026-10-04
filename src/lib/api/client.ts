@@ -341,8 +341,14 @@ export const ncm = {
   banner() {
     return request('/banner')
   },
-  recommendSongs(limit = 10) {
-    return request('/recommend/songs', { limit })
+  recommendSongs(limit = 10, options: ApiRequestOptions = {}) {
+    return request('/recommend/songs', { limit }, 'GET', null, options)
+  },
+  personalFm() {
+    return request('/personal_fm', { timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true })
+  },
+  intelligenceList(id: SongId, pid: SongId, sid: SongId = id) {
+    return request('/playmode/intelligence/list', { id, pid, sid, count: 20, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true })
   },
   personalizedNewSong(limit = 12) {
     return request('/personalized/newsong', { limit })

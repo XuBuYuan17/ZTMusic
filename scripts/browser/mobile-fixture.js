@@ -43,12 +43,26 @@ const tracks = Array.from({ length: 12 }, (_, i) => ({
   id: 1001 + i, name: '歌曲 ' + (i + 1), ar: [{ id: 71, name: '测试歌手' }],
   al: { id: 81, name: '测试专辑', picUrl: cover }, dt: 180000,
 }))
+let fmBatch = 0
+const recommendationCalls = { daily: 0, heart: 0, fm: 0 }
+Object.assign(window, { recommendationCalls })
 Object.assign(ncm, {
   banner: async () => ({ banners: [] }),
   personalized: async () => ({ result: playlists }),
   topPlaylist: async () => ({ playlists: [] }),
   personalizedNewSong: async () => ({ result: [] }),
-  recommendSongs: async () => ({ data: [] }),
+  recommendSongs: async () => { recommendationCalls.daily++; return { code: 200, data: { dailySongs: tracks } } },
+  personalFm: async () => {
+    recommendationCalls.fm++
+    await new Promise(resolve => setTimeout(resolve, 120))
+    const offset = fmBatch++ * 3
+    return { code: 200, data: tracks.slice(0, 3).map((track, i) => ({ ...track, id: 2001 + offset + i, name: '漫游歌曲 ' + (offset + i + 1) })) }
+  },
+  intelligenceList: async (id, pid, sid) => {
+    recommendationCalls.heart++
+    Object.assign(window, { heartRequest: { id, pid, sid } })
+    return { code: 200, data: tracks.map(track => ({ songInfo: track })) }
+  },
   albumNewest: async () => ({ albums: [] }),
   homepageBlockPage: async () => ({ data: { blocks: [] } }),
   simiSong: async () => ({ songs: [] }),
@@ -59,7 +73,7 @@ Object.assign(ncm, {
     content: i % 2 ? '这是一条较长的评论。正文要完整显示，多行文字不能覆盖头像、昵称或下一条评论。\n第二行仍然属于这条评论。' : '这首歌很好听，评论正文应该在昵称下面。',
     timeStr: '昨天 18:30', likedCount: i === 3 ? 0 : 128 + i,
   })) }),
-  playlistDetail: async id => ({ playlist: { ...playlists.find(p => p.id === Number(id)), tracks, trackIds: [] } }),
+  playlistDetail: async id => ({ playlist: { ...(Number(id) === 3136952023 ? { ...playlists[0], id: 3136952023, name: '私人雷达' } : playlists.find(p => p.id === Number(id))), tracks, trackIds: [] } }),
   songDetail: async () => ({ songs: tracks }),
   userPlaylist: async () => ({ playlist: playlists.map((p, i) => ({ ...p,
     name: i === 1 ? '夜晚散步时循环播放的歌单 · 收藏每一次相遇' : p.name,

@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+  import DiscoveryShortcuts from '../../components/DiscoveryShortcuts.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
   import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
@@ -28,6 +29,8 @@
   let {
     mobile = false,
     onSearch,
+    onNavigate,
+    onOpenLogin,
     onBannerClick,
     onOpenPlaylist,
     onOpenAlbum,
@@ -35,6 +38,8 @@
     onOpenArtist,
   }: {
     mobile?: boolean
+    onNavigate?: (view: string) => void
+    onOpenLogin?: () => void
     onSearch?: () => void
     onBannerClick?: (banner: ExploreData['banners'][number]) => void
     onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
@@ -102,6 +107,7 @@
 
 {#if mobile}
   <div class="mobile-discovery">
+    <DiscoveryShortcuts {onNavigate} {onOpenPlaylist} {onOpenLogin} />
     {#if error}<ErrorBlock message={error} onRetry={loadExplore} />{/if}
     {#if exploreBanners.length || exploreLoading}
       <section class="mobile-feature-rail" aria-label="精选推荐">
@@ -189,6 +195,8 @@
       <span>搜索歌曲、歌手、歌单</span>
     </button>
   </header>
+
+  <DiscoveryShortcuts {onNavigate} {onOpenPlaylist} {onOpenLogin} />
 
   {#if error}
     <ErrorBlock message={error} onRetry={loadExplore} />
