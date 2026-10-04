@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 const native = 'plugins/tauri-plugin-zt-player/android/src/main/java/'
-const [manifest, service, overlay, plugin, system, resolver, engine, settings, cargo, capability] = await Promise.all([
+const [manifest, service, overlay, bluetoothLyrics, plugin, system, resolver, engine, settings, cargo, capability] = await Promise.all([
   read('plugins/tauri-plugin-zt-player/android/src/main/AndroidManifest.xml'),
-  read(native + 'PlaybackService.kt'), read(native + 'LyricsOverlayService.kt'), read(native + 'ZtPlayerPlugin.kt'), read(native + 'AndroidSystemAdapter.kt'), read(native + 'StreamResolver.kt'),
+  read(native + 'PlaybackService.kt'), read(native + 'LyricsOverlayService.kt'), read(native + 'BluetoothLyricsPublisher.kt'), read(native + 'ZtPlayerPlugin.kt'), read(native + 'AndroidSystemAdapter.kt'), read(native + 'StreamResolver.kt'),
   read('src/lib/player/engine.ts'), read('src/lib/components/AndroidPlayerSettings.svelte'), read('src-tauri/Cargo.toml'), read('src-tauri/capabilities/android-player.json'),
 ])
 assert.match(service, /class PlaybackService : MediaSessionService/)
@@ -30,7 +30,15 @@ assert.ok(service.includes('put("overlaySettings"'), 'saved overlay appearance m
 assert.ok(overlay.includes('Settings.canDrawOverlays') && overlay.includes('AndroidSystemAdapter.overlayWindowType()'), 'overlay service must gate rendering on system permission and use the platform adapter')
 assert.ok(overlay.includes('handler.postDelayed(this, 250)') && overlay.includes('request("/lyric"'), 'native lyrics must follow player time without keeping the WebView active')
 assert.ok(settings.includes("androidCommand('overlayPermission')") && settings.includes('awaitingPermission'), 'permission must only be requested from the Android settings action')
+assert.ok(service.includes('BluetoothLyricsPublisher(player, resolver)') && service.includes('bluetoothLyrics.sync()'), 'Bluetooth lyric bridge must follow the authoritative native player')
+assert.ok(service.includes('put("bluetoothLyricsEnabled"') && service.includes('getSharedPreferences("bluetooth-lyrics"'), 'Bluetooth lyric preference must persist and be returned to settings')
+assert.ok(service.includes('id == lastJournalTrackId'), 'metadata-only lyric updates must not be counted as track transitions')
+assert.ok(bluetoothLyrics.includes('request("/lyric"') && bluetoothLyrics.includes('player.currentPosition'), 'Bluetooth lyrics must use native lyrics and the native playback clock')
+assert.ok(bluetoothLyrics.includes('.setTitle(line)') && bluetoothLyrics.includes('joinToString(" - ")'), 'current lyric line must be mirrored to title while keeping track identity in artist')
+assert.ok(bluetoothLyrics.includes('player.replaceMediaItem') && bluetoothLyrics.includes('restoreTrack('), 'MediaSession metadata updates must preserve playback and restore canonical metadata')
+assert.ok(bluetoothLyrics.includes('line == lastPublishedTitle'), 'metadata must update only when the lyric line changes')
+assert.ok(settings.includes("androidCommand<OverlayState>('bluetoothLyrics'") && settings.includes('蓝牙 / 灵动岛歌词'), 'Android settings must expose an explicit Bluetooth/island lyric toggle')
 assert.ok(!system.includes('XiaomiIslandAdapter('), 'unverified OEM APIs cannot be silently enabled')
 assert.match(system, /XIAOMI_ISLAND = false/)
 assert.match(system, /OPPO_FLUID_CLOUD = false/)
-console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, OEM defaults and Android-only permissions passed (not an APK/device test)')
+console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, overlay lyrics, Bluetooth/island lyric metadata, OEM defaults and Android-only permissions passed (not an APK/device test)')
