@@ -59,7 +59,8 @@ const change = () => { mode = !mode; cover.rect = mode ? small : large }
 calls.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
-assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
+assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25\)/, 'cover starts at its previous size and position')
+assert.doesNotMatch(calls[0].frames[0].transform, /scale\([^)]*,/, 'player/lyrics morph never stretches artwork on separate axes')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
 assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover snaps into lyrics mode without a half-second drift')
 assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')
@@ -113,4 +114,4 @@ assert.equal(removed, true, 'navigation cleans up the floating cover')
 reduce = true
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), false, 'reduced motion does not record cover origins')
-console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, reduced motion and shared cover passed')
+console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, uniform artwork scaling, reduced motion and shared cover passed')
