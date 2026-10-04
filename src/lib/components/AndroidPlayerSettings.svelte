@@ -19,6 +19,7 @@
     overlayEnabled: boolean
     overlayVisible?: boolean
     overlaySettings?: OverlaySettings
+    bluetoothLyricsEnabled?: boolean
   }
 
   let permission = $state(false)
@@ -36,6 +37,9 @@
   let checking = $state(true)
   let connected = $state(true)
   let awaitingPermission = $state(false)
+  let bluetoothLyricsEnabled = $state(false)
+  let bluetoothBusy = $state(false)
+  let bluetoothStatus = $state('')
   let pendingEnableAfterPermission = false
   let refreshVersion = 0
 
@@ -88,6 +92,7 @@
       requested = state.overlayRequested ?? state.overlayEnabled
       enabled = state.overlayEnabled && permission
       visible = state.overlayVisible === true
+      bluetoothLyricsEnabled = state.bluetoothLyricsEnabled === true
       applySettings(state.overlaySettings)
       checking = false
 
@@ -153,6 +158,24 @@
       await refresh()
     } finally {
       busy = false
+    }
+  }
+
+  async function setBluetoothLyrics(next: boolean): Promise<void> {
+    if (bluetoothBusy || !connected) return
+    bluetoothBusy = true
+    bluetoothStatus = ''
+    try {
+      const state = await androidCommand<OverlayState>('bluetoothLyrics', { enabled: next })
+      bluetoothLyricsEnabled = state.bluetoothLyricsEnabled ?? next
+      bluetoothStatus = next
+        ? '已开启。播放有时间轴歌词的歌曲时，会把当前歌词行发送到 MediaSession 标题。'
+        : '已关闭，并恢复正常歌名元数据。'
+    } catch {
+      bluetoothStatus = '蓝牙 / 灵动岛歌词设置失败，请重试。'
+      await refresh()
+    } finally {
+      bluetoothBusy = false
     }
   }
 
@@ -282,6 +305,40 @@
   {#if status}<p class="desktop-lyrics-status" role="status" aria-live="polite">{status}</p>{/if}
 </section>
 
+<section class="desktop-lyrics-card bluetooth-lyrics-card" aria-busy={bluetoothBusy || checking}>
+  <header class="desktop-lyrics-head">
+    <span class="desktop-lyrics-icon" aria-hidden="true"><Icon name="music" size={22} strokeWidth={1.8} /></span>
+    <div class="desktop-lyrics-title">
+      <span class="settings-eyebrow">ANDROID · BLUETOOTH / ISLAND</span>
+      <h3>蓝牙 / 灵动岛歌词</h3>
+      <p>把当前歌词行写入 MediaSession 标题，供车机、蓝牙 AVRCP、锁屏歌词与白羊类状态栏/灵动岛模块读取。</p>
+    </div>
+    <span class="state-pill" class:active={bluetoothLyricsEnabled}>
+      <i aria-hidden="true"></i>{checking ? '正在检查' : bluetoothLyricsEnabled ? '已开启' : '已关闭'}
+    </span>
+  </header>
+
+  <div class="desktop-lyrics-primary">
+    <div class="primary-copy">
+      <strong>{bluetoothLyricsEnabled ? '正在发送当前歌词行' : '启用 MediaSession / 蓝牙歌词'}</strong>
+      <span>只在歌词换行时更新；关闭后会恢复原歌名。开启后系统媒体通知也可能显示当前歌词，这是兼容 AVRCP 的预期行为。</span>
+    </div>
+    <button
+      class="primary-switch"
+      class:on={bluetoothLyricsEnabled}
+      type="button"
+      aria-pressed={bluetoothLyricsEnabled}
+      disabled={bluetoothBusy || checking || !connected}
+      onclick={() => setBluetoothLyrics(!bluetoothLyricsEnabled)}
+    >
+      <span aria-hidden="true"></span>
+      <em>{bluetoothBusy ? '处理中' : bluetoothLyricsEnabled ? '关闭' : '开启'}</em>
+    </button>
+  </div>
+
+  {#if bluetoothStatus}<p class="desktop-lyrics-status" role="status" aria-live="polite">{bluetoothStatus}</p>{/if}
+</section>
+
 <style>
   .desktop-lyrics-card {
     position: relative;
@@ -293,6 +350,7 @@
     background: linear-gradient(145deg, color-mix(in srgb, var(--accent-bg) 32%, var(--bg-elevated)), color-mix(in srgb, var(--bg-elevated) 92%, transparent) 44%);
   }
   .desktop-lyrics-card::before { content: ''; position: absolute; width: 150px; height: 150px; right: -72px; top: -90px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); filter: blur(10px); pointer-events: none; }
+  .bluetooth-lyrics-card { margin-top: 0; }
   .desktop-lyrics-head { position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: start; gap: 13px; }
   .desktop-lyrics-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--accent-bg); color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent); }
   .desktop-lyrics-title { min-width: 0; }
