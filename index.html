@@ -76,7 +76,7 @@
           app.textContent = ''
           var panel = document.createElement('pre')
           panel.setAttribute('role', 'alert')
-          panel.style.cssText = 'box-sizing:border-box;max-width:760px;margin:12vh auto;padding:18px;white-space:pre-wrap;word-break:break-word;color:#fff;background:#2a0d10;border:1px solid rgba(255,49,64,.45);border-radius:12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;'
+          panel.style.cssText = 'box-sizing:border-box;max-width:760px;margin:12vh auto;padding:18px;white-space:pre-wrap;word-break:break-word;color:#fff;background:#2a0d10;border:1px solid rgba(255,49,64,.45);font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;'
           panel.textContent = '哲听启动失败\n\n' + startupMessage(error)
           app.appendChild(panel)
         }
