@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 
 const [source, layout] = await Promise.all([
   readFile(new URL('./PlaylistHero.svelte', import.meta.url), 'utf8'),
-  readFile(new URL('../../../styles/mobile/playlist-layout.css', import.meta.url), 'utf8'),
+  readFile(new URL('../../styles/mobile/playlist-layout.css', import.meta.url), 'utf8'),
 ])
 
 assert.match(source, /trackIds\?: unknown\[\]/, 'playlist detail exposes full track ids to the hero')
