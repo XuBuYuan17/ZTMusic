@@ -81,11 +81,23 @@ export function desktopFeedback(node: HTMLElement) {
   return { destroy() { animation.cancel(); node.removeEventListener('pointerdown', down); node.removeEventListener('click', rememberCardOrigin, true); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up) } }
 }
 
-// 卡片 → 详情页封面的共享元素飞入：点击时（捕获阶段，源页面卸载前）记下卡片封面的位置，
-// 详情页封面挂载后用 fixed 克隆从源位置飞到目标位置。
-// ponytail: 只做正向飞入；返回时反向飞回需等源页面快照渲染后再测 rect，暂不做
-interface CoverOrigin { rect: DOMRect; src: string; radius: string; at: number }
+// 卡片 ↔ 详情页封面的共享元素飞入/飞回。
+// 点击时记录源封面与 rect；正向进入由 flyCover 使用，返回时保留源元素引用，
+// 等源页面重新显示后再测一次真实 rect，避免滚动/旋转后飞回旧坐标。
+interface CoverOrigin {
+  rect: DOMRect
+  src: string
+  radius: string
+  at: number
+  source: HTMLImageElement
+}
+interface CoverReturn {
+  src: string
+  source: HTMLImageElement
+  radius: string
+}
 let coverOrigin: CoverOrigin | null = null
+let coverReturn: CoverReturn | null = null
 
 function freshOrigin(): CoverOrigin | null {
   return coverOrigin && performance.now() - coverOrigin.at < 800 ? coverOrigin : null
@@ -93,18 +105,30 @@ function freshOrigin(): CoverOrigin | null {
 
 export function hasCoverOrigin(): boolean { return !!freshOrigin() }
 
+export function coverMotionOriginRect(): DOMRect | null {
+  return freshOrigin()?.rect ?? null
+}
+
+export function coverMotionReturnRect(): DOMRect | null {
+  const source = coverReturn?.source
+  if (!source?.isConnected) return null
+  const rect = source.getBoundingClientRect()
+  return rect.width > 0 && rect.height > 0 ? rect : null
+}
+
 export function rememberCardOrigin(event: Event) {
   coverOrigin = null
   if (reducedMotion()) return
   if ((event.target as Element).closest('.library-card-play-btn, .library-card-actions')) return
-  const img = (event.target as Element).closest('[data-motion="card"]')?.querySelector('img')
+  const card = (event.target as Element).closest<HTMLElement>('[data-motion="card"], .search-playlist-grid > button')
+  const img = card?.querySelector<HTMLImageElement>('img')
   if (!img?.complete || !img.naturalWidth) return
   const rect = img.getBoundingClientRect()
   if (!rect.width) return
   const own = getComputedStyle(img).borderRadius
   const radius = own && own !== '0px' ? own : getComputedStyle(img.parentElement!).borderRadius
   void preloadCover(img.dataset?.coverSource || img.currentSrc || img.src, 640)
-  coverOrigin = { rect, src: img.currentSrc || img.src, radius, at: performance.now() }
+  coverOrigin = { rect, src: img.currentSrc || img.src, radius, at: performance.now(), source: img }
 }
 
 export function flyCover(target: HTMLElement) {
@@ -127,6 +151,7 @@ export function flyCover(target: HTMLElement) {
   // 等一帧让详情页完成布局（含滚回顶部）再测目标位置
   const frame = requestAnimationFrame(() => {
     if (coverOrigin === origin) coverOrigin = null
+    coverReturn = { source: origin.source, src: origin.src, radius: origin.radius }
     const to = target.getBoundingClientRect()
     if (!to.width) { finish(); return }
     const from = origin.rect
@@ -138,7 +163,7 @@ export function flyCover(target: HTMLElement) {
     animation = clone.animate([
       { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
       { transform: 'none', borderRadius: targetRadius },
-    ], { duration: mobile ? 420 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.22,.8,.2,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
+    ], { duration: mobile ? 420 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.2,0,0,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
     animation.finished.then(() => {
       // 真封面未解码完时稍等，避免落位瞬间闪空
       const img = target instanceof HTMLImageElement ? target : null
@@ -146,6 +171,52 @@ export function flyCover(target: HTMLElement) {
     }).catch(finish)
   })
   return { destroy() { cancelAnimationFrame(frame); animation?.cancel(); finish() } }
+}
+
+export function flyCoverBack(target: HTMLElement): Promise<void> {
+  const returning = coverReturn
+  const destination = returning?.source
+  if (!returning || !destination?.isConnected || reducedMotion()) {
+    coverReturn = null
+    return Promise.resolve()
+  }
+  const from = target.getBoundingClientRect()
+  const to = destination.getBoundingClientRect()
+  if (!from.width || !to.width) {
+    coverReturn = null
+    return Promise.resolve()
+  }
+
+  const clone = document.createElement('img')
+  clone.className = 'shared-cover-flight shared-cover-flight--return'
+  clone.src = returning.src
+  clone.alt = ''
+  clone.setAttribute('aria-hidden', 'true')
+  const sourceOpacity = destination.style.opacity
+  const targetOpacity = target.style.opacity
+  destination.style.opacity = '0'
+  target.style.opacity = '0'
+  Object.assign(clone.style, {
+    position: 'fixed', left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`,
+    objectFit: 'cover', zIndex: '40', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)',
+    borderRadius: getComputedStyle(target).borderRadius,
+  })
+  document.body.append(clone)
+  const sx = to.width / from.width
+  const sy = to.height / from.height
+  const tx = to.left - from.left
+  const ty = to.top - from.top
+  const animation = clone.animate([
+    { transform: 'none', borderRadius: getComputedStyle(target).borderRadius },
+    { transform: `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`, borderRadius: `calc(${returning.radius} / ${sx})` },
+  ], { duration: 420, easing: 'cubic-bezier(.2,0,0,1)' })
+
+  return animation.finished.catch(() => {}).then(() => {
+    destination.style.opacity = sourceOpacity
+    target.style.opacity = targetOpacity
+    clone.remove()
+    if (coverReturn === returning) coverReturn = null
+  })
 }
 
 const layers: HTMLElement[] = []
@@ -207,7 +278,7 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
     bottomPanels.delete(node)
     isolated.forEach(element => {
       const owners = (mobileIsolation.get(element) || 1) - 1
-      if (owners) mobileIsolation.set(element, owners)
+      if (owners) mobileIsolation.set(sibling, owners)
       else { mobileIsolation.delete(element); element.inert = false }
     })
     window.removeEventListener('keydown', key, true)
