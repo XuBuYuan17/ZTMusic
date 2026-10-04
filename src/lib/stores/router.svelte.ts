@@ -15,6 +15,7 @@ import {
   loadArtistDetail,
   loadPlaylistDetail,
   loadPlaylistMore,
+  playlistLoadCursor as getPlaylistLoadCursor,
   type PlaylistDetailRecord,
   type PlaylistDetailResult,
 } from '../services/details.ts'
@@ -39,6 +40,7 @@ interface PlaylistDetail {
   tracks: DetailTrack[]
   trackIds?: Array<{ id: SongId; at?: number; addTime?: number; time?: number }>
   tracksPartial?: boolean
+  trackLoadCursor?: number
 }
 
 interface PlaylistPreviewInput {
@@ -368,9 +370,12 @@ async function toggleArtistFollow(): Promise<void> {
 function playlistLoadedCount(): number {
   return _playlistDetail?.tracks?.length || 0
 }
+function playlistCursor(): number {
+  return _playlistDetail ? getPlaylistLoadCursor(_playlistDetail as unknown as PlaylistDetailRecord) : 0
+}
 function canLoadMorePlaylist(): boolean {
   const trackIds = _playlistDetail?.trackIds
-  return !!trackIds?.length && trackIds.length > playlistLoadedCount()
+  return !!trackIds?.length && trackIds.length > playlistCursor()
 }
 
 /** 加载下一批歌单曲目（滚动触底 / 播放全部补齐共用） */
@@ -413,12 +418,12 @@ function playAll(visibleTracks?: DetailTrack[] | null): void {
     try {
       let guard = 0
       while (canLoadMorePlaylist() && guard++ < 64) {
-        const before = playlistLoadedCount()
+        const before = playlistCursor()
         await loadPlaylistMore(_playlistDetail as unknown as PlaylistDetailRecord, (partial) => {
           if (rid !== _detailRequestId) return
           _playlistDetail = partial.detail as PlaylistDetail | null
         })
-        if (playlistLoadedCount() <= before) break // 拉不到新数据，避免死循环
+        if (playlistCursor() <= before) break // 请求游标没推进，避免死循环
       }
       if (rid === _detailRequestId && _playlistDetail?.tracks?.length) {
         detailCache.set('playlist:' + _playlistDetail.id, { detail: _playlistDetail, heroColor: _heroColor })
