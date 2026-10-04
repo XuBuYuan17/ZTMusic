@@ -100,37 +100,14 @@ installDevErrorReporter()
 // 和 Svelte 渲染一起包进 View Transition 回调，第二个订阅者会抢在旧快照之前改 DOM。
 document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 
-function hideSplash() {
-  const splash = document.getElementById('splash')
-  if (!splash) return
-  // 读一次布局强制 reflow，确保 opacity 过渡有起点（mount 极快时同帧加 class 会被合并）
-  void splash.offsetHeight
-  splash.classList.add('splash-hide')
-  // transitionend 兜底：万一未触发也移除，避免 splash 永久挡住界面
-  const remove = () => splash.remove()
-  splash.addEventListener('transitionend', remove, { once: true })
-  setTimeout(remove, 700)
-}
-
 ;(async () => {
   try {
-    const bootstrapStartedAt = performance.now()
-    const appModules = Promise.all([
+    const [{ mount }, { default: App }] = await Promise.all([
       import('svelte'),
       import('./App.svelte'),
     ])
-
-    // 应用代码和开屏动画并行准备，避免串行等待。
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const minimumDuration = reduceMotion ? 0 : 420
-    const remainingDelay = Math.max(0, minimumDuration - (performance.now() - bootstrapStartedAt))
-    const [modules] = await Promise.all([
-      appModules,
-      new Promise((resolve) => setTimeout(resolve, remainingDelay)),
-    ])
-    const [{ mount }, { default: App }] = modules
     mount(App, { target: document.getElementById('app') })
-    hideSplash()
+    window.dispatchEvent(new Event('ztmusic:startup-ready'))
   } catch (e) {
     console.error('[哲听] 初始加载错误:', e)
     if (import.meta.hot) {
