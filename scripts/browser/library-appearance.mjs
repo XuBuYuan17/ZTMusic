@@ -64,6 +64,13 @@ export async function reviewLibraryAppearance(page, capture, metrics) {
     assert.deepEqual((await page.locator(menu + ' .library-option').allTextContents()).map(s => s.trim()),
       ['打开歌单','加入播放队列','下一首插播','分享歌单','编辑歌单','删除歌单'])
     await unchanged(menu + ', ' + menu + ' :is(.library-options-header, .library-option)', 'owned menu ' + theme)
+    metrics.libraryMenu = await page.locator(menu).evaluate(n => ({
+      sheet:n.getBoundingClientRect().toJSON(),
+      header:getComputedStyle(n.querySelector('.library-options-header')).cssText,
+      elements:[...n.querySelectorAll('.library-options-header, .library-options-cover, .library-options-cover img, h2, .mobile-choice-done')].map(e => {
+        const s=getComputedStyle(e);return { class:e.className, rect:e.getBoundingClientRect().toJSON(), font:s.fontSize, line:s.lineHeight, columns:s.gridTemplateColumns, padding:s.padding }
+      })
+    }))
     await colorIsToken(menu + ' .library-option--danger', '--danger')
     assert.ok(!['INPUT','TEXTAREA'].includes(await page.evaluate(() => document.activeElement?.tagName)), 'management menu unexpectedly focuses an editor')
     await noOverflow(menu)

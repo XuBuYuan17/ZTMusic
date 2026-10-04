@@ -99,32 +99,32 @@ html.mobile-runtime body .library-page .library-notice {
 }
 
 /* Library management uses the same floating panel surface as the player menus. */
-html.mobile-runtime body .library-options-portal .playlist-action-sheet {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet {
   background: var(--md-container);
   border-color: var(--border);
 }
-html.mobile-runtime body .library-options-portal .library-options-cover {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-cover {
   background: var(--md-container-high);
   color: var(--text-secondary);
   box-shadow: none;
 }
-html.mobile-runtime body .library-options-portal .library-options-header h2,
-html.mobile-runtime body .library-options-portal .library-option {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-header h2,
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option {
   color: var(--text);
 }
-html.mobile-runtime body .library-options-portal .library-option:hover,
-html.mobile-runtime body .library-options-portal .library-option:active {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option:hover,
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option:active {
   background: var(--md-container-high);
 }
-html.mobile-runtime body .library-options-portal .library-option--danger {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger {
   color: var(--danger);
 }
-html.mobile-runtime body .library-options-portal .library-option--danger > svg {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger > svg {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 12%, var(--md-container));
 }
-html.mobile-runtime body .library-options-portal .library-option--danger:hover,
-html.mobile-runtime body .library-options-portal .library-option--danger:active {
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger:hover,
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger:active {
   background: color-mix(in srgb, var(--danger) 8%, var(--md-container));
 }
 html.mobile-runtime body .library-page :is(.library-modal, .confirm-card) {
@@ -224,8 +224,8 @@ html.mobile-runtime body :is(
   .library-page .library-card,
   .library-page .library-mobile-tools button,
   .library-page .library-modal-btn,
-  .library-options-portal .library-option,
-  .library-options-portal .mobile-choice-done,
+  .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option,
+  .library-options-portal .playlist-action-sheet.mobile-choice-sheet .mobile-choice-done,
   .liked-page .m-track-more,
   .recent-page .m-track-more,
   .daily-page .daily-date-chip,
@@ -234,4 +234,20 @@ html.mobile-runtime body :is(
 ):focus-visible {
   outline: 2px solid var(--md-primary);
   outline-offset: -2px;
+}
+
+/* Fit the existing header columns without changing its height or track layout. */
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-cover {
+  width: 100%;
+  max-width: 100%;
+  background: transparent;
+}
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-cover img {
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+}
+html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .mobile-choice-done {
+  width: 100%;
+  min-width: 0;
 }
