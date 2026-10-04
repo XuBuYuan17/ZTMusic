@@ -1,321 +1,308 @@
-/* Mobile Search uses one visual language: page title + tonal search surface + flat sections.
- * Keep hierarchy in spacing/typography instead of stacking borders and unrelated cards. */
+/* Mobile search: one strong search control, flat content hierarchy, restrained results.
+ * The outer MobileApp already owns the page title; avoid duplicate headings and card stacks. */
 html.mobile-runtime .search-page {
-  --search-surface: var(--md-container-high, var(--bg-elevated));
-  --search-surface-soft: color-mix(in srgb, var(--search-surface) 82%, transparent);
-  --search-accent-surface: var(--md-primary-container, var(--accent-bg));
-  gap: 22px;
+  --search-line: color-mix(in srgb, var(--border) 72%, transparent);
+  --search-muted: color-mix(in srgb, var(--text-secondary) 78%, transparent);
+  display: grid;
+  gap: 28px;
   min-width: 0;
-  padding: 4px 0 calc(18px + env(safe-area-inset-bottom));
+  padding: 0 0 calc(20px + env(safe-area-inset-bottom));
 }
 
-/* Keep a real page identity on mobile instead of dropping straight into a floating input. */
-html.mobile-runtime .search-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  min-height: 56px;
-  padding: 2px 2px 0;
-}
-html.mobile-runtime .search-kicker { display: none; }
-html.mobile-runtime .search-header h1 {
-  margin: 0;
-  font-size: 30px;
-  line-height: 36px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-}
-html.mobile-runtime .search-header p {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 19px;
-}
+/* MobileApp already renders the large Search title. */
+html.mobile-runtime .search-header { display: none; }
 
-/* Search field and action behave like one control group. */
+/* Search is the only strong control on the page. */
 html.mobile-runtime .search-toolbar {
   position: sticky;
   top: 0;
   z-index: 14;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
   align-items: center;
-  margin: -4px -2px 0;
-  padding: 8px 2px 10px;
+  gap: 8px;
+  margin: -4px -4px -8px;
+  padding: 8px 4px 10px;
   border: 0;
   border-radius: 0;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 97%, transparent) 72%, color-mix(in srgb, var(--bg) 78%, transparent));
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  box-shadow: none;
 }
 html.mobile-runtime .search-input-wrap {
-  height: 52px;
-  gap: 11px;
-  padding: 0 14px;
+  height: 50px;
+  min-width: 0;
+  gap: 10px;
+  padding: 0 13px;
   border: 1px solid transparent;
-  border-radius: var(--radius-xl);
-  background: var(--search-surface);
+  border-radius: var(--radius-lg);
+  background: var(--md-container-high);
   color: var(--text-secondary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 44%, transparent);
-  transition: background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+  box-shadow: none;
+  transition: border-color var(--dur-fast), background-color var(--dur-fast);
 }
 html.mobile-runtime .search-input-wrap:focus-within {
-  border-color: color-mix(in srgb, var(--md-primary, var(--accent)) 42%, transparent);
-  background: var(--bg-elevated);
-  color: var(--md-primary, var(--accent));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--md-primary, var(--accent)) 10%, transparent);
+  border-color: color-mix(in srgb, var(--md-primary) 38%, transparent);
+  background: var(--md-container-highest);
+  color: var(--md-primary);
+  box-shadow: none;
 }
 html.mobile-runtime .search-input {
   font-size: 16px;
-  line-height: 24px;
+  line-height: 22px;
 }
-html.mobile-runtime .search-input::placeholder { color: var(--text-tertiary); }
+html.mobile-runtime .search-input::placeholder { color: var(--search-muted); }
 html.mobile-runtime .search-clear {
-  width: 40px;
-  height: 40px;
-  margin-right: -8px;
+  width: 38px;
+  height: 38px;
+  margin-right: -7px;
   border-radius: 999px;
+  background: transparent;
   color: var(--text-secondary);
 }
 html.mobile-runtime .search-submit {
-  height: 52px;
-  min-width: 68px;
-  padding: 0 16px;
-  border-radius: var(--radius-xl);
-  background: var(--md-primary, var(--accent));
-  color: var(--md-on-primary, white);
+  height: 50px;
+  min-width: 64px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--md-primary);
+  color: var(--md-on-primary);
   font-size: 13px;
   font-weight: 700;
   box-shadow: none;
 }
-html.mobile-runtime .search-submit:disabled { opacity: .42; }
+html.mobile-runtime .search-submit:disabled {
+  background: var(--md-container-high);
+  color: var(--text-tertiary);
+  opacity: 1;
+}
 
-/* Category filters are independent chips, not another card inside the page. */
+/* Result categories are navigation, not chips. */
 html.mobile-runtime .search-category-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   width: 100%;
-  gap: 8px;
-  padding: 0 2px 2px;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--search-line);
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+html.mobile-runtime .search-category-tabs button {
+  position: relative;
+  justify-content: center;
+  min-width: 0;
+  min-height: 42px;
+  gap: 5px;
+  padding: 0 3px 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-html.mobile-runtime .search-category-tabs::-webkit-scrollbar { display: none; }
-html.mobile-runtime .search-category-tabs button {
-  flex: 0 0 auto;
-  min-height: 40px;
-  gap: 7px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--search-surface);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 500;
   box-shadow: none;
 }
+html.mobile-runtime .search-category-tabs button::after {
+  content: '';
+  position: absolute;
+  left: 28%;
+  right: 28%;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
 html.mobile-runtime .search-category-tabs button.active {
-  background: var(--search-accent-surface);
-  color: var(--md-primary, var(--accent));
+  background: transparent;
+  color: var(--text);
   font-weight: 700;
 }
+html.mobile-runtime .search-category-tabs button.active::after { background: var(--md-primary); }
 html.mobile-runtime .search-category-tabs em {
-  color: inherit;
-  font-size: 11px;
+  color: var(--text-tertiary);
+  font-size: 10px;
   font-style: normal;
-  opacity: .72;
+  font-weight: 500;
 }
 
-/* Sections share spacing and typography; the content itself owns the surface. */
+html.mobile-runtime :is(.search-empty-layout, .search-results-layout) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  min-width: 0;
+}
 html.mobile-runtime :is(.search-chart-panel, .search-top-result, .search-songs-panel, .search-side-card) {
+  min-width: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
-html.mobile-runtime :is(.search-empty-layout, .search-results-layout) {
-  grid-template-columns: 1fr;
-  gap: 26px;
-}
 html.mobile-runtime .search-section-header {
-  min-height: 32px;
-  margin-bottom: 11px;
-  padding: 0 2px;
+  min-height: 28px;
+  margin: 0 0 10px;
+  padding: 0;
 }
 html.mobile-runtime .search-section-header h2 {
   margin: 0;
   color: var(--text);
-  font-size: 19px;
-  line-height: 25px;
+  font-size: 18px;
+  line-height: 24px;
   font-weight: 700;
-  letter-spacing: -.01em;
+  letter-spacing: 0;
 }
 html.mobile-runtime .search-section-header :is(span, button) {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-tertiary);
   font-size: 12px;
   font-weight: 500;
 }
-html.mobile-runtime .search-section-header button {
-  min-height: 36px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
-  color: var(--md-primary, var(--accent));
-}
+html.mobile-runtime .search-section-header button { color: var(--md-primary); }
 
-/* Trending terms are light, horizontally scrollable chips. */
+/* Trending queries: compact ranked list, no pill wall. */
 html.mobile-runtime .search-hot-list {
-  display: flex;
-  gap: 9px;
-  margin-inline: -2px;
-  padding: 1px 2px 4px;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: none;
-}
-html.mobile-runtime .search-hot-list::-webkit-scrollbar { display: none; }
-html.mobile-runtime .search-hot-row {
-  flex: 0 0 auto;
-  width: auto;
-  grid-template-columns: auto minmax(0, auto);
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 14px 0 9px;
-  border-radius: 999px;
-  background: var(--search-surface);
-  box-shadow: none;
-}
-html.mobile-runtime .search-hot-row.top {
-  background: var(--search-accent-surface);
-}
-html.mobile-runtime .search-hot-row span {
-  display: grid;
-  place-items: center;
-  min-width: 25px;
-  height: 25px;
-  padding-inline: 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg) 46%, transparent);
-  color: var(--text-secondary);
-  font-size: 10px;
-  font-weight: 700;
-}
-html.mobile-runtime .search-hot-row.top span {
-  color: var(--md-primary, var(--accent));
-  background: color-mix(in srgb, var(--md-primary, var(--accent)) 10%, transparent);
-}
-html.mobile-runtime .search-hot-row strong {
-  max-width: 180px;
-  font-size: 13px;
-  font-weight: 500;
-}
-html.mobile-runtime .search-hot-row em { display: none; }
-
-/* Ranked songs, normal song results and artist rows use the same tonal list surface. */
-html.mobile-runtime .search-chart-songs,
-html.mobile-runtime .search-songs,
-html.mobile-runtime .search-compact-list {
   display: grid;
   gap: 0;
-  padding: 6px 8px;
-  border-radius: var(--radius-xl);
-  background: var(--search-surface-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 34%, transparent);
+  padding: 0;
+  overflow: visible;
+}
+html.mobile-runtime .search-hot-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px var(--search-line);
+  color: var(--text);
+  text-align: left;
+}
+html.mobile-runtime .search-hot-row:nth-child(n + 7) { display: none; }
+html.mobile-runtime .search-hot-row.top { background: transparent; }
+html.mobile-runtime .search-hot-row span {
+  display: block;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+html.mobile-runtime .search-hot-row.top span { color: var(--md-primary); background: transparent; }
+html.mobile-runtime .search-hot-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.mobile-runtime .search-hot-row em {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+}
+html.mobile-runtime .search-hot-row.top em { color: var(--md-primary); }
+
+/* Trending songs: same reading rhythm as normal song results. */
+html.mobile-runtime .search-chart-songs,
+html.mobile-runtime .search-songs {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 html.mobile-runtime .search-chart-song-row {
+  display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
   gap: 10px;
-  min-height: 58px;
-  padding: 5px 8px;
-  border-radius: var(--radius-md);
+  min-height: 56px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: inset 0 -1px var(--search-line);
+  color: var(--text);
 }
-html.mobile-runtime .search-chart-song-row + .search-chart-song-row {
-  box-shadow: inset 0 1px color-mix(in srgb, var(--border) 42%, transparent);
-}
+html.mobile-runtime .search-chart-song-row:nth-child(n + 7) { display: none; }
 html.mobile-runtime .search-chart-song-row:hover { background: transparent; }
 html.mobile-runtime .search-chart-rank {
   color: var(--text-tertiary);
   font-size: 12px;
+  line-height: 18px;
   font-weight: 700;
   text-align: center;
 }
-html.mobile-runtime .search-chart-song-row:nth-child(-n + 3) .search-chart-rank { color: var(--md-primary, var(--accent)); }
-html.mobile-runtime .search-chart-song-row .search-song-dur { display: none; }
+html.mobile-runtime .search-chart-song-row:nth-child(-n + 3) .search-chart-rank { color: var(--md-primary); }
 html.mobile-runtime .search-chart-song-row .search-song-info strong {
   font-size: 14px;
   line-height: 20px;
   font-weight: 500;
 }
 html.mobile-runtime .search-chart-song-row .search-song-info em {
-  margin-top: 2px;
+  margin-top: 1px;
+  color: var(--text-secondary);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 17px;
 }
+html.mobile-runtime .search-chart-song-row .search-song-dur { display: none; }
 
-/* Best match is the only deliberately prominent result card. */
-html.mobile-runtime .search-feature-song {
-  position: relative;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: 15px;
-  align-items: center;
-  min-height: 112px;
-  padding: 14px;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  background: linear-gradient(135deg, var(--search-accent-surface), var(--search-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--md-primary, var(--accent)) 10%, transparent);
-}
-html.mobile-runtime :is(.search-feature-song img, .search-feature-cover) {
-  width: 84px;
-  height: 84px;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-html.mobile-runtime .search-feature-song small {
-  margin-bottom: 4px;
-  color: var(--md-primary, var(--accent));
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 700;
-}
-html.mobile-runtime .search-feature-song strong {
-  font-size: 20px;
-  line-height: 26px;
-  font-weight: 700;
-}
-html.mobile-runtime .search-feature-song em {
-  margin-top: 3px;
-  font-size: 12px;
-  line-height: 18px;
-}
+/* The giant desktop best-match card is deliberately skipped on mobile.
+ * Search should answer with content first, not another hero. */
+html.mobile-runtime .search-top-result { display: none; }
 
 html.mobile-runtime .search-song-row {
   position: relative;
+  display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
-  gap: 12px;
-  min-height: 66px;
-  padding: 8px 52px 8px 6px;
-  border-radius: var(--radius-md);
+  align-items: center;
+  gap: 11px;
+  min-height: 64px;
+  padding: 7px 48px 7px 0;
+  border-radius: 0;
   background: transparent;
-}
-html.mobile-runtime .search-song-row + .search-song-row:not(.active) {
-  box-shadow: inset 0 1px color-mix(in srgb, var(--border) 38%, transparent);
+  box-shadow: inset 0 -1px var(--search-line);
 }
 html.mobile-runtime .search-song-row:hover { background: transparent; }
 html.mobile-runtime .search-song-row.active {
-  margin-block: 2px;
-  background: var(--search-accent-surface);
-  color: var(--md-primary, var(--accent));
+  margin: 0;
+  padding-left: 8px;
+  border-radius: var(--radius-md);
+  background: var(--md-primary-container);
+  color: var(--md-primary);
   box-shadow: none;
 }
 html.mobile-runtime .search-song-cover {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-sm);
+  object-fit: cover;
 }
 html.mobile-runtime .search-song-info strong {
   font-size: 14px;
@@ -323,31 +310,86 @@ html.mobile-runtime .search-song-info strong {
   font-weight: 500;
 }
 html.mobile-runtime .search-song-info em {
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 17px;
 }
 html.mobile-runtime .search-song-dur { display: none; }
 
-html.mobile-runtime .search-result-grid {
-  grid-template-columns: 1fr;
-}
-html.mobile-runtime .search-compact-list button {
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 13px;
-  min-height: 68px;
-  padding: 7px 8px;
-  border-radius: var(--radius-md);
+/* All-results view: artists become a quiet horizontal identity rail. */
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list {
+  display: flex;
+  gap: 16px;
+  margin-inline: -2px;
+  padding: 2px 2px 5px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  box-shadow: none;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
 }
-html.mobile-runtime .search-compact-list button + button {
-  box-shadow: inset 0 1px color-mix(in srgb, var(--border) 38%, transparent);
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list::-webkit-scrollbar { display: none; }
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list button {
+  flex: 0 0 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
 }
-html.mobile-runtime .search-compact-list button:hover { background: transparent; }
-html.mobile-runtime :is(.search-compact-list img, .search-avatar-ph) {
-  width: 54px;
-  height: 54px;
+html.mobile-runtime .search-results-layout:has(.search-top-result) :is(.search-compact-list img, .search-avatar-ph) {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+}
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list span { width: 100%; }
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-compact-list em { display: none; }
+
+/* Dedicated artist category returns to an efficient vertical list. */
+html.mobile-runtime .search-results-layout:not(:has(.search-top-result)) .search-compact-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html.mobile-runtime .search-results-layout:not(:has(.search-top-result)) .search-compact-list button {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 7px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px var(--search-line);
+  text-align: left;
+}
+html.mobile-runtime .search-results-layout:not(:has(.search-top-result)) :is(.search-compact-list img, .search-avatar-ph) {
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
 }
 html.mobile-runtime .search-compact-list strong {
@@ -356,103 +398,127 @@ html.mobile-runtime .search-compact-list strong {
   font-weight: 500;
 }
 html.mobile-runtime .search-compact-list em {
-  margin-top: 2px;
+  margin-top: 1px;
+  color: var(--text-tertiary);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 17px;
 }
 
-/* Covers carry the visual weight; cards themselves stay quiet. */
+/* In the combined view playlists are a browsing rail; the dedicated category is a grid. */
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-playlist-grid {
+  display: flex;
+  gap: 12px;
+  margin-inline: -2px;
+  padding: 2px 2px 5px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-playlist-grid::-webkit-scrollbar { display: none; }
+html.mobile-runtime .search-results-layout:has(.search-top-result) .search-playlist-grid button {
+  flex: 0 0 min(42vw, 160px);
+}
 html.mobile-runtime .search-playlist-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px 12px;
 }
 html.mobile-runtime .search-playlist-grid button {
-  display: block;
   min-width: 0;
   padding: 0;
-  border-radius: var(--radius-md);
+  border: 0;
+  border-radius: 0;
   background: transparent;
+  color: var(--text);
+  text-align: left;
 }
 html.mobile-runtime :is(.search-playlist-grid img, .search-playlist-grid .search-cover-placeholder) {
+  display: grid;
+  place-items: center;
   width: 100%;
   aspect-ratio: 1;
-  margin-bottom: 9px;
+  margin: 0 0 8px;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  background: var(--md-container-high);
+  object-fit: cover;
+  box-shadow: none;
 }
 html.mobile-runtime .search-playlist-grid strong {
   display: -webkit-box;
-  min-height: 40px;
+  min-height: 38px;
   overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 19px;
+  font-weight: 500;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   white-space: normal;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
 }
 html.mobile-runtime .search-playlist-grid em {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
+  overflow: hidden;
   color: var(--text-tertiary);
   font-size: 11px;
-  line-height: 17px;
+  line-height: 16px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 html.mobile-runtime .search-cover-placeholder,
 html.mobile-runtime .search-avatar-ph {
-  background: var(--search-surface);
+  background: var(--md-container-high);
   color: var(--text-tertiary);
 }
 
+/* Empty/loading states stay visually quiet instead of becoming another card. */
 html.mobile-runtime .search-empty,
 html.mobile-runtime .m-empty-state {
-  min-height: 238px;
-  padding: 34px 20px;
+  min-height: 220px;
+  padding: 28px 12px;
   border: 0;
-  border-radius: var(--radius-xl);
-  background: var(--search-surface-soft);
+  border-radius: 0;
+  background: transparent;
   color: var(--text-secondary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 34%, transparent);
+  box-shadow: none;
 }
-
-/* Search progress mirrors the final list shape, so content does not jump visually. */
 html.mobile-runtime .search-loading {
   display: block;
-  min-height: 322px;
-  padding: 12px;
-  border-radius: var(--radius-xl);
-  background:
-    linear-gradient(var(--search-surface-soft), var(--search-surface-soft)),
-    var(--search-surface-soft);
+  min-height: 310px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   overflow: hidden;
 }
 html.mobile-runtime .search-loading::before {
   content: '';
   display: block;
-  height: 292px;
-  border-radius: var(--radius-lg);
+  height: 300px;
   background: repeating-linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bg-hover) 72%, transparent) 0 48px,
+    color-mix(in srgb, var(--md-container-high) 72%, transparent) 0 48px,
     transparent 48px 64px
   );
-  opacity: .76;
-  animation: searchMobilePulse 1.15s ease-in-out infinite alternate;
+  opacity: .68;
+  animation: searchMobilePulse 1.05s ease-in-out infinite alternate;
 }
-html.mobile-runtime .search-loading::after { display: none; }
+html.mobile-runtime .search-loading::after,
 html.mobile-runtime .search-spinner { display: none; }
 
 @keyframes searchMobilePulse {
-  from { opacity: .5; }
-  to { opacity: .9; }
+  from { opacity: .42; }
+  to { opacity: .78; }
 }
 
 @media (max-width: 390px) {
-  html.mobile-runtime .search-header h1 { font-size: 28px; line-height: 34px; }
-  html.mobile-runtime .search-submit { min-width: 60px; padding-inline: 13px; }
-  html.mobile-runtime .search-feature-song { grid-template-columns: 76px minmax(0, 1fr); }
-  html.mobile-runtime :is(.search-feature-song img, .search-feature-cover) { width: 76px; height: 76px; }
+  html.mobile-runtime .search-page { gap: 24px; }
+  html.mobile-runtime .search-submit { min-width: 58px; padding-inline: 11px; }
+  html.mobile-runtime .search-category-tabs button { font-size: 12px; }
+  html.mobile-runtime .search-category-tabs em { display: none; }
+  html.mobile-runtime .search-results-layout:has(.search-top-result) .search-playlist-grid button { flex-basis: min(44vw, 150px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
