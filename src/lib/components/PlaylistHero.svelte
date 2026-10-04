@@ -2,12 +2,12 @@
   import { coverUrl, progressiveCover } from '../utils/image.ts'
   import { flyCover } from '../app/desktop-motion.ts'
   import { responsive } from '../utils/responsive.ts'
-  import { player } from '../stores/player.svelte.ts'
   import CoverPreview from './CoverPreview.svelte'
   import { tick } from 'svelte'
   import type { SongId } from '../types/music.ts'
   import PlaylistActionSheet, { sharePlaylist, playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
   import Icon from './ui/Icon.svelte'
+  import { player } from '../stores/player.svelte.ts'
 
   interface HeroDetail {
     id?: SongId
@@ -26,6 +26,7 @@
     detailType = '歌单',
     totalCount = 0,
     visibleCount = 0,
+    trackIds = [],
     totalDuration = 0,
     onBack,
     onPlayAll,
@@ -41,6 +42,7 @@
     detailType?: string
     totalCount?: number
     visibleCount?: number
+    trackIds?: SongId[]
     totalDuration?: number
     onBack?: () => void
     onPlayAll?: () => void
@@ -52,16 +54,16 @@
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
   const creator = $derived(rec(detail?.creator))
+  const containsCurrentTrack = $derived(player.id != null && trackIds.some(id => String(id) === String(player.id)))
+  const playlistPlaying = $derived(containsCurrentTrack && player.playing)
   let showMenu = $state(false)
   let menuClosing = $state(false)
   let pendingAction: (() => void) | null = null
-  let ownsPlayback = $state(false)
-  const heroPlaying = $derived(ownsPlayback && player.playing)
   function closeMenu(action: (() => void) | null = null) { pendingAction = action; menuClosing = true }
   function finishMenu() { showMenu = false; const action = pendingAction; pendingAction = null; if (action) void tick().then(action) }
-  function toggleHeroPlayback() {
-    if (ownsPlayback) player.togglePlay()
-    else { ownsPlayback = true; onPlayAll?.() }
+  function togglePlaylistPlayback(): void {
+    if (containsCurrentTrack) player.togglePlay()
+    else onPlayAll?.()
   }
   function heroActions(node: HTMLElement) {
     const share = () => { if (!node.closest('[inert]') && detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }
@@ -70,7 +72,7 @@
     return { destroy() { node.removeEventListener('playlist-share', share); node.removeEventListener('playlist-more', more) } }
   }
   const menuActions = $derived<PlaylistAction[]>([
-    { label: heroPlaying ? '暂停' : '播放全部', icon: heroPlaying ? 'pause' : 'play', disabled: !visibleCount, onSelect: () => closeMenu(toggleHeroPlayback) },
+    { label: playlistPlaying ? '暂停' : '播放全部', icon: playlistPlaying ? 'pause' : 'play', disabled: !visibleCount, onSelect: () => closeMenu(togglePlaylistPlayback) },
     ...(onShuffle ? [{ label: '随机播放', icon: 'shuffle-lg', disabled: !visibleCount, onSelect: () => closeMenu(onShuffle) }] : []),
     ...(onQueue ? [{ label: '加入播放队列', icon: 'add', disabled: !visibleCount, onSelect: () => closeMenu(onQueue) }] : []),
     ...(onNext ? [{ label: '下一首插播', icon: 'queue', disabled: !visibleCount, onSelect: () => closeMenu(onNext) }] : []),
@@ -82,7 +84,7 @@
   let previewOpen = $state(false)
   let descriptionExpanded = $state(false)
   let coverFailed = $state(false)
-  $effect(() => { detail; previewOpen = false; descriptionExpanded = false; coverFailed = false; ownsPlayback = false })
+  $effect(() => { detail; previewOpen = false; descriptionExpanded = false; coverFailed = false })
   $effect(() => { if (!$responsive.isMobile) previewOpen = false })
 
   function durationText(ms: number): string {
@@ -148,9 +150,9 @@
         {/if}
       {/if}
       <div class="playlist-hero-actions">
-        <button class="playlist-play-btn" aria-label={heroPlaying ? '暂停播放' : '播放全部'} aria-pressed={heroPlaying} onclick={toggleHeroPlayback} disabled={!visibleCount}>
-          <Icon name={heroPlaying ? 'pause' : 'play'} size={17} fill="currentColor" />
-          <span>{heroPlaying ? '暂停' : ($responsive.isMobile ? '播放' : '播放全部')}</span>
+        <button class="playlist-play-btn" aria-label={playlistPlaying ? '暂停' : '播放全部'} onclick={togglePlaylistPlayback} disabled={!visibleCount}>
+          <Icon name={playlistPlaying ? 'pause' : 'play'} size={17} fill="currentColor" />
+          <span>{$responsive.isMobile ? (playlistPlaying ? '暂停' : '播放') : (playlistPlaying ? '暂停' : '播放全部')}</span>
         </button>
         {#if onShuffle}
           <button class="playlist-shuffle-btn" aria-label="随机播放" onclick={onShuffle} disabled={!visibleCount}>
@@ -169,7 +171,7 @@
 {#if showMenu && detail && $responsive.isMobile}
   <div class="library-options-portal" use:playlistPortal>
   <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} actions={menuActions} label={`${detailType}操作`}
-    onPlay={visibleCount ? () => closeMenu(toggleHeroPlayback) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
+    onPlay={visibleCount ? () => closeMenu(togglePlaylistPlayback) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
   </div>
 {/if}
 
