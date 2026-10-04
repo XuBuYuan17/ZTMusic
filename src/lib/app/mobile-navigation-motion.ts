@@ -19,7 +19,7 @@ export function mobilePageFrames(
   sharedCover = false,
   surface = false,
   surfaceClip?: string | null,
-): Keyframe[] {
+): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
     const clippedSurface = { opacity: 1, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' }
