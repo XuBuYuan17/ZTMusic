@@ -2,6 +2,7 @@
   import type { Song, SearchResult, HotSearchItem, SongId } from '../types/music.ts'
   import { musicService } from '../music/service.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { router } from '../stores/router.svelte.ts'
   import { formatDuration } from '../format.ts'
   import { coverUrl as imageCoverUrl } from '../utils/image.ts'
   import ArtistNames from '../components/ArtistNames.svelte'
@@ -41,20 +42,34 @@
     }).catch(() => {}).finally(() => { hotSongsLoading = false })
   })
 
+  function resetResults(): void {
+    results = { songs: [], artists: [], playlists: [] }
+    activeCategory = 'all'
+  }
+
+  function clearSearch(): void {
+    // Invalidate an already running search. Its promise may still resolve, but
+    // the request id gate below prevents stale results from repopulating UI.
+    requestId++
+    keyword = ''
+    loading = false
+    searchError = ''
+    resetResults()
+  }
+
   async function doSearch(): Promise<void> {
     const kw = keyword.trim()
-    if (!kw) return
+    if (!kw) { clearSearch(); return }
     const currentRequest = ++requestId
     loading = true
     searchError = ''
-    activeCategory = 'all'
-    results = { songs: [], artists: [], playlists: [] }
+    resetResults()
     try {
       const searchResults = await musicService.search(kw, { songLimit: 30, artistLimit: 16, playlistLimit: 16 })
       if (currentRequest !== requestId) return
       results = searchResults
     } catch {
-      if (currentRequest === requestId) { results = { songs: [], artists: [], playlists: [] }; searchError = '搜索失败，请重试' }
+      if (currentRequest === requestId) { resetResults(); searchError = '搜索失败，请重试' }
     }
     if (currentRequest === requestId) loading = false
   }
@@ -72,6 +87,10 @@
     doSearch()
   }
 
+  function prefetchPlaylist(id: SongId): void {
+    router.prefetchPlaylist(Number(id))
+  }
+
   const searchCategories = $derived<Array<{ key: CategoryKey; label: string; count: number }>>([
     { key: 'all', label: '综合', count: results.songs.length + results.artists.length + results.playlists.length },
     { key: 'songs', label: '歌曲', count: results.songs.length },
@@ -80,8 +99,7 @@
   ])
 </script>
 
-<div class="search-page fade-in">
-  {#if searchError}<div class="m-empty-state" role="alert"><p>{searchError}</p><button class="m-primary-btn" onclick={doSearch}>重试</button></div>{/if}
+<div class="search-page fade-in" aria-busy={loading}>
   <header class="search-header">
     <div>
       <span class="search-kicker">Search</span>
@@ -93,9 +111,15 @@
   <form class="search-toolbar" onsubmit={(e) => { e.preventDefault(); doSearch() }}>
     <label class="search-input-wrap" aria-label="搜索音乐">
       <Icon name="search" size={18} strokeWidth={1.8} />
-      <input class="search-input" type="search" placeholder="歌曲、歌手、歌单" bind:value={keyword} />
+      <input
+        class="search-input"
+        type="search"
+        placeholder="歌曲、歌手、歌单"
+        bind:value={keyword}
+        oninput={(event) => { if (!(event.currentTarget as HTMLInputElement).value.trim()) clearSearch() }}
+      />
         {#if keyword}
-          <button type="button" class="search-clear" onclick={() => keyword = ''} aria-label="清空搜索">
+          <button type="button" class="search-clear" onclick={clearSearch} aria-label="清空搜索">
             <Icon name="close" size={15} strokeWidth={2} />
           </button>
         {/if}
@@ -105,7 +129,7 @@
     </button>
   </form>
 
-  {#if keyword.trim() !== '' && !loading}
+  {#if keyword.trim() !== '' && !loading && !searchError}
     <nav class="search-category-tabs" aria-label="搜索结果分类">
       {#each searchCategories as category (category.key)}
         <button class:active={activeCategory === category.key} aria-current={activeCategory === category.key} onclick={() => activeCategory = category.key}>
@@ -118,6 +142,8 @@
 
   {#if loading}
     <div class="search-loading"><div class="search-spinner"></div></div>
+  {:else if searchError}
+    <div class="m-empty-state" role="alert"><p>{searchError}</p><button class="m-primary-btn" onclick={doSearch}>重试</button></div>
   {:else if keyword.trim() === ''}
     <div class="search-empty-layout">
       <section class="search-chart-panel">
@@ -218,7 +244,12 @@
             <div class="search-section-header"><h2>歌单</h2><button onclick={() => activeCategory = 'playlists'}>查看全部</button></div>
             <div class="search-playlist-grid">
               {#each results.playlists.slice(0, 8) as pl (pl.id)}
-                <button onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
+                <button
+                  onpointerenter={() => prefetchPlaylist(pl.id)}
+                  onpointerdown={() => prefetchPlaylist(pl.id)}
+                  onfocus={() => prefetchPlaylist(pl.id)}
+                  onclick={() => onOpenPlaylist?.(pl.id, true, pl)}
+                >
                   {#if pl.picUrl}<img src={imageCoverUrl(pl.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
                   <strong>{pl.name}</strong>
                   <em>{pl.creator || '歌单'} · {pl.trackCount} 首</em>
@@ -257,7 +288,12 @@
           <div class="search-section-header"><h2>歌单</h2><span>{results.playlists.length}</span></div>
           <div class="search-playlist-grid">
             {#each results.playlists as pl (pl.id)}
-              <button onclick={() => onOpenPlaylist?.(pl.id, true, pl)}>
+              <button
+                onpointerenter={() => prefetchPlaylist(pl.id)}
+                onpointerdown={() => prefetchPlaylist(pl.id)}
+                onfocus={() => prefetchPlaylist(pl.id)}
+                onclick={() => onOpenPlaylist?.(pl.id, true, pl)}
+              >
                 {#if pl.picUrl}<img src={imageCoverUrl(pl.picUrl, 180)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-cover-placeholder">♫</span>{/if}
                 <strong>{pl.name}</strong>
                 <em>{pl.creator || '歌单'} · {pl.trackCount} 首</em>
