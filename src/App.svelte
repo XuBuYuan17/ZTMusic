@@ -1,6 +1,8 @@
 <script lang="ts">
   import { flushSync, tick, untrack } from 'svelte'
-  import { desktopFeedback, reducedMotion, rememberCardOrigin } from './lib/app/desktop-motion.ts'
+  import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
+  import { subscribeAndroidBack } from './lib/app/android-back.ts'
+  import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
@@ -41,6 +43,8 @@
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
 
+  let playerDrag = $state<import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag | null>(null)
+
   interface LyricsOrigin {
     x?: number
     y?: number
@@ -71,6 +75,28 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  let mobileDialogOpen = $state(false)
+  $effect(() => {
+    if (!isMobile) return
+    const root = document.documentElement
+    const sync = () => { mobileDialogOpen = root.classList.contains('mobile-panel-open') }
+    const observer = new MutationObserver(sync)
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    sync()
+    return () => observer.disconnect()
+  })
+  $effect(() => {
+    if (!isMobile || !isTauriRuntime() || !/Android/i.test(runtimePlatform())) return
+    if (!mobileDialogOpen && !showMobileDrawer && !showSheet && !showQueuePanel && router.activeView === 'explore' && router.routeStack.length === 0) return
+    return subscribeAndroidBack(() => {
+      if (dismissTopDialog()) return
+      if (showMobileDrawer) { closeMobileDrawer(); return }
+      if (showSheet) { closeSheet(); return }
+      if (showQueuePanel) { closeQueue(); return }
+      if (router.routeStack.length) router.goBack()
+      else router.handleNav('explore')
+    })
+  })
   $effect(() => {
     if (!isMobile) return
     const feedback = mobileFeedback(document.body)
@@ -236,7 +262,8 @@
   })
 
   // ── UI 函数 ──
-  function openSheet(originEl?: Element | null): void {
+  function openSheet(originEl?: Element | null, drag?: import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag): void {
+    playerDrag = drag ?? null
     // 桌面走连续 morph 层；移动保持原有覆盖层链路
     if (!isMobile) { playerMorph.open(); return }
     const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.player-bar')
@@ -254,7 +281,7 @@
     } else lyricsOrigin = null
     showSheet = true
   }
-  function closeSheet(): void { showSheet = false }
+  function closeSheet(): void { showSheet = false; playerDrag = null }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
   function openMobileDrawer(trigger: HTMLButtonElement): void {
@@ -279,7 +306,7 @@
   $effect(() => {
     if (!isMobile) showMobileDrawer = false
   })
-  function setTheme(value: string): void { theme = normalizeTheme(value) }
+  function setTheme(value: string): void { toggleTheme(undefined, normalizeTheme(value)) }
   function setAccentTheme(value: string): void { accentTheme = normalizeAccentTheme(value) }
 
   function openMessageWithUser(user: MessageTargetUser): void {
@@ -325,9 +352,7 @@
 
   <div class="main-area" inert={isMobile && showMobileDrawer}>
     {#if isMobile}
-      {#await loadMobileApp()}
-        <div class="loading-state" aria-busy="true" aria-label="正在加载移动端界面"></div>
-      {:then module}
+      {#await loadMobileApp() then module}
         <module.default
           activeView={router.activeView}
           {theme}
@@ -374,7 +399,7 @@
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} origin={lyricsOrigin} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}

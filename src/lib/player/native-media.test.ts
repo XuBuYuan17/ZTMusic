@@ -6,7 +6,7 @@ assert.equal(selectMediaBackend(false, 'Win32'), 'web', 'browser build should us
 assert.equal(selectMediaBackend(true, 'Win32'), 'native', 'Tauri Windows should use native SMTC')
 assert.equal(selectMediaBackend(true, 'Linux x86_64'), 'native', 'Tauri Linux should use MPRIS')
 assert.equal(selectMediaBackend(true, 'MacIntel'), 'web', 'Tauri macOS should keep Media Session')
-assert.equal(selectMediaBackend(true, 'Linux aarch64 Android'), 'web', 'Android must not call Linux MPRIS')
+assert.equal(selectMediaBackend(true, 'Linux aarch64 Android'), 'android', 'Android must use its own service, not Web Media Session or Linux MPRIS')
 
 const root = new URL('../../../', import.meta.url)
 const smtc = await readFile(new URL('src-tauri/src/windows_smtc.rs', root), 'utf8')

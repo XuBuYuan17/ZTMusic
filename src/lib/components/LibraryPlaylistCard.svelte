@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { NormalizedPlaylist } from '../utils/normalize.ts'
-  import { coverUrl } from '../utils/image.ts'
+  import { coverUrl, progressiveCover } from '../utils/image.ts'
   import Spinner from './Spinner.svelte'
-  import Icon from './ui/Icon.svelte'
   import { responsive } from '../utils/responsive.ts'
   import { mobileLongPress } from '../app/mobile-interaction.ts'
 
@@ -37,6 +36,8 @@
     onDelete?: (pl: NormalizedPlaylist) => void
     onOptions?: (pl: NormalizedPlaylist, origin: HTMLElement) => void
   } = $props()
+  let coverFailed = $state(false)
+  $effect(() => { pl.picUrl; coverFailed = false })
   let card: HTMLElement
   function openOptions() {
     if (!$responsive.isMobile || !onOptions) return
@@ -132,8 +133,8 @@
       <div class="library-card-liked-art" aria-hidden="true">
         <svg viewBox="0 0 24 24" width="46%" height="46%" fill="currentColor"><path d={starPath}/></svg>
       </div>
-    {:else if pl.picUrl}
-      <img src={coverUrl(pl.picUrl, 400)} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" />
+    {:else if pl.picUrl && !coverFailed}
+      <img use:progressiveCover={{ source: pl.picUrl, size: 400 }} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
     {:else}
       <div class="library-card-placeholder">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -158,15 +159,14 @@
   </div>
   <div class="library-card-info">
     <div class="library-card-name">{pl.name}{#if liked}<span class="library-card-liked-star" aria-hidden="true">★</span>{/if}</div>
-    {#if !liked || $responsive.isMobile}
+    {#if $responsive.isMobile && managed && pl.creator}<div class="library-card-creator">{pl.creator}</div>{/if}
+    {#if !$responsive.isMobile && !liked}
       <div class="library-card-meta">
         {#if pl.trackCount}<span>{pl.trackCount} 首</span>{/if}
         {#if managed && pl.creator}<span class="library-card-creator">· {pl.creator}</span>{/if}
       </div>
     {/if}
-    {#if $responsive.isMobile && onOptions}
-      <button class="library-card-more" type="button" aria-label={`管理歌单 ${pl.name}`} onclick={(event) => { event.stopPropagation(); openOptions() }}><Icon name="more" size={18} /></button>
-    {/if}
+
   </div>
   {#if managed && !$responsive.isMobile}
     <button class="library-card-action library-card-action-danger" type="button" onclick={(e) => { e.stopPropagation(); onUnsubscribe?.(pl) }} aria-label={`取消收藏 ${pl.name}`}>

@@ -1,14 +1,13 @@
 <script lang="ts">
   import { tick, untrack, onDestroy } from 'svelte'
   import { reducedMotion, hasCoverOrigin } from '../app/desktop-motion.ts'
+  import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
-  import { scrollChrome } from '../app/scroll-chrome.ts'
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
   import Icon from './ui/Icon.svelte'
 
-  import HomePage from '../pages/pc/Home.svelte'
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
   import SettingsPage from '../pages/pc/Settings.svelte'
@@ -48,10 +47,15 @@
     onUnreadChange?: (count: unknown) => void
   } = $props()
 
-  const primaryViews = ['home', 'explore', 'library']
+  $effect(() => { if (activeView === 'home' || activeView === 'profile') onNavigate?.('library') })
+
+  const primaryViews = ['explore', 'search', 'library', 'settings']
+  let selectedTab = $state([...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => primaryViews.includes(view)) ?? 'explore')
+  let scrollTop = $state(0)
+  $effect(() => { if (primaryViews.includes(activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const titles: Record<string, string> = {
-    home: '主页', explore: '发现', library: '我的收藏', search: '搜索', settings: '设置',
+    home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
     album: '专辑', artist: '歌手', user: '个人主页',
@@ -62,46 +66,39 @@
   let previousKey: string | null = null
   const scrollPositions = new Map<string, number>()
   const viewKey = $derived(primaryViews.includes(activeView) || activeView === 'search' ? activeView : `${activeView}:${router.selectedId ?? ''}:${router.routeStack.length}`)
-  let outgoing: HTMLElement | null = null
-  let outgoingAnimation: Animation | null = null
+  type DetailPage = {
+    key: string; view: string; id: typeof router.selectedId
+    playlist: typeof router.playlistDetail; loading: boolean; loadingMore: boolean; hasMore: boolean; error: string; color: string
+    artist: typeof router.artistDetail; songs: typeof router.artistSongs; albums: typeof router.artistAlbums; artistLoading: boolean; artistError: string
+  }
+  let detailPages = $state<DetailPage[]>([])
+  let leavingKey = $state<string | null>(null)
+  const navigationMotion = createMobileNavigationMotion()
+  onDestroy(navigationMotion.cancel)
 
-  function clearOutgoing(): void {
-    outgoingAnimation?.cancel()
-    outgoingAnimation = null
-    outgoing?.remove()
-    outgoing = null
-  }
-  function leaveDetail(scroller: HTMLElement): void {
-    clearOutgoing()
-    const page = scroller.querySelector<HTMLElement>('.mobile-detail-page')
-    if (!page || reducedMotion()) return
-    const viewport = scroller.getBoundingClientRect()
-    const bounds = page.getBoundingClientRect()
-    const layer = document.createElement('div')
-    layer.className = 'mobile-detail-outro'
-    layer.inert = true
-    layer.setAttribute('aria-hidden', 'true')
-    Object.assign(layer.style, { top: `${viewport.top}px`, left: `${viewport.left}px`, width: `${viewport.width}px`, height: `${viewport.height}px` })
-    // 仅保留离场画面，路由立即切换；快照没有事件，也不会继续更新歌曲数据。
-    const image = page.cloneNode(true) as HTMLElement
-    image.removeAttribute('id')
-    image.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'))
-    image.querySelectorAll<HTMLElement>('button, a, input, select, textarea, [tabindex]').forEach(node => node.tabIndex = -1)
-    Object.assign(image.style, { position: 'absolute', top: `${bounds.top - viewport.top}px`, left: `${bounds.left - viewport.left}px`, width: `${bounds.width}px` })
-    layer.appendChild(image)
-    rootEl?.appendChild(layer)
-    outgoing = layer
-    outgoingAnimation = layer.animate([{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: 220, easing: 'cubic-bezier(.2, 0, 0, 1)' })
-    outgoingAnimation.finished.then(() => { if (outgoing === layer) clearOutgoing() }).catch(() => {})
-  }
-  function enterDetail(node: HTMLElement) {
-    const sharedCover = hasCoverOrigin()
-    const animation = reducedMotion() ? null : node.animate([{ opacity: 0, transform: sharedCover ? 'translateY(0)' : 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 280, easing: 'cubic-bezier(.2, 0, 0, 1)' })
-    return { destroy() { animation?.cancel() } }
-  }
-  onDestroy(clearOutgoing)
+  $effect.pre(() => {
+    if (primaryViews.includes(activeView) || activeView === 'search') return
+    const page: DetailPage = {
+      key: viewKey, view: activeView, id: router.selectedId,
+      playlist: router.playlistDetail, loading: router.playlistDetailLoading, loadingMore: router.playlistLoadingMore,
+      hasMore: router.playlistHasMore, error: router.playlistDetailError, color: router.heroColor,
+      artist: router.artistDetail, songs: router.artistSongs, albums: router.artistAlbums,
+      artistLoading: router.artistLoading, artistError: router.artistError,
+    }
+    untrack(() => {
+      const index = detailPages.findIndex(item => item.key === page.key)
+      if (index >= 0) detailPages = [...detailPages.filter(item => item.key !== page.key), page]
+      else {
+        // ponytail: 保留最近六个二级页面；更深返回依赖已有数据缓存重建，必要时再引入按内存预算淘汰。
+        detailPages = [...detailPages, page].slice(-6)
+        for (const key of scrollPositions.keys()) {
+          if (key.includes(':') && !detailPages.some(item => item.key === key)) scrollPositions.delete(key)
+        }
+      }
+    })
+  })
 
-  $effect(() => {
+  $effect.pre(() => {
     const view = activeView
     if ((primaryViews.includes(view) || view === 'search') && !mountedViews.includes(view)) mountedViews = [...mountedViews, view]
   })
@@ -111,7 +108,15 @@
     const scroller = contentEl
     return untrack(() => {
       if (!scroller || key === previousKey) return
-      leaveDetail(scroller)
+      navigationMotion.cancel()
+      const oldKey = previousKey
+      const oldScroll = scroller.scrollTop
+      const oldPage = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === oldKey) ?? null
+      const oldTop = oldPage?.offsetTop ?? 0
+      const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
+      const sharedCover = hasCoverOrigin()
+      const coverDetail = activeView === 'playlist' || activeView === 'album' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
+      leavingKey = oldPage && !reducedMotion() ? oldKey : null
       scroller.dispatchEvent(new Event('mobile-view-change'))
       if (previousKey) scrollPositions.set(previousKey, scroller.scrollTop)
       previousKey = key
@@ -123,8 +128,13 @@
       const stop = () => { cancelled = true; observer.disconnect() }
       tick().then(() => {
         if (cancelled) return
-        if (scroller.firstElementChild) observer.observe(scroller.firstElementChild)
         scroller.scrollTop = position
+        scrollTop = position
+        const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
+        if (page) observer.observe(page)
+        if (oldPage) oldPage.style.setProperty('--route-outgoing-top', `${oldTop + scroller.scrollTop - oldScroll}px`)
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null })
+        else leavingKey = null
       })
       scroller.addEventListener('wheel', stop, { passive: true })
       scroller.addEventListener('touchstart', stop, { passive: true })
@@ -136,12 +146,17 @@
     })
   })
 
+  function detailAction(action: 'playlist-share' | 'playlist-more') {
+    contentEl?.querySelector('.mobile-route-page:not([inert]) .playlist-detail-hero')?.dispatchEvent(new Event(action))
+  }
+
   function rememberScroll(): void { if (contentEl) scrollPositions.set(viewKey, contentEl.scrollTop) }
   function openFromCurrentView<A extends unknown[]>(callback: ((...args: A) => void) | undefined, ...args: A): void {
     rememberScroll()
     callback?.(...args)
   }
   function handleNav(view: string, extra?: number | null): void {
+    if (view === 'home' || view === 'profile') view = 'library'
     if (view === activeView) {
       contentEl?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
       return
@@ -160,29 +175,25 @@
 </script>
 
 <div class="mobile-app" class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
-  <header class="mobile-page-bar">
+  <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
     {#if isPrimaryView}
-      <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="menu" size={22} /></button>
+      <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
     {:else}
       <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name="arrow-left" size={22} /></button>
     {/if}
-    <h1>{titles[activeView] || '哲听'}</h1>
+    {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
+    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album'}>{titles[activeView] || '哲听'}</h1>{/if}
+    {#if activeView === 'playlist' || activeView === 'album'}
+      <div class="mobile-detail-actions"><button type="button" aria-label="分享歌单" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-share')}><Icon name="share" size={24} /></button><button type="button" aria-label="更多歌单操作" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-more')}><Icon name="more" size={24} /></button></div>
+    {/if}
   </header>
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} use:scrollChrome>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }}>
     <div class="mobile-page-content__inner">
-      {#if activeView === 'home' || mountedViews.includes('home')}
-        <div class="mobile-shared-page" style:display={activeView === 'home' ? 'block' : 'none'} inert={activeView !== 'home'} aria-hidden={activeView !== 'home'}>
-          <HomePage onNavigate={handleNav} onOpenLogin={onOpenLogin}
-            onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
-            onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)}
-            onOpenUser={(id) => openFromCurrentView(onOpenUser, id)} />
-        </div>
-      {/if}
-
+      {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
-        <div class="mobile-shared-page" style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
-          <ExplorePage onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
+        <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
+          <ExplorePage mobile onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
             onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)} onPlaySong={router.playExploreSong as (track: unknown) => void}
             onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} />
@@ -190,72 +201,74 @@
       {/if}
 
       {#if activeView === 'library' || mountedViews.includes('library')}
-        <div class="mobile-shared-page" style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
         </div>
       {/if}
 
       {#if activeView === 'search' || mountedViews.includes('search')}
-        <div class="mobile-shared-page" style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="search" class:mobile-route-outgoing={leavingKey === 'search'} style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
           <SearchPage onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} />
         </div>
       {/if}
 
-      {#if activeView === 'settings'}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />
-      {:else if activeView === 'about'}
-        <AboutPage />
-      {:else if activeView === 'liked'}
-        <LikedPage {onOpenArtist} {onOpenAlbum} {onOpenLogin} />
-      {:else if activeView === 'recent'}
-        <RecentPage {onOpenArtist} {onOpenAlbum} />
-      {:else if activeView === 'localMusic'}
-        <LocalMusicPage />
-      {:else if activeView === 'listeningStats'}
-        <ListeningReportPage />
-      {:else if activeView === 'dailyHistory'}
-        <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
-      {:else if activeView === 'messages'}
-        <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
-      {:else if activeView === 'playlist' || activeView === 'album'}
-        {#key `${activeView}:${router.selectedId}`}
-        <div class="mobile-detail-page" use:enterDetail>
-        <PlaylistPage playlistDetail={router.playlistDetail} loading={router.playlistDetailLoading} loadingMore={router.playlistLoadingMore}
-          hasMore={router.playlistHasMore} error={router.playlistDetailError} selectedId={router.selectedId} heroColor={router.heroColor}
-          detailType={activeView === 'album' ? '专辑' : '歌单'} onBack={onBack} onPlayAll={router.playAll} onPlayTrack={router.playTrack}
-          onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onLoadMore={router.loadMorePlaylist} />
+      {#if activeView === 'settings' || mountedViews.includes('settings')}
+        <div class="mobile-shared-page mobile-route-page" data-route-key="settings" class:mobile-route-outgoing={leavingKey === 'settings'} style:display={activeView === 'settings' ? 'block' : 'none'} inert={activeView !== 'settings'} aria-hidden={activeView !== 'settings'}>
+          <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />
         </div>
-        {/key}
-      {:else if activeView === 'artist'}
-        <ArtistPage artist={router.artistDetail} songs={router.artistSongs} albums={router.artistAlbums} loading={router.artistLoading}
-          error={router.artistError} onBack={onBack} onPlayAll={router.playArtistAll} onPlayTrack={router.playArtistTrack}
+      {/if}
+
+      {#each detailPages as page (page.key)}
+      <div class="mobile-route-page mobile-detail-page" data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
+        style:display={viewKey === page.key ? 'block' : 'none'} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
+      {#if page.view === 'settings'}
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />
+      {:else if page.view === 'about'}
+        <AboutPage />
+      {:else if page.view === 'liked'}
+        <LikedPage {onOpenArtist} {onOpenAlbum} {onOpenLogin} />
+      {:else if page.view === 'recent'}
+        <RecentPage {onOpenArtist} {onOpenAlbum} />
+      {:else if page.view === 'localMusic'}
+        <LocalMusicPage />
+      {:else if page.view === 'listeningStats'}
+        <ListeningReportPage />
+      {:else if page.view === 'dailyHistory'}
+        <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
+      {:else if page.view === 'messages'}
+        <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
+      {:else if page.view === 'playlist' || page.view === 'album'}
+        <PlaylistPage playlistDetail={page.playlist} loading={page.loading} loadingMore={page.loadingMore}
+          hasMore={page.hasMore} error={page.error} selectedId={page.id} heroColor={page.color}
+          detailType={page.view === 'album' ? '专辑' : '歌单'} onBack={onBack} onPlayAll={router.playAll} onPlayTrack={router.playTrack}
+          onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onLoadMore={() => { if (viewKey === page.key) void router.loadMorePlaylist() }} />
+      {:else if page.view === 'artist'}
+        <ArtistPage artist={page.artist} songs={page.songs} albums={page.albums} loading={page.artistLoading}
+          error={page.artistError} onBack={onBack} onPlayAll={router.playArtistAll} onPlayTrack={router.playArtistTrack}
           onOpenAlbum={onOpenAlbum} onOpenArtist={onOpenArtist} onOpenUser={onOpenUser} onToggleFollow={router.toggleArtistFollow} />
-      {:else if activeView === 'user'}
-        <UserProfilePage userId={router.selectedId} onBack={onBack} {onOpenUser}
+      {:else if page.view === 'user'}
+        <UserProfilePage userId={page.id} onBack={onBack} {onOpenUser}
           onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)} {onOpenArtist} {onOpenMessage} />
       {/if}
+      </div>
+      {/each}
     </div>
   </main>
 
   <nav class="mobile-tab-bar" aria-label="主导航">
-    <button class="mobile-tab" class:active={activeView === 'home'} data-view="home" aria-current={activeView === 'home' ? 'page' : undefined} onclick={() => handleNav('home')}>
-      <span class="mobile-tab__icon"><Icon name="home" size={24} strokeWidth={1.8} /></span>
-      <span class="mobile-tab__label">主页</span>
-    </button>
-    <button class="mobile-tab" class:active={activeView === 'explore'} data-view="explore" aria-current={activeView === 'explore' ? 'page' : undefined} onclick={() => handleNav('explore')}>
-      <span class="mobile-tab__icon"><Icon name="compass" size={24} strokeWidth={1.8} /></span>
-      <span class="mobile-tab__label">发现</span>
-    </button>
-    <button class="mobile-tab" class:active={activeView === 'library'} data-view="library" aria-current={activeView === 'library' ? 'page' : undefined} onclick={() => handleNav('library')}>
-      <span class="mobile-tab__icon"><Icon name="liked" size={24} strokeWidth={1.8} /></span>
-      <span class="mobile-tab__label">我的收藏</span>
-    </button>
+    {#each [{ view: 'explore', label: '发现', icon: 'compass' }, { view: 'search', label: '搜索', icon: 'search' }, { view: 'library', label: '资料库', icon: 'music' }, { view: 'settings', label: '设置', icon: 'settings' }] as tab}
+      <button class="mobile-tab" class:active={selectedTab === tab.view} data-view={tab.view} aria-current={selectedTab === tab.view ? 'page' : undefined} onclick={() => handleNav(tab.view)}>
+        <span class="mobile-tab__icon"><Icon name={tab.icon} size={24} strokeWidth={1.8} /></span>
+        <span class="mobile-tab__label">{tab.label}</span>
+      </button>
+    {/each}
   </nav>
 </div>
 
 <style>
-  :global(.mobile-detail-outro) { position: fixed; z-index: 2; overflow: hidden; pointer-events: none; background: var(--bg); }
-  :global(.mobile-detail-outro *) { pointer-events: none !important; animation: none !important; }
+  .mobile-route-page { min-height: 100%; }
+  .mobile-route-outgoing { display: block !important; position: absolute; top: var(--route-outgoing-top, 0px); left: max(var(--mobile-content-gutter), env(safe-area-inset-left)); right: max(var(--mobile-content-gutter), env(safe-area-inset-right)); z-index: 1; pointer-events: none; }
+  .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 </style>

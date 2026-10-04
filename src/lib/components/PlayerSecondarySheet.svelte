@@ -58,7 +58,7 @@
 
 {#if panel}
   <div class="am-secondary-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
-  <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel={{ duration: 240 }} use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
+  <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="am-secondary-header">
       <div class="am-secondary-title">{title}</div>

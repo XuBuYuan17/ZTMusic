@@ -11,7 +11,7 @@ assert.match(router, /function goUser\(/, 'router must expose user profile navig
 assert.match(router, /prev\.view === 'user'/, 'user profile must participate in the back stack')
 assert.match(desktopHost, /router\.activeView === 'user'/, 'desktop host must render the user profile route')
 assert.match(mobileApp, /class:secondary=\{!isPrimaryView\}/, 'all non-primary routes must use the secondary mobile shell')
-assert.match(mobileApp, /activeView === 'user'/, 'mobile host must render the user profile route')
-assert.match(mobileApp, /const primaryViews = \['home', 'explore', 'library'\]/, 'user profile must not be a primary mobile page')
+assert.match(mobileApp, /page\.view === 'user'/, 'mobile cache must render the user profile route')
+assert.match(mobileApp, /const primaryViews = \['explore', 'search', 'library', 'settings'\]/, 'user profile must not be a primary mobile page')
 
 console.log('user profile boundary: 7 assertions passed')

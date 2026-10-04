@@ -42,9 +42,11 @@ globalThis.window = { matchMedia: () => ({ matches: true }) }
 const media = globalThis.window.matchMedia
 globalThis.window.matchMedia = () => ({ matches: false })
 const sheetMotion = mobileSheet(node)
-assert.equal(sheetMotion.duration, 280, '入场默认 280ms')
+assert.equal(sheetMotion.duration, 420, '入场统一为 420ms')
 assert.equal(sheetMotion.css(0), 'translate: 0 100%', '起点在面板下方')
 assert.equal(sheetMotion.css(1), 'translate: 0 0%', '终点回到原位')
+assert.ok(sheetMotion.easing(.75) > 1, '入场末段有轻微阻尼越位')
+assert.equal(mobileSheet(node, {}, { direction: 'out' }).duration, 300, '退场统一为 300ms')
 node.dataset = { sheetDismissed: 'true' }
 assert.equal(mobileSheet(node).duration, 0, '拖动完成关闭不重复退出')
 delete node.dataset.sheetDismissed
@@ -245,7 +247,8 @@ try {
 const source = new URL('../stores/router.svelte.ts', import.meta.url)
 let js = ts.transpileModule(await readFile(source, 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext } }).outputText
 js = js.replace(/^import[\s\S]*?from ['"][^'"]+['"];?\r?\n/gm, '')
-js = `const ncm = {}, player = {}, auth = {}, extractColor = () => '#141414';
+js = `const isMobileDevice = () => !!globalThis.testMobileLayout;
+const ncm = {}, player = {}, auth = {}, extractColor = () => '#141414';
 const createLruCache = () => ({ get: () => null, set() {}, clear() {} });
 const loadPlaylistDetail = async (_, id) => ({ detail: { id, tracks: [] }, heroColor: '#141414' });
 const loadAlbumDetail = loadPlaylistDetail;
@@ -279,4 +282,12 @@ router.handleNav('explore')
 assert.equal(router.routeStack.length, 0, 'tab navigation resets secondary history')
 router.handleNav('settings')
 assert.equal(router.routeStack.length, 0, 'desktop default keeps existing navigation behavior')
+globalThis.testMobileLayout = true
+router.handleNav('home')
+assert.equal(router.activeView, 'library', 'legacy mobile home maps to library')
+router.handleNav('profile')
+assert.equal(router.activeView, 'library', 'legacy mobile profile maps to library')
+router.goBack()
+assert.equal(router.activeView, 'explore', 'mobile root back defaults to discovery')
+delete globalThis.testMobileLayout
 console.log('mobile interaction: navigation, axis lock, long press, thresholds, cancellation, click suppression and cleanup passed')

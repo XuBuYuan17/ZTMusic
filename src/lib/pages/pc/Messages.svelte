@@ -279,16 +279,13 @@
   }
 
   @media (max-width: 760px) {
-    .messages-page {
-      padding: 12px;
-    }
-
-    .page-header h1 {
-      font-size: 24px;
-    }
-
-    .page-header { margin-bottom: 12px; }
+    .messages-page { padding: 0; }
+    .page-header { min-height: 48px; margin: -4px 0 8px; }
+    .page-header h1 { font-size: 24px; }
     .page-header p { display: none; }
-    .plain-btn { padding-inline: 10px; }
+    .messages-actions { width: 100%; justify-content: flex-end; gap: 4px; }
+    .icon-btn,
+    .plain-btn { min-width: 48px; min-height: 48px; border: 0; background: transparent; color: var(--accent); }
+    .plain-btn { padding-inline: 12px; }
   }
 </style>

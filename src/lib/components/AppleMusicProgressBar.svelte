@@ -1,8 +1,9 @@
 <script lang="ts">
-  let { currentTime = 0, duration = 0, disabled = false, onseek }: {
+  let { currentTime = 0, duration = 0, disabled = false, remaining = false, onseek }: {
     currentTime?: number
     duration?: number
     disabled?: boolean
+    remaining?: boolean
     onseek?: (time: number) => void
   } = $props();
 
@@ -102,7 +103,7 @@
 
   <div class="am-progress-time">
     <span class="am-time-current">{formatTime(currentTime)}</span>
-    <span class="am-time-duration">{formatTime(duration)}</span>
+    <span class="am-time-duration">{remaining ? `-${formatTime(Math.max(0, duration - currentTime))}` : formatTime(duration)}</span>
   </div>
 </div>
 

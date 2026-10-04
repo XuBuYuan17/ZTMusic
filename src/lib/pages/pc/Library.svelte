@@ -18,12 +18,10 @@
   import LibraryPlaylistCard from '../../components/LibraryPlaylistCard.svelte'
   import { PLAYLIST_CHANGE, notifyPlaylistChange } from '../../stores/router.svelte.ts'
   import { tick } from 'svelte'
-  import { fade } from 'svelte/transition'
   import { responsive } from '../../utils/responsive.ts'
-  import { coverUrl } from '../../utils/image.ts'
-  import { dialogFocus, reducedMotion } from '../../app/desktop-motion.ts'
-  import { mobileDrag, mobileSheet } from '../../app/mobile-interaction.ts'
   import Icon from '../../components/ui/Icon.svelte'
+  import PlaylistActionSheet, { queuePlaylist, sharePlaylist, playlistPortal, type PlaylistAction } from '../../components/PlaylistActionSheet.svelte'
+  import HomePage from './Home.svelte'
 
   interface LibraryData {
     stats: { follow: number; fans: number; playlist: number }
@@ -62,22 +60,21 @@
   let deleting = $state(false)
   type PlaylistKind = 'liked' | 'owned' | 'saved'
   let optionsTarget = $state<{ pl: NormalizedPlaylist; kind: PlaylistKind } | null>(null)
+  let optionsClosing = $state(false)
   let optionsOrigin: HTMLElement | null = null
   let pendingAction: (() => void) | null = null
   function openOptions(pl: NormalizedPlaylist, kind: PlaylistKind, origin: HTMLElement) {
+    optionsClosing = false
     optionsOrigin = origin
     pendingAction = null
     optionsTarget = { pl, kind }
   }
-  function closeOptions(action: (() => void) | null = null) { pendingAction = action; optionsTarget = null }
+  function closeOptions(action: (() => void) | null = null) { pendingAction = action; if (optionsTarget) optionsClosing = true }
   function finishOptions() {
+    optionsTarget = null
     const action = pendingAction
     pendingAction = null
     if (action) tick().then(() => { optionsOrigin?.focus({ preventScroll: true }); action() })
-  }
-  function portal(node: HTMLElement) {
-    document.body.appendChild(node)
-    return { destroy() { node.remove() } }
   }
   $effect(() => { if (!$responsive.isMobile || !auth.isLoggedIn) closeOptions() })
 
@@ -300,6 +297,10 @@
   {:else}
     {#if notice}<div class="library-notice" role="status">{notice}</div>{/if}
 
+    {#if $responsive.isMobile}
+      <HomePage profileOnly {onOpenLogin} {onNavigate} onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)} />
+      <div class="library-mobile-tools"><span>点按打开，长按管理</span><button type="button" onclick={() => showCreateModal = true}><Icon name="add" size={20} />创建歌单</button></div>
+    {:else}
     <div class="library-header">
       <h1 class="library-title">我的播放列表</h1>
       <div class="library-stats">
@@ -335,6 +336,8 @@
       </button>
     </div>
 
+    {/if}
+
     {#if error && !library}
       <ErrorBlock message={error} onRetry={load} />
     {:else if loading && !library}
@@ -351,9 +354,6 @@
       </div>
     {:else if likedPlaylist || createdPlaylists.length || savedPlaylists.length}
       {#if $responsive.isMobile}
-        {#if likedPlaylist}
-          <section class="library-mobile-favorite" aria-label="喜欢的音乐">{@render playlistCard(likedPlaylist, 'liked', 0)}</section>
-        {/if}
         {#each [{ title: '我创建的歌单', kind: 'owned' as const, playlists: createdPlaylists }, { title: '我收藏的歌单', kind: 'saved' as const, playlists: otherSavedPlaylists }] as section}
           <section class="library-mobile-section" aria-label={section.title}>
             <header><h2>{section.title}</h2><span>{section.playlists.length}</span></header>
@@ -413,26 +413,20 @@
 
 {#if optionsTarget}
   {@const selected = optionsTarget}
-  <div class="library-options-portal" use:portal>
-    <button class="mobile-choice-backdrop" type="button" aria-label="关闭歌单管理" onclick={() => closeOptions()} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
-    <div class="mobile-choice-sheet library-options-sheet" data-bottom-panel role="dialog" aria-modal="true" aria-label="歌单管理" tabindex="-1" use:dialogFocus={() => closeOptions()} in:mobileSheet={{ duration: 280 }} out:mobileSheet={{ duration: 240 }} onoutroend={finishOptions}>
-      <button class="m-sheet-handle" type="button" aria-label="关闭歌单管理" onclick={() => closeOptions()} use:mobileDrag={{ close: () => closeOptions(), panel: true }}></button>
-      <header class="library-options-header">
-        <span class="library-options-cover">{#if selected.pl.picUrl}<img src={coverUrl(selected.pl.picUrl, 112)} alt="" referrerpolicy="no-referrer" />{:else}<Icon name="music" size={24} />{/if}</span>
-        <div><h2>{selected.pl.name}</h2><p>{selected.kind === 'owned' ? '我创建的歌单' : selected.kind === 'liked' ? '喜欢的音乐' : '我收藏的歌单'} · {selected.pl.trackCount} 首</p></div>
-        <button class="mobile-choice-done" type="button" aria-label="关闭歌单管理" onclick={() => closeOptions()}><Icon name="close" size={20} /></button>
-      </header>
-      <div class="mobile-choice-body">
-        <button class="mobile-choice-option library-option" type="button" onclick={() => closeOptions(() => onOpenPlaylist?.(selected.pl.id as SongId, true, selected.pl))}><Icon name="folder" size={20} /><span>打开歌单</span></button>
-        {#if selected.kind === 'owned'}
-          <button class="mobile-choice-option library-option" type="button" onclick={() => closeOptions(() => editTarget = selected.pl)}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg><span>编辑歌单</span><small>名称与简介</small></button>
-          <button class="mobile-choice-option library-option library-option--danger" type="button" onclick={() => closeOptions(() => confirmDelete(selected.pl))}><Icon name="trash" size={20} /><span>删除歌单</span></button>
-        {:else if selected.kind === 'saved'}
-          <button class="mobile-choice-option library-option library-option--danger" type="button" onclick={() => closeOptions(() => confirmUnsubscribe(selected.pl))}><Icon name="heart" size={20} /><span>取消收藏</span></button>
-        {:else}
-          <button class="mobile-choice-option library-option" type="button" disabled={playingLiked} onclick={() => closeOptions(() => void playLiked())}><Icon name="play" size={20} /><span>播放全部</span></button>
-        {/if}
-      </div>
-    </div>
+  {@const actions: PlaylistAction[] = [
+    { label: '打开歌单', icon: 'folder', onSelect: () => closeOptions(() => onOpenPlaylist?.(selected.pl.id as SongId, true, selected.pl)) },
+    { label: '加入播放队列', icon: 'add', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'append')) },
+    { label: '下一首插播', icon: 'queue', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'next')) },
+    { label: '分享歌单', icon: 'share', onSelect: () => closeOptions(() => void sharePlaylist(selected.pl.id, String(selected.pl.name))) },
+    ...(selected.kind === 'owned' ? [
+      { label: '编辑歌单', icon: 'edit', onSelect: () => closeOptions(() => editTarget = selected.pl) },
+      { label: '删除歌单', icon: 'trash', danger: true, onSelect: () => closeOptions(() => confirmDelete(selected.pl)) },
+    ] : selected.kind === 'saved' ? [
+      { label: '取消收藏', icon: 'heart', danger: true, onSelect: () => closeOptions(() => confirmUnsubscribe(selected.pl)) },
+    ] : []),
+  ]}
+  <div class="library-options-portal" use:playlistPortal>
+  <PlaylistActionSheet show={!optionsClosing} title={String(selected.pl.name)} cover={selected.pl.picUrl || ''} {actions}
+    onPlay={() => closeOptions(() => void queuePlaylist(selected.pl.id, 'play'))} onClose={() => closeOptions()} onClosed={finishOptions} />
   </div>
 {/if}

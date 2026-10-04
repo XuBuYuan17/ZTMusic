@@ -17,6 +17,7 @@
     onOpenArtist?: (id: number | null) => void
     mobileVisible?: boolean
   } = $props()
+  let pendingIndex = $state<number | null>(null)
 
   // 接缝：下游 ArtistNames 收 SongId，上游 PCPlayer/App 透传的 router 回调收 number|null（在线 id 恒为 number）
   function handleOpenArtist(id: SongId): void {
@@ -24,6 +25,7 @@
   }
 
   function handlePlayTrack(track: CompactTrack, index: number): void {
+    pendingIndex = index
     player.playTrack(track, index)
   }
 
@@ -76,6 +78,10 @@
   let dragIndex = $state<number | null>(null)
   let dragOverIndex = $state<number | null>(null)
 
+  $effect(() => {
+    if (pendingIndex !== null && (player.error || (player.queueIndex === pendingIndex && !player.loading))) pendingIndex = null
+  })
+
   function handleDragStart(e: DragEvent, index: number): void {
     dragIndex = index
     // dataTransfer 为 null 时与原 JS 一样直接抛 TypeError，不做防御
@@ -120,10 +126,15 @@
 {#if show}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="queue-panel-backdrop" class:queue-panel-mobile-visible={mobileVisible} transition:fade={{ duration: mobileVisible && !reducedMotion() ? 240 : 0 }} role="button" tabindex="0" aria-label="关闭面板" onclick={onClose} onkeydown={handleBackdropKeyDown}></div>
-  <div class="queue-panel" in:mobileSheet={{ duration: 280 }} out:mobileSheet={{ duration: 240 }} use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" aria-modal={mobileVisible ? true : undefined} tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
+  <div class="queue-panel" in:mobileSheet out:mobileSheet use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" aria-modal={mobileVisible ? true : undefined} tabindex="-1" aria-label="播放队列" class:queue-panel-mobile-visible={mobileVisible}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="queue-header">
-      <div class="queue-title">待播清单</div>
+      <div class="queue-heading">
+        <div class="queue-title">播放列表</div>
+        {#if mobileVisible && player.queue.length > 0}
+          <div class="queue-subtitle">{player.queue.length} 首 · 正在播放第 {player.queueIndex + 1} 首</div>
+        {/if}
+      </div>
       <div class="queue-header-actions">
         <button class="queue-clear-btn" onclick={handleClear} disabled={player.queue.length === 0}>
           清除
@@ -146,7 +157,8 @@
           <!-- svelte-ignore a11y_no_noninteractive_tabindex (mobile rows group independent controls; desktop rows remain keyboard buttons) -->
           <div
             class="queue-item"
-            class:active={player.queueIndex === i}
+            class:active={player.queueIndex === i && !(pendingIndex === i && player.loading)}
+            class:pending={pendingIndex === i && player.loading}
             class:drag-over={dragOverIndex === i}
             class:dragging={dragIndex === i}
             draggable={!mobileVisible}
@@ -160,7 +172,7 @@
             ondrop={(e) => handleDrop(e, i)}
             ondragend={handleDragEnd}
           >
-            {#if mobileVisible}<button class="queue-item-open" type="button" aria-label={`播放 ${track.name}`} onclick={(e) => { e.stopPropagation(); handlePlayTrack(track, i) }}></button>{/if}
+            {#if mobileVisible}<button class="queue-item-open" type="button" aria-label={`播放 ${track.name}`} aria-busy={pendingIndex === i && player.loading} onclick={(e) => { e.stopPropagation(); handlePlayTrack(track, i) }}></button>{/if}
             <div class="queue-item-cover">
               {#if coverOf(track)}
                 <img
@@ -188,7 +200,7 @@
               <Icon name="arrow-up" size={14} />
             </button>
             <button class="queue-item-remove" onclick={(e) => handleRemove(e, i)} aria-label="移除" title="移除">
-              <Icon name="close" size={14} />
+              <Icon name="trash" size={17} />
             </button>
           </div>
         {/each}
@@ -253,6 +265,15 @@
     display: flex;
     align-items: center;
     gap: 8px;
+  }
+
+  .queue-heading { min-width: 0; }
+
+  .queue-subtitle {
+    margin-top: 3px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
   }
 
   .queue-close-btn {

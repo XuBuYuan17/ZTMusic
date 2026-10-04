@@ -184,7 +184,8 @@ class FakeAudio extends EventTarget {
   async play() { this.paused = false; this.dispatchEvent(new Event('play')); this.dispatchEvent(new Event('playing')) }
 }
 Object.assign(globalThis, { Audio: FakeAudio })
-const { engine } = await import('../player/engine.ts')
+const { engine, AudioEngine } = await import('../player/engine.ts')
+assert.ok(engine instanceof AudioEngine, 'web checks use the HTML audio implementation')
 const signals: string[] = []
 engine.onListening(signal => signals.push(signal))
 engine.load('https://example.com/1.mp3')

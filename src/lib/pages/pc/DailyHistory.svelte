@@ -15,7 +15,7 @@
   import { ncm } from '../../api/client.ts'
   import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
   import { formatDuration } from '../../format.ts'
-  import { coverUrl } from '../../utils/image.ts'
+  import { coverUrl, progressiveCover } from '../../utils/image.ts'
   import { extractCover } from '../../utils/normalize.ts'
   import SongListActions from '../../components/SongListActions.svelte'
 
@@ -174,7 +174,7 @@
               <div class="daily-song-row" class:active={player.id === track.id} role="button" tabindex="0" onclick={() => playTrack(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
                 <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
                 {#if coverOf(track)}
-                  <img class="daily-song-cover" src={coverUrl(coverOf(track), 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                  <img class="daily-song-cover" use:progressiveCover={{ source: coverOf(track), size: 96 }} alt="" loading="lazy" referrerpolicy="no-referrer" />
                 {:else}
                   <span class="daily-song-cover daily-cover-placeholder">♫</span>
                 {/if}
@@ -193,7 +193,7 @@
                   <small class="mobile-track-meta"><span>{albumOf(track)}</span>{#if track.dt || track.duration}<time>{formatDuration((track.duration as number) || track.dt)}</time>{/if}</small>
                 </span>
                 <span class="daily-song-album">{albumOf(track)}</span>
-                <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
+                <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}><Icon name="more" size={22} /></button>
             <span class="daily-song-dur">{formatDuration((track.duration as number) || track.dt || 0)}</span>
               </div>
             {/each}

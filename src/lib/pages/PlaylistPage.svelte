@@ -1,9 +1,12 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
   import { formatDuration } from '../format.ts'
   import { coverUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
+  import { queuePlaylist } from '../components/PlaylistActionSheet.svelte'
+  import type { CompactTrackInput } from '../player/queue.ts'
   import PlaylistHero from '../components/PlaylistHero.svelte'
   import PlaylistSortSheet from '../components/PlaylistSortSheet.svelte'
   import Icon from '../components/ui/Icon.svelte'
@@ -83,6 +86,7 @@
   let trackSort = $state<PlaylistSortKey>('added')
   let trackSortDir = $state<PlaylistSortDir>('desc')
   let showSortSheet = $state(false)
+  let showMobileTools = $state(false)
   let lastSelectedId = $state<SongId | null>(null)
 
   let visibleTracks = $derived(filterAndSortPlaylistTracks(playlistDetail?.tracks || [], trackSearch, trackSort, trackSortDir))
@@ -150,6 +154,7 @@
       lastSelectedId = selectedId
       trackSearch = ''
       showSortSheet = false
+      showMobileTools = false
       trackSort = 'added'
       trackSortDir = 'desc'
     }
@@ -222,7 +227,7 @@
 </script>
 
 {#key selectedId}
-  <div class="playlist-detail-page" class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)} class:rows-intro={rowsIntro} use:heroScroll={(stuck) => toolbarStuck = stuck}>
+  <div class="playlist-detail-page" class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)} class:rows-intro={rowsIntro} class:show-mobile-tools={showMobileTools} use:heroScroll={(stuck) => toolbarStuck = stuck}>
     {#if loading && !playlistDetail}
       <PlaylistHero {onBack} />
       <div class="playlist-loading-status" role="status" aria-live="polite">
@@ -276,6 +281,9 @@
         {onBack}
         onPlayAll={() => onPlayAll?.(visibleTracks)}
         onShuffle={playShuffled}
+        onQueue={() => void queuePlaylist(playlistDetail!.id, 'append', visibleTracks as unknown as CompactTrackInput[])}
+        onNext={() => void queuePlaylist(playlistDetail!.id, 'next', visibleTracks as unknown as CompactTrackInput[])}
+        onTools={() => { showMobileTools = true; void tick().then(() => document.querySelector<HTMLInputElement>('.mobile-route-page:not([inert]) .playlist-search input')?.focus()) }}
       />
       <div class="playlist-toolbar" class:is-stuck={toolbarStuck}>
         <div class="playlist-toolbar-title" inert={!toolbarStuck}>

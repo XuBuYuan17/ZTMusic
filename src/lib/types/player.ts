@@ -2,6 +2,8 @@
  * 播放器领域类型。纯状态/契约定义，不放实现。
  */
 import type { Song } from './music.ts'
+import type { CompactTrack } from '../player/queue.ts'
+import type { AndroidPlaybackState } from '../player/android-state.ts'
 
 export type PlayMode = 'list' | 'shuffle' | 'repeat'
 
@@ -46,6 +48,14 @@ export type ListeningSignal = 'sample' | 'resume' | 'suspend' | 'reset' | 'sourc
  * 新增 NativePlayerEngine 实现本接口，不要替换 Web 引擎。
  */
 export interface PlayerEngine {
+  getState(): PlayerEngineState
+  readonly native?: boolean
+  connect?(): Promise<void>
+  setQueue?(tracks: readonly CompactTrack[], index: number, play: boolean, options: { mode: PlayMode; quality: QualityLevel; position?: number }): Promise<void>
+  onNativeState?(listener: (state: AndroidPlaybackState) => void): void
+  setMode?(mode: PlayMode): void
+  next?(): void
+  previous?(): void
   load(url: string): void
   play(): Promise<void>
   pause(): void

@@ -7,6 +7,9 @@
   import { ACCENT_THEME_OPTIONS } from '../../theme/accent.ts'
   import pkg from '../../../../package.json'
   import SettingSelect from '../../components/SettingSelect.svelte'
+  import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
+  import { responsive } from '../../utils/responsive.ts'
+  import { engine } from '../../player/engine.ts'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme }: {
     theme?: string
@@ -42,8 +45,10 @@
   </div>
 
   <div class="settings-panel">
+    {#if engine.native}<AndroidPlayerSettings />{/if}
 
     <!-- 主题 -->
+    {#if $responsive.isMobile}<div class="settings-group-label">外观</div>{/if}
     <div class="settings-row">
       <div>
         <div class="settings-label">主题模式</div>
@@ -145,7 +150,7 @@
         <div class="settings-label">{t('settings.defaultPage', '启动默认页面')}</div>
         <div class="settings-desc">{t('settings.defaultPageDesc', '启动时自动打开的页面')}</div>
       </div>
-      <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage} options={['home', 'explore', 'library'].map(value => ({ value, label: t(`page.${value}`, value === 'library' ? '资料库' : value === 'home' ? '主页' : '发现') }))} onChange={settings.handleDefaultPage} />
+      <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={$responsive.isMobile && settings.defaultPage === 'home' ? 'explore' : settings.defaultPage} options={($responsive.isMobile ? ['explore', 'library'] : ['home', 'explore', 'library']).map(value => ({ value, label: t(`page.${value}`, value === 'library' ? '资料库' : value === 'home' ? '主页' : '发现') }))} onChange={settings.handleDefaultPage} />
     </div>
 
     <!-- 布局模式 -->
@@ -278,11 +283,13 @@
     </details>
 
     <!-- 关于 -->
-    <div class="settings-group-label">关于</div>
-    <div class="settings-row settings-row--static">
-      <span class="settings-label">版本</span>
-      <span class="settings-value">{pkg.version}</span>
-    </div>
+    {#if !$responsive.isMobile}
+      <div class="settings-group-label">关于</div>
+      <div class="settings-row settings-row--static">
+        <span class="settings-label">版本</span>
+        <span class="settings-value">{pkg.version}</span>
+      </div>
+    {/if}
 
   </div>
 </div>
