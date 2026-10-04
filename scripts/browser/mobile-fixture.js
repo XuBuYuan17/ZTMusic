@@ -26,12 +26,13 @@ import '../../src/styles/mobile/playlist-motion.css'
 import '../../src/styles/mobile/playlist-layout.css'
 import '../../src/styles/mobile/action-panels.css'
 import '../../src/styles/mobile/interaction-polish.css'
+import coverAsset from './cover.svg?url'
 import { mount } from 'svelte'
 import Fixture from './MobileRenderFixture.svelte'
 import { ncm } from '../../src/lib/api/client.ts'
 import { player } from '../../src/lib/stores/player.svelte.ts'
 import { router } from '../../src/lib/stores/router.svelte.ts'
-const cover = new URL('/scripts/browser/cover.svg', location.href).href
+const cover = new URL(coverAsset, location.href).href
 const playlists = Array.from({ length: 4 }, (_, i) => ({
   id: 9001 + i, name: '渲染验证歌单 ' + (i + 1), picUrl: cover, coverImgUrl: cover,
   trackCount: 12, description: '同一封面应连续移动到详情页并返回', creator: { nickname: '测试账号' },

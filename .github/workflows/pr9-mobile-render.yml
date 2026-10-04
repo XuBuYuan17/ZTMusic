@@ -25,7 +25,8 @@ jobs:
           echo "PR9_PLAYWRIGHT_MODULE=$RUNNER_TEMP/pr9-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Run mobile rendering
         run: |
-          pnpm dev --host 127.0.0.1 --port 5173 > /tmp/pr9-vite.log 2>&1 &
+          pnpm exec vite build --config scripts/browser/vite.config.mjs
+          pnpm exec vite preview --config scripts/browser/vite.config.mjs --host 127.0.0.1 --port 5173 > /tmp/pr9-vite.log 2>&1 &
           for i in $(seq 1 30); do
             if curl --silent --fail http://127.0.0.1:5173/scripts/browser/mobile-render.html > /dev/null; then break; fi
             sleep 1
