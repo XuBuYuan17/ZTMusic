@@ -237,12 +237,54 @@
     overflow: hidden;
   }
 
+  .am-secondary-context :global(.ly-context-comments) {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
   .am-secondary-context :global(.ly-context-detail-list),
   .am-secondary-context :global(.ly-context-comment-list),
   .am-secondary-context :global(.ly-context-detail-grid) {
     max-height: none;
     height: 100%;
     overflow-y: auto;
+  }
+
+  .am-secondary-context :global(.ly-context-comments .ly-context-comment-list) {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-form) {
+    flex: 0 0 auto;
+    gap: 7px;
+    padding: 10px 16px 2px;
+    border-top: 1px solid rgba(255,255,255,0.065);
+    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  }
+
+  .am-secondary-context :global(.ly-context-comment-input) {
+    min-height: 40px;
+    max-height: 92px;
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-layer);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-foot) {
+    min-height: 30px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-submit) {
+    min-width: 64px;
+    height: 30px;
   }
 
   .am-secondary-context :global(.ly-context-detail-grid) {
