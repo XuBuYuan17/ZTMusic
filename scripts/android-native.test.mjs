@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 const native = 'plugins/tauri-plugin-zt-player/android/src/main/java/'
-const [manifest, service, overlay, plugin, system, resolver, engine, settings, cargo, capability] = await Promise.all([
+const [manifest, service, overlay, lyricMetadata, plugin, system, resolver, engine, settings, cargo, capability] = await Promise.all([
   read('plugins/tauri-plugin-zt-player/android/src/main/AndroidManifest.xml'),
-  read(native + 'PlaybackService.kt'), read(native + 'LyricsOverlayService.kt'), read(native + 'ZtPlayerPlugin.kt'), read(native + 'AndroidSystemAdapter.kt'), read(native + 'StreamResolver.kt'),
+  read(native + 'PlaybackService.kt'), read(native + 'LyricsOverlayService.kt'), read(native + 'LyricMetadataPublisher.kt'), read(native + 'ZtPlayerPlugin.kt'), read(native + 'AndroidSystemAdapter.kt'), read(native + 'StreamResolver.kt'),
   read('src/lib/player/engine.ts'), read('src/lib/components/AndroidPlayerSettings.svelte'), read('src-tauri/Cargo.toml'), read('src-tauri/capabilities/android-player.json'),
 ])
 assert.match(service, /class PlaybackService : MediaSessionService/)
@@ -29,8 +29,14 @@ assert.ok(service.includes('put("overlayVisible"'), 'requested and currently vis
 assert.ok(service.includes('put("overlaySettings"'), 'saved overlay appearance must be returned to the settings UI')
 assert.ok(overlay.includes('Settings.canDrawOverlays') && overlay.includes('AndroidSystemAdapter.overlayWindowType()'), 'overlay service must gate rendering on system permission and use the platform adapter')
 assert.ok(overlay.includes('handler.postDelayed(this, 250)') && overlay.includes('request("/lyric"'), 'native lyrics must follow player time without keeping the WebView active')
+assert.ok(service.includes('LyricMetadataPublisher(player, resolver)') && service.includes('lyricMetadata.trackChanged()'), 'player-owned MediaSession must publish lyric metadata from the authoritative native player')
+assert.ok(lyricMetadata.includes('METADATA_KEY_LYRIC_INFO = "lyricInfo"'), 'lyrics must use the standard MediaMetadata.extras.lyricInfo key')
+for (const field of ['songName', 'artist', 'songId', 'lyricType', 'lyric', 'noLyric']) assert.ok(lyricMetadata.includes(`.put("${field}"`), `lyricInfo payload must include ${field}`)
+assert.ok(lyricMetadata.includes('metadata.buildUpon().setExtras(extras).build()'), 'lyric publication must preserve existing media metadata')
+assert.ok(lyricMetadata.includes('requestGeneration != generation') && lyricMetadata.includes('current.mediaId != trackId'), 'late lyric requests must not overwrite a newer track')
+assert.ok(!lyricMetadata.includes('postDelayed'), 'full lyric metadata must be published once per track rather than on a progress timer')
 assert.ok(settings.includes("androidCommand('overlayPermission')") && settings.includes('awaitingPermission'), 'permission must only be requested from the Android settings action')
 assert.ok(!system.includes('XiaomiIslandAdapter('), 'unverified OEM APIs cannot be silently enabled')
 assert.match(system, /XIAOMI_ISLAND = false/)
 assert.match(system, /OPPO_FLUID_CLOUD = false/)
-console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, OEM defaults and Android-only permissions passed (not an APK/device test)')
+console.log('Android native boundaries: service ownership, foreground declaration, focus, media controls, lyricInfo metadata, OEM defaults and Android-only permissions passed (not an APK/device test)')
