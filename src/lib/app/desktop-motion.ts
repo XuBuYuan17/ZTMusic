@@ -172,11 +172,16 @@ export function dismissTopDialog(): boolean {
 const mobileIsolation = new Map<HTMLElement, number>()
 const bottomPanels = new Map<HTMLElement, () => void>()
 export function dialogFocus(node: HTMLElement, close: () => void) {
+  const mobile = document.documentElement.classList.contains('mobile-runtime')
+  // The secondary sheet already owns focus/isolation. A nested comment dialog
+  // must not make the sheet's header and close button inert.
+  if (mobile && node.matches('.ly-context-detail--mobile') && node.parentElement?.closest('.am-secondary-sheet')) {
+    return { destroy() {} }
+  }
   const previous = document.activeElement as HTMLElement | null
   const isolated: HTMLElement[] = []
   layers.push(node)
   dialogClosers.set(node, close)
-  const mobile = document.documentElement.classList.contains('mobile-runtime')
   if (mobile) document.documentElement.classList.add('mobile-panel-open')
   if (mobile && node.matches('.queue-panel, .song-menu, .sort-sheet, [data-bottom-panel]')) {
     for (const [panel, dismiss] of bottomPanels) { panel.hidden = true; dismiss() }
