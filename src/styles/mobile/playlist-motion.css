@@ -1,0 +1,49 @@
+/* Playlist motion borrowed from the mobile reference without changing layout.
+ * The cover only morphs while a track from the visible playlist is actually playing. */
+html.mobile-runtime .playlist-cover,
+html.mobile-runtime .playlist-cover-open {
+  transition:
+    border-radius .8s cubic-bezier(.2, 0, 0, 1),
+    box-shadow .55s cubic-bezier(.2, 0, 0, 1),
+    transform .55s cubic-bezier(.2, 0, 0, 1);
+}
+
+html.mobile-runtime .playlist-cover-open {
+  position: relative;
+  overflow: hidden;
+}
+
+html.mobile-runtime .playlist-cover-open::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform .6s cubic-bezier(.2, 0, 0, 1);
+}
+
+html.mobile-runtime body:has(.mobile-mini-player .mini-player-play.playing)
+  .playlist-detail-page:has(.playlist-track-table tr.active)
+  :is(.playlist-cover, .playlist-cover-open) {
+  border-radius: 50%;
+}
+
+html.mobile-runtime body:has(.mobile-mini-player .mini-player-play.playing)
+  .playlist-detail-page:has(.playlist-track-table tr.active)
+  .playlist-cover-open::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .playlist-cover,
+  html.mobile-runtime .playlist-cover-open,
+  html.mobile-runtime .playlist-cover-open::after {
+    transition-duration: .01s;
+  }
+}
