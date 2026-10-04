@@ -3,9 +3,10 @@ export const mobileMotion = {
   tab: 220,
   page: 360,
   expand: 420,
-  dismiss: 260,
+  dismiss: 360,
   enter: 'cubic-bezier(.2,0,0,1)',
   exit: 'cubic-bezier(.32,0,.2,1)',
+  shared: 'cubic-bezier(.2,.78,.15,1)',
   standard: 'cubic-bezier(.2,0,0,1)',
 } as const
 
@@ -25,9 +26,18 @@ export function mobilePageFrames(
     const clippedSurface = { opacity: 1, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' }
 
     if (kind === 'pop') {
-      // Back navigation is a page-layer transition, not the inverse of the card reveal.
-      // The source page is already restored underneath; both layers move from frame one,
-      // avoiding the old three-stage sequence (content fade -> floating cover -> source page).
+      if (surfaceClip) {
+        // Reverse the same shared-surface reveal used on entry. The restored source page
+        // stays completely still underneath while the detail surface collapses into the
+        // exact cover rect, so the last animated frame and the real card occupy the same
+        // pixels. This makes Back feel like closing the object instead of changing routes.
+        return entering
+          ? [fullSurface, fullSurface]
+          : [fullSurface, clippedSurface]
+      }
+
+      // A source card can disappear after filtering/reloading. Fall back to a short page
+      // transition rather than collapsing toward a guessed rectangle.
       if (entering) {
         return [
           { opacity: .84, transform: 'translate3d(-10px,0,0) scale(.985)', clipPath: 'inset(0 0 0 0 round 0px)' },
@@ -36,21 +46,13 @@ export function mobilePageFrames(
       }
       return [
         fullSurface,
-        {
-          opacity: .96,
-          transform: 'translate3d(18px,0,0) scale(.997)',
-          clipPath: 'inset(0 0 0 0 round 0px)',
-          offset: .48,
-        },
-        {
-          opacity: 0,
-          transform: 'translate3d(44px,0,0) scale(.992)',
-          clipPath: 'inset(0 0 0 0 round 0px)',
-        },
+        { opacity: .96, transform: 'translate3d(18px,0,0) scale(.997)', clipPath: 'inset(0 0 0 0 round 0px)', offset: .48 },
+        { opacity: 0, transform: 'translate3d(44px,0,0) scale(.992)', clipPath: 'inset(0 0 0 0 round 0px)' },
       ]
     }
 
-    // Entering a playlist still grows from the tapped cover region. The source page stays still.
+    // Entering a playlist grows the whole page surface from the tapped cover region.
+    // The source page stays still so the card and detail surface read as one object.
     return entering
       ? [clippedSurface, fullSurface]
       : [fullSurface, fullSurface]
@@ -101,9 +103,10 @@ export function createMobileNavigationMotion() {
       const current = generation
       if (reduced) { if (surface && kind === 'pop') clearSharedCoverReturn(); done(); return }
 
-      // Source geometry is only useful for the forward reveal. On pop it was the main source
-      // of visual discontinuity because scroll restoration and fixed clone geometry raced.
-      const source = surface && kind !== 'pop' ? sharedCoverSource() : null
+      // The return marker deliberately survives the forward transition. MobileApp restores
+      // the destination page/scroll position before this runs, so Back can re-measure the
+      // real card and reverse the surface into its current on-screen rectangle.
+      const source = surface ? sharedCoverSource() : null
       const sourceRect = source?.getBoundingClientRect() ?? null
       const sourceRadius = source ? (getComputedStyle(source).borderRadius || getComputedStyle(source.parentElement!).borderRadius || '22px') : '22px'
       const incomingClip = sourceRect ? clipToRect(incoming, sourceRect, sourceRadius) : null
@@ -111,7 +114,8 @@ export function createMobileNavigationMotion() {
       const duration = surface
         ? kind === 'pop' ? mobileMotion.dismiss : mobileMotion.expand
         : kind === 'tab' ? mobileMotion.tab : mobileMotion.page
-      const easing = surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
+      const hasSharedGeometry = Boolean(sourceRect && (kind === 'pop' ? outgoingClip : incomingClip))
+      const easing = surface && hasSharedGeometry ? mobileMotion.shared : surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
 
       const pending = [incoming, outgoing].filter((node): node is HTMLElement => !!node).map((node, index) => {
         const entering = index === 0
