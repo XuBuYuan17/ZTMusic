@@ -176,30 +176,30 @@
     background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
   }
   .lyrics-card-header { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
-  .lyrics-card-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; color: var(--accent); background: var(--accent-bg); }
+  .lyrics-card-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--radius-md); color: var(--accent); background: var(--accent-bg); }
   .lyrics-card-copy { min-width: 0; }
   .lyrics-card-kicker { display: block; margin-bottom: 3px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   h3 { margin: 0; color: var(--text); font-size: 16px; font-weight: 700; }
   .lyrics-card-copy p, .permission-callout p { margin: 5px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
-  .permission-badge { min-height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; color: var(--text-secondary); background: var(--bg-hover); font-size: 11px; font-weight: 650; white-space: nowrap; }
+  .permission-badge { min-height: 28px; display: inline-flex; align-items: center; padding: 0 10px; border-radius: 999px; color: var(--text-secondary); background: var(--bg-hover); font-size: 11px; font-weight: 500; white-space: nowrap; }
   .permission-badge.granted { color: var(--accent); background: var(--accent-bg); }
-  .permission-badge.active { font-weight: 750; }
+  .permission-badge.active { font-weight: 700; }
 
   .lyrics-primary-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
   .lyrics-primary-row > div { min-width: 0; }
-  .lyrics-primary-row strong, .control-heading strong, .permission-callout strong { display: block; color: var(--text); font-size: 13px; font-weight: 650; }
+  .lyrics-primary-row strong, .control-heading strong, .permission-callout strong { display: block; color: var(--text); font-size: 13px; font-weight: 700; }
   .lyrics-primary-row > div > span, .control-heading > span { display: block; margin-top: 3px; color: var(--text-secondary); font-size: 11px; }
   .lyrics-switch { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 7px; border: 0; border-radius: 999px; color: var(--text-secondary); background: var(--bg-hover); cursor: pointer; }
   .lyrics-switch > span { position: relative; width: 34px; height: 20px; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 24%, transparent); }
   .lyrics-switch > span::after { content: ''; position: absolute; width: 16px; height: 16px; top: 2px; left: 2px; border-radius: 50%; background: var(--text); transition: transform .18s ease; }
   .lyrics-switch.on > span { background: var(--accent); }
   .lyrics-switch.on > span::after { transform: translateX(14px); }
-  .lyrics-switch em { font-style: normal; font-size: 11px; font-weight: 650; }
+  .lyrics-switch em { font-style: normal; font-size: 11px; font-weight: 700; }
   .lyrics-switch:disabled { opacity: .55; cursor: default; }
 
   .permission-callout { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; padding: 13px 14px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--bg-hover) 78%, transparent); }
   .permission-callout > div { min-width: 0; }
-  .permission-callout button { flex: 0 0 auto; min-height: 38px; padding: 0 13px; border: 0; border-radius: 999px; color: var(--accent); background: var(--accent-bg); font-size: 12px; font-weight: 650; cursor: pointer; }
+  .permission-callout button { flex: 0 0 auto; min-height: 38px; padding: 0 13px; border: 0; border-radius: 999px; color: var(--accent); background: var(--accent-bg); font-size: 12px; font-weight: 700; cursor: pointer; }
   .permission-callout button:disabled { opacity: .6; cursor: default; }
 
   .lyrics-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
@@ -209,14 +209,14 @@
   .control-heading > span { margin-top: 0; text-align: right; }
   .segmented-control { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .segmented-control button { min-height: 34px; padding: 0 11px; border: 0; border-radius: 999px; color: var(--text-secondary); background: var(--bg-elevated); font-size: 11px; cursor: pointer; }
-  .segmented-control button.active { color: var(--accent); background: var(--accent-bg); font-weight: 650; }
+  .segmented-control button.active { color: var(--accent); background: var(--accent-bg); font-weight: 700; }
   input[type='range'] { width: 100%; min-height: 32px; margin-top: 8px; accent-color: var(--accent); }
   .lyrics-status { margin: 12px 2px 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
 
   @media (max-width: 680px) {
     .android-lyrics-card { padding: 14px; border-radius: var(--radius-md); }
     .lyrics-card-header { grid-template-columns: 38px minmax(0, 1fr); }
-    .lyrics-card-icon { width: 38px; height: 38px; border-radius: 12px; }
+    .lyrics-card-icon { width: 38px; height: 38px; border-radius: var(--radius-sm); }
     .permission-badge { grid-column: 2; justify-self: start; }
     .lyrics-primary-row, .permission-callout { align-items: stretch; flex-direction: column; }
     .lyrics-switch, .permission-callout button { align-self: stretch; justify-content: center; }
