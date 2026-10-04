@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, untrack, onDestroy } from 'svelte'
-  import { reducedMotion, hasCoverOrigin } from '../app/desktop-motion.ts'
+  import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
   import type { SongId } from '../types/music.ts'
@@ -108,13 +108,14 @@
     const scroller = contentEl
     return untrack(() => {
       if (!scroller || key === previousKey) return
-      navigationMotion.cancel()
       const oldKey = previousKey
-      const oldScroll = scroller.scrollTop
       const oldPage = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === oldKey) ?? null
-      const oldTop = oldPage?.offsetTop ?? 0
+      // Capture viewport geometry before the outgoing page changes positioning or scroll.
+      const oldBox = oldPage?.getBoundingClientRect()
+      const coverSnapshot = navigationMotion.capture(oldPage)
+      navigationMotion.cancel()
       const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
-      const sharedCover = hasCoverOrigin()
+      const sharedCover = Boolean(coverSnapshot.origin)
       const coverDetail = activeView === 'playlist' || activeView === 'album' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
       leavingKey = oldPage && !reducedMotion() ? oldKey : null
       scroller.dispatchEvent(new Event('mobile-view-change'))
@@ -132,8 +133,12 @@
         scrollTop = position
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
         if (page) observer.observe(page)
-        if (oldPage) oldPage.style.setProperty('--route-outgoing-top', `${oldTop + scroller.scrollTop - oldScroll}px`)
-        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null })
+        if (oldPage && oldBox) {
+          oldPage.style.setProperty('--route-outgoing-top', `${oldBox.top}px`)
+          oldPage.style.setProperty('--route-outgoing-left', `${oldBox.left}px`)
+          oldPage.style.setProperty('--route-outgoing-width', `${oldBox.width}px`)
+        }
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null }, coverSnapshot)
         else leavingKey = null
       })
       scroller.addEventListener('wheel', stop, { passive: true })
@@ -269,6 +274,6 @@
 
 <style>
   .mobile-route-page { min-height: 100%; }
-  .mobile-route-outgoing { display: block !important; position: absolute; top: var(--route-outgoing-top, 0px); left: max(var(--mobile-content-gutter), env(safe-area-inset-left)); right: max(var(--mobile-content-gutter), env(safe-area-inset-right)); z-index: 1; pointer-events: none; }
+  .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 </style>

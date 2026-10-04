@@ -373,6 +373,8 @@
   }
 
   .am-secondary-context :global(.ly-context-comment-row) {
+    /* Scroll the list, never shrink rows below their intrinsic content height. */
+    flex: 0 0 auto;
     width: 100%;
     min-height: 0;
     display: grid;

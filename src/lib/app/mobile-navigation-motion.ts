@@ -1,3 +1,5 @@
+import { takeCoverOrigin } from './desktop-motion.ts'
+
 export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
   tab: 220,
@@ -269,7 +271,22 @@ export function createMobileNavigationMotion() {
 
   return {
     cancel,
-    play(incoming: HTMLElement, outgoing: HTMLElement | null, kind: MobileNavigationKind, sharedCover: boolean, surface: boolean, reduced: boolean, done: () => void) {
+    capture(outgoing: HTMLElement | null) {
+      const hero = outgoing?.querySelector<HTMLImageElement>('.playlist-cover') ?? null
+      const visibleFlight = document.querySelector<HTMLElement>('.shared-cover-flight')
+      return {
+        origin: takeCoverOrigin(),
+        hero,
+        heroRect: hero ? copyRect((visibleFlight || hero).getBoundingClientRect()) : null,
+        heroRadius: hero ? getComputedStyle(hero).borderRadius : '0px',
+      }
+    },
+    play(incoming: HTMLElement, outgoing: HTMLElement | null, kind: MobileNavigationKind, sharedCover: boolean, surface: boolean, reduced: boolean, done: () => void, snapshot?: {
+      origin: ReturnType<typeof takeCoverOrigin>
+      hero: HTMLImageElement | null
+      heroRect: RectLike | null
+      heroRadius: string
+    }) {
       cancel()
       const current = generation
 
@@ -287,7 +304,7 @@ export function createMobileNavigationMotion() {
       if (reduced) { if (surface && kind === 'pop') clearSharedCoverReturn(); done(); return }
 
       const source = surface ? sharedCoverSource() : null
-      const sourceRect = source?.getBoundingClientRect() ?? null
+      const sourceRect = kind === 'push' && snapshot?.origin ? snapshot.origin.rect : source?.getBoundingClientRect() ?? null
       const sourceRadius = source ? (getComputedStyle(source).borderRadius || getComputedStyle(source.parentElement!).borderRadius || '22px') : '22px'
       const incomingClip = sourceRect ? clipToRect(incoming, sourceRect, sourceRadius) : null
       const outgoingClip = outgoing && sourceRect ? clipToRect(outgoing, sourceRect, sourceRadius) : null
@@ -301,34 +318,47 @@ export function createMobileNavigationMotion() {
         : null
 
       const sharedPending: Promise<unknown>[] = []
-      if (surface && kind === 'pop' && source && outgoing) {
-        const heroCover = outgoing.querySelector<HTMLElement>('.playlist-cover')
-        const from = heroCover?.getBoundingClientRect()
-        if (heroCover && from?.width && sourceRect?.width) {
-          const clone = heroCover.cloneNode(true) as HTMLElement
-          clone.removeAttribute('id')
-          clone.setAttribute('aria-hidden', 'true')
-          const sourceOpacity = source.style.opacity
-          const heroOpacity = heroCover.style.opacity
-          const scale = Math.min(from.width / sourceRect.width, from.height / sourceRect.height)
-          Object.assign(clone.style, {
-            position: 'fixed', inset: 'auto', left: `${sourceRect.left}px`, top: `${sourceRect.top}px`,
-            width: `${sourceRect.width}px`, height: `${sourceRect.height}px`, margin: '0',
+      if (surface && (kind === 'push' || kind === 'pop')) {
+        const hero = kind === 'push'
+          ? incoming.querySelector<HTMLImageElement>('.playlist-cover')
+          : snapshot?.hero ?? outgoing?.querySelector<HTMLImageElement>('.playlist-cover')
+        const heroRect = kind === 'pop'
+          ? snapshot?.heroRect ?? hero?.getBoundingClientRect()
+          : hero?.getBoundingClientRect()
+        const from = kind === 'push' ? sourceRect : heroRect
+        const to = kind === 'push' ? heroRect : sourceRect
+        if (hero && from?.width && to?.width) {
+          const flightCover = document.createElement('img')
+          flightCover.className = 'shared-cover-flight'
+          flightCover.src = hero.currentSrc || hero.src || snapshot?.origin?.src || ''
+          flightCover.alt = ''
+          flightCover.referrerPolicy = 'no-referrer'
+          flightCover.setAttribute('aria-hidden', 'true')
+          const sourceOpacity = source?.style.opacity ?? ''
+          const heroOpacity = hero.style.opacity
+          const sx = from.width / to.width
+          const sy = from.height / to.height
+          const fromRadius = kind === 'push' ? snapshot?.origin?.radius || sourceRadius : snapshot?.heroRadius || getComputedStyle(hero).borderRadius
+          const toRadius = kind === 'push' ? getComputedStyle(hero).borderRadius : sourceRadius
+          Object.assign(flightCover.style, {
+            position: 'fixed', inset: 'auto', left: `${to.left}px`, top: `${to.top}px`,
+            width: `${to.width}px`, height: `${to.height}px`, margin: '0', padding: '0', border: '0',
+            display: 'block', objectFit: 'cover', maxWidth: 'none', maxHeight: 'none',
             pointerEvents: 'none', transformOrigin: '0 0', willChange: 'transform',
-            opacity: '1', visibility: 'visible', zIndex: '1100',
+            opacity: '1', visibility: 'visible', zIndex: '1100', transition: 'none',
           })
-          source.style.opacity = '0'
-          heroCover.style.opacity = '0'
-          document.body.append(clone)
-          const flight = clone.animate([
-            { transform: `translate3d(${from.left - sourceRect.left}px,${from.top - sourceRect.top}px,0) scale(${scale})`, borderRadius: getComputedStyle(heroCover).borderRadius },
-            { transform: 'translate3d(0,0,0) scale(1)', borderRadius: sourceRadius },
-          ], { duration, easing: mobileMotion.shared })
+          if (source) source.style.opacity = '0'
+          hero.style.opacity = '0'
+          document.body.append(flightCover)
+          const flight = flightCover.animate([
+            { transform: `translate3d(${from.left - to.left}px,${from.top - to.top}px,0) scale(${sx},${sy})`, borderRadius: `calc(${fromRadius} / ${sx})` },
+            { transform: 'translate3d(0,0,0) scale(1)', borderRadius: toRadius },
+          ], { duration, easing: mobileMotion.shared, fill: 'both' })
           animations.add(flight)
           sharedCleanup = () => {
-            source.style.opacity = sourceOpacity
-            heroCover.style.opacity = heroOpacity
-            clone.remove()
+            if (source) source.style.opacity = sourceOpacity
+            hero.style.opacity = heroOpacity
+            flightCover.remove()
           }
           sharedPending.push(flight.finished.catch(() => {}))
         }

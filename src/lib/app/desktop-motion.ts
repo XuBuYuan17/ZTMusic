@@ -93,6 +93,12 @@ function freshOrigin(): CoverOrigin | null {
 
 export function hasCoverOrigin(): boolean { return !!freshOrigin() }
 
+export function takeCoverOrigin(): CoverOrigin | null {
+  const origin = freshOrigin()
+  coverOrigin = null
+  return origin
+}
+
 export function rememberCardOrigin(event: Event) {
   coverOrigin = null
   if (reducedMotion()) return
@@ -112,6 +118,8 @@ export function rememberCardOrigin(event: Event) {
 }
 
 export function flyCover(target: HTMLElement) {
+  // Mobile navigation owns both directions, including already-mounted cached pages.
+  if (document.documentElement.classList.contains('mobile-runtime')) return {}
   const origin = freshOrigin()
   if (!origin) return {}
   target.style.opacity = '0'
