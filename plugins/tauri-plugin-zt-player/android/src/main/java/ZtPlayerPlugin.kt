@@ -74,7 +74,9 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
 
                 val requestedName = data.optString("fileName", "zheting-song.png")
                 val safeName = requestedName.replace(Regex("[^A-Za-z0-9._-]"), "_").take(96).ifBlank { "zheting-song.png" }
-                val file = File(directory, if (safeName.endsWith(".png", ignoreCase = true)) safeName else "$safeName.png")
+                val stem = safeName.substringBeforeLast('.').take(72).ifBlank { "zheting-song" }
+                // Receivers can keep reading the granted URI after another share begins, so never overwrite an in-flight poster.
+                val file = File(directory, "$stem-$now.png")
                 file.writeBytes(bytes)
 
                 val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.ztshare", file)
