@@ -2,7 +2,7 @@ export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
   tab: 220,
   page: 360,
-  expand: 520,
+  expand: 420,
   enter: 'cubic-bezier(.2,0,0,1)',
   exit: 'cubic-bezier(.4,0,1,1)',
   standard: 'cubic-bezier(.2,0,0,1)',
@@ -20,18 +20,18 @@ export function mobilePageFrames(
   surfaceClip?: string | null,
 ): [Keyframe, Keyframe] {
   if (surface) {
+    const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
+    const clippedSurface = { opacity: 1, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' }
+
+    // Cover-detail navigation keeps the page underneath completely still. Only
+    // the opaque detail surface expands/collapses, which avoids double-painted
+    // text and reduces compositor work on Android WebView.
     if (kind === 'pop') return entering
-      ? [{ opacity: .84, transform: 'translate3d(-12px,0,0)' }, { opacity: 1, transform: 'none' }]
-      : [
-          { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' },
-          { opacity: .96, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' },
-        ]
+      ? [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'none' }]
+      : [fullSurface, clippedSurface]
     return entering
-      ? [
-          { opacity: .96, transform: 'none', clipPath: surfaceClip || 'inset(8% 8% 72% 8% round 22px)' },
-          { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' },
-        ]
-      : [{ opacity: 1, transform: 'none' }, { opacity: .78, transform: 'translate3d(-12px,0,0)' }]
+      ? [clippedSurface, fullSurface]
+      : [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'none' }]
   }
 
   if (kind === 'tab') {
@@ -137,17 +137,6 @@ export function createMobileNavigationMotion() {
         animations.add(animation)
         return animation.finished.catch(() => {})
       })
-
-      if (surface && kind !== 'pop') {
-        incoming.querySelectorAll<HTMLElement>('.playlist-hero-copy, .playlist-toolbar, .playlist-track-surface').forEach((node, index) => {
-          const animation = node.animate([
-            { opacity: 0, transform: 'translate3d(0,18px,0)' },
-            { opacity: 1, transform: 'none' },
-          ], { duration: 340, delay: 150 + index * 55, easing: mobileMotion.standard, fill: 'backwards' })
-          animations.add(animation)
-          pending.push(animation.finished.catch(() => {}))
-        })
-      }
 
       if (surface && kind === 'pop' && outgoing && source) {
         pending.push(animateCoverReturn(outgoing, source))
