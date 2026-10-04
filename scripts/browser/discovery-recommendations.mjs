@@ -38,6 +38,7 @@ export async function reviewDiscovery(page, capture, metrics) {
   await page.locator('.mobile-route-page:not([inert]) .daily-recommendations__song').first().waitFor()
   assert.equal(await page.locator('.mobile-route-page:not([inert]) .daily-recommendations__song').count(), 12)
   assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().view), 'dailyRecommendations')
+  await page.waitForTimeout(650)
   await capture('daily_recommendations')
   await page.locator('.mobile-route-page:not([inert]) .daily-recommendations__song').nth(4).click()
   assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().index), 4)

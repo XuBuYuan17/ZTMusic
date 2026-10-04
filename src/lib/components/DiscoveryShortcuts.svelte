@@ -38,7 +38,7 @@
       <button type="button" class="discovery-shortcut" class:active={discoveryPlayback.kind === entry.key}
         data-discovery={entry.key} aria-pressed={entry.key === 'heart' || entry.key === 'roaming' ? discoveryPlayback.kind === entry.key : undefined}
         disabled={discoveryPlayback.busy} onclick={() => open(entry.key)}>
-        <span class="discovery-shortcut__icon"><Icon name={entry.icon} size={22} strokeWidth={1.8} /></span>
+        <span class="discovery-shortcut__icon"><Icon name={entry.icon} size={22} strokeWidth={1.8} fill="none" /></span>
         <span class="discovery-shortcut__label">{entry.label}</span>
       </button>
     {/each}
@@ -59,5 +59,6 @@
   .discovery-shortcut:focus-visible { outline: 2px solid var(--md-primary, var(--accent)); outline-offset: 2px; }
   .discovery-shortcut:disabled { opacity: .6; cursor: wait; }
   .discovery-shortcuts__status { margin: 8px 0 0; font-size: 13px; line-height: 20px; color: var(--text-secondary); overflow-wrap: anywhere; }
+  :global(html.mobile-runtime) .discovery-shortcuts { margin-bottom: 0; }
   @media (min-width: 768px) { .discovery-shortcut { flex-direction: row; gap: 12px; } .discovery-shortcut__label { font-size: 15px; } }
 </style>

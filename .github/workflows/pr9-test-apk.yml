@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: android-apk-${{ github.repository }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: 22
@@ -163,3 +163,5 @@ jobs:
 # Allow theme color transitions to settle during browser comparison.
 
 # Discovery: use shared radius tokens and accessible song controls.
+
+# Discovery: review settled screenshots and compact spacing before packaging.

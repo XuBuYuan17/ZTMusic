@@ -98,6 +98,8 @@
   .daily-recommendations__copy strong { font-size: 15px; line-height: 22px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .daily-recommendations__copy small { font-size: 13px; line-height: 18px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .daily-recommendations__state { display: grid; justify-items: center; gap: 16px; padding: 48px 16px; font-size: 14px; line-height: 22px; color: var(--text-secondary); }
+  :global(html.mobile-runtime) .daily-recommendations__header h2 { display: none; }
+  :global(html.mobile-runtime) .daily-recommendations__header p { margin-top: 0; }
   button:focus-visible { outline: 2px solid var(--md-primary, var(--accent)); outline-offset: 2px; }
   button:active { opacity: .7; }
 </style>
