@@ -86,7 +86,7 @@
           // A rendered diagnostic must also release the native splash if module loading failed.
           if (window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent)) {
             window.__TAURI_INTERNALS__.invoke('plugin:zt-player|execute', {
-              payload: { action: 'startupReady', data: { theme: document.documentElement.dataset.theme } }
+              payload: { action: 'startupReady', data: { theme: document.documentElement.dataset.theme, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches } }
             }).catch(function () {})
           }
         }

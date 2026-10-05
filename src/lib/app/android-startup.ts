@@ -22,7 +22,7 @@ export function announceAndroidFrame(_node?: HTMLElement): void {
   frameAnnounced = true
   performance.mark('ztmusic:first-shell-frame')
   const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
-  void invoke('plugin:zt-player|execute', { payload: { action: 'startupReady', data: { theme } } })
+  void invoke('plugin:zt-player|execute', { payload: { action: 'startupReady', data: { theme, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches } } })
     .catch(() => { document.documentElement.classList.remove('android-startup-pending') })
 }
 
@@ -51,7 +51,7 @@ export function installAndroidStartup(): void {
       // Animate content, never the Activity window or a full-screen scale/position clone.
       for (const node of document.querySelectorAll<HTMLElement>('.mobile-page-bar, .mobile-page-content__inner, .mobile-tab-bar, .mobile-mini-player')) {
         node.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
-          { duration: 280, easing: 'cubic-bezier(.4,0,.2,1)' })
+          { duration: 260, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' })
       }
       const background = document.querySelector<HTMLElement>('.wallpaper-layer')
       if (background) animateAmbient(background)

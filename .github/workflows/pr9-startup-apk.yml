@@ -52,10 +52,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify source
-        run: |
-          pnpm check:versions
-          pnpm check
-          pnpm test
+        run: pnpm verify
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -205,6 +202,8 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
+            adb root
+            adb wait-for-device
             adb install -r emulator-apk/*.apk
             node scripts/browser/android-startup.mjs
       - name: Capture emulator logs

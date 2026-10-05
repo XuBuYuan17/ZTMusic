@@ -27,12 +27,18 @@ import java.io.File
 class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
     private var future: ListenableFuture<MediaController>? = null
     private var destroyed = false
+    private val startupProbe = PlaybackStartupProbe(activity)
     private val cacheExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val listener = object : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) { publish() }
     }
 
     private fun connect(): ListenableFuture<MediaController> {
+        future?.takeIf { it.isDone && !it.isCancelled }?.let { pending ->
+            val connected = try { pending.get().isConnected } catch (_: Exception) { false }
+            if (!connected) { MediaController.releaseFuture(pending); future = null }
+        }
+        PlaybackDiagnostics.mark(activity, "controller.connect")
         return future ?: MediaController.Builder(activity, SessionToken(activity, ComponentName(activity, PlaybackService::class.java)))
             .buildAsync().also { pending ->
                 future = pending
@@ -109,12 +115,40 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
     fun execute(invoke: Invoke) {
         val args = invoke.getArgs()
         val action = args.optString("action")
+        PlaybackDiagnostics.mark(activity, "plugin.command=$action")
+        if (action == "audioStartupProbe") {
+            activity.runOnUiThread {
+                try { startupProbe.step(args.getJSONObject("data").getString("stage")); invoke.resolve() }
+                catch (_: Exception) { invoke.reject("Audio probe requires a debug build, no active service and ordered stages") }
+            }
+            return
+        }
+        if (action == "startupTrace") {
+            PlaybackDiagnostics.mark(activity, "AndroidEngine.connect")
+            invoke.resolve(); return
+        }
+        if (action == "state" && !PlaybackService.active) {
+            PlaybackDiagnostics.mark(activity, "state.restore silent=true service=false")
+            invoke.resolve(JSObject(NativePlaybackStore(activity).silentSnapshot().toString()))
+            return
+        }
+        if (action == "journal" && !PlaybackService.active) {
+            cacheExecutor.execute {
+                try {
+                    val journal = ListeningJournal(activity)
+                    val result = try { journal.read(args.optJSONObject("data")?.optLong("cursor", 0) ?: 0) }
+                        finally { journal.close() }
+                    invoke.resolve(JSObject(result.toString()))
+                } catch (_: Exception) { invoke.reject("Native listening journal unavailable") }
+            }
+            return
+        }
         if (action == "startupReady" || action == "appTheme") {
             val theme = args.optJSONObject("data")?.optString("theme").orEmpty()
             activity.runOnUiThread {
                 val host = activity as? ZtStartupHost
                 if (theme == "light" || theme == "dark") host?.onAppThemeChanged(theme)
-                if (action == "startupReady") host?.onStartupFrameReady()
+                if (action == "startupReady") host?.onStartupFrameReady(args.optJSONObject("data")?.optBoolean("reducedMotion", false) == true)
                 invoke.resolve()
             }
             return
@@ -173,6 +207,7 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
 
     override fun onDestroy(activity: AppCompatActivity) {
         destroyed = true
+        startupProbe.close()
         cacheExecutor.shutdown()
         future?.let { MediaController.releaseFuture(it) }
         future = null

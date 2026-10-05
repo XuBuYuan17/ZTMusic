@@ -39,7 +39,7 @@ for (const native of [false, true]) {
     assert.ok(!classes.has('android-startup-pending'))
     assert.equal(animations.length, reduced ? 0 : 2, 'single overlapping content and ambient reveal')
     if (!reduced) {
-      assert.equal(animations[0].options.duration, 280)
+      assert.equal(animations[0].options.duration, 260)
       assert.equal(animations[0].frames[0].transform, 'translateY(12px)')
       assert.equal(animations[1].options.delay, 140)
       assert.equal(animations[1].options.duration, 500)
@@ -72,7 +72,10 @@ for (const native of [true, false]) {
 const activity = await read('src-tauri/android/MainActivity.kt')
 assert.ok(activity.indexOf('installSplashScreen()') < activity.indexOf('super.onCreate(savedInstanceState)'))
 assert.match(activity, /postVisualStateCallback/)
-assert.ok(!/overridePendingTransition|windowEnterAnimation|Thread.sleep|postDelayed|startActivity\(/.test(activity))
+assert.ok(!/overridePendingTransition|windowEnterAnimation|Thread.sleep|startActivity\(/.test(activity))
+assert.match(activity, /view\.alpha = 0f/)
+assert.match(activity, /scaleX\(0\.97f\)/)
+assert.match(activity, /320L -/)
 for (const [directory, color] of [['values', '#ffffff'], ['values-night', '#111113']]) {
   const xml = await read('src-tauri/android/res/' + directory + '/zt_startup.xml')
   assert.ok(xml.includes(color))
