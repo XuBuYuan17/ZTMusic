@@ -49,6 +49,26 @@ for (const native of [false, true]) {
   }
 }
 
+const playerSource = await read('src/lib/stores/player.svelte.ts')
+const initialStateBody = playerSource.match(/_restoreInitialState\(\): void \{([\s\S]*?)\n  \}/)?.[1]
+assert.ok(initialStateBody)
+for (const native of [true, false]) {
+  const largeReads = []
+  const stateContext = {
+    engine: { native, setVolume() {} },
+    STORAGE_KEYS: new Proxy({}, { get: (_, key) => key }),
+    parseStoredTrackId: Number,
+    getStorage: (_, fallback) => fallback,
+    getSetting: (_, fallback) => fallback,
+    getStorageJson: (key, fallback) => { largeReads.push(key); return fallback },
+    replaceQueueState: (queue, queueIndex) => ({ queue, queueIndex }),
+    restoreShuffleState: () => null,
+  }
+  runInNewContext(stripTypeScriptTypes('function restore() {' + initialStateBody + '}'), stateContext)
+  stateContext.restore.call({})
+  assert.equal(largeReads.length, native ? 0 : 2, 'Android must not parse the redundant large WebView queue')
+}
+
 const activity = await read('src-tauri/android/MainActivity.kt')
 assert.ok(activity.indexOf('installSplashScreen()') < activity.indexOf('super.onCreate(savedInstanceState)'))
 assert.match(activity, /postVisualStateCallback/)

@@ -17,7 +17,10 @@ try {
     adb('shell', 'am', 'force-stop', appId)
     adb('shell', 'pm', 'clear', appId)
     adb('shell', 'cmd', 'uimode', 'night', systemTheme === 'dark' ? 'yes' : 'no')
-    for (const savedTheme of [null, systemTheme === 'dark' ? 'light' : 'dark']) {
+    adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '1')
+    for (const scenario of ['initial', 'saved', 'reduced']) {
+      const savedTheme = scenario === 'initial' ? null : systemTheme === 'dark' ? 'light' : 'dark'
+      if (scenario === 'reduced') adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
       adb('shell', 'am', 'force-stop', appId)
       adb('logcat', '-c')
       adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
@@ -49,6 +52,7 @@ try {
         online: navigator.onLine,
         skeletons: document.querySelectorAll('.skeleton-block').length,
         activities: document.querySelectorAll('.mobile-app').length,
+        contentAnimations: performance.getEntriesByName('ztmusic:startup-content-animation').length,
       }))
       const expectedTheme = savedTheme || systemTheme
       assert.equal(state.theme, expectedTheme)
@@ -60,14 +64,15 @@ try {
       assert.equal(errors.length, 0)
       const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
       assert.match(nativeLog, /first-frame-ready ms=\d+/)
-      const name = systemTheme + '-' + expectedTheme
+      if (scenario === 'reduced') assert.equal(state.contentAnimations, 0)
+      const name = systemTheme + '-' + expectedTheme + '-' + scenario
       await page.screenshot({ path: 'startup-artifacts/' + name + '.png' })
-      results.push({ systemTheme, savedTheme, ...state, nativeLog })
+      results.push({ systemTheme, savedTheme, scenario, ...state, nativeLog })
       if (!savedTheme) {
         // Persist an app preference opposite to the device theme, then cold launch again.
         await page.evaluate(theme => localStorage.setItem('zheting-theme', theme), systemTheme === 'dark' ? 'light' : 'dark')
         await page.reload()
-        await page.waitForFunction(theme => document.documentElement.dataset.theme === theme && document.querySelector('.mobile-app'),
+        await page.waitForFunction(theme => document.documentElement.dataset.theme === theme && document.querySelector('.mobile-app') && !document.documentElement.classList.contains('android-startup-pending'),
           systemTheme === 'dark' ? 'light' : 'dark')
         await page.waitForTimeout(500)
       }

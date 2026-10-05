@@ -72,7 +72,11 @@ class MainActivity : TauriActivity(), ZtStartupHost {
     }
 
     override fun onStartupFrameReady() {
-        if (firstFrameAvailable) return
+        if (firstFrameAvailable) {
+            // A WebView reload has a new document, but no new system splash.
+            webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:false}}))", null)
+            return
+        }
         val view = webView ?: return
         // Wait for submitted WebView pixels, not network data, image decode or animation completion.
         view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {

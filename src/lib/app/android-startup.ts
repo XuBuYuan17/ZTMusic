@@ -5,6 +5,7 @@ const android = (): boolean => isTauriRuntime() && /Android/i.test(runtimePlatfo
 let frameAnnounced = false
 let revealed = false
 let ambientShown = false
+let canAnimate = true
 
 export function initialAndroidTheme(): 'light' | 'dark' {
   return android() && !matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'
@@ -26,7 +27,7 @@ export function announceAndroidFrame(_node?: HTMLElement): void {
 }
 
 function animateAmbient(node: HTMLElement): void {
-  if (ambientShown || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  if (ambientShown || !canAnimate || matchMedia('(prefers-reduced-motion: reduce)').matches) return
   ambientShown = true
   node.animate([{ opacity: 0 }, { opacity: 1 }], { delay: 140, duration: 500, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' })
 }
@@ -42,9 +43,11 @@ export function installAndroidStartup(): void {
   window.addEventListener('ztmusic:android-reveal', (event) => {
     if (revealed) return
     revealed = true
+    canAnimate = (event as CustomEvent<{ animate?: boolean }>).detail?.animate !== false
     performance.mark('ztmusic:system-splash-exit')
     root.classList.remove('android-startup-pending')
-    if ((event as CustomEvent<{ animate?: boolean }>).detail?.animate !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (canAnimate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      performance.mark('ztmusic:startup-content-animation')
       // Animate content, never the Activity window or a full-screen scale/position clone.
       for (const node of document.querySelectorAll<HTMLElement>('.mobile-page-bar, .mobile-page-content__inner, .mobile-tab-bar, .mobile-mini-player')) {
         node.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
