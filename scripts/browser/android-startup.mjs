@@ -3,14 +3,16 @@ import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 
-const { chromium } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
+const { _android: android } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
 const appId = 'com.zheting.music.androidtest'
 const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 10000 }).trim()
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 await mkdir('startup-artifacts', { recursive: true })
 const results = []
-let browser
+let browser, device
 try {
+  ;[device] = await android.devices()
+  assert.ok(device, 'Android emulator is not connected')
   adb('shell', 'svc', 'wifi', 'disable')
   adb('shell', 'svc', 'data', 'disable')
   for (const systemTheme of ['light', 'dark']) {
@@ -24,22 +26,11 @@ try {
       adb('shell', 'am', 'force-stop', appId)
       adb('logcat', '-c')
       adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
-      let pid, connectionError
-      for (let attempt = 0; attempt < 75; attempt++) {
-        try { pid = adb('shell', 'pidof', appId) }
-        catch (error) { if (error.status !== 1) throw error; pid = '' }
-        if (pid) {
-          adb('forward', 'tcp:9222', 'localabstract:webview_devtools_remote_' + pid.split(' ')[0])
-          try { browser = await chromium.connectOverCDP('http://127.0.0.1:9222', { timeout: 1000 }); break } catch (error) { connectionError = String(error) }
-        }
-        await pause(200)
-      }
-      if (!browser) {
-        console.log('STARTUP_INSPECTION_FAILURE:' + JSON.stringify({ pid, connectionError,
-          sockets: adb('shell', 'cat', '/proc/net/unix').split('\n').filter(line => line.includes('devtools')) }))
-      }
-      assert.ok(browser, 'Android WebView inspection did not initialize')
-      const page = browser.contexts()[0].pages()[0]
+      // Android WebView lacks Chrome's browser-context/download-management APIs.
+      // Playwright's Android connector uses the supported WebView defaults.
+      const webView = await device.webView({ pkg: appId })
+      const page = await webView.page()
+      browser = page.context().browser()
       assert.ok(page)
       const errors = []
       page.on('pageerror', error => errors.push(String(error)))
@@ -67,10 +58,7 @@ try {
       assert.equal(state.activities, 1)
       assert.ok(state.firstFrame >= 0 && state.exit >= state.firstFrame)
       assert.equal(errors.length, 0)
-      const nativePng = execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 10000, maxBuffer: 8 * 1024 * 1024 })
-    await writeFile('startup-artifacts/failure.png', nativePng)
-    console.log('ANDROID_FAILURE_SCREENSHOT_BASE64:' + nativePng.toString('base64'))
-    const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
+      const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
       assert.match(nativeLog, /first-frame-ready ms=\d+/)
       if (scenario === 'reduced') assert.equal(state.contentAnimations, 0)
       const name = systemTheme + '-' + expectedTheme + '-' + scenario
@@ -100,6 +88,9 @@ try {
       html: document.body.innerText.slice(0, 2000),
       pending: document.documentElement.classList.contains('android-startup-pending'),
     }))))
+    const nativePng = execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 10000, maxBuffer: 8 * 1024 * 1024 })
+    await writeFile('startup-artifacts/failure.png', nativePng)
+    console.log('ANDROID_FAILURE_SCREENSHOT_BASE64:' + nativePng.toString('base64'))
     const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', 'AndroidRuntime:E', 'chromium:E', '*:S')
     await writeFile('startup-artifacts/logcat.txt', nativeLog)
     console.log('STARTUP_NATIVE_FAILURE:' + nativeLog.split('\n').filter(line => /ZTStartup|FATAL EXCEPTION|AndroidRuntime|chromium|client:error/.test(line)).slice(-80).join('\n'))
@@ -107,4 +98,5 @@ try {
   throw error
 } finally {
   await browser?.close()
+  await device?.close()
 }
