@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { PlayMode } from '../types/player.ts';
   import { player } from '../stores/player.svelte.ts';
+  import type { CompactTrack } from '../player/queue.ts';
 
-  let { onqueue, showQueue = false }: {
+  let { onqueue, showQueue = false, initialTrack = null }: {
+    initialTrack?: CompactTrack | null;
     onqueue?: () => void;
     showQueue?: boolean;
   } = $props();
@@ -41,6 +43,12 @@
     if (event.key !== 'Enter' && event.key !== ' ') return;
     handleQueue(event);
   }
+  function handlePlay(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (player.id) player.togglePlay();
+    else if (initialTrack) player.playTrack(initialTrack, 0);
+  }
 </script>
 
 <div class="am-play-row">
@@ -65,7 +73,7 @@
   </button>
 
   <!-- Play/Pause -->
-  <button class="am-play-btn" class:playing={player.playing} onclick={(event) => handleButton(event, () => player.togglePlay())} aria-label={player.playing ? '暂停' : '播放'} disabled={disabled || player.loading}>
+  <button class="am-play-btn" class:playing={player.playing} onclick={handlePlay} aria-label={player.playing ? '暂停' : '播放'} disabled={(disabled && !initialTrack) || player.loading}>
       <svg viewBox="0 0 24 24" fill="currentColor" class="am-icon am-icon--play am-pause-symbol" aria-hidden="true">
         <path d="M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m8 0h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"/>
       </svg>

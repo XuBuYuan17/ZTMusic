@@ -16,7 +16,7 @@ const api = {
   personalFm: async () => ({ code: 200, data: [song, track(2), track(3)] }),
   userPlaylist: async () => ({ code: 200, playlist: [
     { id: 99, specialType: 5, creator: { userId: 88 } },
-    { id: 10, specialType: 5, creator: { userId: 17 } },
+    { id: 10, specialType: 5, creator: { userId: 17 }, coverImgUrl: 'https://example.com/liked.jpg' },
   ] }),
   playlistTracks: async (id: unknown) => { assert.equal(id, 10); return { songs: [song, track(2)] } },
   intelligenceList: async (...args: unknown[]) => { calls.push(args); return { code: 200, data: [{ songInfo: track(3) }] } },
@@ -25,6 +25,7 @@ assert.equal((await loadDailyRecommendations(api)).length, 2)
 assert.deepEqual(calls[0], [100, { cache: false, refresh: true }])
 assert.equal((await loadRoaming(api)).length, 3)
 const heart = await loadHeartMode(api, 17, 2)
+assert.equal(heart.coverImgUrl, 'https://example.com/liked.jpg', 'heart card uses the account liked-playlist cover')
 assert.deepEqual(calls.at(-1), [2, 10, 2])
 await heart.next(3)
 assert.deepEqual(calls.at(-1), [3, 10, 2])

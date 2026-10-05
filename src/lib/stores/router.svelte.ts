@@ -12,7 +12,7 @@ import { discoveryPlaylists } from '../app/discovery-playlists.ts'
 import type { DiscoveryPlaylistKey } from '../app/discovery-playlists.ts'
 import { loadDailyRecommendations, loadHeartMode, loadRoaming, PRIVATE_RADAR_ID } from '../services/discovery-recommendations.ts'
 import { discoveryPlayback } from './discovery-playback.svelte.ts'
-import type { CompactTrack } from '../player/queue.ts'
+import { compactTrack, type CompactTrack } from '../player/queue.ts'
 import { auth } from './auth.svelte.ts'
 import { extractColor } from '../player/colors.ts'
 import {
@@ -26,6 +26,7 @@ import {
 } from '../services/details.ts'
 import { isMobileDevice } from '../utils/responsive.ts'
 import { createLruCache } from '../utils/lru-cache.ts'
+import { normalizeImageUrl, preloadCover } from '../utils/image.ts'
 
 // 详情曲目兼容播放器队列输入，另带歌单内的附加字段
 interface DetailTrack extends CompactTrackInput {
@@ -135,7 +136,11 @@ let _artistError = $state('')
 
 let recommendationOwner: unknown = null
 let recommendationNext: ((id: SongId) => Promise<CompactTrack[]>) | null = null
-const recommendationCache = new Map<DiscoveryPlaylistKey, { owner: unknown; at: number; detail: PlaylistDetail; next: ((id: SongId) => Promise<CompactTrack[]>) | null }>()
+const recommendationCache = new Map<DiscoveryPlaylistKey, { owner: unknown; at: number; seedId?: SongId; detail: PlaylistDetail; next: ((id: SongId) => Promise<CompactTrack[]>) | null }>()
+type RecommendationResult = NonNullable<ReturnType<typeof recommendationCache.get>>
+const recommendationRequests = new Map<DiscoveryPlaylistKey, { owner: unknown; seedId?: SongId; token: object; promise: Promise<RecommendationResult> }>()
+let recommendationCacheOwner: unknown = null
+let _recommendationCovers = $state<Partial<Record<DiscoveryPlaylistKey, string>>>({})
 
 let _detailRequestId = 0
 let _artistRequestId = 0
@@ -300,6 +305,68 @@ async function goPlaylist(id: number | null, shouldPushRoute = true, preview: Pl
   if (data.detail) detailCache.set(cacheKey, data)
 }
 
+function clearRecommendationAccount(): void {
+  const owner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
+  if (owner === recommendationCacheOwner) return
+  recommendationCacheOwner = owner
+  recommendationCache.clear()
+  recommendationRequests.clear()
+  _recommendationCovers = {}
+}
+
+function requestRecommendation(key: DiscoveryPlaylistKey): Promise<RecommendationResult> {
+  clearRecommendationAccount()
+  const owner = auth.user
+  if (!owner || !auth.isLoggedIn || !auth.cookieOk) return Promise.reject(new Error('请登录后查看专属歌单'))
+  const seedId = key === 'heart' ? player.id : undefined
+  const cached = recommendationCache.get(key)
+  if (cached?.owner === owner && Date.now() - cached.at < 5 * 60 * 1000
+    && (key !== 'heart' || cached.seedId === seedId || discoveryPlayback.kind === 'heart')) return Promise.resolve(cached)
+  const existing = recommendationRequests.get(key)
+  if (existing?.owner === owner && existing.seedId === seedId) return existing.promise
+  const entry = discoveryPlaylists.find(item => item.key === key)!
+  const token = {}
+  const promise = (async (): Promise<RecommendationResult> => {
+    let tracks: DetailTrack[]
+    let next: RecommendationResult['next'] = null
+    let cover = ''
+    let detail: PlaylistDetail = { id: 'recommendation:' + key, name: entry.name, coverImgUrl: entry.coverImgUrl, picUrl: entry.coverImgUrl,
+      creator: '为你推荐', trackCount: 0, description: entry.description, tracks: [] }
+    if (key === 'daily') tracks = await loadDailyRecommendations(ncm)
+    else if (key === 'heart') {
+      const data = await loadHeartMode(ncm, owner.userId, seedId)
+      tracks = data.tracks; next = data.next; cover = data.coverImgUrl
+    } else if (key === 'roaming') {
+      tracks = await loadRoaming(ncm); next = () => loadRoaming(ncm)
+    } else {
+      const data = await loadPlaylistDetail(extractColor, PRIVATE_RADAR_ID) as unknown as PlaylistResult
+      if (!data.detail) throw new Error('私人雷达暂时不可用，请稍后重试')
+      detail = { ...data.detail, name: entry.name, description: entry.description }
+      tracks = detail.tracks
+      cover = detail.coverImgUrl || detail.picUrl
+    }
+    const firstTrack = compactTrack(tracks[0])
+    cover = normalizeImageUrl(cover || firstTrack?.al.picUrl || firstTrack?.picUrl)
+    detail = { ...detail, tracks, trackCount: Math.max(detail.trackCount, tracks.length),
+      coverImgUrl: cover || entry.coverImgUrl, picUrl: cover || entry.coverImgUrl }
+    const result = { owner, at: Date.now(), seedId, detail, next }
+    if (owner === auth.user && auth.isLoggedIn && auth.cookieOk && recommendationRequests.get(key)?.token === token) {
+      recommendationCache.set(key, result)
+      _recommendationCovers[key] = cover
+      if (cover) void preloadCover(cover, 360)
+    }
+    return result
+  })().finally(() => { if (recommendationRequests.get(key)?.token === token) recommendationRequests.delete(key) })
+  recommendationRequests.set(key, { owner, seedId, token, promise })
+  return promise
+}
+
+function prefetchRecommendations(): void {
+  clearRecommendationAccount()
+  if (!auth.isLoggedIn || !auth.cookieOk) return
+  for (const entry of discoveryPlaylists) void requestRecommendation(entry.key).catch(() => {})
+}
+
 async function goRecommendation(key: DiscoveryPlaylistKey, shouldPushRoute = true): Promise<void> {
   const entry = discoveryPlaylists.find(item => item.key === key)
   if (!entry || !auth.isLoggedIn || !auth.cookieOk) return
@@ -318,34 +385,11 @@ async function goRecommendation(key: DiscoveryPlaylistKey, shouldPushRoute = tru
   _playlistDetail = { id: 'recommendation:' + key, name: entry.name, coverImgUrl: entry.coverImgUrl, picUrl: entry.coverImgUrl,
     creator: '为你推荐', trackCount: 0, description: entry.description, tracks: [] }
   _playlistDetailLoading = true
-  const cached = recommendationCache.get(key)
-  if (cached?.owner === owner && Date.now() - cached.at < 5 * 60 * 1000) {
-    _playlistDetail = cached.detail; recommendationNext = cached.next; _playlistDetailLoading = false; syncRecommendationAccount()
-    return
-  }
   try {
-    let tracks: DetailTrack[]
-    if (key === 'daily') tracks = await loadDailyRecommendations(ncm)
-    else if (key === 'heart') {
-      const data = await loadHeartMode(ncm, owner!.userId, player.id)
-      tracks = data.tracks
-      if (rid === _detailRequestId) recommendationNext = data.next
-    } else if (key === 'roaming') {
-      tracks = await loadRoaming(ncm)
-      if (rid === _detailRequestId) recommendationNext = () => loadRoaming(ncm)
-    } else {
-      const data = await loadPlaylistDetail(extractColor, PRIVATE_RADAR_ID) as unknown as PlaylistResult
-      if (!data.detail) throw new Error('私人雷达暂时不可用，请稍后重试')
-      if (rid !== _detailRequestId || owner !== auth.user) return
-      _playlistDetail = { ...data.detail, ..._playlistDetail!, id: PRIVATE_RADAR_ID,
-        tracks: data.detail.tracks as DetailTrack[], trackCount: data.detail.trackCount,
-        trackIds: data.detail.trackIds as PlaylistDetail['trackIds'], tracksPartial: data.detail.tracksPartial,
-        trackLoadCursor: data.detail.trackLoadCursor }
-      tracks = _playlistDetail.tracks
-    }
+    const data = await requestRecommendation(key)
     if (rid !== _detailRequestId || owner !== auth.user || !auth.isLoggedIn || !auth.cookieOk) return
-    _playlistDetail = { ..._playlistDetail!, tracks, trackCount: Math.max(_playlistDetail!.trackCount, tracks.length) }
-    recommendationCache.set(key, { owner, at: Date.now(), detail: _playlistDetail, next: recommendationNext })
+    _playlistDetail = data.detail; recommendationNext = data.next
+    syncRecommendationAccount()
   } catch (cause) {
     if (rid === _detailRequestId && owner === auth.user) _playlistDetailError = pickErrorMessage(cause, '加载歌单失败')
   } finally {
@@ -354,6 +398,7 @@ async function goRecommendation(key: DiscoveryPlaylistKey, shouldPushRoute = tru
 }
 
 function syncRecommendationAccount(): void {
+  clearRecommendationAccount()
   if (_activeView !== 'recommendation') return
   if (recommendationOwner === auth.user && auth.isLoggedIn && auth.cookieOk) {
     const entry = discoveryPlaylists.find(item => item.routeId === _selectedId)
@@ -582,6 +627,7 @@ export const router = {
   get isSecondaryView() { return !TOP_LEVEL_VIEWS.has(_activeView) },
   get routeStack() { return _routeStack }, get routeTransition() { return _routeTransition },
   get refreshKey() { return _refreshKey },
+  get recommendationCovers() { return _recommendationCovers },
 
   // 共享详情
   get heroColor() { return _heroColor },
@@ -592,7 +638,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, goRecommendation, syncRecommendationAccount, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

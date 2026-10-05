@@ -2,6 +2,13 @@ name: Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'APK build type'
+        required: true
+        type: choice
+        options: [debug, release]
+        default: debug
 
 permissions:
   contents: read
@@ -84,7 +91,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: android-aarch64-debug
+          key: android-aarch64-${{ inputs.build_type }}
 
       - name: Reuse test signing key
         uses: actions/cache@v4
@@ -101,11 +108,26 @@ jobs:
       - name: Configure system startup
         run: node scripts/configure-android-startup.mjs
 
+      - name: Configure optimized test signing
+        if: inputs.build_type == 'release'
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const path = 'src-tauri/gen/android/app/build.gradle.kts';
+          const source = readFileSync(path, 'utf8');
+          const marker = 'getByName("release") {';
+          if (!source.includes(marker)) throw new Error('Generated release build type not found');
+          writeFileSync(path, source.replace(marker, marker + '\n            signingConfig = signingConfigs.getByName("debug")'));
+          NODE
+
       - name: Build test APK
         env:
-          VITE_APP_CHANNEL: dev
+          VITE_APP_CHANNEL: ${{ inputs.build_type == 'release' && 'stable' || 'dev' }}
           VITE_BUILD_SHA: ${{ github.sha }}
-        run: pnpm tauri android build --ci --debug --apk --target aarch64 --config "$ANDROID_CONFIG"
+        run: |
+          args=(--ci --apk --target aarch64 --config "$ANDROID_CONFIG")
+          if [[ "${{ inputs.build_type }}" == "debug" ]]; then args+=(--debug); fi
+          pnpm tauri android build "${args[@]}"
 
       - name: Test Android native plugin
         run: |
@@ -127,7 +149,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v5
         with:
-          name: zheting-android-arm64-debug-${{ github.run_number }}-${{ github.sha }}
+          name: zheting-android-arm64-${{ inputs.build_type }}-${{ github.run_number }}-${{ github.sha }}
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14

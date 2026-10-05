@@ -3,10 +3,12 @@
   import { fly } from 'svelte/transition'
   import type { MobilePlayerDrag } from '../app/mobile-player-motion.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { getStartupTrack } from '../app/startup-track.ts'
   import { coverUrl, progressiveCover } from '../utils/image.ts'
   import Icon from './ui/Icon.svelte'
 
-  let { onOpenSheet, onToggleQueue, showQueuePanel = false }: {
+  let { onOpenSheet, onToggleQueue, showQueuePanel = false, startupPending = false }: {
+    startupPending?: boolean
     onOpenSheet: (origin: Element, drag?: MobilePlayerDrag) => void
     onToggleQueue: () => void
     showQueuePanel?: boolean
@@ -21,7 +23,10 @@
   let draggingTrack = $state(false)
   let switchingTrack = $state(false)
   let trackDirection = $state(1)
-  let cover = $derived(coverUrl(player.cover, 88))
+  let initialTrack = $derived(getStartupTrack(player))
+  let coverSource = $derived(player.cover || initialTrack?.picUrl || '')
+  let title = $derived(player.title || initialTrack?.name || '未在播放')
+  let cover = $derived(coverUrl(coverSource, 88))
   // Android native state can briefly report loading=true after playback is already active.
   // Once playing=true, playback is the stronger UI truth and the mini player must not
   // remain stuck on “正在载入…”.
@@ -54,7 +59,7 @@
       swipeX = Math.max(-42, Math.min(42, dx * .55))
     }
     if (gesture) { gesture.currentY = event.clientY; gesture.time = event.timeStamp; return }
-    if (axis === 'vertical' && dy < -10 && player.id) {
+    if (axis === 'vertical' && dy < -10 && (player.id || initialTrack)) {
       gesture = { pointerId: event.pointerId, startY: start.y, currentY: event.clientY, startTime: start.time, time: event.timeStamp }
       onOpenSheet(artwork!, gesture)
     }
@@ -96,24 +101,28 @@
   }
   function open(event: MouseEvent) {
     if (event.detail !== 0 && moved) { event.preventDefault(); return }
-    if (player.id) onOpenSheet(artwork!)
+    if (player.id || initialTrack) onOpenSheet(artwork!)
+  }
+  function play(): void {
+    if (player.id) player.togglePlay()
+    else if (initialTrack) player.playTrack(initialTrack, 0)
   }
 </script>
 
 <div class="player-bar mobile-mini-player" role="group" aria-label="迷你播放器" aria-busy={playbackLoading}>
-  <button class="mini-player-open" class:dragging={draggingTrack} class:switching={switchingTrack} style={`--mini-track-x:${swipeX}px`} type="button" aria-label={`打开播放器：${player.title || '未在播放'}`} disabled={!player.id}
+  <button class="mini-player-open" class:dragging={draggingTrack} class:switching={switchingTrack} style={`--mini-track-x:${swipeX}px`} type="button" aria-label={`打开播放器：${title}`} disabled={!player.id && !initialTrack}
     onclick={open} onpointerdown={down} onpointermove={move} onpointerup={finish} onpointercancel={finish}>
     {#key player.id}
-      <span class="mini-player-track" in:fly={{ x: trackDirection * 22, duration: 190 }}>
-        <span class="mini-player-artwork lcd-artwork" bind:this={artwork}>
-          {#if cover && !coverFailed}<img class="lcd-artwork__img" use:progressiveCover={{ source: player.cover, size: 88 }} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
+      <span class="mini-player-track" in:fly={{ x: trackDirection * 22, duration: startupPending || matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190 }}>
+        <span class="mini-player-artwork lcd-artwork" data-startup-cover bind:this={artwork}>
+          {#if cover && !coverFailed}<img class="lcd-artwork__img" use:progressiveCover={{ source: coverSource, size: 88 }} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
           {:else}<Icon name="music" size={22} />{/if}
         </span>
-        <span class="mini-player-info"><strong class:error={!!player.error} aria-live={player.error || playbackLoading ? 'polite' : 'off'}>{status || player.title || '未在播放'}</strong></span>
+        <span class="mini-player-info"><strong class:error={!!player.error} aria-live={player.error || playbackLoading ? 'polite' : 'off'}>{status || title}</strong></span>
       </span>
     {/key}
   </button>
-  <button class="mini-player-play" class:playing={player.playing} type="button" disabled={!player.id} aria-label={player.playing ? '暂停' : '播放'} onclick={() => player.togglePlay()}>
+  <button class="mini-player-play" class:playing={player.playing} type="button" disabled={!player.id && !initialTrack} aria-label={player.playing ? '暂停' : '播放'} onclick={play}>
     <span class="mini-player-play-icon" aria-hidden="true"><Icon name="play" size={24} fill="currentColor" /></span>
     <span class="mini-player-pause-icon" aria-hidden="true"><Icon name="pause" size={24} fill="currentColor" /></span>
   </button>

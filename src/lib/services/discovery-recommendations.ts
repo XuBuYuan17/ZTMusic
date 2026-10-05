@@ -1,6 +1,7 @@
 import { compactTrack } from '../player/queue.ts'
 import type { CompactTrack, CompactTrackInput } from '../player/queue.ts'
 import type { SongId } from '../types/music.ts'
+import { normalizeImageUrl } from '../utils/image.ts'
 
 export const PRIVATE_RADAR_ID = 3136952023
 
@@ -55,7 +56,7 @@ export async function loadRoaming(api: RecommendationApi): Promise<CompactTrack[
 }
 
 export async function loadHeartMode(api: RecommendationApi, uid: SongId, currentId?: SongId): Promise<{
-  tracks: CompactTrack[]; next: (id: SongId) => Promise<CompactTrack[]>
+  tracks: CompactTrack[]; next: (id: SongId) => Promise<CompactTrack[]>; coverImgUrl: string
 }> {
   const body = response(await api.userPlaylist(uid, { cache: false, refresh: true }))
   const playlists = Array.isArray(body.playlist) ? body.playlist : []
@@ -66,5 +67,5 @@ export async function loadHeartMode(api: RecommendationApi, uid: SongId, current
   const seed = songs.find(song => String(song.id) === String(currentId)) || songs[0]!
   const next = async (id: SongId): Promise<CompactTrack[]> =>
     requireTracks(recommendationTracks(await api.intelligenceList(id, pid, seed.id)), '心动模式暂时没有新歌曲，请稍后重试')
-  return { tracks: await next(seed.id), next }
+  return { tracks: await next(seed.id), next, coverImgUrl: normalizeImageUrl(liked.coverImgUrl) }
 }

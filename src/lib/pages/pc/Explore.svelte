@@ -7,21 +7,25 @@
 
   let exploreSnapshot: ExploreData | null = null
   let exploreSnapshotAt = 0
+  let exploreSnapshotOwner: unknown = null
   let toplistsSnapshot: Toplist[] = []
   let toplistsSnapshotAt = 0
   const SNAPSHOT_TTL = 5 * 60 * 1000
 </script>
 
 <script lang="ts">
+  import { untrack } from 'svelte'
+  import { auth } from '../../stores/auth.svelte.ts'
+  import { router } from '../../stores/router.svelte.ts'
   import DiscoveryPlaylists from '../../components/DiscoveryPlaylists.svelte'
   import type { DiscoveryPlaylistKey } from '../../app/discovery-playlists.ts'
   import SongListActions from '../../components/SongListActions.svelte'
   import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
-  import { coverUrl, coverRectUrl, progressiveCover } from '../../utils/image.ts'
+  import { coverUrl, coverRectUrl, progressiveCover, preloadCover } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import { ncm } from '../../api/client.ts'
-  import { loadExploreData as fetchExploreData } from '../../services/explore.ts'
+  import { loadCachedExploreData as fetchExploreData } from '../../services/explore.ts'
   import { loadToplistsData } from '../../services/home.ts'
 
   interface TrackArtist { id?: SongId; name: string }
@@ -29,6 +33,7 @@
   interface SongCard { id: SongId; name?: unknown; picUrl?: string; ar?: TrackArtist[]; artists?: TrackArtist[] }
   let {
     mobile = false,
+    active = true,
     onSearch,
     onOpenRecommendation,
     onOpenLogin,
@@ -39,6 +44,7 @@
     onOpenArtist,
   }: {
     mobile?: boolean
+    active?: boolean
     onOpenRecommendation?: (key: DiscoveryPlaylistKey) => void
     onOpenLogin?: () => void
     onSearch?: () => void
@@ -49,8 +55,8 @@
     onOpenArtist?: (id: SongId) => void
   } = $props()
 
-  const initialExplore = exploreSnapshot
-  const exploreIsFresh = !!initialExplore && Date.now() - exploreSnapshotAt < SNAPSHOT_TTL
+  const initialOwner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
+  const initialExplore = exploreSnapshotOwner === initialOwner && Date.now() - exploreSnapshotAt < SNAPSHOT_TTL ? exploreSnapshot : null
   const toplistsAreFresh = toplistsSnapshot.length > 0 && Date.now() - toplistsSnapshotAt < SNAPSHOT_TTL
 
   let exploreLoading = $state(!initialExplore)
@@ -61,21 +67,30 @@
   let exploreNewAlbums = $state<NormalizedAlbum[]>(initialExplore?.newAlbums ?? [])
   let exploreBlocks = $state<HomepageBlock[]>(initialExplore?.blocks ?? [])
   let toplists = $state<Toplist[]>(toplistsSnapshot)
-  let exploreLoaded = $state(exploreIsFresh)
   let toplistsLoading = $state(false)
   let toplistsLoaded = $state(toplistsAreFresh)
   let error = $state('')
   let bindSongRow = $state<((track: unknown) => { oncontextmenu: (event: MouseEvent) => void }) | null>(null)
+  let requestId = 0
 
   function errorMessage(e: unknown): string {
     return (e as { message?: string } | null | undefined)?.message || '加载失败'
   }
 
-  async function loadExplore(): Promise<void> {
-    exploreLoading = !exploreSnapshot; error = ''
-    try { const d = await fetchExploreData(ncm); exploreSnapshot = d; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks; if (d.allFailed && !d.banners.length && !d.blocks.length) error = '发现页加载失败' }
-    catch (e) { if (!exploreSnapshot) error = errorMessage(e) }
-    exploreLoading = false; exploreLoaded = true
+  async function loadExplore(refresh = false): Promise<void> {
+    const owner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
+    const rid = ++requestId
+    if (exploreSnapshotOwner !== owner) {
+      exploreBanners = []; explorePersonalized = []; exploreTopPlaylists = []; exploreRecommendSongs = []; exploreNewAlbums = []; exploreBlocks = []
+    }
+    exploreLoading = !exploreSnapshot || exploreSnapshotOwner !== owner; error = ''
+    try {
+      const d = await fetchExploreData(ncm, owner, refresh)
+      if (rid !== requestId || owner !== (auth.isLoggedIn && auth.cookieOk ? auth.user : null)) return
+      exploreSnapshot = d; exploreSnapshotOwner = owner; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks
+      if (d.allFailed && !d.banners.length && !d.blocks.length) error = '发现页加载失败'
+    } catch (e) { if (rid === requestId) error = errorMessage(e) }
+    finally { if (rid === requestId) exploreLoading = false }
   }
 
   async function loadToplists(): Promise<void> {
@@ -85,7 +100,10 @@
     finally { toplistsLoading = false; toplistsLoaded = true }
   }
 
-  $effect(() => { if (!exploreLoaded) loadExplore() })
+  $effect(() => {
+    auth.user; auth.cookieOk; auth.isLoggedIn
+    if (active) untrack(() => { void loadExplore(); router.prefetchRecommendations() })
+  })
   $effect(() => { if (!mobile && !toplistsLoaded && !toplistsLoading) loadToplists() })
 
   const hero = $derived(exploreBanners[0])
@@ -100,6 +118,12 @@
     secondaryPlaylistBlock ? secondaryPlaylistBlock.items as unknown as CoverCard[] : []
   )
   const primarySongBlock = $derived(songBlocks[0])
+  $effect(() => {
+    if (!active) return
+    const playlists = [...primaryPlaylists.slice(0, 12), ...secondaryPlaylists.slice(0, 12)]
+    router.prefetchPlaylists(playlists.map(playlist => playlist.id), playlists.length)
+    for (const playlist of playlists) void preloadCover(playlist.picUrl, 360)
+  })
   const songPanelTitle = $derived(primarySongBlock?.title || '新歌精选')
   const songs = $derived<SongCard[]>((
     primarySongBlock?.items?.length ? primarySongBlock.items : exploreRecommendSongs
@@ -108,7 +132,7 @@
 
 {#if mobile}
   <div class="mobile-discovery">
-    {#if error}<ErrorBlock message={error} onRetry={loadExplore} />{/if}
+    {#if error}<ErrorBlock message={error} onRetry={() => loadExplore(true)} />{/if}
     {#if exploreBanners.length || exploreLoading}
       <section class="mobile-feature-rail" aria-label="精选推荐">
         {#if exploreLoading && !exploreBanners.length}
@@ -198,7 +222,7 @@
   </header>
 
   {#if error}
-    <ErrorBlock message={error} onRetry={loadExplore} />
+    <ErrorBlock message={error} onRetry={() => loadExplore(true)} />
   {/if}
 
   <section class="music-discovery-feature">
