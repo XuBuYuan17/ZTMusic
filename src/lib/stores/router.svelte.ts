@@ -375,9 +375,10 @@ function syncRecommendationAccount(): void {
   recommendationCache.clear()
 }
 
-function playRecommendation(tracks: DetailTrack[], index: number): boolean {
+function playRecommendation(tracks: DetailTrack[], index: number, shuffled = false): boolean {
   if (_activeView !== 'recommendation') return false
   if (recommendationOwner !== auth.user || !auth.isLoggedIn || !auth.cookieOk) return true
+  if (shuffled) { player.setMode('shuffle'); player.playQueue(tracks, index); return true }
   const entry = discoveryPlaylists.find(item => item.routeId === _selectedId)
   if ((entry?.key === 'heart' || entry?.key === 'roaming') && recommendationNext) {
     discoveryPlayback.play(entry.key, tracks, index, recommendationNext)
@@ -496,10 +497,10 @@ function playTrack(id: SongId, visibleTracks?: DetailTrack[] | null): void {
   const tracks = visibleTracks?.length ? visibleTracks : _playlistDetail?.tracks || []
   const i = tracks.findIndex(x => x.id === id); if (i >= 0 && playRecommendation(tracks, i)) return; if (i >= 0) player.playQueue(tracks, i); else player.playTrack(tracks.find(x => x.id === id) || { id }, 0)
 }
-function playAll(visibleTracks?: DetailTrack[] | null): void {
+function playAll(visibleTracks?: DetailTrack[] | null, shuffled = false): void {
   const t = visibleTracks?.length ? visibleTracks : _playlistDetail?.tracks || []
   if (!t.length) return
-  if (_activeView === 'recommendation' && !canLoadMorePlaylist() && playRecommendation(t, 0)) return
+  if (_activeView === 'recommendation' && !canLoadMorePlaylist() && playRecommendation(t, 0, shuffled)) return
   // 歌单内搜索过滤出的子集，或没有更多可加载 → 播传入的这批
   if (!canLoadMorePlaylist() || (visibleTracks?.length ?? 0) < playlistLoadedCount()) {
     player.playQueue(t, 0)

@@ -103,6 +103,8 @@ export async function reviewDiscovery(page, capture, metrics) {
 
   await openCard('roaming', 3)
   assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().kind), 'heart', 'opening roaming cannot change the active mode')
+  await page.locator(active + ' .playlist-shuffle-btn').click()
+  assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().mode), 'shuffle', 'random playback must not be overwritten by roaming')
   await page.locator(active + ' .track-table tbody tr[role="button"]').first().click()
   await page.waitForFunction(() => window.mobileFixture.snapshot().kind === 'roaming' && !window.mobileFixture.snapshot().busy)
   assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().queue.length), 6)

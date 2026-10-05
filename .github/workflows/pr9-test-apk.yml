@@ -157,3 +157,5 @@ jobs:
 # Four personal recommendations now use the shared playlist cards and detail page.
 
 # Keep cached recommendation continuations explicitly typed.
+
+# Preserve the shared playlist page's explicit shuffle action.
