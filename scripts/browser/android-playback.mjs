@@ -109,11 +109,13 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     adb('shell', 'input', 'keyevent', 'KEYCODE_SLEEP')
     // Dispatch through Android's media-session service while the display is off.
     // Window input injection can stall without a focused window on API 35+.
-    adb('shell', 'cmd', 'media_session', 'dispatch', 'pause')
+    // API 31 rejects root's empty package name; shell UID has com.android.shell.
+    const mediaKey = key => adb('shell', 'su', '2000', 'cmd', 'media_session', 'dispatch', key)
+    mediaKey('pause')
     await waitState(page, state => !state.playing, 'lockscreen pause')
-    adb('shell', 'cmd', 'media_session', 'dispatch', 'play')
+    mediaKey('play')
     await waitState(page, state => state.playing, 'lockscreen play')
-    adb('shell', 'cmd', 'media_session', 'dispatch', 'next')
+    mediaKey('next')
     await waitState(page, state => state.index === 0, 'lockscreen next')
     // Google APIs emulator runs adbd as root; dispatch the platform noisy broadcast.
     adb('shell', 'am', 'broadcast', '-a', 'android.media.AUDIO_BECOMING_NOISY', '--receiver-foreground')

@@ -241,3 +241,5 @@ jobs:
 # Seek explicitly before asserting restored position; queue edits do not seek.
 
 # Handle iconless platform splash, root process reclamation and screen-off session dispatch.
+
+# Dispatch media keys as shell UID: API 31 rejects root's empty calling package.
