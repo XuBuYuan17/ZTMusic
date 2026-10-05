@@ -210,7 +210,9 @@ jobs:
         if: always()
         run: |
           mkdir -p startup-artifacts
-          timeout 10s adb logcat -d > startup-artifacts/logcat.txt || true
+          if [[ ! -s startup-artifacts/logcat.txt ]]; then
+            timeout 10s adb logcat -d > startup-artifacts/logcat.txt || true
+          fi
       - uses: actions/upload-artifact@v5
         if: always()
         with:
@@ -229,3 +231,5 @@ jobs:
 # Select the fresh cold-start process socket, never a stale previous WebView.
 
 # Wait for the explicit silent-restore signal before examining its native log.
+
+# Cover native theme bootstrap and intent-driven HUD feedback on fresh installations.

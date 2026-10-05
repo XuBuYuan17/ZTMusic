@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { waitForProcess } from './android-process.mjs'
 
@@ -18,7 +18,12 @@ try {
   adb('shell', 'svc', 'data', 'disable')
   for (const systemTheme of ['light', 'dark']) {
     adb('shell', 'am', 'force-stop', appId)
-    adb('shell', 'pm', 'clear', appId)
+    // pm clear can retain platform per-app night-mode overrides. Reinstall for a
+    // genuinely fresh theme case, then preserve data for the saved-theme cases.
+    adb('uninstall', appId)
+    const apk = (await readdir('emulator-apk')).find(name => name.endsWith('.apk'))
+    assert.ok(apk)
+    execFileSync('adb', ['install', '-r', 'emulator-apk/' + apk], { encoding: 'utf8', timeout: 60000 })
     adb('shell', 'cmd', 'uimode', 'night', systemTheme === 'dark' ? 'yes' : 'no')
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '1')
     for (const scenario of ['initial', 'saved', 'reduced']) {
@@ -55,6 +60,7 @@ try {
         skeletons: document.querySelectorAll('.skeleton-block').length,
         activities: document.querySelectorAll('.mobile-app').length,
         contentAnimations: performance.getEntriesByName('ztmusic:startup-content-animation').length,
+        hudVisible: document.querySelector('.player-hud')?.classList.contains('show') ?? false,
       }))
       const expectedTheme = savedTheme || systemTheme
       assert.equal(state.theme, expectedTheme)
@@ -64,6 +70,7 @@ try {
       assert.equal(state.activities, 1)
       assert.ok(state.firstFrame >= 0 && state.exit >= state.firstFrame)
       assert.equal(errors.length, 0)
+      assert.equal(state.hudVisible, false, 'passive native hydration must not show volume/mode feedback')
       const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
       assert.match(nativeLog, /first-frame-ready ms=\d+/)
       const audioLog = adb('logcat', '-d', '-s', 'ZTAudioStartup:D', '*:S')

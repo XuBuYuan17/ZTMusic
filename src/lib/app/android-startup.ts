@@ -6,9 +6,29 @@ let frameAnnounced = false
 let revealed = false
 let ambientShown = false
 let canAnimate = true
+let nativeTheme: 'light' | 'dark' | undefined
 
 export function initialAndroidTheme(): 'light' | 'dark' {
-  return android() && !matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'
+  return nativeTheme ?? (android() && !matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark')
+}
+
+/** Read only local Activity configuration before App mounts; no playback or network work. */
+export async function prepareAndroidStartup(): Promise<void> {
+  if (!android()) return
+  const result = await invoke<{ theme: string }>('plugin:zt-player|execute', { payload: { action: 'startupTheme', data: {} } })
+  nativeTheme = result.theme === 'dark' ? 'dark' : 'light'
+  let theme = nativeTheme
+  try {
+    const saved = localStorage.getItem('zheting-theme')
+    if (saved === 'dark' || saved === 'light') theme = saved
+  } catch { /* The native theme remains usable when local storage is unavailable. */ }
+  const color = theme === 'dark' ? '#111113' : '#ffffff'
+  const root = document.documentElement
+  root.dataset.theme = theme
+  root.style.colorScheme = theme
+  root.style.backgroundColor = color
+  document.body.style.backgroundColor = color
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color)
 }
 
 export function syncAndroidTheme(theme: string): void {

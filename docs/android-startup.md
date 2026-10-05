@@ -30,6 +30,10 @@ HyperOS 真机必须从桌面点图标，测试冷启动、后台已有实例返
 
 已确认的旧启动链路是 UI restore → AndroidEngine.connect → state → MediaController → PlaybackService.onCreate → ExoPlayer / AudioAttributes / MediaSession；这不是调用系统音量写入 API 的证据，也不能单靠源码确认 HyperOS HUD 来自哪一阶段。
 
+API 35 的失败截图同时复现了应用自己的居中 100% PlayerHud：该提示存在于 WebView DOM，且播放服务没有创建。旧 PlayerHud 观察 volume/mode 的所有变化，依赖挂载后 1800ms 的时限抑制初次 1.0 同步；恢复晚于该时限就会误认为用户调音量。现以 setVolume/setMode 的明确操作请求触发提示，静默 hydration 不发送请求，不隐藏或延迟系统 HUD。Xiaomi 的系统层 HUD 仍需用真机图层和日志区分，不能由这个应用内复现直接下结论。
+
+初始主题从 Activity 的 Configuration 读取后再挂载 App，避免 Android WebView 的 prefers-color-scheme 与系统启动窗口不一致。测试每个 fresh-theme 用例会重装应用，避免 pm clear 遗留平台 per-app night-mode override；保存主题用例保持数据不变。
+
 `state` 在服务未运行时只读原生 NativePlaybackStore，`journal` 只读原生听歌数据库，不创建播放器。服务仍在运行时连接实时原生状态，保留后台播放的 authoritative source。服务将队列、索引、位置、模式和播放器音量存入 app-private checkpoint，在线解析配置另存且不返回 UI。进程被回收后 UI 以 paused 状态恢复原生队列，用户播放时再创建服务、加载队列并 prepare/play；不会以保存的 playing 标记自动播放。Media3 setAudioAttributes(..., true)、setHandleAudioBecomingNoisy(true)、MediaSession 和后台服务保持官方机制；不添加 AudioManager focus manager，不写系统音量。
 
 debug APK 的 `ZTAudioStartup` 标签记录 connect、state/play/volume 命令、服务创建、ExoPlayer build、AudioAttributes、MediaSession build、playWhenReady reason、playback suppression reason 和播放器音量事件，不记录 cookie、URL 或歌曲内容。同步保存 `dumpsys audio` 检查真实 focus owner；suppression reason 不能代替所有系统 AudioFocus 日志。

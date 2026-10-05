@@ -56,7 +56,18 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     for (const stage of ['player', 'attributes', 'session', 'controller']) {
       await command(page, 'audioStartupProbe', { stage })
       await pause(500)
-      await writeFile('startup-artifacts/probe-' + stage + '-audio.txt', adb('shell', 'dumpsys', 'audio'))
+      if (stage === 'controller') {
+        let connected = false
+        for (let i = 0; i < 40; i++) {
+          if (adb('logcat', '-d', '-s', 'ZTAudioStartup:D', '*:S').includes('probe.controller.connected state.read')) { connected = true; break }
+          await pause(250)
+        }
+        assert.ok(connected, 'isolated MediaController must finish connecting before releasing its session')
+      }
+      const audio = adb('shell', 'dumpsys', 'audio')
+      assert.doesNotMatch(audio.split('Audio Focus stack')[1]?.split('\n\n')[0] || '', /com\.zheting\.music\.androidtest/,
+        'idle ' + stage + ' must not own audio focus')
+      await writeFile('startup-artifacts/probe-' + stage + '-audio.txt', audio)
       await writeFile('startup-artifacts/probe-' + stage + '-session.txt', adb('shell', 'dumpsys', 'media_session'))
     }
     await command(page, 'audioStartupProbe', { stage: 'release' })

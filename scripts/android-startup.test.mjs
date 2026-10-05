@@ -49,6 +49,23 @@ for (const native of [false, true]) {
   }
 }
 
+// WebView media-query defaults must not override the native starting-window theme.
+for (const saved of [null, 'light']) {
+  const root = { dataset: {}, style: {} }, body = { style: {} }, calls = []
+  const context = {
+    isTauriRuntime: () => true, runtimePlatform: () => 'Android',
+    matchMedia: () => ({ matches: false }), localStorage: { getItem: () => saved },
+    invoke: (...args) => { calls.push(args); return Promise.resolve({ theme: 'dark' }) },
+    document: { documentElement: root, body, querySelector: () => ({ setAttribute() {} }) },
+  }
+  runInNewContext(script, context)
+  await context.prepareAndroidStartup()
+  assert.equal(context.initialAndroidTheme(), 'dark')
+  assert.equal(root.dataset.theme, saved || 'dark')
+  assert.equal(body.style.backgroundColor, saved ? '#ffffff' : '#111113')
+  assert.equal(calls[0][1].payload.action, 'startupTheme')
+}
+
 const playerSource = await read('src/lib/stores/player.svelte.ts')
 const initialStateBody = playerSource.match(/_restoreInitialState\(\): void \{([\s\S]*?)\n  \}/)?.[1]
 assert.ok(initialStateBody)

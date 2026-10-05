@@ -96,6 +96,8 @@ class PlayerState {
   volume = $state(0.8)
   mode = $state<PlayMode>('list')
   preferredLevel = $state<QualityLevel>('standard')
+  /** Feedback belongs to explicit controls, never asynchronous native state hydration. */
+  hudRequest = $state<{ kind: 'volume'; volume: number } | { kind: 'mode'; mode: PlayMode } | null>(null)
 
   // ===== 队列 =====
   queue = $state<CompactTrack[]>([])
@@ -918,12 +920,15 @@ class PlayerState {
 
   /** 设置音量（input range 给的是字符串，parseFloat 兼容） */
   setVolume(v: number | string): void {
+    const previous = this.volume
     this.volume = Number.parseFloat(setSetting(STORAGE_KEYS.VOLUME, v))
     engine.setVolume(this.volume)
+    if (this.volume !== previous) this.hudRequest = { kind: 'volume', volume: this.volume }
   }
 
   /** 设置播放模式 */
   setMode(m: PlayMode): void {
+    const previous = this.mode
     if (m === 'shuffle' && this.shuffleState.order.length > 0) {
       const position = this.shuffleState.position
       if (position < 0 || this.shuffleState.order[position] !== this.queueIndex) {
@@ -933,6 +938,7 @@ class PlayerState {
     }
     this.mode = setSetting(STORAGE_KEYS.MODE, m) as PlayMode
     engine.setMode?.(this.mode)
+    if (this.mode !== previous) this.hudRequest = { kind: 'mode', mode: this.mode }
   }
 
   /**

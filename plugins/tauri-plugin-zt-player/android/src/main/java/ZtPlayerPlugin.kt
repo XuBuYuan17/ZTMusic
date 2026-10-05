@@ -116,6 +116,12 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
         val args = invoke.getArgs()
         val action = args.optString("action")
         PlaybackDiagnostics.mark(activity, "plugin.command=$action")
+        if (action == "startupTheme") {
+            activity.runOnUiThread {
+                invoke.resolve(JSObject().put("theme", (activity as? ZtStartupHost)?.startupTheme() ?: "light") as JSObject)
+            }
+            return
+        }
         if (action == "audioStartupProbe") {
             activity.runOnUiThread {
                 try { startupProbe.step(args.getJSONObject("data").getString("stage")); invoke.resolve() }

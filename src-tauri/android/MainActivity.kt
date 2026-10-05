@@ -58,6 +58,11 @@ class MainActivity : TauriActivity(), ZtStartupHost {
 
     private fun baseColor() = Color.parseColor(if (currentTheme == "dark") "#111113" else "#ffffff")
 
+    override fun startupTheme(): String {
+        Log.i("ZTStartup", "native-startup-theme=" + currentTheme)
+        return currentTheme
+    }
+
     private fun applyBaseBackground() {
         window.setBackgroundDrawable(ColorDrawable(baseColor()))
         window.decorView.setBackgroundColor(baseColor())
