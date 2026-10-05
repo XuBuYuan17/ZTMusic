@@ -29,7 +29,7 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         splash.setKeepOnScreenCondition { !firstFrameAvailable }
         splash.setOnExitAnimationListener { provider ->
             webView?.evaluateJavascript("window.dispatchEvent(new Event('ztmusic:android-reveal'))", null)
-            if (!ValueAnimator.areAnimatorsEnabled()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled()) {
                 provider.remove()
             } else {
                 // Animate the actual system icon in place; never create another logo or Activity.

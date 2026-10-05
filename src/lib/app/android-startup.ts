@@ -16,7 +16,7 @@ export function syncAndroidTheme(theme: string): void {
 }
 
 /** Called from the mounted mobile shell, including its local placeholders; never from data loaders. */
-export function announceAndroidFrame(): void {
+export function announceAndroidFrame(_node?: HTMLElement): void {
   if (!android() || frameAnnounced) return
   frameAnnounced = true
   performance.mark('ztmusic:first-shell-frame')
