@@ -776,3 +776,11 @@ html.mobile-runtime .mobile-page-content .playlist-detail-page:not(.show-mobile-
 html.mobile-runtime .library-card > .library-card-info > .library-card-creator { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .artist-link { color: var(--text-secondary); }
+
+/* The native system splash and the first WebView frame share the same base surface. */
+html.mobile-runtime.android-startup-pending,
+html.mobile-runtime.android-startup-pending body,
+html.mobile-runtime.android-startup-pending .app-shell {
+  transition: none;
+}
+html.mobile-runtime.android-startup-pending .wallpaper-layer { opacity: 0; }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { flushSync, tick, untrack } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
+  import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
   import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
@@ -111,7 +112,7 @@
   // ── 主题 ──
   migrateSettings()
   function normalizeTheme(value: string): 'light' | 'dark' { return value === 'light' || value === 'dark' ? value : 'dark' }
-  let theme = $state<string>(normalizeTheme(getStorage('zheting-theme', 'dark')))
+  let theme = $state<string>(normalizeTheme(getStorage('zheting-theme', initialAndroidTheme())))
   let accentTheme = $state<AccentThemeName>(normalizeAccentTheme(getSetting('accent_theme', 'red')))
   let accentRequestId = 0
   let accentTransitionTimer: ReturnType<typeof setTimeout> | undefined
@@ -120,9 +121,10 @@
   function syncSystemTheme(value: string): void {
     const nextTheme = normalizeTheme(value)
     const dark = nextTheme === 'dark'
+    syncAndroidTheme(nextTheme)
     document.documentElement.setAttribute('data-theme', nextTheme)
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0a0a' : '#e8e8ed')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isMobileRuntime() ? (dark ? '#111113' : '#ffffff') : (dark ? '#0a0a0a' : '#e8e8ed'))
     document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark light' : 'light dark')
   }
 
@@ -232,7 +234,7 @@
   // 拖拽发起 morph 时先收队列，避免两个 overlay 叠在一起；open 态 tools 开队列不受影响
   $effect(() => { if (playerMorph.phase === 'dragging' && showQueuePanel) showQueuePanel = false })
 
-  $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
+  $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#111113' : '#ffffff') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
   $effect(() => {
     document.documentElement.classList.toggle('custom-wallpaper', wallpaper.active)
@@ -380,7 +382,7 @@
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
         />
       {:catch}
-        <div class="loading-state" role="alert">移动端界面加载失败，请重启应用</div>
+        <div class="loading-state" role="alert" use:announceAndroidFrame>移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
       <DesktopPageHost

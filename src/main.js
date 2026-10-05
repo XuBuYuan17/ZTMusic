@@ -28,10 +28,12 @@ import './styles/mobile/action-panels.css'
 import './styles/mobile/interaction-polish.css'
 import './styles/mobile/library-appearance.css'
 import { isMobileDevice } from './lib/utils/responsive.ts'
+import { installAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
 import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
+installAndroidStartup()
 installNativeShell()
 installMobileResumeGuard()
 installPlaylistDiscMotion()

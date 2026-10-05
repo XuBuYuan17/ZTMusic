@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { tick, untrack, onDestroy } from 'svelte'
+  import { tick, untrack, onDestroy, onMount } from 'svelte'
+  import { announceAndroidFrame } from '../app/android-startup.ts'
+  onMount(() => { announceAndroidFrame() })
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'

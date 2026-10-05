@@ -111,6 +111,16 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
     fun execute(invoke: Invoke) {
         val args = invoke.getArgs()
         val action = args.optString("action")
+        if (action == "startupReady" || action == "appTheme") {
+            val theme = args.optJSONObject("data")?.optString("theme").orEmpty()
+            activity.runOnUiThread {
+                val host = activity as? ZtStartupHost
+                if (theme == "light" || theme == "dark") host?.onAppThemeChanged(theme)
+                if (action == "startupReady") host?.onStartupFrameReady()
+                invoke.resolve()
+            }
+            return
+        }
         if (action == "capabilities") { invoke.resolve(JSObject(AndroidSystemAdapter.describe(activity).toString())); return }
         if (action == "overlayPermission") {
             activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}")))
