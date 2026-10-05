@@ -11,6 +11,7 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     const page = await view.page()
     context = page.context()
     await page.waitForFunction(() => document.querySelector('.mobile-app') && !document.documentElement.classList.contains('android-startup-pending'), null, { timeout: 15000 })
+    await page.waitForFunction(() => performance.getEntriesByName('ztmusic:android-state-restored').length > 0, null, { timeout: 20000 })
     return page
   }
   const command = (page, action, data = {}) => page.evaluate(({ action, data }) =>
@@ -50,6 +51,16 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '1')
     adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
     let page = await attach()
+    // On each API, isolate idle ExoPlayer, audio attributes, session and controller.
+    // Logs and system focus/session state are retained separately for OEM comparison.
+    for (const stage of ['player', 'attributes', 'session', 'controller']) {
+      await command(page, 'audioStartupProbe', { stage })
+      await pause(500)
+      await writeFile('startup-artifacts/probe-' + stage + '-audio.txt', adb('shell', 'dumpsys', 'audio'))
+      await writeFile('startup-artifacts/probe-' + stage + '-session.txt', adb('shell', 'dumpsys', 'media_session'))
+    }
+    await command(page, 'audioStartupProbe', { stage: 'release' })
+    await writeFile('startup-artifacts/probe-log.txt', adb('logcat', '-d', '-s', 'ZTAudioStartup:D', '*:S'))
     // A local PCM tone avoids network mocks: Media3 must open/decode the actual file.
     const rate = 16000, samples = rate * 30
     const wav = Buffer.alloc(44 + samples * 2)

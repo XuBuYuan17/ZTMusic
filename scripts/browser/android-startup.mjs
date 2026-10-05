@@ -6,7 +6,7 @@ import { waitForProcess } from './android-process.mjs'
 
 const { _android: android } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
 const appId = 'com.zheting.music.androidtest'
-const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 10000 }).trim()
+const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 10000, maxBuffer: 16 * 1024 * 1024 }).trim()
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 await mkdir('startup-artifacts', { recursive: true })
 const results = []
@@ -39,6 +39,9 @@ try {
       page.on('pageerror', error => errors.push(String(error)))
       await page.waitForFunction(() => document.querySelector('.mobile-app') &&
         performance.getEntriesByName('ztmusic:system-splash-exit').length > 0, null, { timeout: 15000 })
+      // UI reveal must not wait for playback restoration; the assertion must wait for it.
+      await page.waitForFunction(() => performance.getEntriesByName('ztmusic:android-state-restored').length > 0,
+        null, { timeout: 20000 })
       await page.waitForTimeout(750)
       const state = await page.evaluate(() => ({
         theme: document.documentElement.dataset.theme,
@@ -109,7 +112,6 @@ try {
     }))))
     const nativePng = execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 10000, maxBuffer: 8 * 1024 * 1024 })
     await writeFile('startup-artifacts/failure.png', nativePng)
-    console.log('ANDROID_FAILURE_SCREENSHOT_BASE64:' + nativePng.toString('base64'))
   } catch (diagnostic) { console.log('STARTUP_DIAGNOSTIC_ERROR:' + diagnostic) }
   // Collect each independently: a missing inspector or screenshot must not discard native evidence.
   for (const [name, args] of [

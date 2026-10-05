@@ -36,6 +36,7 @@ export class AndroidEngine implements PlayerEngine {
       const state = await androidCommand('state')
       if (this.destroyed) { await this.listener?.unregister(); return }
       this.accept(state)
+      performance.mark('ztmusic:android-state-restored')
       this.lastStateReconcileAt = Date.now()
       this.progressTimer = setInterval(() => {
         if (document.hidden) return

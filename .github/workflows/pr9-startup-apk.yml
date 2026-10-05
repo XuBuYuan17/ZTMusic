@@ -227,3 +227,5 @@ jobs:
 # Report native pixels independently of whether the system supplies a splash overlay.
 
 # Select the fresh cold-start process socket, never a stale previous WebView.
+
+# Wait for the explicit silent-restore signal before examining its native log.
