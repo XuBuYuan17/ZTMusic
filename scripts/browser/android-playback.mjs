@@ -49,6 +49,9 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
   }
   try {
     adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '1')
+    // The startup phase closed its inspector context. Start a fresh process so
+    // Playwright cannot reuse that closed WebView target; app data stays intact.
+    adb('shell', 'am', 'force-stop', appId)
     adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
     let page = await attach()
     // On each API, isolate idle ExoPlayer, audio attributes, session and controller.

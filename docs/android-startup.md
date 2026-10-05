@@ -30,7 +30,7 @@ HyperOS 真机必须从桌面点图标，测试冷启动、后台已有实例返
 
 已确认的旧启动链路是 UI restore → AndroidEngine.connect → state → MediaController → PlaybackService.onCreate → ExoPlayer / AudioAttributes / MediaSession；这不是调用系统音量写入 API 的证据，也不能单靠源码确认 HyperOS HUD 来自哪一阶段。
 
-API 35 的失败截图同时复现了应用自己的居中 100% PlayerHud：该提示存在于 WebView DOM，且播放服务没有创建。旧 PlayerHud 观察 volume/mode 的所有变化，依赖挂载后 1800ms 的时限抑制初次 1.0 同步；恢复晚于该时限就会误认为用户调音量。现以 setVolume/setMode 的明确操作请求触发提示，静默 hydration 不发送请求，不隐藏或延迟系统 HUD。Xiaomi 的系统层 HUD 仍需用真机图层和日志区分，不能由这个应用内复现直接下结论。
+API 35 的失败截图复现了应用自己的居中 100% PlayerHud：该提示存在于 WebView DOM，且播放服务没有创建。用户确认真机出现的也是这个居中方框。旧 PlayerHud 观察 volume/mode 的所有变化，依赖挂载后 1800ms 的时限抑制初次 1.0 同步；恢复晚于该时限就会误认为用户调音量。现以 setVolume/setMode 的明确操作请求触发提示，静默 hydration 不发送请求，不隐藏或延迟系统 HUD。
 
 初始主题从 Activity 的 Configuration 读取后再挂载 App，避免 Android WebView 的 prefers-color-scheme 与系统启动窗口不一致。测试每个 fresh-theme 用例会重装应用，避免 pm clear 遗留平台 per-app night-mode override；保存主题用例保持数据不变。
 

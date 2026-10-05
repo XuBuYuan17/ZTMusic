@@ -233,3 +233,5 @@ jobs:
 # Wait for the explicit silent-restore signal before examining its native log.
 
 # Cover native theme bootstrap and intent-driven HUD feedback on fresh installations.
+
+# Start playback acceptance with a fresh process after closing the startup inspector.
