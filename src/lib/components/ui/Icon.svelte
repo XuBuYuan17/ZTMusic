@@ -21,6 +21,7 @@
   } & SVGAttributes<SVGSVGElement> = $props()
 
   const ICONS: Record<string, IconValue> = {
+    radar: [{type:'circle',cx:12,cy:12,r:9,fill:'none',stroke:'currentColor',strokeWidth:1.8},{type:'circle',cx:12,cy:12,r:5,fill:'none',stroke:'currentColor',strokeWidth:1.8},{type:'path',d:'M12 12 18.4 5.6',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round'},{type:'circle',cx:8,cy:15,r:1.5}],
     // navigation
     home: 'M12.7 1.1a1 1 0 0 0-1.4 0l-10 8.8A1 1 0 0 0 2 11.6h1v10a1 1 0 0 0 1 1h7v-7h2v7h7a1 1 0 0 0 1-1v-10h1a1 1 0 0 0 .7-1.7z',
     explore: [{type:'circle',cx:12,cy:12,r:10},{type:'polygon',points:'16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88',fill:'currentColor',opacity:.2},{type:'polygon',points:'16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88'}],

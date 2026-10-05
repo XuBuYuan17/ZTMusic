@@ -1119,18 +1119,22 @@ button.ly-context-card.active {
     background: rgba(255,255,255,0.06);
   }
 
-  .ly-context-comment-author {
+  .ly-context-comment-row {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) auto;
-    align-items: center;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: start;
     gap: 10px;
-    margin-bottom: 11px;
   }
 
-  .ly-context-comment-author > img,
-  .ly-context-comment-author > span {
+  .ly-context-comment-avatar,
+  .ly-context-comment-avatar > img,
+  .ly-context-comment-avatar > span {
     width: 34px;
     height: 34px;
+  }
+
+  .ly-context-comment-avatar > img,
+  .ly-context-comment-avatar > span {
     display: grid;
     place-items: center;
     border-radius: 50%;
@@ -1141,38 +1145,48 @@ button.ly-context-card.active {
     font-weight: 700;
   }
 
-  .ly-context-comment-author div {
+  .ly-context-comment-main,
+  .ly-context-comment-meta {
     min-width: 0;
   }
 
-  .ly-context-comment-author strong,
-  .ly-context-comment-author small {
+  .ly-context-comment-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .ly-context-comment-meta strong,
+  .ly-context-comment-meta small {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .ly-context-comment-author strong {
+  .ly-context-comment-meta strong {
     margin: 0;
     color: rgba(255,255,255,0.82);
     font-size: 11px;
   }
 
-  .ly-context-comment-author small {
+  .ly-context-comment-meta small {
     margin-top: 3px;
     color: rgba(255,255,255,0.3);
     font-size: 9px;
   }
 
-  .ly-context-comment-author > em {
+  .ly-context-comment-heading > em {
+    flex: 0 0 auto;
     color: rgba(255,255,255,0.32);
     font-size: 10px;
     font-style: normal;
   }
 
-  .ly-context-comment-row p {
-    padding-left: 44px;
+  .ly-context-comment-main > p {
+    margin-top: 7px;
+    padding: 0;
     color: rgba(255,255,255,0.68);
     font-size: 12px;
     line-height: 1.68;

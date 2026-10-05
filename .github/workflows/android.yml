@@ -98,6 +98,9 @@ jobs:
       - name: Generate app icons
         run: pnpm tauri icon src-tauri/icons/icon.png
 
+      - name: Configure system startup
+        run: node scripts/configure-android-startup.mjs
+
       - name: Build test APK
         env:
           VITE_APP_CHANNEL: dev

@@ -23,13 +23,17 @@ import './styles/mobile/responsive.css'
 import './styles/mobile/search.css'
 import './styles/mobile/artist.css'
 import './styles/mobile/playlist-motion.css'
+import './styles/mobile/playlist-layout.css'
 import './styles/mobile/action-panels.css'
 import './styles/mobile/interaction-polish.css'
+import './styles/mobile/library-appearance.css'
 import { isMobileDevice } from './lib/utils/responsive.ts'
+import { installAndroidStartup, prepareAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
 import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
+installAndroidStartup()
 installNativeShell()
 installMobileResumeGuard()
 installPlaylistDiscMotion()
@@ -103,6 +107,7 @@ document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 
 ;(async () => {
   try {
+    await prepareAndroidStartup()
     const [{ mount }, { default: App }] = await Promise.all([
       import('svelte'),
       import('./App.svelte'),

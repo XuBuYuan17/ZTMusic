@@ -19,6 +19,7 @@ export const GLOBAL_CSS_FILES = [
   'src/app-mobile.css',
   'src/styles/mobile/lyrics.css',
   'src/styles/mobile/responsive.css',
+  'src/styles/mobile/library-appearance.css',
   'src/styles/product-polish.css',
   'src/styles/desktop-system.css',
 ]

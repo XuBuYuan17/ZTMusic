@@ -96,10 +96,14 @@ class PlayerState {
   volume = $state(0.8)
   mode = $state<PlayMode>('list')
   preferredLevel = $state<QualityLevel>('standard')
+  /** Feedback belongs to explicit controls, never asynchronous native state hydration. */
+  hudRequest = $state<{ kind: 'volume'; volume: number } | { kind: 'mode'; mode: PlayMode } | null>(null)
 
   // ===== 队列 =====
   queue = $state<CompactTrack[]>([])
   queueIndex = $state(-1)
+  /** 用户队列修改的版本；原生状态回传不递增，推荐补歌据此识别普通点播。 */
+  queueRevision = $state(0)
 
   // ===== 内部状态（非响应式） =====
   /** 恢复播放时是否需要 seek */
@@ -207,14 +211,16 @@ class PlayerState {
     this.volume = parseFloat(getSetting(STORAGE_KEYS.VOLUME, '0.8'))
     this.mode = getSetting(STORAGE_KEYS.MODE, 'list') as PlayMode
     this.preferredLevel = getSetting(STORAGE_KEYS.PREFERRED_QUALITY, 'standard') as QualityLevel
-    const restoredQueue = replaceQueueState(
+    // Android receives its authoritative queue from Media3 after the local first frame.
+    // Do not synchronously parse a second large WebView queue during module construction.
+    const restoredQueue = engine.native ? replaceQueueState([], -1) : replaceQueueState(
       getStorageJson(STORAGE_KEYS.PLAYER_QUEUE, []),
       parseInt(getStorage(STORAGE_KEYS.PLAYER_QI, '-1')),
     )
     this.queue = restoredQueue.queue
     this.queueIndex = restoredQueue.queueIndex
     this.shuffleState = restoreShuffleState(
-      getStorageJson(STORAGE_KEYS.PLAYER_SHUFFLE, null),
+      engine.native ? null : getStorageJson(STORAGE_KEYS.PLAYER_SHUFFLE, null),
       restoredQueue.queue.length,
       restoredQueue.queueIndex,
     )
@@ -477,6 +483,7 @@ class PlayerState {
   }
 
   _commitQueueState(state: QueueState, { clearStorage = false }: { clearStorage?: boolean } = {}): void {
+    this.queueRevision++
     this.queue = state.queue
     this.queueIndex = state.queueIndex
     this.shuffleState = state.shuffleState || createShuffleState()
@@ -913,12 +920,15 @@ class PlayerState {
 
   /** 设置音量（input range 给的是字符串，parseFloat 兼容） */
   setVolume(v: number | string): void {
+    const previous = this.volume
     this.volume = Number.parseFloat(setSetting(STORAGE_KEYS.VOLUME, v))
     engine.setVolume(this.volume)
+    if (this.volume !== previous) this.hudRequest = { kind: 'volume', volume: this.volume }
   }
 
   /** 设置播放模式 */
   setMode(m: PlayMode): void {
+    const previous = this.mode
     if (m === 'shuffle' && this.shuffleState.order.length > 0) {
       const position = this.shuffleState.position
       if (position < 0 || this.shuffleState.order[position] !== this.queueIndex) {
@@ -928,6 +938,7 @@ class PlayerState {
     }
     this.mode = setSetting(STORAGE_KEYS.MODE, m) as PlayMode
     engine.setMode?.(this.mode)
+    if (this.mode !== previous) this.hudRequest = { kind: 'mode', mode: this.mode }
   }
 
   /**

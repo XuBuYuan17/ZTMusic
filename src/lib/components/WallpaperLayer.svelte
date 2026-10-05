@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { androidAmbientReveal } from '../app/android-startup.ts'
   import { wallpaper } from '../stores/wallpaper.svelte.ts'
 
   let video = $state<HTMLVideoElement | null>(null)
@@ -24,7 +25,7 @@
 </script>
 
 {#if wallpaper.active}
-  <div class="wallpaper-layer" class:wallpaper-layer--video={wallpaper.kind === 'video'} aria-hidden="true">
+  <div class="wallpaper-layer" use:androidAmbientReveal class:wallpaper-layer--video={wallpaper.kind === 'video'} aria-hidden="true">
     {#if wallpaper.kind === 'image'}
       <img class="wallpaper-layer__backdrop" src={wallpaper.url} alt="" />
       <img class="wallpaper-layer__media" src={wallpaper.url} alt="" />

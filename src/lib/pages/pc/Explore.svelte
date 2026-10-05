@@ -13,6 +13,8 @@
 </script>
 
 <script lang="ts">
+  import DiscoveryPlaylists from '../../components/DiscoveryPlaylists.svelte'
+  import type { DiscoveryPlaylistKey } from '../../app/discovery-playlists.ts'
   import SongListActions from '../../components/SongListActions.svelte'
   import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
@@ -28,6 +30,8 @@
   let {
     mobile = false,
     onSearch,
+    onOpenRecommendation,
+    onOpenLogin,
     onBannerClick,
     onOpenPlaylist,
     onOpenAlbum,
@@ -35,6 +39,8 @@
     onOpenArtist,
   }: {
     mobile?: boolean
+    onOpenRecommendation?: (key: DiscoveryPlaylistKey) => void
+    onOpenLogin?: () => void
     onSearch?: () => void
     onBannerClick?: (banner: ExploreData['banners'][number]) => void
     onOpenPlaylist?: (id: unknown, push?: boolean, preview?: unknown) => void
@@ -141,6 +147,7 @@
         </div>
       </section>
     {/if}
+    <DiscoveryPlaylists mobile {onOpenRecommendation} {onOpenLogin} />
     {#if primaryPlaylists.length || exploreLoading}
       <section class="mobile-discovery-section" aria-label="推荐歌单">
         <h2>推荐歌单</h2>
@@ -256,6 +263,7 @@
     </section>
   {/if}
 
+    <DiscoveryPlaylists {onOpenRecommendation} {onOpenLogin} />
     <section class="music-discovery-section">
         <div class="music-section-head">
         <h2>{playlistBlocks[0]?.title || '推荐歌单'}</h2>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="zt_startup_background">#111113</color>
+    <style name="Theme.ZTMusic" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/zt_startup_background</item>
+        <item name="android:statusBarColor">@color/zt_startup_background</item>
+        <item name="android:navigationBarColor">@color/zt_startup_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <style name="Theme.ZTMusic.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/zt_startup_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.ZTMusic</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+</resources>

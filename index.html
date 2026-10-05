@@ -34,9 +34,13 @@
           document.documentElement.classList.add('mobile-runtime')
         }
         try {
+          var nativeAndroid = !!window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent)
+          var mobile = document.documentElement.classList.contains('mobile-runtime') || nativeAndroid
+          if (nativeAndroid) document.documentElement.classList.add('mobile-runtime', 'android-startup-pending')
           var theme = localStorage.getItem('zheting-theme')
+          if (theme !== 'light' && theme !== 'dark') theme = nativeAndroid && !matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'
           if (theme === 'light' || theme === 'dark') {
-            var color = theme === 'light' ? '#e8e8ed' : '#0a0a0a'
+            var color = mobile ? (theme === 'light' ? '#ffffff' : '#111113') : (theme === 'light' ? '#e8e8ed' : '#0a0a0a')
             document.documentElement.dataset.theme = theme
             document.documentElement.style.colorScheme = theme
             document.documentElement.style.backgroundColor = color
@@ -79,6 +83,12 @@
           panel.style.cssText = 'box-sizing:border-box;max-width:760px;margin:12vh auto;padding:18px;white-space:pre-wrap;word-break:break-word;color:#fff;background:#2a0d10;border:1px solid rgba(255,49,64,.45);font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;'
           panel.textContent = '哲听启动失败\n\n' + startupMessage(error)
           app.appendChild(panel)
+          // A rendered diagnostic must also release the native splash if module loading failed.
+          if (window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent)) {
+            window.__TAURI_INTERNALS__.invoke('plugin:zt-player|execute', {
+              payload: { action: 'startupReady', data: { theme: document.documentElement.dataset.theme, reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches } }
+            }).catch(function () {})
+          }
         }
 
         window.addEventListener('error', function (event) {

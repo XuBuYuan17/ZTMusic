@@ -76,9 +76,10 @@
           onOpenAlbum={openAlbumRef}
           onOpenUser={openUserRef}
         />
-      {:else if router.activeView === 'playlist' || router.activeView === 'album'}
+      {:else if router.activeView === 'playlist' || router.activeView === 'album' || router.activeView === 'recommendation'}
         {#await loadPlaylistPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
+            recommendation={router.activeView === 'recommendation'}
             playlistDetail={router.playlistDetail}
             loading={router.playlistDetailLoading}
             loadingMore={router.playlistLoadingMore}
@@ -128,6 +129,8 @@
       {:else if router.activeView === 'explore'}
         {#await loadExplorePage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
+            onOpenRecommendation={router.goRecommendation}
+            {onOpenLogin}
             onSearch={() => router.handleNav('search')}
             onBannerClick={router.handleBannerClick}
             onOpenPlaylist={openPlaylistRef}

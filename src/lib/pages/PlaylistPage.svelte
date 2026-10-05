@@ -58,6 +58,7 @@
     selectedId = null,
     heroColor = '#141414',
     detailType = '歌单',
+    recommendation = false,
     onBack,
     onPlayAll,
     onPlayTrack,
@@ -73,8 +74,9 @@
     selectedId?: SongId | null
     heroColor?: string
     detailType?: string
+    recommendation?: boolean
     onBack?: () => void
-    onPlayAll?: (tracks?: DetailTrackLike[] | null) => void
+    onPlayAll?: (tracks?: DetailTrackLike[] | null, shuffled?: boolean) => void
     onPlayTrack?: (id: SongId, tracks?: DetailTrackLike[] | null) => void
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
@@ -119,7 +121,7 @@
 
   function playShuffled(): void {
     player.setMode('shuffle')
-    onPlayAll?.(visibleTracks)
+    onPlayAll?.(visibleTracks, true)
   }
 
   // 桌面：进入时滚回顶部；滚动时给 hero 写 --hero-p（0→1）驱动视差收缩，hero 滚出后工具栏吸顶显示小标题
@@ -275,6 +277,7 @@
         {loadingMore}
         {heroColor}
         {detailType}
+        shareable={!recommendation} coverIsBundled={recommendation}
         totalCount={totalTrackCount}
         visibleCount={visibleTracks.length}
         {totalDuration}

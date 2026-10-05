@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { flushSync, tick, untrack } from 'svelte'
+  import { flushSync, tick, untrack, onMount } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
+  import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
   import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
+  import { discoveryPlayback } from './lib/stores/discovery-playback.svelte.ts'
   import { playerMorph } from './lib/stores/player-morph.svelte.ts'
   import { auth } from './lib/stores/auth.svelte.ts'
   import { router } from './lib/stores/router.svelte.ts'
@@ -75,6 +77,7 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  onMount(() => { if (!isMobile) announceAndroidFrame() })
   let mobileDialogOpen = $state(false)
   $effect(() => {
     if (!isMobile) return
@@ -110,7 +113,7 @@
   // ── 主题 ──
   migrateSettings()
   function normalizeTheme(value: string): 'light' | 'dark' { return value === 'light' || value === 'dark' ? value : 'dark' }
-  let theme = $state<string>(normalizeTheme(getStorage('zheting-theme', 'dark')))
+  let theme = $state<string>(normalizeTheme(getStorage('zheting-theme', initialAndroidTheme())))
   let accentTheme = $state<AccentThemeName>(normalizeAccentTheme(getSetting('accent_theme', 'red')))
   let accentRequestId = 0
   let accentTransitionTimer: ReturnType<typeof setTimeout> | undefined
@@ -119,9 +122,11 @@
   function syncSystemTheme(value: string): void {
     const nextTheme = normalizeTheme(value)
     const dark = nextTheme === 'dark'
+    syncAndroidTheme(nextTheme)
+    if (isMobileRuntime()) document.body.style.backgroundColor = dark ? '#111113' : '#ffffff'
     document.documentElement.setAttribute('data-theme', nextTheme)
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0a0a0a' : '#e8e8ed')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isMobileRuntime() ? (dark ? '#111113' : '#ffffff') : (dark ? '#0a0a0a' : '#e8e8ed'))
     document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', dark ? 'dark light' : 'light dark')
   }
 
@@ -148,7 +153,21 @@
   })
 
   // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
-  $effect(() => { untrack(() => player.restore()) })
+  $effect(() => {
+    const restore = () => untrack(() => player.restore())
+    if (isTauriRuntime() && /Android/i.test(runtimePlatform())) {
+      window.addEventListener('ztmusic:android-reveal', restore, { once: true })
+      return () => window.removeEventListener('ztmusic:android-reveal', restore)
+    }
+    restore()
+  })
+
+  $effect(() => {
+    // 原生下一首的状态回传也经过这里，补歌不依赖发现页是否仍在显示。
+    auth.user; auth.isLoggedIn; auth.cookieOk
+    player.queueRevision; player.queueIndex; player.id; player.mode
+    untrack(() => { discoveryPlayback.update(); router.syncRecommendationAccount() })
+  })
 
   // 页面进入后台或窗口关闭前同步落盘，补上定时保存之间的最后一段进度与队列变化。
   $effect(() => {
@@ -224,7 +243,7 @@
   // 拖拽发起 morph 时先收队列，避免两个 overlay 叠在一起；open 态 tools 开队列不受影响
   $effect(() => { if (playerMorph.phase === 'dragging' && showQueuePanel) showQueuePanel = false })
 
-  $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#0a0a0a' : '#e8e8ed') : router.heroColor })
+  $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#111113' : '#ffffff') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
   $effect(() => {
     document.documentElement.classList.toggle('custom-wallpaper', wallpaper.active)
@@ -372,7 +391,7 @@
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
         />
       {:catch}
-        <div class="loading-state" role="alert">移动端界面加载失败，请重启应用</div>
+        <div class="loading-state" role="alert" use:announceAndroidFrame>移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
       <DesktopPageHost

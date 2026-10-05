@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, mobilePlayerTiming, playerDragProgress, finishPlayerDrag } from './mobile-player-motion.ts'
-import { rememberCardOrigin, hasCoverOrigin, flyCover } from './desktop-motion.ts'
+import { rememberCardOrigin, hasCoverOrigin, flyCover, takeCoverOrigin } from './desktop-motion.ts'
 
 assert.equal(playerDragProgress(700, 525, 700), .25)
 assert.equal(playerDragProgress(700, 750, 700), 0)
@@ -15,17 +15,24 @@ assert.equal(finishPlayerDrag(.8, -.8, 500, true), false, 'pointer cancellation 
 let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
 const calls = []
-const element = (rect) => ({
-  style: { cssText: '' }, isConnected: true, rect,
-  getBoundingClientRect() { return this.rect },
-  getAnimations() { return [] },
-  animate(frames, options) {
-    let finish
-    const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true } }
-    calls.push({ node: this, frames, options, animation, finish })
-    return animation
-  },
-})
+const element = (rect) => {
+  const node = {
+    style: { cssText: '' }, isConnected: true, rect,
+    getBoundingClientRect() { return this.rect },
+    getAnimations() { return [] },
+    removeAttribute() {},
+    setAttribute() {},
+    remove() { this.removed = true },
+    cloneNode() { return element({ ...this.rect }) },
+    animate(frames, options) {
+      let finish
+      const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true } }
+      calls.push({ node: this, frames, options, animation, finish })
+      return animation
+    },
+  }
+  return node
+}
 const lyric = miniLyricMotion(element(), { text: '第一行', lyric: true, song: 1 })
 lyric.update({ text: '第一行', lyric: true, song: 1 })
 assert.equal(calls.length, 0, 'playback ticks do not replay the same line')
@@ -90,11 +97,11 @@ assert.equal(mode, false)
 assert.equal(calls.length, count + 4, 'two changes in one frame only animate the final mode, including controls and footer')
 controller.destroy()
 
-let frame, removed = false
+let frame
 const sourceImage = { complete: true, naturalWidth: 100, src: 'cover.jpg', dataset: {}, getBoundingClientRect: () => small }
 const event = { target: { closest: selector => selector.startsWith('.library') ? null : { querySelector: () => sourceImage } } }
 const target = element(large)
-const clone = { ...element(), setAttribute() {}, remove() { removed = true } }
+const clone = { ...element(), setAttribute() {}, remove() {} }
 globalThis.document = { documentElement: { classList: { contains: () => true } }, querySelector: () => null, createElement: () => clone, body: { append() {} } }
 globalThis.requestAnimationFrame = callback => { frame = callback; return 1 }
 globalThis.cancelAnimationFrame = () => { frame = null }
@@ -102,15 +109,22 @@ globalThis.HTMLImageElement = class {}
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), true, 'mobile clicks remember the card cover')
 assert.equal(sourceImage.dataset.sharedCoverReturn, 'true', 'shared cover keeps a return marker for reverse navigation')
+const beforeFlightCalls = calls.length
+const mobileFlight = flyCover(target)
+assert.equal(calls.length, beforeFlightCalls, 'mobile flyCover cannot start a second independent navigation flight')
+assert.equal(hasCoverOrigin(), true, 'mobile navigation consumes the origin, not the mount action')
+assert.equal(takeCoverOrigin().source, sourceImage)
+assert.equal(hasCoverOrigin(), false)
+globalThis.document.documentElement.classList.contains = () => false
+rememberCardOrigin(event)
 const flight = flyCover(target)
 frame()
-assert.equal(hasCoverOrigin(), false, 'the flight consumes its card origin')
+assert.equal(hasCoverOrigin(), false, 'the shared cover flight consumes its card origin')
 assert.equal(target.style.opacity, '0')
-assert.match(calls.at(-1).frames[0].transform, /scale\(0.16, 0.16\)/)
+assert.match(calls.at(-1).frames[0].transform, /translate3d\([^)]*\) scale\(0.16, 0.16\)/)
+assert.equal(calls.length, beforeFlightCalls + 1)
 flight.destroy()
-assert.equal(target.style.opacity, '')
-assert.equal(removed, true, 'navigation cleans up the floating cover')
 reduce = true
 rememberCardOrigin(event)
 assert.equal(hasCoverOrigin(), false, 'reduced motion does not record cover origins')
-console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, reduced motion and shared cover passed')
+console.log('mobile player motion: lyric/status, interruption, layout, responsive morph timing, exact artwork geometry, reduced motion and single-owner shared cover passed')

@@ -1,0 +1,40 @@
+name: PR9 Mobile Render
+on:
+  push:
+    branches: [fix/mobile-ui-polish]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pr9-browser" --no-package-lock playwright@1.56.1
+          "$RUNNER_TEMP/pr9-browser/node_modules/.bin/playwright" install --with-deps chromium
+          echo "PR9_PLAYWRIGHT_MODULE=$RUNNER_TEMP/pr9-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Run mobile rendering
+        run: |
+          pnpm exec vite build --config scripts/browser/vite.config.mjs
+          pnpm exec vite preview --config scripts/browser/vite.config.mjs --host 127.0.0.1 --port 5173 > /tmp/pr9-vite.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:5173/scripts/browser/mobile-render.html > /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/browser/mobile-render.mjs
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: pr9-browser-${{ github.sha }}
+          path: browser-artifacts
+          retention-days: 7

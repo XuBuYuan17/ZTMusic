@@ -1,0 +1,255 @@
+name: PR9 Startup APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/mobile-ui-polish]
+    paths: [.github/workflows/pr9-startup-apk.yml]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: android-apk-${{ github.repository }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22
+  PNPM_VERSION: 10.28.1
+  RUST_TOOLCHAIN: 1.88.0
+  ANDROID_API_LEVEL: '36'
+  ANDROID_BUILD_TOOLS: '36.0.0'
+  ANDROID_NDK_VERSION: '27.2.12479018'
+  ANDROID_CONFIG: '{"productName":"哲听测试版","identifier":"com.zheting.music.androidtest"}'
+  CARGO_NET_RETRY: 10
+  CARGO_HTTP_TIMEOUT: 120
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  PNPM_CONFIG_FETCH_RETRIES: 5
+
+jobs:
+  apk:
+    name: Android arm64 test APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source
+        run: pnpm verify
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android build tools
+        run: |
+          sdkmanager "platforms;android-$ANDROID_API_LEVEL" "build-tools;$ANDROID_BUILD_TOOLS" "ndk;$ANDROID_NDK_VERSION"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android-aarch64-debug
+
+      - name: Reuse test signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-${{ github.repository_id }}-v1
+
+      - name: Initialize Android project
+        run: pnpm tauri android init --ci --skip-targets-install --config "$ANDROID_CONFIG"
+
+      - name: Generate app icons
+        run: pnpm tauri icon src-tauri/icons/icon.png
+
+      - name: Configure system startup
+        run: node scripts/configure-android-startup.mjs
+
+      - name: Build test APK
+        env:
+          VITE_APP_CHANNEL: dev
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: pnpm tauri android build --ci --debug --apk --target aarch64 --config "$ANDROID_CONFIG"
+
+      - name: Test Android native plugin
+        run: |
+          cd src-tauri/gen/android
+          ./gradlew testDebugUnitTest
+
+      - name: Verify APK signature and checksums
+        run: |
+          mapfile -t apks < <(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' | sort)
+          if (( ${#apks[@]} == 0 )); then
+            echo "No APK files were generated" >&2
+            exit 1
+          fi
+          for apk in "${apks[@]}"; do
+            "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --verbose "$apk"
+            sha256sum "$apk"
+          done
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: zheting-android-arm64-debug-${{ github.run_number }}-${{ github.sha }}
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Build emulator APK
+        env:
+          VITE_APP_CHANNEL: dev
+          VITE_BUILD_SHA: ${{ github.sha }}
+        run: |
+          node -e 'const fs=require("fs");const base=JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json","utf8"));fs.writeFileSync("src-tauri/inspection-config.json",JSON.stringify({productName:"哲听测试版",identifier:"com.zheting.music.androidtest",app:{windows:base.app.windows.map(w=>({...w,devtools:true}))}}))'
+          pnpm tauri android build --ci --debug --apk --target x86_64 --config src-tauri/inspection-config.json
+          mkdir -p emulator-apk
+          find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -exec cp {} emulator-apk/ \;
+
+      - name: Upload emulator APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: startup-emulator-apk
+          path: emulator-apk/*.apk
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Build summary
+        run: |
+          {
+            echo 'Android arm64 测试 APK 已生成并通过签名校验。'
+            echo '在本次运行的 Artifacts 下载 APK 压缩包，解压后安装到手机。'
+            echo '包名：com.zheting.music.androidtest；签名：Android debug key。'
+            echo '测试包已编译 Media3 原生播放插件；后台播放、媒体控制和歌词仍需真机验收。'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  startup:
+    name: Startup API ${{ matrix.api }}
+    needs: apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [31, 33, 34, 35, 36]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v5
+        with:
+          name: startup-emulator-apk
+          path: emulator-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install WebView inspection client
+        run: |
+          npm install --prefix "$RUNNER_TEMP/startup-browser" --no-package-lock playwright@1.56.1
+          echo "PR9_PLAYWRIGHT_MODULE=$RUNNER_TEMP/startup-browser/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Verify cold startup offline and saved theme
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb wait-for-device
+            for attempt in 1 2 3; do if adb root; then break; fi; adb wait-for-device; sleep 1; done
+            adb wait-for-device
+            test "$(adb shell id -u)" = 0
+            adb install -r emulator-apk/*.apk
+            node scripts/browser/android-startup.mjs
+      - name: Capture emulator logs
+        if: always()
+        run: |
+          mkdir -p startup-artifacts
+          if [[ ! -s startup-artifacts/logcat.txt ]]; then
+            timeout 10s adb logcat -d > startup-artifacts/logcat.txt || true
+          fi
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: startup-api-${{ matrix.api }}-${{ github.sha }}
+          path: startup-artifacts
+          retention-days: 7
+
+# Keep the frame reporter usable as a Svelte action and guard pre-26 animation APIs.
+
+# Defer native controller startup and skip the redundant WebView queue before the first frame.
+
+# Cover document reloads and native disabled-animation settings with the final startup implementation.
+
+# Report native pixels independently of whether the system supplies a splash overlay.
+
+# Select the fresh cold-start process socket, never a stale previous WebView.
+
+# Wait for the explicit silent-restore signal before examining its native log.
+
+# Cover native theme bootstrap and intent-driven HUD feedback on fresh installations.
+
+# Start playback acceptance with a fresh process after closing the startup inspector.
+
+# Seek explicitly before asserting restored position; queue edits do not seek.
+
+# Handle iconless platform splash, root process reclamation and screen-off session dispatch.
+
+# Dispatch media keys as shell UID: API 31 rejects root's empty calling package.
+
+# Android 12 hardcodes an empty dispatch package; test hardware keys on its locked screen.
+
+# Require secure keyguard showing before accepting lockscreen media-control coverage.
+
+# Read locked playback from system MediaSession and bound WebView IPC diagnostics.
+
+# Wait for native first-frame readiness before bounded DevTools connection.
+
+# Parse both numeric and named Android MediaSession playback-state formats.

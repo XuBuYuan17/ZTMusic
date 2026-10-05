@@ -31,7 +31,13 @@ import org.json.JSONObject
 
 @androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
-    companion object { const val COMMAND = "com.zheting.player.EXECUTE" }
+    companion object {
+        const val COMMAND = "com.zheting.player.EXECUTE"
+        // Main-thread lifecycle flag only; do not keep a destroyed service alive.
+        @Volatile var active: Boolean = false
+            private set
+    }
+    private lateinit var playbackStore: NativePlaybackStore
     private lateinit var player: ExoPlayer
     private lateinit var resolver: StreamResolver
     private lateinit var journal: ListeningJournal
@@ -45,16 +51,23 @@ class PlaybackService : MediaSessionService() {
     private val liveActivity = LiveActivityRouter()
     private val handler = Handler(Looper.getMainLooper())
     private val checkpoint = object : Runnable {
-        override fun run() { checkpointListening(); handler.postDelayed(this, 5000) }
+        override fun run() { checkpointListening(); persistPlayback(); handler.postDelayed(this, 5000) }
     }
 
     override fun onCreate() {
         super.onCreate()
+        PlaybackDiagnostics.mark(this, "PlaybackService.onCreate")
+        playbackStore = NativePlaybackStore(this)
+        revision = playbackStore.silentSnapshot().optLong("revision", 0)
         resolver = StreamResolver(this)
         val source = ResolvingDataSource.Factory(DefaultDataSource.Factory(this,
             DefaultHttpDataSource.Factory().setUserAgent("ZTMusic Android").setAllowCrossProtocolRedirects(false)), resolver)
+        PlaybackDiagnostics.mark(this, "ExoPlayer.build.begin")
         player = ExoPlayer.Builder(this).setMediaSourceFactory(DefaultMediaSourceFactory(source)).build().apply {
+            PlaybackDiagnostics.mark(this@PlaybackService, "ExoPlayer.build.end")
+            PlaybackDiagnostics.mark(this@PlaybackService, "setAudioAttributes.begin handleFocus=true playWhenReady=$playWhenReady state=$playbackState")
             setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
+            PlaybackDiagnostics.mark(this@PlaybackService, "setAudioAttributes.end")
             setHandleAudioBecomingNoisy(true)
         }
         journal = ListeningJournal(this)
@@ -63,10 +76,20 @@ class PlaybackService : MediaSessionService() {
         }
         player.addListener(object : Player.Listener {
             override fun onEvents(player: Player, events: Player.Events) {
+                persistPlayback()
                 checkpointListening()
                 bluetoothLyrics.sync()
                 liveActivity.update(LivePlayerState(player.currentMediaItem?.mediaId.orEmpty(), canonicalTitle(), canonicalArtist(), player.isPlaying, player.currentPosition))
                 overlay?.trackChanged()
+            }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                PlaybackDiagnostics.mark(this@PlaybackService, "playWhenReady=$playWhenReady reason=$reason state=${player.playbackState}")
+            }
+            override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+                PlaybackDiagnostics.mark(this@PlaybackService, "playbackSuppressionReason=$playbackSuppressionReason")
+            }
+            override fun onVolumeChanged(volume: Float) {
+                PlaybackDiagnostics.mark(this@PlaybackService, "playerVolume.changed")
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val id = mediaItem?.mediaId.orEmpty()
@@ -110,7 +133,12 @@ class PlaybackService : MediaSessionService() {
         packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
             builder.setSessionActivity(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         }
+        // Load authoritative native queue metadata without prepare(), play() or audio focus.
+        restorePausedQueue()
+        PlaybackDiagnostics.mark(this, "MediaSession.build.begin")
         session = builder.build()
+        PlaybackDiagnostics.mark(this, "MediaSession.build.end")
+        active = true
         handler.post(checkpoint)
         Log.i("ZTMusic", "[Media3] standard service created api=${android.os.Build.VERSION.SDK_INT}")
     }
@@ -119,10 +147,12 @@ class PlaybackService : MediaSessionService() {
 
     private fun execute(payload: JSONObject): JSONObject {
         val data = payload.optJSONObject("data") ?: JSONObject()
+        PlaybackDiagnostics.mark(this, "service.command=" + payload.optString("action"))
         when (payload.getString("action")) {
             "state" -> {}
             "queue", "start" -> {
                 resolver.configure(data)
+                playbackStore.configure(data)
                 val tracks = data.getJSONArray("tracks")
                 require(tracks.length() <= 5000)
                 require(tracks.toString().toByteArray(Charsets.UTF_8).size <= 192 * 1024)
@@ -132,6 +162,12 @@ class PlaybackService : MediaSessionService() {
                 val same = items.size == player.mediaItemCount && items.indices.all { player.getMediaItemAt(it).mediaId == items[it].mediaId }
                 if (payload.getString("action") == "queue" && same) {
                     // Queue edits must not reset a currently playing source or its position.
+                } else if (payload.getString("action") == "queue"
+                    && items.size > player.mediaItemCount
+                    && selected == player.currentMediaItemIndex
+                    && (0 until player.mediaItemCount).all { player.getMediaItemAt(it).mediaId == items[it].mediaId }) {
+                    // Recommendation refills append without re-preparing the current source.
+                    player.addMediaItems(items.drop(player.mediaItemCount))
                 } else {
                     val requested = data.optDouble("position", 0.0)
                     require(requested.isFinite() && requested >= 0)
@@ -177,7 +213,7 @@ class PlaybackService : MediaSessionService() {
             }
             else -> throw IllegalArgumentException("Unknown playback action")
         }
-        return snapshot()
+        return snapshot().also { playbackStore.save(it) }
     }
 
     private fun applyMode(mode: String) {
@@ -279,7 +315,28 @@ class PlaybackService : MediaSessionService() {
         catch (_: android.database.SQLException) { Log.w("ZTMusic", "[Listening] checkpoint failed; retrying later") }
     }
 
+    private fun persistPlayback() { playbackStore.save(snapshot()) }
+
+    private fun restorePausedQueue() {
+        val saved = playbackStore.silentSnapshot()
+        val tracks = saved.getJSONArray("tracks")
+        if (tracks.length() == 0) return
+        try {
+            resolver.configure(playbackStore.configuration())
+            val items = (0 until tracks.length()).map { mediaItem(tracks.getJSONObject(it)) }
+            player.setMediaItems(items, saved.getInt("index"), saved.getLong("anchorPosition"))
+            applyMode(saved.getString("mode"))
+            player.volume = saved.getDouble("volume").toFloat()
+            PlaybackDiagnostics.mark(this, "native.queue.restored paused=true prepared=false")
+        } catch (_: Exception) {
+            player.clearMediaItems()
+            Log.w("ZTMusic", "[Media3] invalid native checkpoint discarded")
+        }
+    }
+
     override fun onDestroy() {
+        active = false
+        persistPlayback()
         handler.removeCallbacksAndMessages(null)
         checkpointListening(); journal.close()
         bluetoothLyrics.close()

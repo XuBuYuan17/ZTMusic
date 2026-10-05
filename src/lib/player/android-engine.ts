@@ -30,11 +30,13 @@ export class AndroidEngine implements PlayerEngine {
 
   connect(): Promise<void> {
     return this.connecting ??= (async () => {
+      await androidCommand('startupTrace')
       this.listener = await addPluginListener<unknown>('zt-player', 'state', value => { if (!this.destroyed) this.accept(value) })
       if (this.destroyed) { await this.listener.unregister(); return }
       const state = await androidCommand('state')
       if (this.destroyed) { await this.listener?.unregister(); return }
       this.accept(state)
+      performance.mark('ztmusic:android-state-restored')
       this.lastStateReconcileAt = Date.now()
       this.progressTimer = setInterval(() => {
         if (document.hidden) return

@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { tick, untrack, onDestroy } from 'svelte'
-  import { reducedMotion, hasCoverOrigin } from '../app/desktop-motion.ts'
+  import { tick, untrack, onDestroy, onMount } from 'svelte'
+  import { announceAndroidFrame } from '../app/android-startup.ts'
+  onMount(() => { announceAndroidFrame() })
+  import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
   import type { SongId } from '../types/music.ts'
@@ -56,7 +58,7 @@
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const titles: Record<string, string> = {
     home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
-    about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推',
+    about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
     album: '专辑', artist: '歌手', user: '个人主页',
   }
@@ -108,14 +110,15 @@
     const scroller = contentEl
     return untrack(() => {
       if (!scroller || key === previousKey) return
-      navigationMotion.cancel()
       const oldKey = previousKey
-      const oldScroll = scroller.scrollTop
       const oldPage = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === oldKey) ?? null
-      const oldTop = oldPage?.offsetTop ?? 0
+      // Capture viewport geometry before the outgoing page changes positioning or scroll.
+      const oldBox = oldPage?.getBoundingClientRect()
+      const coverSnapshot = navigationMotion.capture(oldPage)
+      navigationMotion.cancel()
       const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
-      const sharedCover = hasCoverOrigin()
-      const coverDetail = activeView === 'playlist' || activeView === 'album' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
+      const sharedCover = Boolean(coverSnapshot.origin)
+      const coverDetail = activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
       leavingKey = oldPage && !reducedMotion() ? oldKey : null
       scroller.dispatchEvent(new Event('mobile-view-change'))
       if (previousKey) scrollPositions.set(previousKey, scroller.scrollTop)
@@ -132,8 +135,12 @@
         scrollTop = position
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
         if (page) observer.observe(page)
-        if (oldPage) oldPage.style.setProperty('--route-outgoing-top', `${oldTop + scroller.scrollTop - oldScroll}px`)
-        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null })
+        if (oldPage && oldBox) {
+          oldPage.style.setProperty('--route-outgoing-top', `${oldBox.top}px`)
+          oldPage.style.setProperty('--route-outgoing-left', `${oldBox.left}px`)
+          oldPage.style.setProperty('--route-outgoing-width', `${oldBox.width}px`)
+        }
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null }, coverSnapshot)
         else leavingKey = null
       })
       scroller.addEventListener('wheel', stop, { passive: true })
@@ -182,9 +189,9 @@
       <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name="arrow-left" size={22} /></button>
     {/if}
     {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
-    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album'}>{titles[activeView] || '哲听'}</h1>{/if}
-    {#if activeView === 'playlist' || activeView === 'album'}
-      <div class="mobile-detail-actions"><button type="button" aria-label="分享歌单" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-share')}><Icon name="share" size={24} /></button><button type="button" aria-label="更多歌单操作" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-more')}><Icon name="more" size={24} /></button></div>
+    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{titles[activeView] || '哲听'}</h1>{/if}
+    {#if activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}
+      <div class="mobile-detail-actions">{#if activeView !== 'recommendation'}<button type="button" aria-label="分享歌单" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-share')}><Icon name="share" size={24} /></button>{/if}<button type="button" aria-label="更多歌单操作" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-more')}><Icon name="more" size={24} /></button></div>
     {/if}
   </header>
 
@@ -193,7 +200,7 @@
       {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
-          <ExplorePage mobile onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
+          <ExplorePage mobile onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
             onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)} onPlaySong={router.playExploreSong as (track: unknown) => void}
             onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} />
@@ -239,8 +246,8 @@
         <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
       {:else if page.view === 'messages'}
         <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
-      {:else if page.view === 'playlist' || page.view === 'album'}
-        <PlaylistPage playlistDetail={page.playlist} loading={page.loading} loadingMore={page.loadingMore}
+      {:else if page.view === 'playlist' || page.view === 'album' || page.view === 'recommendation'}
+        <PlaylistPage recommendation={page.view === 'recommendation'} playlistDetail={page.playlist} loading={page.loading} loadingMore={page.loadingMore}
           hasMore={page.hasMore} error={page.error} selectedId={page.id} heroColor={page.color}
           detailType={page.view === 'album' ? '专辑' : '歌单'} onBack={onBack} onPlayAll={router.playAll} onPlayTrack={router.playTrack}
           onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onLoadMore={() => { if (viewKey === page.key) void router.loadMorePlaylist() }} />
@@ -269,6 +276,6 @@
 
 <style>
   .mobile-route-page { min-height: 100%; }
-  .mobile-route-outgoing { display: block !important; position: absolute; top: var(--route-outgoing-top, 0px); left: max(var(--mobile-content-gutter), env(safe-area-inset-left)); right: max(var(--mobile-content-gutter), env(safe-area-inset-right)); z-index: 1; pointer-events: none; }
+  .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 </style>

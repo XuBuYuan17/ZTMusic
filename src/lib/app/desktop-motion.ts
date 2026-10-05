@@ -93,6 +93,12 @@ function freshOrigin(): CoverOrigin | null {
 
 export function hasCoverOrigin(): boolean { return !!freshOrigin() }
 
+export function takeCoverOrigin(): CoverOrigin | null {
+  const origin = freshOrigin()
+  coverOrigin = null
+  return origin
+}
+
 export function rememberCardOrigin(event: Event) {
   coverOrigin = null
   if (reducedMotion()) return
@@ -112,6 +118,8 @@ export function rememberCardOrigin(event: Event) {
 }
 
 export function flyCover(target: HTMLElement) {
+  // Mobile navigation owns both directions, including already-mounted cached pages.
+  if (document.documentElement.classList.contains('mobile-runtime')) return {}
   const origin = freshOrigin()
   if (!origin) return {}
   target.style.opacity = '0'
@@ -134,15 +142,15 @@ export function flyCover(target: HTMLElement) {
     const to = target.getBoundingClientRect()
     if (!to.width) { finish(); return }
     const from = origin.rect
-    Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', zIndex: '30', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)' })
+    Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', opacity: '1', visibility: 'visible', zIndex: '1100', pointerEvents: 'none', transformOrigin: '0 0', boxShadow: 'var(--shadow-lg)' })
     document.body.append(clone)
     const sx = from.width / to.width, sy = from.height / to.height
     const targetRadius = getComputedStyle(target).borderRadius
     const mobile = document.documentElement.classList.contains('mobile-runtime')
     animation = clone.animate([
-      { transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
-      { transform: 'none', borderRadius: targetRadius },
-    ], { duration: mobile ? 420 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.2,0,0,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
+      { transform: `translate3d(${from.left - to.left}px, ${from.top - to.top}px, 0) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
+      { transform: 'translate3d(0,0,0) scale(1)', borderRadius: targetRadius },
+    ], { duration: mobile ? 520 : motion.panel + 60, easing: mobile ? 'cubic-bezier(.16,1,.3,1)' : 'cubic-bezier(.22,1.18,.36,1)' })
     animation.finished.then(() => {
       // 真封面未解码完时稍等，避免落位瞬间闪空
       const img = target instanceof HTMLImageElement ? target : null
@@ -164,11 +172,16 @@ export function dismissTopDialog(): boolean {
 const mobileIsolation = new Map<HTMLElement, number>()
 const bottomPanels = new Map<HTMLElement, () => void>()
 export function dialogFocus(node: HTMLElement, close: () => void) {
+  const mobile = document.documentElement.classList.contains('mobile-runtime')
+  // The secondary sheet already owns focus/isolation. A nested comment dialog
+  // must not make the sheet's header and close button inert.
+  if (mobile && node.matches('.ly-context-detail--mobile') && node.parentElement?.closest('.am-secondary-sheet')) {
+    return { destroy() {} }
+  }
   const previous = document.activeElement as HTMLElement | null
   const isolated: HTMLElement[] = []
   layers.push(node)
   dialogClosers.set(node, close)
-  const mobile = document.documentElement.classList.contains('mobile-runtime')
   if (mobile) document.documentElement.classList.add('mobile-panel-open')
   if (mobile && node.matches('.queue-panel, .song-menu, .sort-sheet, [data-bottom-panel]')) {
     for (const [panel, dismiss] of bottomPanels) { panel.hidden = true; dismiss() }
@@ -189,7 +202,8 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
         branch = branch.parentElement
       }
     }
-    ;(items()[0] || node).focus({ preventScroll: true })
+    const initialFocus = mobile && node.matches('.ly-context-detail--mobile') ? node : items()[0] || node
+    initialFocus.focus({ preventScroll: true })
   })
   function key(event: KeyboardEvent) {
     if (layers.at(-1) !== node) return

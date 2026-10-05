@@ -237,12 +237,54 @@
     overflow: hidden;
   }
 
+  .am-secondary-context :global(.ly-context-comments) {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
   .am-secondary-context :global(.ly-context-detail-list),
   .am-secondary-context :global(.ly-context-comment-list),
   .am-secondary-context :global(.ly-context-detail-grid) {
     max-height: none;
     height: 100%;
     overflow-y: auto;
+  }
+
+  .am-secondary-context :global(.ly-context-comments .ly-context-comment-list) {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-form) {
+    flex: 0 0 auto;
+    gap: 7px;
+    padding: 10px 16px 2px;
+    border-top: 1px solid rgba(255,255,255,0.065);
+    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  }
+
+  .am-secondary-context :global(.ly-context-comment-input) {
+    min-height: 40px;
+    max-height: 92px;
+    padding: 9px 12px;
+    border-radius: var(--radius-md);
+    background: var(--bg-layer);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-foot) {
+    min-height: 30px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-submit) {
+    min-width: 64px;
+    height: 30px;
   }
 
   .am-secondary-context :global(.ly-context-detail-grid) {
@@ -321,21 +363,28 @@
     text-overflow: ellipsis;
   }
 
+  /* 热评在手机上按“头像 / 用户信息 / 点赞 / 正文”组织，不再让每条评论像四个独立区块一样纵向摊开。 */
   .am-secondary-context :global(.ly-context-comment-list) {
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding: 18px 16px 22px;
-    scroll-padding-top: 18px;
+    padding: 4px 16px 18px;
+    scroll-padding-top: 8px;
   }
 
   .am-secondary-context :global(.ly-context-comment-row) {
+    /* Scroll the list, never shrink rows below their intrinsic content height. */
+    flex: 0 0 auto;
     width: 100%;
-    height: auto;
     min-height: 0;
-    padding: 16px 0 18px;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 14px 0 16px;
+    border: 0;
     border-radius: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid var(--border);
     background: transparent;
   }
 
@@ -343,21 +392,111 @@
     border-bottom: 0;
   }
 
-  .am-secondary-context :global(.ly-context-comment-row strong) {
-    display: block;
-    margin-bottom: 9px;
-    color: rgba(255,255,255,0.9);
-    font-size: 14px;
-    line-height: 1.35;
-    font-weight: 700;
+  .am-secondary-context :global(.ly-context-comment-avatar) {
+    width: 38px;
+    height: 38px;
   }
 
-  .am-secondary-context :global(.ly-context-comment-row p) {
+  .am-secondary-context :global(.ly-context-comment-avatar img),
+  .am-secondary-context :global(.ly-context-comment-avatar span) {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
     margin: 0;
-    color: rgba(255,255,255,0.68);
+    border-radius: 50%;
+    object-fit: cover;
+    overflow: hidden;
+    background: var(--bg-layer);
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-style: normal;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-main) {
+    min-width: 0;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-heading) {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-meta) {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-meta strong) {
+    min-width: 0;
+    margin: 0;
+    color: var(--text);
     font-size: 14px;
-    line-height: 1.7;
+    line-height: 1.3;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-meta small) {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    line-height: 1.3;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-heading em) {
+    flex: 0 0 auto;
+    margin: 1px 0 0;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    line-height: 1.3;
+    font-style: normal;
+    white-space: nowrap;
+  }
+
+  .am-secondary-context :global(.ly-context-comment-main p) {
+    min-width: 0;
+    margin: 7px 0 0;
+    padding: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.55;
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  @media (max-width: 380px) {
+    .am-secondary-context :global(.ly-context-comment-list) { padding-inline: 14px; }
+    .am-secondary-context :global(.ly-context-comment-row) { grid-template-columns: 36px minmax(0, 1fr); gap: 9px; }
+    .am-secondary-context :global(.ly-context-comment-avatar),
+    .am-secondary-context :global(.ly-context-comment-avatar img),
+    .am-secondary-context :global(.ly-context-comment-avatar span) { width: 36px; height: 36px; }
+  }
+
+  .am-secondary-context :global(.ly-context-comment-compose) {
+    flex: 0 0 auto;
+    width: calc(100% - 32px);
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin: 8px 16px 2px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    background: var(--bg-layer);
+  }
+
+  .am-secondary-context :global(.ly-context-comment-cancel) {
+    color: var(--text-secondary);
+    font-size: 13px;
   }
 
   @keyframes queue-slide-up {
