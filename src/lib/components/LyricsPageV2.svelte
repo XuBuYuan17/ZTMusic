@@ -5,8 +5,7 @@
   import AppleMusicPlayer from './AppleMusicPlayer.svelte'
 
   interface LyricsOrigin { x?: number; y?: number; top?: number; right?: number; bottom?: number; left?: number; radius?: number }
-  let { show = false, startupPending = false, origin = null, drag = null, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme }: {
-    startupPending?: boolean
+  let { show = false, origin = null, drag = null, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme }: {
     drag?: MobilePlayerDrag | null
     show?: boolean
     origin?: LyricsOrigin | null
@@ -232,7 +231,7 @@
 </script>
 
 {#if show}
-  <div class="ly-fullscreen mounted entered" aria-busy={startupPending} class:closing={closing && !document.documentElement.classList.contains('mobile-runtime')} bind:this={root} use:enter use:dialogFocus={close} role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1">
+  <div class="ly-fullscreen mounted entered" class:closing={closing && !document.documentElement.classList.contains('mobile-runtime')} bind:this={root} use:enter use:dialogFocus={close} role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1">
     <div class="m-player-backdrop" bind:this={backdrop}></div>
     <div class="ly-container" bind:this={sheet}>
       <AppleMusicPlayer onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
