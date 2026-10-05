@@ -92,6 +92,7 @@ assert.match(activity, /postVisualStateCallback/)
 assert.ok(!/overridePendingTransition|windowEnterAnimation|Thread.sleep|startActivity\(/.test(activity))
 assert.match(activity, /view\.alpha = 0f/)
 assert.match(activity, /scaleX\(0\.97f\)/)
+assert.match(activity, /catch \(_: NullPointerException\) \{ null \}/, 'iconless platform splash must still reveal without crashing')
 assert.match(activity, /320L -/)
 for (const [directory, color] of [['values', '#ffffff'], ['values-night', '#111113']]) {
   const xml = await read('src-tauri/android/res/' + directory + '/zt_startup.xml')

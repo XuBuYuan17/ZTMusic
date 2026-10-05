@@ -108,8 +108,13 @@ class MainActivity : TauriActivity(), ZtStartupHost {
                 revealDocument(animate)
                 provider?.remove()
             } else {
-                provider.iconView.animate().scaleX(0.97f).scaleY(0.97f)
-                    .setDuration(200).setInterpolator(FastOutSlowInInterpolator()).start()
+                // Warm-task launches may supply a platform splash without an icon.
+                // AndroidX's non-null getter throws in that case; fade its overlay
+                // normally and animate the icon only when the platform supplied it.
+                val icon = try { provider.iconView } catch (_: NullPointerException) { null }
+                if (icon == null) Log.i("ZTStartup", "splash-icon absent")
+                icon?.animate()?.scaleX(0.97f)?.scaleY(0.97f)
+                    ?.setDuration(200)?.setInterpolator(FastOutSlowInInterpolator())?.start()
                 provider.view.animate().alpha(0f).setDuration(200)
                     .setInterpolator(FastOutSlowInInterpolator()).withEndAction { provider.remove() }.start()
                 // 200ms exit and 260ms reveal overlap for the final 80ms.

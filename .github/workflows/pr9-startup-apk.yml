@@ -202,8 +202,14 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
-            adb root
             adb wait-for-device
+            for attempt in 1 2 3; do
+              if adb root; then break; fi
+              adb wait-for-device
+              sleep 1
+            done
+            adb wait-for-device
+            test "$(adb shell id -u)" = 0
             adb install -r emulator-apk/*.apk
             node scripts/browser/android-startup.mjs
       - name: Capture emulator logs
@@ -237,3 +243,5 @@ jobs:
 # Start playback acceptance with a fresh process after closing the startup inspector.
 
 # Seek explicitly before asserting restored position; queue edits do not seek.
+
+# Handle iconless platform splash, root process reclamation and screen-off session dispatch.

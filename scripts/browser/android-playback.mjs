@@ -30,8 +30,9 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     else {
       adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')
       const pid = await waitForProcess(() => adb('shell', 'pidof', appId))
-      // Debug app UID can kill itself; unlike force-stop, no stopped-package flag.
-      adb('shell', 'run-as', appId, 'kill', '-9', String(pid))
+      // Root emulator avoids SELinux's runas_app -> untrusted_app sigkill denial;
+      // unlike force-stop, this sets no stopped-package flag.
+      adb('shell', 'kill', '-9', String(pid))
     }
     adb('logcat', '-c')
     adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
@@ -106,11 +107,13 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     await page.locator('.mini-player-play[aria-label="播放"]').click()
     await waitState(page, state => state.playing && state.index === 1, 'play restored queue')
     adb('shell', 'input', 'keyevent', 'KEYCODE_SLEEP')
-    adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_PAUSE')
+    // Dispatch through Android's media-session service while the display is off.
+    // Window input injection can stall without a focused window on API 35+.
+    adb('shell', 'cmd', 'media_session', 'dispatch', 'pause')
     await waitState(page, state => !state.playing, 'lockscreen pause')
-    adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_PLAY')
+    adb('shell', 'cmd', 'media_session', 'dispatch', 'play')
     await waitState(page, state => state.playing, 'lockscreen play')
-    adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_NEXT')
+    adb('shell', 'cmd', 'media_session', 'dispatch', 'next')
     await waitState(page, state => state.index === 0, 'lockscreen next')
     // Google APIs emulator runs adbd as root; dispatch the platform noisy broadcast.
     adb('shell', 'am', 'broadcast', '-a', 'android.media.AUDIO_BECOMING_NOISY', '--receiver-foreground')
