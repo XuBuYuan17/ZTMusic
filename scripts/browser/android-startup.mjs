@@ -9,7 +9,7 @@ const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 await mkdir('startup-artifacts', { recursive: true })
 const results = []
-let browser, device
+let context, device
 try {
   ;[device] = await android.devices()
   assert.ok(device, 'Android emulator is not connected')
@@ -30,7 +30,7 @@ try {
       // Playwright's Android connector uses the supported WebView defaults.
       const webView = await device.webView({ pkg: appId })
       const page = await webView.page()
-      browser = page.context().browser()
+      context = page.context()
       assert.ok(page)
       const errors = []
       page.on('pageerror', error => errors.push(String(error)))
@@ -72,15 +72,15 @@ try {
           systemTheme === 'dark' ? 'light' : 'dark')
         await page.waitForTimeout(500)
       }
-      await browser.close()
-      browser = null
+      await context.close()
+      context = null
     }
   }
   await writeFile('startup-artifacts/metrics.json', JSON.stringify(results, null, 2))
   console.log('ANDROID_STARTUP_METRICS:' + JSON.stringify(results))
 } catch (error) {
   try {
-    const current = browser?.contexts()[0]?.pages()[0]
+    const current = context?.pages()[0]
     if (current) console.log('STARTUP_FAILED_DOCUMENT:' + JSON.stringify(await current.evaluate(() => ({
       url: location.href, title: document.title,
       frame: performance.getEntriesByName('ztmusic:first-shell-frame'),
@@ -97,6 +97,6 @@ try {
   } catch (diagnostic) { console.log('STARTUP_DIAGNOSTIC_ERROR:' + diagnostic) }
   throw error
 } finally {
-  await browser?.close()
+  await context?.close()
   await device?.close()
 }

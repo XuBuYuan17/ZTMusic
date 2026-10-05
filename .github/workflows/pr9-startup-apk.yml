@@ -86,3 +86,5 @@ jobs:
 # Submit the local shell before waiting for WebView pixels, including landscape layouts.
 
 # Inspect the same app code with debug inspection enabled only in the emulator build.
+
+# Close the Android WebView context directly; it does not expose a Browser object.
