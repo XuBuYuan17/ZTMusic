@@ -245,3 +245,5 @@ jobs:
 # Dispatch media keys as shell UID: API 31 rejects root's empty calling package.
 
 # Android 12 hardcodes an empty dispatch package; test hardware keys on its locked screen.
+
+# Require secure keyguard showing before accepting lockscreen media-control coverage.

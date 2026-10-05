@@ -106,6 +106,9 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     page = await coldStart('reclaimed')
     await page.locator('.mini-player-play[aria-label="播放"]').click()
     await waitState(page, state => state.playing && state.index === 1, 'play restored queue')
+    // CI images default to no screen lock. Require an actual secure keyguard,
+    // so background media-key success cannot masquerade as lockscreen coverage.
+    adb('shell', 'locksettings', 'set-pin', '2468')
     adb('shell', 'input', 'keyevent', 'KEYCODE_SLEEP')
     // Dispatch through Android's media-session service while the display is off.
     // Window input injection can stall without a focused window on API 35+.
@@ -117,7 +120,14 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
       adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
       await pause(1000)
     }
-    await writeFile('startup-artifacts/lockscreen-policy.txt', adb('shell', 'dumpsys', 'window', 'policy'))
+    let policy = ''
+    for (let i = 0; i < 30; i++) {
+      policy = adb('shell', 'dumpsys', 'window', 'policy')
+      if (/mIsShowing=true|^\s+showing=true/m.test(policy)) break
+      await pause(200)
+    }
+    await writeFile('startup-artifacts/lockscreen-policy.txt', policy)
+    assert.match(policy, /mIsShowing=true|^\s+showing=true/m, 'media controls must run with keyguard showing')
     const mediaKey = key => sdk <= 31
       ? adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_' + key.toUpperCase())
       : adb('shell', 'su', '2000', 'cmd', 'media_session', 'dispatch', key)
@@ -130,6 +140,7 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     // Google APIs emulator runs adbd as root; dispatch the platform noisy broadcast.
     adb('shell', 'am', 'broadcast', '-a', 'android.media.AUDIO_BECOMING_NOISY', '--receiver-foreground')
     await waitState(page, state => !state.playing, 'audio becoming noisy pauses playback')
+    adb('shell', 'locksettings', 'clear', '--old', '2468')
     adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
     adb('shell', 'wm', 'dismiss-keyguard')
     const log = adb('logcat', '-d', '-s', 'ZTAudioStartup:D', '*:S')
