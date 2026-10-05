@@ -229,18 +229,10 @@
       slide.finished.then(() => onClose?.()).catch(() => {})
     }
   }
-  function playerFocus(node: HTMLElement, pending: boolean) {
-    let focus: ReturnType<typeof dialogFocus> | undefined
-    const update = (value: boolean) => {
-      if (!value && !focus) focus = dialogFocus(node, close)
-    }
-    update(pending)
-    return { update, destroy() { focus?.destroy() } }
-  }
 </script>
 
 {#if show}
-  <div class="ly-fullscreen mounted entered" inert={startupPending} aria-hidden={startupPending} class:closing={closing && !document.documentElement.classList.contains('mobile-runtime')} bind:this={root} use:enter use:playerFocus={startupPending} role="dialog" aria-modal={!startupPending} aria-label="正在播放" tabindex="-1">
+  <div class="ly-fullscreen mounted entered" aria-busy={startupPending} class:closing={closing && !document.documentElement.classList.contains('mobile-runtime')} bind:this={root} use:enter use:dialogFocus={close} role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1">
     <div class="m-player-backdrop" bind:this={backdrop}></div>
     <div class="ly-container" bind:this={sheet}>
       <AppleMusicPlayer onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
