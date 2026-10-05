@@ -109,8 +109,18 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     adb('shell', 'input', 'keyevent', 'KEYCODE_SLEEP')
     // Dispatch through Android's media-session service while the display is off.
     // Window input injection can stall without a focused window on API 35+.
-    // API 31 rejects root's empty package name; shell UID has com.android.shell.
-    const mediaKey = key => adb('shell', 'su', '2000', 'cmd', 'media_session', 'dispatch', key)
+    // Android 12's MediaShellCommand hardcodes an empty package name and fails
+    // even as shell UID. Use hardware media keys on its visible locked screen;
+    // wake without dismissing keyguard so window injection has a focus target.
+    const sdk = Number(adb('shell', 'getprop', 'ro.build.version.sdk'))
+    if (sdk <= 31) {
+      adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
+      await pause(1000)
+    }
+    await writeFile('startup-artifacts/lockscreen-policy.txt', adb('shell', 'dumpsys', 'window', 'policy'))
+    const mediaKey = key => sdk <= 31
+      ? adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_' + key.toUpperCase())
+      : adb('shell', 'su', '2000', 'cmd', 'media_session', 'dispatch', key)
     mediaKey('pause')
     await waitState(page, state => !state.playing, 'lockscreen pause')
     mediaKey('play')
