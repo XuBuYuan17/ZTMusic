@@ -10,8 +10,10 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
 import android.webkit.WebView
+import android.view.ViewTreeObserver
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.splashscreen.SplashScreenViewProvider
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.zheting.player.ZtStartupHost
 
@@ -21,6 +23,8 @@ class MainActivity : TauriActivity(), ZtStartupHost {
     private var webView: WebView? = null
     private var startedAt = 0L
     private var currentTheme = "light"
+    private var splashProvider: SplashScreenViewProvider? = null
+    private var frameCallbackQueued = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         startedAt = SystemClock.uptimeMillis()
@@ -29,31 +33,8 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         // No minimum display time: the local UI/error frame alone releases the system splash.
         splash.setKeepOnScreenCondition { !uiFrameSubmitted }
         splash.setOnExitAnimationListener { provider ->
-            val view = webView
-            if (view == null) {
-                provider.remove()
-            } else {
-                // The mounted shell unlocks drawing first. Keep the SYSTEM overlay opaque until
-                // WebView pixels are ready; waiting for pixels while blocking pre-draw can deadlock.
-                view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
-                    override fun onComplete(requestId: Long) {
-                        if (isDestroyed) { provider.remove(); return }
-                        firstFrameAvailable = true
-                        Log.i("ZTStartup", "first-frame-ready ms=" + (SystemClock.uptimeMillis() - startedAt))
-                        val animate = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
-                        view.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:" + animate + "}}))", null)
-                        if (!animate) {
-                            provider.remove()
-                        } else {
-                            // Animate the actual system icon in place, with no new logo or Activity.
-                            provider.iconView.animate().scaleX(0.92f).scaleY(0.92f)
-                                .setDuration(200).setInterpolator(FastOutSlowInInterpolator()).start()
-                            provider.view.animate().alpha(0f).setDuration(200)
-                                .setInterpolator(FastOutSlowInInterpolator()).withEndAction { provider.remove() }.start()
-                        }
-                    }
-                })
-            }
+            splashProvider = provider
+            if (firstFrameAvailable) removeSplash(provider)
         }
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -86,14 +67,57 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         }
     }
 
+    private fun revealDocument(animate: Boolean) {
+        webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:" + animate + "}}))", null)
+    }
+
+    private fun animationsEnabled() =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+
+    private fun removeSplash(provider: SplashScreenViewProvider) {
+        splashProvider = null
+        if (!animationsEnabled()) {
+            provider.remove()
+        } else {
+            provider.iconView.animate().scaleX(0.92f).scaleY(0.92f)
+                .setDuration(200).setInterpolator(FastOutSlowInInterpolator()).start()
+            provider.view.animate().alpha(0f).setDuration(200)
+                .setInterpolator(FastOutSlowInInterpolator()).withEndAction { provider.remove() }.start()
+        }
+    }
+
     override fun onStartupFrameReady() {
         if (firstFrameAvailable) {
-            // A WebView reload has a new document, but no new system splash.
-            webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:false}}))", null)
+            revealDocument(false)
             return
         }
-        // No minimum hold: allow the first native draw once the local shell is submitted.
+        // Unlock native drawing before waiting for WebView pixels. The frame callback must
+        // also run when Android does not supply a splash (reload / Activity recreation).
         uiFrameSubmitted = true
         window.decorView.invalidate()
+        if (frameCallbackQueued) return
+        val view = webView ?: return
+        frameCallbackQueued = true
+        val listener = object : ViewTreeObserver.OnDrawListener {
+            private var posted = false
+            override fun onDraw() {
+                if (posted) return
+                posted = true
+                view.post {
+                    if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnDrawListener(this)
+                    view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) {
+                            if (isDestroyed) { splashProvider?.remove(); return }
+                            firstFrameAvailable = true
+                            Log.i("ZTStartup", "first-frame-ready ms=" + (SystemClock.uptimeMillis() - startedAt))
+                            revealDocument(animationsEnabled())
+                            splashProvider?.let { removeSplash(it) }
+                        }
+                    })
+                }
+            }
+        }
+        view.viewTreeObserver.addOnDrawListener(listener)
+        view.invalidate()
     }
 }

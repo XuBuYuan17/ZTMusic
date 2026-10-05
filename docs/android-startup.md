@@ -12,7 +12,7 @@ node scripts/configure-android-startup.mjs
 
 ## 交接
 
-竖屏移动首页与横屏/桌面外壳 onMount 只报告本地壳层与 placeholder 已提交。MainActivity 先允许原生窗口绘制，保留系统 Splash 覆盖层；再使用 WebView.postVisualStateCallback 等待这些像素可以绘制，随后释放覆盖层；不等待用户信息、API、图片、缓存查询或动画播放。启动错误面板也会报告可绘制，不会被 Splash 遮住。没有人为最短展示时间。Media3 连接在该交接后才发起，Android 不同步解析网页副本队列；正在播放的后台原生服务不受影响。
+竖屏移动首页与横屏/桌面外壳 onMount 只报告本地壳层与 placeholder 已提交。MainActivity 先允许原生窗口绘制，保留系统 Splash 覆盖层；首个 WebView 绘制后使用 WebView.postVisualStateCallback 等待这些像素可以绘制，随后通知网页并释放覆盖层；即使重载或 Activity 重建没有提供系统 Splash，也会执行首帧交接。不等待用户信息、API、图片、缓存查询或动画播放。启动错误面板也会报告可绘制，不会被 Splash 遮住。没有人为最短展示时间。Media3 连接在该交接后才发起，Android 不同步解析网页副本队列；正在播放的后台原生服务不受影响。
 
 退出时在原系统 Splash 图标上缩小到 0.92，整体 200ms 淡出；同时首页内容以 280ms、12 CSS px 位移淡入，Material FastOutSlowIn 曲线。壁纸在 140ms 后以 500ms 淡入。浏览器与桌面不启用这些启动动画；减少动画设置跳过网页动画，系统关闭动画时直接移除 Splash。
 

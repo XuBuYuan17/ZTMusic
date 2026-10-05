@@ -25,10 +25,12 @@ try {
       if (scenario === 'reduced') adb('shell', 'settings', 'put', 'global', 'animator_duration_scale', '0')
       adb('shell', 'am', 'force-stop', appId)
       adb('logcat', '-c')
+      console.log('STARTUP_SCENARIO:' + systemTheme + '-' + scenario)
       adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
       // Android WebView lacks Chrome's browser-context/download-management APIs.
       // Playwright's Android connector uses the supported WebView defaults.
-      const webView = await device.webView({ pkg: appId })
+      const pid = Number(adb('shell', 'pidof', appId))
+      const webView = await device.webView({ pkg: appId, pid })
       const page = await webView.page()
       context = page.context()
       assert.ok(page)
@@ -64,6 +66,7 @@ try {
       const name = systemTheme + '-' + expectedTheme + '-' + scenario
       await page.screenshot({ path: 'startup-artifacts/' + name + '.png' })
       results.push({ systemTheme, savedTheme, scenario, ...state, nativeLog })
+      console.log('STARTUP_CASE_METRICS:' + JSON.stringify(results.at(-1)))
       if (!savedTheme) {
         // Persist an app preference opposite to the device theme, then cold launch again.
         await page.evaluate(theme => localStorage.setItem('zheting-theme', theme), systemTheme === 'dark' ? 'light' : 'dark')
@@ -71,6 +74,7 @@ try {
         await page.waitForFunction(theme => document.documentElement.dataset.theme === theme && document.querySelector('.mobile-app') && !document.documentElement.classList.contains('android-startup-pending'),
           systemTheme === 'dark' ? 'light' : 'dark')
         await page.waitForTimeout(500)
+        console.log('STARTUP_RELOAD_PASSED:' + systemTheme)
       }
       await context.close()
       context = null
