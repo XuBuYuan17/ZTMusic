@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 
 const { chromium } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
 const appId = 'com.zheting.music.androidtest'
-const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8' }).trim()
+const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8', timeout: 10000 }).trim()
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 await mkdir('startup-artifacts', { recursive: true })
 const results = []
@@ -82,6 +82,21 @@ try {
   }
   await writeFile('startup-artifacts/metrics.json', JSON.stringify(results, null, 2))
   console.log('ANDROID_STARTUP_METRICS:' + JSON.stringify(results))
+} catch (error) {
+  try {
+    const current = browser?.contexts()[0]?.pages()[0]
+    if (current) console.log('STARTUP_FAILED_DOCUMENT:' + JSON.stringify(await current.evaluate(() => ({
+      url: location.href, title: document.title,
+      frame: performance.getEntriesByName('ztmusic:first-shell-frame'),
+      exit: performance.getEntriesByName('ztmusic:system-splash-exit'),
+      html: document.body.innerText.slice(0, 2000),
+      pending: document.documentElement.classList.contains('android-startup-pending'),
+    }))))
+    const nativeLog = adb('logcat', '-d')
+    await writeFile('startup-artifacts/logcat.txt', nativeLog)
+    console.log('STARTUP_NATIVE_FAILURE:' + nativeLog.split('\n').filter(line => /ZTStartup|FATAL EXCEPTION|AndroidRuntime|chromium|client:error/.test(line)).slice(-80).join('\n'))
+  } catch (diagnostic) { console.log('STARTUP_DIAGNOSTIC_ERROR:' + diagnostic) }
+  throw error
 } finally {
   await browser?.close()
 }
