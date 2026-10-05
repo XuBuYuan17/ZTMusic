@@ -24,17 +24,21 @@ try {
       adb('shell', 'am', 'force-stop', appId)
       adb('logcat', '-c')
       adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
-      let pid
+      let pid, connectionError
       for (let attempt = 0; attempt < 75; attempt++) {
         try { pid = adb('shell', 'pidof', appId) }
         catch (error) { if (error.status !== 1) throw error; pid = '' }
         if (pid) {
           adb('forward', 'tcp:9222', 'localabstract:webview_devtools_remote_' + pid.split(' ')[0])
-          try { browser = await chromium.connectOverCDP('http://127.0.0.1:9222'); break } catch {}
+          try { browser = await chromium.connectOverCDP('http://127.0.0.1:9222', { timeout: 1000 }); break } catch (error) { connectionError = String(error) }
         }
         await pause(200)
       }
-      assert.ok(browser, 'Android WebView did not initialize')
+      if (!browser) {
+        console.log('STARTUP_INSPECTION_FAILURE:' + JSON.stringify({ pid, connectionError,
+          sockets: adb('shell', 'cat', '/proc/net/unix').split('\n').filter(line => line.includes('devtools')) }))
+      }
+      assert.ok(browser, 'Android WebView inspection did not initialize')
       const page = browser.contexts()[0].pages()[0]
       assert.ok(page)
       const errors = []
@@ -63,7 +67,10 @@ try {
       assert.equal(state.activities, 1)
       assert.ok(state.firstFrame >= 0 && state.exit >= state.firstFrame)
       assert.equal(errors.length, 0)
-      const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
+      const nativePng = execFileSync('adb', ['exec-out', 'screencap', '-p'], { timeout: 10000, maxBuffer: 8 * 1024 * 1024 })
+    await writeFile('startup-artifacts/failure.png', nativePng)
+    console.log('ANDROID_FAILURE_SCREENSHOT_BASE64:' + nativePng.toString('base64'))
+    const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S')
       assert.match(nativeLog, /first-frame-ready ms=\d+/)
       if (scenario === 'reduced') assert.equal(state.contentAnimations, 0)
       const name = systemTheme + '-' + expectedTheme + '-' + scenario
@@ -93,7 +100,7 @@ try {
       html: document.body.innerText.slice(0, 2000),
       pending: document.documentElement.classList.contains('android-startup-pending'),
     }))))
-    const nativeLog = adb('logcat', '-d')
+    const nativeLog = adb('logcat', '-d', '-s', 'ZTStartup:I', 'AndroidRuntime:E', 'chromium:E', '*:S')
     await writeFile('startup-artifacts/logcat.txt', nativeLog)
     console.log('STARTUP_NATIVE_FAILURE:' + nativeLog.split('\n').filter(line => /ZTStartup|FATAL EXCEPTION|AndroidRuntime|chromium|client:error/.test(line)).slice(-80).join('\n'))
   } catch (diagnostic) { console.log('STARTUP_DIAGNOSTIC_ERROR:' + diagnostic) }

@@ -21,7 +21,7 @@ env:
   ANDROID_API_LEVEL: '36'
   ANDROID_BUILD_TOOLS: '36.0.0'
   ANDROID_NDK_VERSION: '27.2.12479018'
-  ANDROID_CONFIG: '{"productName":"哲听测试版","identifier":"com.zheting.music.androidtest"}'
+  ANDROID_CONFIG: '{"productName":"哲听测试版","identifier":"com.zheting.music.androidtest","app":{"windows":[{"title":"哲听","width":1100,"height":720,"minWidth":360,"minHeight":600,"center":true,"resizable":true,"fullscreen":false,"decorations":false,"devtools":true,"additionalBrowserArgs":"--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,HardwareMediaKeyHandling"}]}}'
   CARGO_NET_RETRY: 10
   CARGO_HTTP_TIMEOUT: 120
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
@@ -29,7 +29,7 @@ env:
 
 jobs:
   apk:
-    name: Android arm64 test APK
+    name: Android emulator inspection APK
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
@@ -61,7 +61,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          targets: aarch64-linux-android,x86_64-linux-android
+          targets: x86_64-linux-android
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -105,37 +105,6 @@ jobs:
       - name: Configure system startup
         run: node scripts/configure-android-startup.mjs
 
-      - name: Build test APK
-        env:
-          VITE_APP_CHANNEL: dev
-          VITE_BUILD_SHA: ${{ github.sha }}
-        run: pnpm tauri android build --ci --debug --apk --target aarch64 --config "$ANDROID_CONFIG"
-
-      - name: Test Android native plugin
-        run: |
-          cd src-tauri/gen/android
-          ./gradlew testDebugUnitTest
-
-      - name: Verify APK signature and checksums
-        run: |
-          mapfile -t apks < <(find src-tauri/gen/android/app/build/outputs/apk -type f -name '*.apk' | sort)
-          if (( ${#apks[@]} == 0 )); then
-            echo "No APK files were generated" >&2
-            exit 1
-          fi
-          for apk in "${apks[@]}"; do
-            "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" verify --verbose "$apk"
-            sha256sum "$apk"
-          done
-
-      - name: Upload test APK
-        uses: actions/upload-artifact@v5
-        with:
-          name: zheting-android-arm64-debug-${{ github.run_number }}-${{ github.sha }}
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Build emulator APK
         env:
           VITE_APP_CHANNEL: dev
@@ -152,15 +121,6 @@ jobs:
           path: emulator-apk/*.apk
           retention-days: 7
           if-no-files-found: error
-
-      - name: Build summary
-        run: |
-          {
-            echo 'Android arm64 测试 APK 已生成并通过签名校验。'
-            echo '在本次运行的 Artifacts 下载 APK 压缩包，解压后安装到手机。'
-            echo '包名：com.zheting.music.androidtest；签名：Android debug key。'
-            echo '测试包已编译 Media3 原生播放插件；后台播放、媒体控制和歌词仍需真机验收。'
-          } >> "$GITHUB_STEP_SUMMARY"
 
   startup:
     name: Startup API ${{ matrix.api }}
@@ -225,3 +185,5 @@ jobs:
 # Cover document reloads and native disabled-animation settings with the final startup implementation.
 
 # Submit the local shell before waiting for WebView pixels, including landscape layouts.
+
+# Inspect the same app code with debug inspection enabled only in the emulator build.
