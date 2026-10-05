@@ -235,3 +235,5 @@ jobs:
 # Cover native theme bootstrap and intent-driven HUD feedback on fresh installations.
 
 # Start playback acceptance with a fresh process after closing the startup inspector.
+
+# Seek explicitly before asserting restored position; queue edits do not seek.

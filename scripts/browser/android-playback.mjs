@@ -88,13 +88,17 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     const tracks = [910001, 910002].map(id => ({ id, name: 'Native startup test ' + id,
       ar: [{ id: 0, name: 'CI' }], al: { id: 0, name: 'Local PCM', picUrl: '' },
       dt: 30000, source: 'local', nativeUri: 'ztmusic://local/' + key }))
-    await command(page, 'queue', { tracks, index: 1, mode: 'list', position: 6000 })
+    await command(page, 'queue', { tracks, index: 1, mode: 'list' })
     // Explicit user playback path after UI-only restoration.
     await page.locator('.mini-player-play[aria-label="播放"]').click()
     await waitState(page, state => state.playing, 'initial playback')
     assert.match(adb('shell', 'dumpsys', 'media_session'), /com\.zheting\.music\.androidtest/)
+    // Queue edits deliberately preserve/reset position according to item identity;
+    // establish a real playback position with seek before testing persistence.
+    await command(page, 'seek', { position: 6000 })
+    await waitState(page, state => state.anchorPosition >= 6000, 'seek before checkpoint')
     await command(page, 'pause')
-    await waitState(page, state => !state.playing, 'pause')
+    await waitState(page, state => !state.playing && state.anchorPosition >= 6000, 'paused checkpoint position')
     await pause(500)
     page = await coldStart('force-stop')
     // Kill a UI-only restored process without ever activating its service.
