@@ -28,8 +28,9 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         // No minimum display time: the local UI/error frame alone releases the system splash.
         splash.setKeepOnScreenCondition { !firstFrameAvailable }
         splash.setOnExitAnimationListener { provider ->
-            webView?.evaluateJavascript("window.dispatchEvent(new Event('ztmusic:android-reveal'))", null)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled()) {
+            val animate = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+            webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:" + animate + "}}))", null)
+            if (!animate) {
                 provider.remove()
             } else {
                 // Animate the actual system icon in place; never create another logo or Activity.

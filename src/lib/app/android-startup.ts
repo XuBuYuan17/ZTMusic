@@ -39,12 +39,12 @@ export function installAndroidStartup(): void {
   if (!android()) return
   const root = document.documentElement
   root.classList.add('android-startup-pending')
-  window.addEventListener('ztmusic:android-reveal', () => {
+  window.addEventListener('ztmusic:android-reveal', (event) => {
     if (revealed) return
     revealed = true
     performance.mark('ztmusic:system-splash-exit')
     root.classList.remove('android-startup-pending')
-    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if ((event as CustomEvent<{ animate?: boolean }>).detail?.animate !== false && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
       // Animate content, never the Activity window or a full-screen scale/position clone.
       for (const node of document.querySelectorAll<HTMLElement>('.mobile-page-bar, .mobile-page-content__inner, .mobile-tab-bar, .mobile-mini-player')) {
         node.animate([{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],

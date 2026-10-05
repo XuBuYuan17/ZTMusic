@@ -122,6 +122,7 @@
     const nextTheme = normalizeTheme(value)
     const dark = nextTheme === 'dark'
     syncAndroidTheme(nextTheme)
+    if (isMobileRuntime()) document.body.style.backgroundColor = dark ? '#111113' : '#ffffff'
     document.documentElement.setAttribute('data-theme', nextTheme)
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isMobileRuntime() ? (dark ? '#111113' : '#ffffff') : (dark ? '#0a0a0a' : '#e8e8ed'))
@@ -151,7 +152,14 @@
   })
 
   // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
-  $effect(() => { untrack(() => player.restore()) })
+  $effect(() => {
+    const restore = () => untrack(() => player.restore())
+    if (isTauriRuntime() && /Android/i.test(runtimePlatform())) {
+      window.addEventListener('ztmusic:android-reveal', restore, { once: true })
+      return () => window.removeEventListener('ztmusic:android-reveal', restore)
+    }
+    restore()
+  })
 
   $effect(() => {
     // 原生下一首的状态回传也经过这里，补歌不依赖发现页是否仍在显示。

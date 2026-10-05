@@ -12,7 +12,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.util.Base64
-import android.webkit.WebView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -33,7 +32,6 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
         override fun onEvents(player: Player, events: Player.Events) { publish() }
     }
 
-    override fun load(webView: WebView) { connect() }
     private fun connect(): ListenableFuture<MediaController> {
         return future ?: MediaController.Builder(activity, SessionToken(activity, ComponentName(activity, PlaybackService::class.java)))
             .buildAsync().also { pending ->

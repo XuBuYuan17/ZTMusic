@@ -34,8 +34,8 @@ for (const native of [false, true]) {
     assert.equal(calls.length, native ? 1 : 0, 'one local frame notification; browsers never invoke Android')
     if (!native) { assert.equal(handlers.size, 0); continue }
     assert.ok(classes.has('android-startup-pending'))
-    handlers.get('ztmusic:android-reveal')()
-    handlers.get('ztmusic:android-reveal')()
+    handlers.get('ztmusic:android-reveal')({ detail: { animate: !reduced } })
+    handlers.get('ztmusic:android-reveal')({ detail: { animate: !reduced } })
     assert.ok(!classes.has('android-startup-pending'))
     assert.equal(animations.length, reduced ? 0 : 2, 'single overlapping content and ambient reveal')
     if (!reduced) {
