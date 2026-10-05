@@ -28,15 +28,15 @@ import './styles/mobile/action-panels.css'
 import './styles/mobile/interaction-polish.css'
 import './styles/mobile/library-appearance.css'
 import { isMobileDevice } from './lib/utils/responsive.ts'
-import { installAndroidStartup, prepareAndroidStartup } from './lib/app/android-startup.ts'
+import { announceAndroidFrame, prepareAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
 import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
-installAndroidStartup()
 installNativeShell()
 installMobileResumeGuard()
 installPlaylistDiscMotion()
+prepareAndroidStartup()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -107,12 +107,15 @@ document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 
 ;(async () => {
   try {
-    await prepareAndroidStartup()
+    const mobile = isMobileDevice()
     const [{ mount }, { default: App }] = await Promise.all([
       import('svelte'),
       import('./App.svelte'),
     ])
     mount(App, { target: document.getElementById('app') })
+    // MobileApp reports when its lazy mobile shell is mounted. Desktop/landscape layouts
+    // have no MobileApp, so release Android's static launch surface immediately here.
+    if (!mobile) announceAndroidFrame()
     window.dispatchEvent(new Event('ztmusic:startup-ready'))
   } catch (e) {
     console.error('[哲听] 初始加载错误:', e)

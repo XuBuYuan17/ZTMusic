@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync, tick, untrack, onMount } from 'svelte'
+  import { flushSync, tick, untrack } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { getStartupTrack } from './lib/app/startup-track.ts'
@@ -39,7 +39,6 @@
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import PlayerMorph from './lib/components/PlayerMorph.svelte'
-  import StartupSplash from './lib/components/StartupSplash.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
@@ -68,6 +67,7 @@
   // 同步打标（不能等 $effect，否则首帧内容会顶到标题栏下）；供 fixed overlay 避让
   if (hasCustomTitlebar) document.documentElement.classList.add('desktop-titlebar')
   const loadMobileApp = lazyModule(() => import('./lib/components/MobileApp.svelte'))
+  if (isMobileRuntime()) void loadMobileApp()
 
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
@@ -81,14 +81,6 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
-  let startupActive = $state(isMobileRuntime())
-  let startupShellReady = $state(false)
-  $effect(() => {
-    if (!isMobile && startupActive) {
-      startupActive = false
-    }
-  })
-  onMount(() => { if (!isMobile) announceAndroidFrame() })
   let mobileDialogOpen = $state(false)
   $effect(() => {
     if (!isMobile) return
@@ -177,16 +169,8 @@
     checkLoginStatus: () => auth.checkLoginStatus(),
   })
 
-  // 一次性初始化：用 untrack 隔离，避免 restore() 内部读到任何 rune state 而反复触发
-  $effect(() => {
-    const restore = () => untrack(() => player.restore())
-    if (isTauriRuntime() && /Android/i.test(runtimePlatform())) {
-      if (performance.getEntriesByName('ztmusic:system-splash-exit').length) { restore(); return }
-      window.addEventListener('ztmusic:android-reveal', restore, { once: true })
-      return () => window.removeEventListener('ztmusic:android-reveal', restore)
-    }
-    restore()
-  })
+  // 播放状态恢复与首屏渲染并行，不再等待任何开屏/reveal 事件。
+  $effect(() => { untrack(() => player.restore()) })
 
   $effect(() => {
     // 原生下一首的状态回传也经过这里，补歌不依赖发现页是否仍在显示。
@@ -375,7 +359,7 @@
   <WindowTitleBar />
 {/if}
 
-<main class="app-shell" inert={isMobile && (startupActive || showSheet || showQueuePanel || showLogin || showFollowDialog)} use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
+<main class="app-shell" inert={isMobile && (showSheet || showQueuePanel || showLogin || showFollowDialog)} use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
     activeView={router.activeView}
@@ -399,7 +383,6 @@
     {#if isMobile}
       {#await loadMobileApp() then module}
         <module.default
-          onReady={() => startupShellReady = true}
           activeView={router.activeView}
           {theme}
           onNavigate={router.handleNav}
@@ -436,19 +419,16 @@
 </main>
 
 {#if !isMobile || player.id || getStartupTrack(player)}
-  <div class="player-bar-wrap" inert={isMobile && startupActive} class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
+  <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
     {#if isMobile}
-      <MobileMiniPlayer startupPending={startupActive} onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
+      <MobileMiniPlayer onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
     {:else}
       <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
     {/if}
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} startupPending={startupActive} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
-{#if isMobile && startupActive}
-  <StartupSplash ready={startupShellReady} failed={!!player.error} coverSource={player.cover || getStartupTrack(player)?.picUrl || ''} onFinish={() => startupActive = false} />
-{/if}
+<LyricsPageV2 show={showSheet} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}
@@ -458,7 +438,7 @@
     toggleLocalQueue={toggleQueue}
   />
 {/if}
-<LoginOverlay showLogin={showLogin && !startupActive} onClose={() => showLogin = false} />
+<LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
 <Toast />

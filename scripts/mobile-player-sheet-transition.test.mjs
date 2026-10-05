@@ -8,15 +8,12 @@ const [app, mini, sheet] = await Promise.all([
   read('src/lib/components/LyricsPageV2.svelte'),
 ])
 
-// Startup may own the shell while its splash is visible, but once the mini player can
-// receive input it must not gate the normal player-sheet enter lifecycle.
-assert.match(app, /player-bar-wrap" inert=\{isMobile && startupActive\}/, 'startup keeps the mini player non-interactive until handoff completes')
-assert.match(app, /<LyricsPageV2 show=\{showSheet\} startupPending=\{startupActive\}/, 'the startup state remains observable by the player sheet')
-assert.match(sheet, /aria-busy=\{startupPending\}/, 'startup state is metadata only after the sheet mounts')
+// The branded startup overlay is gone; normal player interactions must no longer carry
+// startup-only gating or metadata.
+assert.doesNotMatch(app, /StartupSplash|startupActive|startupShellReady|startupPending/, 'app shell must not depend on branded splash state')
+assert.doesNotMatch(mini, /startupPending|data-startup-cover/, 'mini player must not carry splash handoff state')
+assert.doesNotMatch(sheet, /startupPending|playerFocus/, 'fullscreen player must use its normal enter/focus lifecycle only')
 assert.match(sheet, /use:enter use:dialogFocus=\{close\}/, 'player sheet enter motion and focus lifecycle mount together')
-assert.doesNotMatch(sheet, /inert=\{startupPending\}/, 'startup must not inert an opening player sheet')
-assert.doesNotMatch(sheet, /aria-hidden=\{startupPending\}/, 'startup must not hide an opening player sheet from the normal lifecycle')
-assert.doesNotMatch(sheet, /use:playerFocus/, 'startup-specific focus gating must not replace the normal dialog action')
 
 // Lock the continuous mini-player -> fullscreen choreography instead of merely checking
 // that the fullscreen player eventually appears.
@@ -30,4 +27,4 @@ assert.match(sheet, /animate\(element, \[\{ opacity: 0, transform: `translateY\(
 assert.match(mini, /onOpenSheet\(artwork!\)/, 'tap opens the sheet from the real mini-player artwork')
 assert.match(mini, /onOpenSheet\(artwork!, gesture\)/, 'upward drag hands the live gesture to the sheet motion')
 
-console.log('mobile player sheet transition: startup isolation and continuous mini-player morph are guarded')
+console.log('mobile player sheet transition: splash-free shell and continuous mini-player morph are guarded')

@@ -7,8 +7,7 @@
   import { coverUrl, progressiveCover } from '../utils/image.ts'
   import Icon from './ui/Icon.svelte'
 
-  let { onOpenSheet, onToggleQueue, showQueuePanel = false, startupPending = false }: {
-    startupPending?: boolean
+  let { onOpenSheet, onToggleQueue, showQueuePanel = false }: {
     onOpenSheet: (origin: Element, drag?: MobilePlayerDrag) => void
     onToggleQueue: () => void
     showQueuePanel?: boolean
@@ -113,8 +112,8 @@
   <button class="mini-player-open" class:dragging={draggingTrack} class:switching={switchingTrack} style={`--mini-track-x:${swipeX}px`} type="button" aria-label={`打开播放器：${title}`} disabled={!player.id && !initialTrack}
     onclick={open} onpointerdown={down} onpointermove={move} onpointerup={finish} onpointercancel={finish}>
     {#key player.id}
-      <span class="mini-player-track" in:fly={{ x: trackDirection * 22, duration: startupPending || matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190 }}>
-        <span class="mini-player-artwork lcd-artwork" data-startup-cover bind:this={artwork}>
+      <span class="mini-player-track" in:fly={{ x: trackDirection * 22, duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190 }}>
+        <span class="mini-player-artwork lcd-artwork" bind:this={artwork}>
           {#if cover && !coverFailed}<img class="lcd-artwork__img" use:progressiveCover={{ source: coverSource, size: 88 }} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
           {:else}<Icon name="music" size={22} />{/if}
         </span>
