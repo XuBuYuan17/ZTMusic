@@ -16,6 +16,7 @@ import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.zheting.player.ZtStartupHost
 
 class MainActivity : TauriActivity(), ZtStartupHost {
+    private var uiFrameSubmitted = false
     private var firstFrameAvailable = false
     private var webView: WebView? = null
     private var startedAt = 0L
@@ -26,18 +27,32 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         currentTheme = if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
         val splash = installSplashScreen()
         // No minimum display time: the local UI/error frame alone releases the system splash.
-        splash.setKeepOnScreenCondition { !firstFrameAvailable }
+        splash.setKeepOnScreenCondition { !uiFrameSubmitted }
         splash.setOnExitAnimationListener { provider ->
-            val animate = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
-            webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:" + animate + "}}))", null)
-            if (!animate) {
+            val view = webView
+            if (view == null) {
                 provider.remove()
             } else {
-                // Animate the actual system icon in place; never create another logo or Activity.
-                provider.iconView.animate().scaleX(0.92f).scaleY(0.92f)
-                    .setDuration(200).setInterpolator(FastOutSlowInInterpolator()).start()
-                provider.view.animate().alpha(0f).setDuration(200)
-                    .setInterpolator(FastOutSlowInInterpolator()).withEndAction { provider.remove() }.start()
+                // The mounted shell unlocks drawing first. Keep the SYSTEM overlay opaque until
+                // WebView pixels are ready; waiting for pixels while blocking pre-draw can deadlock.
+                view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) {
+                        if (isDestroyed) { provider.remove(); return }
+                        firstFrameAvailable = true
+                        Log.i("ZTStartup", "first-frame-ready ms=" + (SystemClock.uptimeMillis() - startedAt))
+                        val animate = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+                        view.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:" + animate + "}}))", null)
+                        if (!animate) {
+                            provider.remove()
+                        } else {
+                            // Animate the actual system icon in place, with no new logo or Activity.
+                            provider.iconView.animate().scaleX(0.92f).scaleY(0.92f)
+                                .setDuration(200).setInterpolator(FastOutSlowInInterpolator()).start()
+                            provider.view.animate().alpha(0f).setDuration(200)
+                                .setInterpolator(FastOutSlowInInterpolator()).withEndAction { provider.remove() }.start()
+                        }
+                    }
+                })
             }
         }
         enableEdgeToEdge()
@@ -77,15 +92,8 @@ class MainActivity : TauriActivity(), ZtStartupHost {
             webView?.evaluateJavascript("window.dispatchEvent(new CustomEvent('ztmusic:android-reveal', {detail:{animate:false}}))", null)
             return
         }
-        val view = webView ?: return
-        // Wait for submitted WebView pixels, not network data, image decode or animation completion.
-        view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
-            override fun onComplete(requestId: Long) {
-                if (isDestroyed || firstFrameAvailable) return
-                firstFrameAvailable = true
-                Log.i("ZTStartup", "first-frame-ready ms=" + (SystemClock.uptimeMillis() - startedAt))
-                window.decorView.invalidate()
-            }
-        })
+        // No minimum hold: allow the first native draw once the local shell is submitted.
+        uiFrameSubmitted = true
+        window.decorView.invalidate()
     }
 }

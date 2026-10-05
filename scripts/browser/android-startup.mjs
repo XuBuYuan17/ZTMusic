@@ -26,7 +26,8 @@ try {
       adb('shell', 'monkey', '-p', appId, '-c', 'android.intent.category.LAUNCHER', '1')
       let pid
       for (let attempt = 0; attempt < 75; attempt++) {
-        pid = adb('shell', 'pidof', appId)
+        try { pid = adb('shell', 'pidof', appId) }
+        catch (error) { if (error.status !== 1) throw error; pid = '' }
         if (pid) {
           adb('forward', 'tcp:9222', 'localabstract:webview_devtools_remote_' + pid.split(' ')[0])
           try { browser = await chromium.connectOverCDP('http://127.0.0.1:9222'); break } catch {}

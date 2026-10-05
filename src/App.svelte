@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync, tick, untrack } from 'svelte'
+  import { flushSync, tick, untrack, onMount } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
@@ -77,6 +77,7 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  onMount(() => { if (!isMobile) announceAndroidFrame() })
   let mobileDialogOpen = $state(false)
   $effect(() => {
     if (!isMobile) return
