@@ -106,6 +106,7 @@ export async function reviewDiscovery(page, capture, metrics) {
   await page.locator(active + ' .track-table tbody tr[role="button"]').first().click()
   await page.waitForFunction(() => window.mobileFixture.snapshot().kind === 'roaming' && !window.mobileFixture.snapshot().busy)
   assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().queue.length), 6)
+  assert.equal(await page.locator(active + ' .track-table tbody tr[role="button"]').count(), 6, 'refills must appear in the playlist as well as the queue')
   await back('roaming')
   await page.evaluate(() => window.mobileFixture.navigate('library'))
   await page.evaluate(() => { window.mobileFixture.advance(); window.mobileFixture.advance(); window.mobileFixture.advance() })

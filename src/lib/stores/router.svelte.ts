@@ -135,7 +135,7 @@ let _artistError = $state('')
 
 let recommendationOwner: unknown = null
 let recommendationNext: ((id: SongId) => Promise<CompactTrack[]>) | null = null
-const recommendationCache = new Map<DiscoveryPlaylistKey, { owner: unknown; at: number; detail: PlaylistDetail; next: typeof recommendationNext }>()
+const recommendationCache = new Map<DiscoveryPlaylistKey, { owner: unknown; at: number; detail: PlaylistDetail; next: ((id: SongId) => Promise<CompactTrack[]>) | null }>()
 
 let _detailRequestId = 0
 let _artistRequestId = 0
@@ -320,7 +320,7 @@ async function goRecommendation(key: DiscoveryPlaylistKey, shouldPushRoute = tru
   _playlistDetailLoading = true
   const cached = recommendationCache.get(key)
   if (cached?.owner === owner && Date.now() - cached.at < 5 * 60 * 1000) {
-    _playlistDetail = cached.detail; recommendationNext = cached.next; _playlistDetailLoading = false
+    _playlistDetail = cached.detail; recommendationNext = cached.next; _playlistDetailLoading = false; syncRecommendationAccount()
     return
   }
   try {
@@ -354,7 +354,19 @@ async function goRecommendation(key: DiscoveryPlaylistKey, shouldPushRoute = tru
 }
 
 function syncRecommendationAccount(): void {
-  if (_activeView !== 'recommendation' || recommendationOwner === auth.user && auth.isLoggedIn && auth.cookieOk) return
+  if (_activeView !== 'recommendation') return
+  if (recommendationOwner === auth.user && auth.isLoggedIn && auth.cookieOk) {
+    const entry = discoveryPlaylists.find(item => item.routeId === _selectedId)
+    if (_playlistDetail && entry?.key === discoveryPlayback.kind) {
+      const seen = new Set(_playlistDetail.tracks.map(track => String(track.id)))
+      const fresh = player.queue.filter(track => !seen.has(String(track.id)))
+      if (fresh.length) {
+        _playlistDetail = { ..._playlistDetail, tracks: [..._playlistDetail.tracks, ...fresh], trackCount: _playlistDetail.tracks.length + fresh.length }
+        recommendationCache.set(entry.key, { owner: recommendationOwner, at: Date.now(), detail: _playlistDetail, next: recommendationNext })
+      }
+    }
+    return
+  }
   _detailRequestId++
   _playlistDetail = null
   _playlistDetailLoading = false
