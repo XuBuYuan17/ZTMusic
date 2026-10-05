@@ -14,8 +14,30 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
     await page.waitForFunction(() => performance.getEntriesByName('ztmusic:android-state-restored').length > 0, null, { timeout: 20000 })
     return page
   }
-  const command = (page, action, data = {}) => page.evaluate(({ action, data }) =>
-    window.__TAURI_INTERNALS__.invoke('plugin:zt-player|execute', { payload: { action, data } }), { action, data })
+  const command = async (page, action, data = {}) => {
+    let timer
+    try {
+      return await Promise.race([
+        page.evaluate(({ action, data }) => window.__TAURI_INTERNALS__.invoke('plugin:zt-player|execute',
+          { payload: { action, data } }), { action, data }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Native IPC timeout: ' + action)), 20000) }),
+      ])
+    } finally { clearTimeout(timer) }
+  }
+  const waitMediaSession = async (check, label) => {
+    for (let i = 0; i < 60; i++) {
+      const dump = adb('shell', 'dumpsys', 'media_session')
+      const session = dump.split('package=' + appId)[1] || ''
+      const state = Number(session.match(/state=PlaybackState \{state=(\d+)/)?.[1])
+      const index = Number(session.match(/active item id=(\d+)/)?.[1])
+      if (check({ state, index, session })) {
+        await writeFile('startup-artifacts/locked-' + label + '-media-session.txt', dump)
+        return
+      }
+      await pause(150)
+    }
+    throw new Error('System MediaSession timeout: ' + label)
+  }
   const waitState = async (page, check, label) => {
     for (let i = 0; i < 80; i++) {
       const state = await command(page, 'state')
@@ -132,14 +154,14 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
       ? adb('shell', 'input', 'keyevent', 'KEYCODE_MEDIA_' + key.toUpperCase())
       : adb('shell', 'su', '2000', 'cmd', 'media_session', 'dispatch', key)
     mediaKey('pause')
-    await waitState(page, state => !state.playing, 'lockscreen pause')
+    await waitMediaSession(s => s.state === 2, 'pause')
     mediaKey('play')
-    await waitState(page, state => state.playing, 'lockscreen play')
+    await waitMediaSession(s => s.state === 3, 'play')
     mediaKey('next')
-    await waitState(page, state => state.index === 0, 'lockscreen next')
+    await waitMediaSession(s => s.index === 0 && s.session.includes('description=Native startup test 910001'), 'next')
     // Google APIs emulator runs adbd as root; dispatch the platform noisy broadcast.
     adb('shell', 'am', 'broadcast', '-a', 'android.media.AUDIO_BECOMING_NOISY', '--receiver-foreground')
-    await waitState(page, state => !state.playing, 'audio becoming noisy pauses playback')
+    await waitMediaSession(s => s.state === 2, 'noisy-pause')
     adb('shell', 'locksettings', 'clear', '--old', '2468')
     adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
     adb('shell', 'wm', 'dismiss-keyguard')

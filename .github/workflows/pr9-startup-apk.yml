@@ -247,3 +247,5 @@ jobs:
 # Android 12 hardcodes an empty dispatch package; test hardware keys on its locked screen.
 
 # Require secure keyguard showing before accepting lockscreen media-control coverage.
+
+# Read locked playback from system MediaSession and bound WebView IPC diagnostics.
