@@ -3,6 +3,14 @@ import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { waitForProcess, connectReadyWebView } from './android-process.mjs'
 
+export function parseNativeMediaSession(dump, appId) {
+  const session = dump.split('package=' + appId)[1] || ''
+  // Android 12 prints 2; newer releases print PAUSED(2), PLAYING(3), etc.
+  const state = Number(session.match(/state=PlaybackState \{state=(?:[A-Z_]+\()?([0-9]+)/)?.[1])
+  const index = Number(session.match(/active item id=(\d+)/)?.[1])
+  return { state, index, session }
+}
+
 export async function verifyNativePlayback({ device, appId, adb, pause }) {
   let context
   const attach = async () => {
@@ -26,10 +34,7 @@ export async function verifyNativePlayback({ device, appId, adb, pause }) {
   const waitMediaSession = async (check, label) => {
     for (let i = 0; i < 60; i++) {
       const dump = adb('shell', 'dumpsys', 'media_session')
-      const session = dump.split('package=' + appId)[1] || ''
-      const state = Number(session.match(/state=PlaybackState \{state=(\d+)/)?.[1])
-      const index = Number(session.match(/active item id=(\d+)/)?.[1])
-      if (check({ state, index, session })) {
+      if (check(parseNativeMediaSession(dump, appId))) {
         await writeFile('startup-artifacts/locked-' + label + '-media-session.txt', dump)
         return
       }
