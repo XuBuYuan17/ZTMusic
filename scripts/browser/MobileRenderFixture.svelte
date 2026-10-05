@@ -14,7 +14,7 @@
   $effect(() => {
     auth.user; auth.isLoggedIn; auth.cookieOk
     player.queueRevision; player.queueIndex; player.id; player.mode
-    untrack(() => discoveryPlayback.update())
+    untrack(() => { discoveryPlayback.update(); router.syncRecommendationAccount() })
   })
   onMount(() => {
     installPlaylistDiscMotion()

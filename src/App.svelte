@@ -155,7 +155,7 @@
     // 原生下一首的状态回传也经过这里，补歌不依赖发现页是否仍在显示。
     auth.user; auth.isLoggedIn; auth.cookieOk
     player.queueRevision; player.queueIndex; player.id; player.mode
-    untrack(() => discoveryPlayback.update())
+    untrack(() => { discoveryPlayback.update(); router.syncRecommendationAccount() })
   })
 
   // 页面进入后台或窗口关闭前同步落盘，补上定时保存之间的最后一段进度与队列变化。

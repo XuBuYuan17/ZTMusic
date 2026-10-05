@@ -43,8 +43,8 @@
   import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts'
   import { fade } from 'svelte/transition'
 
-  let { title, cover = '', actions, onPlay, onClose, onClosed, show = true, label = '歌单管理' }: {
-    show?: boolean; title: string; cover?: string; actions: PlaylistAction[]; onPlay?: () => void; onClose: () => void; onClosed?: () => void; label?: string
+  let { title, cover = '', coverIsBundled = false, actions, onPlay, onClose, onClosed, show = true, label = '歌单管理' }: {
+    show?: boolean; title: string; cover?: string; coverIsBundled?: boolean; actions: PlaylistAction[]; onPlay?: () => void; onClose: () => void; onClosed?: () => void; label?: string
   } = $props()
   let coverFailed = $state(false)
   $effect(() => { cover; coverFailed = false })
@@ -70,7 +70,7 @@
     <button class="m-sheet-handle" type="button" aria-label={`关闭${label}`} onclick={onClose} use:mobileDrag={{ close: onClose, panel: true }}></button>
     <header class="library-options-header">
       <button class="library-options-cover" type="button" aria-label={`播放歌单 ${title}`} onclick={onPlay} disabled={!onPlay}>
-        {#if cover && !coverFailed}<img src={coverUrl(cover, 240)} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />{:else}<Icon name="music" size={32} />{/if}
+        {#if cover && !coverFailed}<img src={coverIsBundled ? cover : coverUrl(cover, 240)} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />{:else}<Icon name="music" size={32} />{/if}
         {#if onPlay}<span class="playlist-sheet-play"><Icon name="play" size={28} /></span>{/if}
       </button>
       <h2>{title}</h2>

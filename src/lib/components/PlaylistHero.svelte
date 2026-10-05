@@ -26,6 +26,8 @@
     loadingMore = false,
     heroColor = '#141414',
     detailType = '歌单',
+    shareable = true,
+    coverIsBundled = false,
     totalCount = 0,
     visibleCount = 0,
     totalDuration = 0,
@@ -41,6 +43,8 @@
     loadingMore?: boolean
     heroColor?: string
     detailType?: string
+    shareable?: boolean
+    coverIsBundled?: boolean
     totalCount?: number
     visibleCount?: number
     totalDuration?: number
@@ -53,6 +57,18 @@
   } = $props()
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
+  // 固定推荐封面来自打包资源；API 图片仍使用原来的 URL 校验和渐进加载。
+  const resolvedCover = (size: number) => coverIsBundled ? cover : coverUrl(cover, size)
+  function loadCover(node: HTMLImageElement, options: { source: string; size: number; bundled: boolean }) {
+    let action: ReturnType<typeof progressiveCover> | null = null
+    function apply(next: typeof options) {
+      action?.destroy(); action = null
+      if (next.bundled) node.src = next.source
+      else action = progressiveCover(node, next)
+    }
+    apply(options)
+    return { update: apply, destroy() { action?.destroy() } }
+  }
   const creator = $derived(rec(detail?.creator))
   const playlistTrackIds = $derived((detail?.trackIds?.length ? detail.trackIds : detail?.tracks || []).map(trackIdOf).filter((id): id is SongId => id !== null))
   const containsCurrentTrack = $derived(player.id != null && player.id !== 0 && playlistTrackIds.some(id => String(id) === String(player.id)))
@@ -67,7 +83,7 @@
     else onPlayAll?.()
   }
   function heroActions(node: HTMLElement) {
-    const share = () => { if (!node.closest('[inert]') && detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }
+    const share = () => { if (!node.closest('[inert]') && shareable && detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }
     const more = () => { if (!node.closest('[inert]')) { menuClosing = false; showMenu = true } }
     node.addEventListener('playlist-share', share); node.addEventListener('playlist-more', more)
     return { destroy() { node.removeEventListener('playlist-share', share); node.removeEventListener('playlist-more', more) } }
@@ -77,7 +93,7 @@
     ...(onShuffle ? [{ label: '随机播放', icon: 'shuffle-lg', disabled: !visibleCount, onSelect: () => closeMenu(onShuffle) }] : []),
     ...(onQueue ? [{ label: '加入播放队列', icon: 'add', disabled: !visibleCount, onSelect: () => closeMenu(onQueue) }] : []),
     ...(onNext ? [{ label: '下一首插播', icon: 'queue', disabled: !visibleCount, onSelect: () => closeMenu(onNext) }] : []),
-    { label: `分享${detailType}`, icon: 'share', disabled: detail?.id == null, onSelect: () => closeMenu(() => { if (detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }) },
+    ...(shareable ? [{ label: `分享${detailType}`, icon: 'share', disabled: detail?.id == null, onSelect: () => closeMenu(() => { if (detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }) }] : []),
     ...(onTools ? [{ label: '搜索与排序', icon: 'search', onSelect: () => closeMenu(onTools) }] : []),
     ...(detail?.description ? [{ label: `${detailType}简介`, icon: 'info', onSelect: () => closeMenu(() => descriptionExpanded = true) }] : []),
   ])
@@ -122,14 +138,14 @@
   </div>
 {:else}
   <div class="playlist-detail-hero" class:is-syncing={loading} use:heroActions style={`--playlist-hero-color:${heroColor}`}>
-    {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${coverUrl(cover, 320)}")`} aria-hidden="true"></div>{/if}
+    {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover(320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
     {#if cover && $responsive.isMobile}
       <button class="playlist-cover-open" type="button" aria-label={`查看${detail.name}的封面`} aria-haspopup="dialog" aria-expanded={previewOpen} onclick={event => { event.currentTarget.focus({ preventScroll: true }); previewOpen = true }}>
-        {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" use:progressiveCover={{ source: cover, size: 640 }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
+        {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" use:loadCover={{ source: cover, size: 640, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
       </button>
     {:else if cover}
-      <img class="playlist-cover" use:progressiveCover={{ source: cover, size: 320 }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
+      <img class="playlist-cover" use:loadCover={{ source: cover, size: 320, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
     {:else}
       <div class="playlist-cover playlist-cover--empty">
         <Icon name="music" size={42} strokeWidth={1.3} />
@@ -173,11 +189,11 @@
   </div>
 {/if}
 
-{#if previewOpen && detail}<CoverPreview src={coverUrl(cover, 1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
+{#if previewOpen && detail}<CoverPreview src={resolvedCover(1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
 
 {#if showMenu && detail && $responsive.isMobile}
   <div class="library-options-portal" use:playlistPortal>
-  <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} actions={menuActions} label={`${detailType}操作`}
+  <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} {coverIsBundled} actions={menuActions} label={`${detailType}操作`}
     onPlay={visibleCount || containsCurrentTrack ? () => closeMenu(toggleHeroPlayback) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
   </div>
 {/if}

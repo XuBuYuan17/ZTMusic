@@ -13,7 +13,8 @@
 </script>
 
 <script lang="ts">
-  import DiscoveryShortcuts from '../../components/DiscoveryShortcuts.svelte'
+  import DiscoveryPlaylists from '../../components/DiscoveryPlaylists.svelte'
+  import type { DiscoveryPlaylistKey } from '../../app/discovery-playlists.ts'
   import SongListActions from '../../components/SongListActions.svelte'
   import Icon from '../../components/ui/Icon.svelte'
   import ArtistNames from '../../components/ArtistNames.svelte'
@@ -29,7 +30,7 @@
   let {
     mobile = false,
     onSearch,
-    onNavigate,
+    onOpenRecommendation,
     onOpenLogin,
     onBannerClick,
     onOpenPlaylist,
@@ -38,7 +39,7 @@
     onOpenArtist,
   }: {
     mobile?: boolean
-    onNavigate?: (view: string) => void
+    onOpenRecommendation?: (key: DiscoveryPlaylistKey) => void
     onOpenLogin?: () => void
     onSearch?: () => void
     onBannerClick?: (banner: ExploreData['banners'][number]) => void
@@ -107,7 +108,6 @@
 
 {#if mobile}
   <div class="mobile-discovery">
-    <DiscoveryShortcuts {onNavigate} {onOpenPlaylist} {onOpenLogin} />
     {#if error}<ErrorBlock message={error} onRetry={loadExplore} />{/if}
     {#if exploreBanners.length || exploreLoading}
       <section class="mobile-feature-rail" aria-label="精选推荐">
@@ -147,6 +147,7 @@
         </div>
       </section>
     {/if}
+    <DiscoveryPlaylists mobile {onOpenRecommendation} {onOpenLogin} />
     {#if primaryPlaylists.length || exploreLoading}
       <section class="mobile-discovery-section" aria-label="推荐歌单">
         <h2>推荐歌单</h2>
@@ -195,8 +196,6 @@
       <span>搜索歌曲、歌手、歌单</span>
     </button>
   </header>
-
-  <DiscoveryShortcuts {onNavigate} {onOpenPlaylist} {onOpenLogin} />
 
   {#if error}
     <ErrorBlock message={error} onRetry={loadExplore} />
@@ -264,6 +263,7 @@
     </section>
   {/if}
 
+    <DiscoveryPlaylists {onOpenRecommendation} {onOpenLogin} />
     <section class="music-discovery-section">
         <div class="music-section-head">
         <h2>{playlistBlocks[0]?.title || '推荐歌单'}</h2>

@@ -58,6 +58,7 @@
     selectedId = null,
     heroColor = '#141414',
     detailType = '歌单',
+    recommendation = false,
     onBack,
     onPlayAll,
     onPlayTrack,
@@ -73,6 +74,7 @@
     selectedId?: SongId | null
     heroColor?: string
     detailType?: string
+    recommendation?: boolean
     onBack?: () => void
     onPlayAll?: (tracks?: DetailTrackLike[] | null) => void
     onPlayTrack?: (id: SongId, tracks?: DetailTrackLike[] | null) => void
@@ -275,6 +277,7 @@
         {loadingMore}
         {heroColor}
         {detailType}
+        shareable={!recommendation} coverIsBundled={recommendation}
         totalCount={totalTrackCount}
         visibleCount={visibleTracks.length}
         {totalDuration}
