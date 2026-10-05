@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 
 const source = await readFile(new URL('../src/lib/components/ui/PlayerHud.svelte', import.meta.url), 'utf8')
-const script = stripTypeScriptTypes(source.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1].replace(/^\s*import .*\n/gm, ''))
+const script = stripTypeScriptTypes(source.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1].replace(/^\s*import .*\r?\n/gm, ''))
 const player = { volume: 0.8, mode: 'list', hudRequest: null }
 let update, hide, destroy
 const context = {

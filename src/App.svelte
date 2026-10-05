@@ -2,6 +2,9 @@
   import { flushSync, tick, untrack, onMount } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
+  import { getStartupTrack } from './lib/app/startup-track.ts'
+  import { loadCachedExploreData } from './lib/services/explore.ts'
+  import { ncm } from './lib/api/client.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
   import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
@@ -16,7 +19,7 @@
   import { getSetting, migrateSettings, setSetting } from './lib/utils/settings.ts'
   import { countUnreadMessages, getInitialMessageReadState, loadMessageReadState } from './lib/services/message-read-state.ts'
   import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.ts'
-  import { coverUrl } from './lib/utils/image.ts'
+  import { coverUrl, preloadCover } from './lib/utils/image.ts'
   import { installKeyboardShortcuts } from './lib/app/keyboard-shortcuts.ts'
   import { createThemeTransition } from './lib/app/theme-transition.ts'
   import { lazyModule } from './lib/app/lazy-module.ts'
@@ -36,6 +39,7 @@
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
   import PlayerMorph from './lib/components/PlayerMorph.svelte'
+  import StartupSplash from './lib/components/StartupSplash.svelte'
   import LoginOverlay from './lib/components/LoginOverlay.svelte'
   import WallpaperLayer from './lib/components/WallpaperLayer.svelte'
   import DesktopPageHost from './lib/components/layout/DesktopPageHost.svelte'
@@ -77,6 +81,13 @@
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
+  let startupActive = $state(isMobileRuntime())
+  let startupShellReady = $state(false)
+  $effect(() => {
+    if (!isMobile && startupActive) {
+      startupActive = false
+    }
+  })
   onMount(() => { if (!isMobile) announceAndroidFrame() })
   let mobileDialogOpen = $state(false)
   $effect(() => {
@@ -141,6 +152,20 @@
   }
 
   auth.init()
+  $effect(() => {
+    const owner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
+    let cancelled = false
+    untrack(() => {
+      router.prefetchRecommendations()
+      void loadCachedExploreData(ncm, owner).then(data => {
+        if (cancelled) return
+        const playlists = [...data.blocks.filter(block => block.kind === 'playlist').flatMap(block => block.items), ...data.personalized, ...data.topPlaylists]
+        router.prefetchPlaylists(playlists.flatMap(playlist => typeof playlist.id === 'number' || typeof playlist.id === 'string' ? [playlist.id] : []))
+        for (const playlist of playlists.slice(0, 8)) void preloadCover(playlist.picUrl, 360)
+      }).catch(() => {})
+    })
+    return () => { cancelled = true }
+  })
   // 不再主动启动初始化，改为首次使用缓存时按需懒加载
   // initDB()
 
@@ -156,6 +181,7 @@
   $effect(() => {
     const restore = () => untrack(() => player.restore())
     if (isTauriRuntime() && /Android/i.test(runtimePlatform())) {
+      if (performance.getEntriesByName('ztmusic:system-splash-exit').length) { restore(); return }
       window.addEventListener('ztmusic:android-reveal', restore, { once: true })
       return () => window.removeEventListener('ztmusic:android-reveal', restore)
     }
@@ -336,10 +362,10 @@
   const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
 
   const defaultPage = getSetting('default_page', 'home')
-  if (defaultPage === 'library') { router.handleNav('library') }
+  if (isMobileRuntime()) { router.handleNav('explore') }
+  else if (defaultPage === 'library') { router.handleNav('library') }
   else if (defaultPage === 'explore') { router.activeView = 'explore' }
   else if (defaultPage === 'browse') { router.activeView = 'explore' }
-  else if (isMobileRuntime()) { router.activeView = 'explore' }
   else { router.handleNav('home') }
 </script>
 
@@ -349,7 +375,7 @@
   <WindowTitleBar />
 {/if}
 
-<main class="app-shell" inert={isMobile && (showSheet || showQueuePanel || showLogin || showFollowDialog)} use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
+<main class="app-shell" inert={isMobile && (startupActive || showSheet || showQueuePanel || showLogin || showFollowDialog)} use:desktopFeedback class:has-wallpaper={wallpaper.active} data-theme={theme}>
   <a href="#main-content" class="skip-link">跳到主要内容</a>
   <Sidebar
     activeView={router.activeView}
@@ -373,6 +399,7 @@
     {#if isMobile}
       {#await loadMobileApp() then module}
         <module.default
+          onReady={() => startupShellReady = true}
           activeView={router.activeView}
           {theme}
           onNavigate={router.handleNav}
@@ -408,17 +435,20 @@
   </div>
 </main>
 
-{#if !isMobile || player.id}
-  <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
+{#if !isMobile || player.id || getStartupTrack(player)}
+  <div class="player-bar-wrap" inert={isMobile && startupActive} class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
     {#if isMobile}
-      <MobileMiniPlayer onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
+      <MobileMiniPlayer startupPending={startupActive} onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
     {:else}
       <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
     {/if}
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} startupPending={startupActive} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+{#if isMobile && startupActive}
+  <StartupSplash ready={startupShellReady} failed={!!player.error} coverSource={player.cover || getStartupTrack(player)?.picUrl || ''} onFinish={() => startupActive = false} />
+{/if}
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}
@@ -428,7 +458,7 @@
     toggleLocalQueue={toggleQueue}
   />
 {/if}
-<LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
+<LoginOverlay showLogin={showLogin && !startupActive} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
 <QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
 <Toast />

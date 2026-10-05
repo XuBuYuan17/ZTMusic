@@ -54,6 +54,16 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         view.setBackgroundColor(baseColor())
         // Alpha preserves layout/drawing without exposing an unprepared WebView.
         view.alpha = 0f
+        view.postDelayed({
+            if (isDestroyed || transitionStarted) return@postDelayed
+            Log.w("ZTStartup", "first-frame timeout; reveal available document")
+            uiFrameSubmitted = true
+            transitionStarted = true
+            splashProvider?.remove()
+            splashProvider = null
+            window.decorView.invalidate()
+            revealDocument(false)
+        }, 8000L)
     }
 
     private fun baseColor() = Color.parseColor(if (currentTheme == "dark") "#111113" else "#ffffff")
@@ -125,7 +135,7 @@ class MainActivity : TauriActivity(), ZtStartupHost {
 
     override fun onStartupFrameReady(reducedMotion: Boolean) {
         this.reducedMotion = reducedMotion
-        if (firstFrameAvailable) {
+        if (firstFrameAvailable || transitionStarted) {
             // Reloading a document does not receive another system Splash.
             revealDocument(false)
             return

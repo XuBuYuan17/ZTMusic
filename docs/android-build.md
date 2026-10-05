@@ -6,8 +6,8 @@
 
 1. 将本次 Android 支持和需要打包的 UI 改动提交到仓库并推送。Actions 只使用远端所选分支的源码，不包含本地未提交的修改。
 2. 让默认分支包含 `android.yml`，GitHub 才会提供手动运行入口。之后可以在运行时选择要打包的分支。
-3. 打开仓库的 **Actions → Android APK → Run workflow**，选择分支并运行。
-4. 成功后，在该运行页面的 **Artifacts** 下载 `zheting-android-arm64-debug-…`。
+3. 打开仓库的 **Actions → Android APK → Run workflow**，选择分支及 `build_type` 后运行。默认 `debug`，选择 `release` 构建优化测试包。
+4. 成功后，在该运行页面的 **Artifacts** 下载 `zheting-android-arm64-debug-…` 或 `zheting-android-arm64-release-…`。
 5. 解压 ZIP，将其中的 `.apk` 传到手机并安装。安装 APK 时按 Android 提示允许对应应用安装未知来源应用。
 
 当前构建 ARM64 测试 APK，适用于支持 arm64-v8a 的 Android 设备。默认 Tauri Android 模板的最低系统要求为 Android 7.0（API 24）。不构建 Play 商店使用的 AAB，也不自动发布 GitHub Release。
@@ -19,7 +19,8 @@
 - `pnpm install --frozen-lockfile` 后运行版本、类型和单元测试检查。
 - 在云端执行 `tauri android init`，生成 `src-tauri/gen/android`；该目录已有忽略规则，不提交生成文件。
 - 复用 `src-tauri/icons/icon.png` 生成 Android 图标。
-- 执行 `pnpm tauri android build --ci --debug --apk --target aarch64`；`beforeBuildCommand` 自动在云端构建前端。
+- Debug 执行 `pnpm tauri android build --ci --debug --apk --target aarch64`；release 去掉 `--debug`，使用现有 Cargo release 的体积优化、Thin LTO 和符号裁剪。`beforeBuildCommand` 自动在云端构建前端。
+- Release 前端使用 stable 通道，关闭开发错误上报；生成的 Gradle release 变体复用 debug signing config，沿用测试证书，不改变 release 编译模式。
 - 校验 APK 签名，输出 SHA-256，上传 APK，保留 14 天。
 
 初始化和打包使用同一份内联配置：产品名 `哲听测试版`，包名 `com.zheting.music.androidtest`。测试数据与后续正式包 `com.zheting.music` 分开，不修改现有桌面产品标识。

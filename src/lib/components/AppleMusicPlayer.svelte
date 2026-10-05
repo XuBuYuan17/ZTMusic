@@ -20,6 +20,8 @@
   import PlayerMoreMenu from './PlayerMoreMenu.svelte';
   import PlayerSecondarySheet, { type Panel, type StripPanel } from './PlayerSecondarySheet.svelte';
   import PlayerLyrics from './PlayerLyrics.svelte';
+  import StartupArtwork from './StartupArtwork.svelte';
+  import { getStartupTrack } from '../app/startup-track.ts';
 
   interface MenuItem {
     label: string;
@@ -48,11 +50,16 @@
     toggleLocalQueue?: () => void;
   } = $props();
 
+  let initialTrack = $derived($responsive.isMobile ? getStartupTrack(player) : null);
+  let displayTrack = $derived(player.currentTrack || initialTrack);
+  let displayCover = $derived(player.cover || initialTrack?.picUrl || '');
+  let displayTitle = $derived(player.title || initialTrack?.name || '未在播放');
+  let displayDuration = $derived(player.duration || (initialTrack?.dt || 0) / 1000);
   let lyricsMode = $state(false);
   let surfaceColor = $state('#37505e');
   $effect(() => {
     if (!$responsive.isMobile) return;
-    const url = coverUrl(player.cover, 100);
+    const url = coverUrl(displayCover, 100);
     let active = true;
     surfaceColor = '#37505e';
     if (url) void extractColor(url).then(color => { if (active && color) surfaceColor = color; });
@@ -82,10 +89,10 @@
 
   const like = useLike(showMenuMessage);
 
-  let currentArtists = $derived(player.currentTrack?.ar || []);
+  let currentArtists = $derived(displayTrack?.ar || []);
   let album = $derived(
-    player.currentTrack?.al
-      || (player.currentTrack as (CompactTrack & { album?: CompactAlbum }) | null)?.album
+    displayTrack?.al
+      || (displayTrack as (CompactTrack & { album?: CompactAlbum }) | null)?.album
       || null,
   );
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
@@ -287,11 +294,11 @@
 
 </script>
 
-<div class="apple-music-player" style:--player-surface={surfaceColor} bind:this={playerRoot} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" style:--player-surface={surfaceColor} bind:this={playerRoot} class:empty-player={!displayCover} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">
-    <div class="am-bg-cover" style="background-image: url({coverUrl(player.cover, 600)})"></div>
+    <div class="am-bg-cover" style="background-image: url({coverUrl(displayCover, 600)})"></div>
     <div class="am-bg-overlay"></div>
   </div>
 
@@ -301,14 +308,17 @@
     onClose={closeMoreMenu}
     items={moreMenuItems}
     message={menuMessage}
-    cover={player.cover ? coverUrl(player.cover, 96) : ''}
-    title={player.title || '未在播放'}
+    cover={displayCover ? coverUrl(displayCover, 96) : ''}
+    title={displayTitle}
     artist={player.artist || ''}
   />
 
   {#snippet coverArtwork()}
-    <img draggable="false" class="am-vinyl-label" src={coverUrl(player.cover, 300)} alt="" referrerpolicy="no-referrer" />
-    <img draggable="false" class="am-flying-cover-img" use:progressiveCover={{ source: player.cover, size: 400 }} alt="" referrerpolicy="no-referrer" />
+    <StartupArtwork />
+    {#if displayCover}
+      <img draggable="false" class="am-vinyl-label" src={coverUrl(displayCover, 300)} alt="" referrerpolicy="no-referrer" onerror={(event) => event.currentTarget.setAttribute('hidden', '')} onload={(event) => event.currentTarget.removeAttribute('hidden')} />
+      <img draggable="false" class="am-flying-cover-img" use:progressiveCover={{ source: displayCover, size: 400 }} alt="" referrerpolicy="no-referrer" onerror={(event) => event.currentTarget.setAttribute('hidden', '')} onload={(event) => event.currentTarget.removeAttribute('hidden')} />
+    {/if}
   {/snippet}
   {#if $responsive.isMobile}
     <div class="am-flying-cover" role="button" tabindex="0" aria-label="切换封面与歌词，左右滑动切歌" onclick={handleCoverClick}
@@ -325,7 +335,7 @@
 
   <!-- Track info (controls mode, left-aligned with cover) -->
   <div class="am-track-info" inert={lyricsMode} aria-hidden={lyricsMode}>
-    <div class="am-track-title">{player.title || '未在播放'}</div>
+    <div class="am-track-title">{displayTitle}</div>
     <div class="am-track-artist">
       <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />
     </div>
@@ -333,7 +343,7 @@
 
   <!-- Corner info (lyrics mode only, top-left) -->
   <div class="am-corner-info" inert={!lyricsMode} aria-hidden={!lyricsMode}>
-    <div class="am-corner-title">{player.title || ''}</div>
+    <div class="am-corner-title">{displayTitle}</div>
     <div class="am-corner-artist">
       <ArtistNames artists={currentArtists} onOpenArtist={handleOpenArtist} fallback={player.artist || ''} />
     </div>
@@ -342,9 +352,9 @@
   <!-- Bottom controls (no background) -->
   <div class="am-bottom-controls" inert={lyricsMode} aria-hidden={lyricsMode}>
     <div class="am-bottom-progress">
-      <AppleMusicProgressBar currentTime={player.currentTime} duration={player.duration} remaining={$responsive.isMobile} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
+      <AppleMusicProgressBar currentTime={initialTrack ? 0 : player.currentTime} duration={displayDuration} remaining={$responsive.isMobile} disabled={!player.id} onseek={(t) => { player.seek(t) }} />
     </div>
-    <AppleMusicControls onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
+    <AppleMusicControls {initialTrack} onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
   </div>
 
   <PlayerSecondarySheet
@@ -406,6 +416,8 @@
     z-index: 0;
     overflow: hidden;
   }
+  .empty-player .am-bg, :global(html.mobile-runtime) .empty-player .am-bg { background: radial-gradient(circle at 50% 25%, rgb(255 79 117 / .16), transparent 45%), linear-gradient(180deg, #23172d, #120d18 65%, #09080d); }
+  .am-flying-cover :global(img[hidden]) { display: none !important; }
   .am-bg-cover {
     width: 100%;
     height: 100%;
@@ -606,6 +618,14 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .am-track-artist :global(.artist-links),
+  .am-corner-artist :global(.artist-links) {
+    display: inline;
+  }
+  .am-track-artist :global(.artist-sep),
+  .am-corner-artist :global(.artist-sep) {
+    margin-inline: 4px;
   }
 
   /* ---- Corner Info ---- */

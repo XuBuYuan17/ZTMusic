@@ -33,6 +33,22 @@ export interface ExploreData {
   allFailed: boolean
 }
 
+let exploreCache: { api: ExploreApi; owner: unknown; at: number; data?: ExploreData; pending?: Promise<ExploreData> } | undefined
+
+export function loadCachedExploreData(api: ExploreApi, owner: unknown = null, refresh = false): Promise<ExploreData> {
+  if (exploreCache?.api === api && exploreCache.owner === owner) {
+    if (exploreCache.pending) return exploreCache.pending
+    if (!refresh && exploreCache.data && Date.now() - exploreCache.at < 5 * 60 * 1000) return Promise.resolve(exploreCache.data)
+  }
+  const entry: NonNullable<typeof exploreCache> = { api, owner, at: 0 }
+  exploreCache = entry
+  entry.pending = loadExploreData(api).then(data => {
+    if (!data.allFailed && exploreCache === entry) { entry.data = data; entry.at = Date.now() }
+    return data
+  }).finally(() => { entry.pending = undefined })
+  return entry.pending
+}
+
 type Loose = Record<string, unknown>
 type Settled<T> = PromiseSettledResult<T>
 

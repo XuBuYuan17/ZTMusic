@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick, untrack, onDestroy, onMount } from 'svelte'
   import { announceAndroidFrame } from '../app/android-startup.ts'
-  onMount(() => { announceAndroidFrame() })
+  onMount(() => { announceAndroidFrame(); onReady?.() })
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
@@ -29,9 +29,10 @@
     activeView = 'explore', theme = 'dark', onNavigate, onOpenPlaylist, onOpenAlbum,
     onOpenArtist, onOpenUser, onOpenMessage, onOpenLogin, onSetTheme,
     accentTheme = 'red', onSetAccentTheme, onBack, onOpenMenu,
-    targetUser = null, onUnreadChange,
+    targetUser = null, onUnreadChange, onReady,
   }: {
     activeView?: string
+    onReady?: () => void
     theme?: string
     onNavigate?: (view: string, extra?: number | null, preserveSource?: boolean) => void
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
@@ -200,7 +201,7 @@
       {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
-          <ExplorePage mobile onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
+          <ExplorePage mobile active={activeView === 'explore'} onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
             onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)} onPlaySong={router.playExploreSong as (track: unknown) => void}
             onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} />

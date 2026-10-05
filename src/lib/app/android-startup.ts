@@ -15,8 +15,17 @@ export function initialAndroidTheme(): 'light' | 'dark' {
 /** Read only local Activity configuration before App mounts; no playback or network work. */
 export async function prepareAndroidStartup(): Promise<void> {
   if (!android()) return
-  const result = await invoke<{ theme: string }>('plugin:zt-player|execute', { payload: { action: 'startupTheme', data: {} } })
-  nativeTheme = result.theme === 'dark' ? 'dark' : 'light'
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    const result = await Promise.race([
+      invoke<{ theme: string }>('plugin:zt-player|execute', { payload: { action: 'startupTheme', data: {} } }),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('startupTheme timeout')), 1500) }),
+    ])
+    nativeTheme = result.theme === 'dark' ? 'dark' : 'light'
+  } catch (error) {
+    console.warn('[android-startup] 使用本地主题继续启动', error)
+    nativeTheme = initialAndroidTheme()
+  } finally { clearTimeout(timer) }
   let theme = nativeTheme
   try {
     const saved = localStorage.getItem('zheting-theme')
@@ -47,6 +56,7 @@ export function announceAndroidFrame(_node?: HTMLElement): void {
 }
 
 function animateAmbient(node: HTMLElement): void {
+  if (document.querySelector('[data-startup-splash]')) return
   if (ambientShown || !canAnimate || matchMedia('(prefers-reduced-motion: reduce)').matches) return
   ambientShown = true
   node.animate([{ opacity: 0 }, { opacity: 1 }], { delay: 140, duration: 500, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'backwards' })
@@ -66,7 +76,7 @@ export function installAndroidStartup(): void {
     canAnimate = (event as CustomEvent<{ animate?: boolean }>).detail?.animate !== false
     performance.mark('ztmusic:system-splash-exit')
     root.classList.remove('android-startup-pending')
-    if (canAnimate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (canAnimate && !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.querySelector('[data-startup-splash]')) {
       performance.mark('ztmusic:startup-content-animation')
       // Animate content, never the Activity window or a full-screen scale/position clone.
       for (const node of document.querySelectorAll<HTMLElement>('.mobile-page-bar, .mobile-page-content__inner, .mobile-tab-bar, .mobile-mini-player')) {
