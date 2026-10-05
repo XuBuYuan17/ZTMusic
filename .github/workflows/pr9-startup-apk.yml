@@ -249,3 +249,5 @@ jobs:
 # Require secure keyguard showing before accepting lockscreen media-control coverage.
 
 # Read locked playback from system MediaSession and bound WebView IPC diagnostics.
+
+# Wait for native first-frame readiness before bounded DevTools connection.

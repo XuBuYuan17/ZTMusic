@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { waitForProcess } from './android-process.mjs'
+import { waitForProcess, connectReadyWebView } from './android-process.mjs'
 
 export async function verifyNativePlayback({ device, appId, adb, pause }) {
   let context
   const attach = async () => {
     const pid = await waitForProcess(() => adb('shell', 'pidof', appId))
-    const view = await device.webView({ socketName: 'webview_devtools_remote_' + pid })
-    const page = await view.page()
+    const page = await connectReadyWebView(device, pid, () => adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S'))
     context = page.context()
     await page.waitForFunction(() => document.querySelector('.mobile-app') && !document.documentElement.classList.contains('android-startup-pending'), null, { timeout: 15000 })
     await page.waitForFunction(() => performance.getEntriesByName('ztmusic:android-state-restored').length > 0, null, { timeout: 20000 })

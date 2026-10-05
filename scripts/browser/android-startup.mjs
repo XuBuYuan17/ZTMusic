@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
-import { waitForProcess } from './android-process.mjs'
+import { waitForProcess, connectReadyWebView } from './android-process.mjs'
 
 const { _android: android } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
 const appId = 'com.zheting.music.androidtest'
@@ -36,8 +36,7 @@ try {
       // Android WebView lacks Chrome's browser-context/download-management APIs.
       // Playwright's Android connector uses the supported WebView defaults.
       const pid = await waitForProcess(() => adb('shell', 'pidof', appId))
-      const webView = await device.webView({ socketName: 'webview_devtools_remote_' + pid })
-      const page = await webView.page()
+      const page = await connectReadyWebView(device, pid, () => adb('logcat', '-d', '-s', 'ZTStartup:I', '*:S'))
       context = page.context()
       assert.ok(page)
       const errors = []
