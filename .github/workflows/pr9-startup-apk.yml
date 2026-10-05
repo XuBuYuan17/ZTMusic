@@ -226,3 +226,5 @@ jobs:
 # Cover document reloads and native disabled-animation settings with the final startup implementation.
 
 # Report native pixels independently of whether the system supplies a splash overlay.
+
+# Select the fresh cold-start process socket, never a stale previous WebView.

@@ -30,7 +30,7 @@ try {
       // Android WebView lacks Chrome's browser-context/download-management APIs.
       // Playwright's Android connector uses the supported WebView defaults.
       const pid = Number(adb('shell', 'pidof', appId))
-      const webView = await device.webView({ pkg: appId, pid })
+      const webView = await device.webView({ socketName: 'webview_devtools_remote_' + pid })
       const page = await webView.page()
       context = page.context()
       assert.ok(page)
