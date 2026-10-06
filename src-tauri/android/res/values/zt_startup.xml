@@ -11,7 +11,8 @@
     </style>
     <style name="Theme.ZTMusic.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/zt_startup_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/zt_startup_empty</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="postSplashScreenTheme">@style/Theme.ZTMusic</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
