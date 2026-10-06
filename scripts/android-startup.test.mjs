@@ -91,7 +91,8 @@ assert.ok(!/overridePendingTransition|windowEnterAnimation|Thread\.sleep|startAc
 for (const [directory, color] of [['values', '#ffffff'], ['values-night', '#111113']]) {
   const xml = await read('src-tauri/android/res/' + directory + '/zt_startup.xml')
   assert.ok(xml.includes(color))
-  assert.match(xml, /windowSplashScreenAnimatedIcon">@mipmap\/ic_launcher/)
+  assert.match(xml, /windowSplashScreenAnimatedIcon">@drawable\/zt_startup_empty/)
+  assert.match(xml, /windowSplashScreenIconBackgroundColor">@android:color\/transparent/)
   assert.match(xml, /postSplashScreenTheme">@style\/Theme.ZTMusic/)
 }
 const adaptive = await read('src-tauri/android/res/mipmap-anydpi-v26/ic_launcher.xml')
