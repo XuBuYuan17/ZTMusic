@@ -4,15 +4,15 @@ ZTMusic 的 Android 启动目标是：**尽快显示真实应用界面，不使�
 
 ## 当前策略
 
-Android 仍会显示系统要求的静态启动面（AndroidX SplashScreen / Android 12+ system splash）。这不是应用内的品牌动画，而是系统在 Activity 创建到 WebView 首个可用壳层之间提供的启动背景。
+Android 仍会保留系统要求的静态启动面（AndroidX SplashScreen / Android 12+ system splash），但不展示应用 Logo，也没有任何自定义启动动画。系统启动面只是一块与当前主题一致的纯色背景，用于覆盖 Activity 创建到 WebView 首个可用壳层之间的极短空档。
 
 启动流程：
 
-1. `MainActivity` 调用 `installSplashScreen()`，只保留静态系统启动面。
+1. `MainActivity` 调用 `installSplashScreen()`；系统启动图标使用透明 drawable，因此视觉上只有纯色背景。
 2. `src/main.js` 同步从 `localStorage` / 系统深浅色偏好应用主题，不等待原生 IPC。
 3. Svelte 和 `App.svelte` 立即并行加载并 mount。
 4. 移动端 `MobileApp.svelte` 一挂载就调用 `announceAndroidFrame()`。
-5. `startupReady` 通知 `MainActivity`，系统启动面立即移除，没有自定义缩放、淡出、封面飞行或内容 reveal。
+5. `startupReady` 通知 `MainActivity`，系统启动面立即移除，没有 Logo 动画、缩放、淡出、封面飞行或内容 reveal。
 6. `player.restore()` 与首屏渲染并行执行，不等待启动面退出。
 
 ## 明确禁止
@@ -24,6 +24,7 @@ Android 仍会显示系统要求的静态启动面（AndroidX SplashScreen / And
 - 在 App mount 前等待 `startupTheme` 等原生 IPC；
 - 将 WebView `alpha` 设为 0 后等待首帧再 reveal；
 - 自定义系统 Splash 退出缩放、淡出或位移动画；
+- 可见的系统启动 Logo 或 Logo 动画；
 - 通过 `ztmusic:android-reveal` 阻塞播放器恢复或主界面交互。
 
 `scripts/android-startup.test.mjs` 会守住这些边界。

@@ -91,12 +91,16 @@ assert.ok(!/overridePendingTransition|windowEnterAnimation|Thread\.sleep|startAc
 for (const [directory, color] of [['values', '#ffffff'], ['values-night', '#111113']]) {
   const xml = await read('src-tauri/android/res/' + directory + '/zt_startup.xml')
   assert.ok(xml.includes(color))
-  assert.match(xml, /windowSplashScreenAnimatedIcon">@mipmap\/ic_launcher/)
+  assert.match(xml, /windowSplashScreenAnimatedIcon">@drawable\/zt_startup_empty/)
+  assert.match(xml, /windowSplashScreenIconBackgroundColor">@android:color\/transparent/)
   assert.match(xml, /postSplashScreenTheme">@style\/Theme.ZTMusic/)
 }
 const adaptive = await read('src-tauri/android/res/mipmap-anydpi-v26/ic_launcher.xml')
 assert.match(adaptive, /<adaptive-icon[\s\S]*<background[\s\S]*<foreground/)
 assert.ok(!activity.includes('SplashActivity'))
+const emptyIcon = await read('src-tauri/android/res/drawable/zt_startup_empty.xml')
+assert.match(emptyIcon, /android:fillColor="@android:color\\/transparent"/)
+assert.ok(!/bitmap|zt_portrait|ic_launcher/.test(emptyIcon), 'system startup drawable must stay visually empty')
 
 // Exercise the actual Android overlay generator against a regenerated project, including a second run.
 const project = await mkdtemp(join(tmpdir(), 'zt-startup-'))
@@ -118,6 +122,7 @@ try {
   const bytes = await readFile(join(project, 'app/src/main/res/drawable/zt_portrait.png'))
   const original = await readFile(new URL('../src-tauri/icons/icon.png', import.meta.url))
   assert.ok(bytes.equals(original), 'keep the selected portrait unchanged')
+  assert.equal(await readFile(join(project, 'app/src/main/res/drawable/zt_startup_empty.xml'), 'utf8'), emptyIcon, 'generator must copy the transparent system startup drawable')
 } finally {
   await rm(project, { recursive: true, force: true })
 }
