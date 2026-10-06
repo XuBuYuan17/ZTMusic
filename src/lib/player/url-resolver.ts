@@ -17,6 +17,7 @@ import { musicService } from '../music/service.ts'
 import { dbCache } from '../db/cache.ts'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.ts'
 import { swallowError } from '../utils/logging.ts'
+import { resolveWithSourcePlugins } from './source-plugins.ts'
 import type { SongId } from '../types/music.ts'
 
 // ===== 日志工具 =====
@@ -327,7 +328,20 @@ export async function fillFallbackUrls(
     if (old?.url && !urls.includes(old.url)) urls.push(old.url)
   }
 
-  // Step 5: 网易官方 fallback
+  // Step 5: 用户配置的可拔插音源。仅在官方链路较弱时补充，避免每首歌都请求第三方。
+  if (isActive() && urls.length <= 2) {
+    const pluginCandidates = await resolveWithSourcePlugins({
+      providerId: 'netease',
+      sourceId: id,
+      quality: preferredLevel,
+    }, { signal, stopAfterFirst: false })
+    for (const candidate of pluginCandidates) {
+      const url = normalizePlayUrl(candidate.url)
+      if (url && !urls.includes(url)) urls.push(url)
+    }
+  }
+
+  // Step 6: 网易官方 fallback
   if (isActive()) {
     const fbUrl = normalizePlayUrl(FALLBACK_URL_TEMPLATE(id))
     if (fbUrl && !urls.includes(fbUrl)) {
@@ -432,12 +446,31 @@ export async function getPlayableUrls(
     }
   }
 
-  // Phase 5: 试听片段
+  // Phase 5: 用户自行配置的外部音源插件。
+  // 不内置任何公共解析服务；只有设置里显式添加并启用后才会发起请求。
+  if (candidates.length === 0) {
+    const pluginCandidates = await resolveWithSourcePlugins({
+      providerId: 'netease',
+      sourceId: id,
+      quality: preferredLevel,
+    }, { signal })
+    for (const plugin of pluginCandidates) {
+      addCandidate(candidates, {
+        url: normalizePlayUrl(plugin.url),
+        source: `plugin:${plugin.pluginId}`,
+        level: plugin.level,
+        cacheable: false,
+      })
+    }
+    if (candidates.length > 0) firstUrlLevel = pluginCandidates[0]?.level || 'source-plugin'
+  }
+
+  // Phase 6: 试听片段
   if (candidates.length === 0 && trialCandidates.length > 0) {
     trialCandidates.forEach(candidate => addCandidate(candidates, { ...candidate, cacheable: false }))
   }
 
-  // Phase 6: 官方 fallback 兜底
+  // Phase 7: 官方 fallback 兜底
   if (candidates.length === 0) {
     addCandidate(candidates, { url: fallbackUrl, source: 'template-fallback', cacheable: false })
   }
