@@ -10,6 +10,7 @@
   import Icon from '../../components/ui/Icon.svelte'
   import SettingSelect from '../../components/SettingSelect.svelte'
   import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
+  import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme }: {
     theme?: string
@@ -143,6 +144,13 @@
         </div>
         <button class="m-switch" type="button" class:on={settings.lyricsTextBlur} aria-pressed={settings.lyricsTextBlur} onclick={() => settings.handleLyricsTextBlur(!settings.lyricsTextBlur)}><span>{settings.lyricsTextBlur ? '开' : '关'}</span></button>
       </div>
+    </div>
+  </section>
+
+  <section class="m-settings-section" aria-labelledby="source-plugin-settings">
+    <h2 id="source-plugin-settings">音源</h2>
+    <div class="m-settings-list">
+      <SourcePluginSettings />
     </div>
   </section>
 
