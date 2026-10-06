@@ -8,6 +8,7 @@
   import pkg from '../../../../package.json'
   import SettingSelect from '../../components/SettingSelect.svelte'
   import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
+  import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
   import { responsive } from '../../utils/responsive.ts'
   import { engine } from '../../player/engine.ts'
 
@@ -194,6 +195,9 @@
         <span>{settings.lyricsTextBlur ? t('common.on', '开') : t('common.off', '关')}</span>
       </button>
     </div>
+
+    <div class="settings-group-label">音源</div>
+    <SourcePluginSettings />
 
     <div class="settings-group-label">本地数据</div>
 
