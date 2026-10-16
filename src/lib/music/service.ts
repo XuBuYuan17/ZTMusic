@@ -49,11 +49,11 @@ export const musicService = Object.freeze({
   getStream(id: SongId, options?: StreamOptions): Promise<PlayStream> {
     return musicProviders.call('getStream', id, options) as Promise<PlayStream>
   },
-  getMatchedStream(id: SongId): Promise<PlayStream> {
-    return musicProviders.call('getMatchedStream', id) as Promise<PlayStream>
+  getMatchedStream(id: SongId, signal?: AbortSignal): Promise<PlayStream> {
+    return musicProviders.call('getMatchedStream', id, signal) as Promise<PlayStream>
   },
-  getLegacyStream(id: SongId, bitrate?: number): Promise<PlayStream> {
-    return musicProviders.call('getLegacyStream', id, bitrate) as Promise<PlayStream>
+  getLegacyStream(id: SongId, bitrate?: number, signal?: AbortSignal): Promise<PlayStream> {
+    return musicProviders.call('getLegacyStream', id, bitrate, signal) as Promise<PlayStream>
   },
   getTracks(ids: SongId[]): Promise<Song[]> {
     return musicProviders.call('getTracks', ids) as Promise<Song[]>

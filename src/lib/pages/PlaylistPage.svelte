@@ -97,12 +97,12 @@
   // action 只挂一次，回调时取的是最新值
   function loadMoreSentinel(
     node: Element,
-    control: { hasMore: () => boolean; loadingMore: () => boolean },
+    control: { hasMore: () => boolean; loadingMore: () => boolean; error: () => string },
   ): { destroy: () => void } {
     if (typeof IntersectionObserver === 'undefined') return { destroy: () => {} }
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0]
-      if (entry?.isIntersecting && control.hasMore() && !control.loadingMore()) onLoadMore?.()
+      if (entry?.isIntersecting && control.hasMore() && !control.loadingMore() && !control.error()) onLoadMore?.()
     }, { rootMargin: '240px 0px' })
     observer.observe(node)
     return { destroy: () => observer.disconnect() }
@@ -265,9 +265,10 @@
         </tbody>
       </table>
       </div>
-    {:else if error}
+    {:else if error && !playlistDetail?.tracks?.length}
       <div class="detail-state">
         <p>{error}</p>
+        {#if hasMore}<button onclick={onLoadMore} disabled={loadingMore}>{loadingMore ? '正在重试…' : '重试'}</button>{/if}
         <button onclick={onBack}>返回</button>
       </div>
     {:else if playlistDetail}
@@ -425,13 +426,18 @@
                 <td class="col-dur" data-duration-missing={!track.dt && !track.duration}>{duration(track)}</td>
               </tr>
             {/each}
-            {#if (loadingMore || hasMore) && playlistDetail?.tracks?.length}
-              <tr class="loading-more-row" use:loadMoreSentinel={{ hasMore: () => hasMore, loadingMore: () => loadingMore }}>
+            {#if (loadingMore || hasMore || error) && playlistDetail?.tracks?.length}
+              <tr class="loading-more-row" use:loadMoreSentinel={{ hasMore: () => hasMore, loadingMore: () => loadingMore, error: () => error }}>
                 <td colspan="7">
-                  {#if loadingMore}
-                    <span class="loading-more-spinner"></span>
+                  {#if error && !loadingMore}
+                    <span role="status">{error}</span>
+                    {#if hasMore}<button type="button" onclick={onLoadMore}>重试加载</button>{/if}
+                  {:else}
+                    {#if loadingMore}
+                      <span class="loading-more-spinner"></span>
+                    {/if}
+                    {loadingMore ? '正在加载更多歌曲…' : '下滑加载更多'}
                   {/if}
-                  {loadingMore ? '正在加载更多歌曲…' : '下滑加载更多'}
                 </td>
               </tr>
             {/if}
@@ -757,7 +763,7 @@
     font-size: 14px;
   }
 
-  .detail-state button {
+  .detail-state button, .loading-more-row button {
     min-height: 36px;
     padding: 0 16px;
     border-radius: var(--radius-lg);
@@ -767,7 +773,7 @@
     font-weight: 700;
   }
 
-  .detail-state button:hover {
+  .detail-state button:hover, .loading-more-row button:hover {
     background: var(--accent-bg-hover);
   }
 
@@ -776,6 +782,10 @@
     padding: 16px !important;
     color: var(--text-secondary);
     font-size: 13px;
+  }
+
+  .loading-more-row button {
+    margin-left: 12px;
   }
 
   .loading-more-spinner {

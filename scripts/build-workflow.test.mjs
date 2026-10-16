@@ -78,6 +78,18 @@ const manualBoth = context('workflow_dispatch', 'refs/heads/dev', { buildWindows
 assert.equal(manualBoth['build-windows'], 'true')
 assert.equal(manualBoth['build-linux'], 'true')
 
+for (const branch of ['feat/playback-source-plugins', 'codex/test-installer']) {
+  const ref = `refs/heads/${branch}`
+  assert.deepEqual(context('workflow_dispatch', ref, { buildWindows: 'true', buildLinux: 'false' }), {
+    channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'true', 'build-linux': 'false', publish: 'false',
+  })
+  assert.deepEqual(context('workflow_dispatch', ref), {
+    channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'false', 'build-linux': 'false', publish: 'false',
+  })
+  assert.equal(context('workflow_dispatch', ref, { buildLinux: 'true' })['build-linux'], 'true')
+  assert.throws(() => context('push', ref), /Only main/)
+}
+
 for (const event of ['push', 'workflow_dispatch']) {
   const tag = context(event, 'refs/tags/v1.4.1', { buildWindows: 'false', buildLinux: 'false' })
   assert.equal(tag.channel, 'stable')
@@ -87,7 +99,9 @@ for (const event of ['push', 'workflow_dispatch']) {
 }
 
 assert.throws(() => context('push', 'refs/tags/v1.4.1-dev'), /Only main/)
-assert.throws(() => context('workflow_dispatch', 'refs/heads/feature/ui'), /Only main/)
+assert.throws(() => context('workflow_dispatch', 'refs/tags/v1.4.1-dev'), /Only main/)
+assert.throws(() => context('workflow_dispatch', 'refs/heads/'), /Only main/)
+assert.throws(() => context('workflow_dispatch', 'refs/pull/15/merge'), /Only main/)
 assert.throws(() => context('pull_request_target', 'refs/heads/main'), /Unsupported/)
 assert.throws(() => context('push', 'refs/heads/dev', { sha: 'bad' }), /Invalid build SHA/)
 

@@ -83,6 +83,7 @@
             playlistDetail={router.playlistDetail}
             loading={router.playlistDetailLoading}
             loadingMore={router.playlistLoadingMore}
+            hasMore={router.playlistHasMore}
             error={router.playlistDetailError}
             selectedId={router.selectedId}
             heroColor={router.heroColor}
@@ -92,6 +93,7 @@
             onPlayTrack={router.playTrack}
             onOpenArtist={openArtistRef}
             onOpenAlbum={openAlbumRef}
+            onLoadMore={router.loadMorePlaylist}
           />
         {/await}
       {:else if router.activeView === 'search'}

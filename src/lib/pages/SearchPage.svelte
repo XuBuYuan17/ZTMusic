@@ -1,5 +1,13 @@
+<script module lang="ts">
+  import type { SearchResult } from '../types/music.ts'
+  type CategoryKey = 'all' | 'songs' | 'artists' | 'playlists'
+  interface SearchSnapshot { keyword: string; results: SearchResult; activeCategory: CategoryKey; scrollTop: number; loading: boolean; searchError: string }
+  let desktopSearchSnapshot: SearchSnapshot | null = null
+</script>
+
 <script lang="ts">
-  import type { Song, SearchResult, HotSearchItem, SongId } from '../types/music.ts'
+  import { onMount, onDestroy, tick } from 'svelte'
+  import type { Song, HotSearchItem, SongId } from '../types/music.ts'
   import { musicService } from '../music/service.ts'
   import { player } from '../stores/player.svelte.ts'
   import { router } from '../stores/router.svelte.ts'
@@ -8,8 +16,8 @@
   import ArtistNames from '../components/ArtistNames.svelte'
   import SongListActions from '../components/SongListActions.svelte'
   import Icon from '../components/ui/Icon.svelte'
+  import { isMobileDevice } from '../utils/responsive.ts'
 
-  type CategoryKey = 'all' | 'songs' | 'artists' | 'playlists'
   interface ArtistRefish { id?: SongId; name: string }
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
@@ -19,17 +27,35 @@
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
   } = $props()
 
-  let keyword = $state('')
+  const desktop = !isMobileDevice()
+  const initial = desktop ? desktopSearchSnapshot : null
+  let keyword = $state(initial?.keyword || '')
   let loading = $state(false)
-  let searchError = $state('')
-  let results = $state<SearchResult>({ songs: [], artists: [], playlists: [] })
+  let searchError = $state(initial?.searchError || '')
+  let results = $state<SearchResult>(initial?.results || { songs: [], artists: [], playlists: [] })
   let hotList = $state<HotSearchItem[]>([])
   let hotSongs = $state<Song[]>([])
   let hotLoading = $state(true)
   let hotSongsLoading = $state(true)
-  let activeCategory = $state<CategoryKey>('all')
+  let activeCategory = $state<CategoryKey>(initial?.activeCategory || 'all')
   let requestId = 0
+  let destroyed = false
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
+
+  onMount(async () => {
+    if (!initial) return
+    if (initial.loading) await doSearch()
+    await tick()
+    if (destroyed) return
+    const scroller = document.querySelector<HTMLElement>('.content-scroll')
+    if (scroller) scroller.scrollTop = initial.scrollTop
+  })
+  onDestroy(() => {
+    destroyed = true
+    requestId++
+    if (desktop) desktopSearchSnapshot = { keyword, results: $state.snapshot(results), activeCategory,
+      scrollTop: document.querySelector<HTMLElement>('.content-scroll')?.scrollTop || 0, loading, searchError }
+  })
 
   $effect(() => {
     hotLoading = true

@@ -30,6 +30,14 @@ function asRecord(value: unknown): NcmRecord {
     : {}
 }
 
+function checkedResponse(value: unknown): NcmRecord {
+  const response = asRecord(value)
+  if (response.code !== undefined && Number(response.code) !== 200) {
+    throw new Error(asString(response.message) || asString(response.msg) || `Netease API error: ${response.code}`)
+  }
+  return response
+}
+
 function asArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : []
 }
@@ -54,9 +62,9 @@ export interface NeteaseApi {
   searchHot(): Promise<unknown>
   topSongs(category: number): Promise<unknown>
   lyric(id: SongId): Promise<unknown>
-  songUrl(id: SongId, level: string, unblock: boolean): Promise<unknown>
-  songUrlMatch(id: SongId): Promise<unknown>
-  songUrlOld(id: SongId, bitrate: number): Promise<unknown>
+  songUrl(id: SongId, level: string, unblock: boolean, signal?: AbortSignal): Promise<unknown>
+  songUrlMatch(id: SongId, signal?: AbortSignal): Promise<unknown>
+  songUrlOld(id: SongId, bitrate: number, signal?: AbortSignal): Promise<unknown>
   songDetail(ids: SongId[]): Promise<unknown>
   playlistDetail(id: SongId): Promise<unknown>
   album(id: SongId): Promise<unknown>
@@ -178,7 +186,7 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
     },
 
     async getHotSearch(): Promise<HotSearchItem[]> {
-      const response = asRecord(await api.searchHot())
+      const response = checkedResponse(await api.searchHot())
       const items = asArray<NcmRecord>(asRecord(response.result).hots || response.data)
       return items.map((item) => ({
         keyword: asString(item.searchWord) || asString(item.first),
@@ -187,12 +195,12 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
     },
 
     async getTopSongs(limit = 12): Promise<Song[]> {
-      const response = asRecord(await api.topSongs(0))
+      const response = checkedResponse(await api.topSongs(0))
       return asArray<unknown>(response.data).slice(0, limit).map(mapSong).filter(isSong)
     },
 
     async getLyrics(id: SongId): Promise<LyricLine[]> {
-      const response = await api.lyric(id)
+      const response = checkedResponse(await api.lyric(id))
       return parseLyricResponse(response || {}).lines.map((line: { time: number; content?: string; translation?: string; roman?: string }) => ({
         time: line.time,
         text: line.content?.trim() || line.translation?.trim() || line.roman?.trim() || '',
@@ -200,8 +208,8 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       })).filter((line: LyricLine) => line.text)
     },
 
-    async getStream(id: SongId, { level = 'standard', unblock = false } = {}): Promise<PlayStream> {
-      const response = asRecord(await api.songUrl(id, level, unblock))
+    async getStream(id: SongId, { level = 'standard', unblock = false, signal } = {}): Promise<PlayStream> {
+      const response = checkedResponse(await api.songUrl(id, level, unblock, signal))
       const item = asRecord(asArray<unknown>(response.data)[0])
       const code = typeof item.code === 'number' ? item.code
         : typeof response.code === 'number' ? response.code
@@ -220,26 +228,27 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       }
     },
 
-    async getMatchedStream(id: SongId): Promise<PlayStream> {
-      const response = asRecord(await api.songUrlMatch(id))
+    async getMatchedStream(id: SongId, signal?: AbortSignal): Promise<PlayStream> {
+      const response = checkedResponse(await api.songUrlMatch(id, signal))
       const data = response.data
       const firstUrl = asString(asRecord(asArray<unknown>(data)[0]).url)
       const objectUrl = asString(asRecord(data).url)
       return { url: firstUrl || objectUrl || asString(response.url), source: 'match', cacheable: true }
     },
 
-    async getLegacyStream(id: SongId, bitrate = 320000): Promise<PlayStream> {
-      const response = asRecord(await api.songUrlOld(id, bitrate))
+    async getLegacyStream(id: SongId, bitrate = 320000, signal?: AbortSignal): Promise<PlayStream> {
+      const response = checkedResponse(await api.songUrlOld(id, bitrate, signal))
       return { url: asString(asRecord(asArray<unknown>(response.data)[0]).url), source: 'old-api', cacheable: false }
     },
 
     async getTracks(ids: SongId[]): Promise<Song[]> {
-      const response = asRecord(await api.songDetail(ids))
+      const response = checkedResponse(await api.songDetail(ids))
+      if (!Array.isArray(response.songs)) throw new Error('Netease song detail response is missing songs')
       return asArray<unknown>(response.songs).map(mapSong).filter(isSong)
     },
 
     async getPlaylist(id: SongId): Promise<PlaylistDetail | null> {
-      const response = asRecord(await api.playlistDetail(id))
+      const response = checkedResponse(await api.playlistDetail(id))
       const playlist = asRecord(response.playlist)
       if (!playlist.id) return null
       const coverUrl = asString(playlist.coverImgUrl) || asString(playlist.picUrl)
@@ -257,7 +266,7 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
     },
 
     async getAlbum(id: SongId): Promise<AlbumDetail> {
-      const response = asRecord(await api.album(id))
+      const response = checkedResponse(await api.album(id))
       const album = mapAlbum(response.album || { id })
       const songs = asArray<unknown>(response.songs || asRecord(response.album).songs)
       return { album, songs: songs.map(mapSong).filter(isSong) }

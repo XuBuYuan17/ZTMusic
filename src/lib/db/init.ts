@@ -4,12 +4,11 @@
  * 使用 sqlocal（SQLite WASM + OPFS）实现持久化存储。
  *
  * 兼容性策略（重要）：
- *   - 纯浏览器环境：OPFS 正常工作，数据持久化
- *   - Tauri 桌面（Linux/Windows）：尝试 SQLite，失败时静默降级到 IndexedDB
- *   - 任一失败：降级到 localStorage/IndexedDB
+ *   - 浏览器与 Tauri WebView：跨源隔离且 OPFS 可用时使用 SQLite
+ *   - 无法持久化时：降级到 localStorage/IndexedDB
  */
 
-import { isTauriRuntime } from '../utils/runtime.ts'
+import type { SQLocal } from 'sqlocal'
 import { debugLog, describeError } from '../utils/logging.ts'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.ts'
 import { STORAGE_KEYS } from '../utils/constants.ts'
@@ -25,7 +24,7 @@ interface RawSqlClient {
   sql: (statement: string, ...params: unknown[]) => Promise<unknown>
 }
 
-type SqlClientCtor = new (path: string) => RawSqlClient
+type SqlClientCtor = new (path: string) => SQLocal
 
 let sqlocalCtor: SqlClientCtor | null = null
 let _db: SqlClient | null = null
@@ -69,7 +68,7 @@ export async function initDB(): Promise<boolean> {
     return false
   }
 
-  if (!isTauriRuntime() && !supportsPersistentSQLiteRuntime()) {
+  if (!supportsPersistentSQLiteRuntime()) {
     debugLog('db', 'skip SQLite without cross-origin isolation')
     _errored = true
     _backend = 'fallback'
@@ -78,9 +77,14 @@ export async function initDB(): Promise<boolean> {
   }
 
   _initPromise = (async () => {
+    let client: SQLocal | undefined
     try {
       const SQLocalClass = await loadSQLocal()
-      const db = adaptSQLocal(new SQLocalClass('zheting.db'))
+      client = new SQLocalClass('zheting.db')
+      // SQLocal 在 OPFS 失败时可能静默改用内存库，成功执行 SQL 不代表数据能保存。
+      const { storageType } = await client.getDatabaseInfo()
+      if (storageType !== 'opfs') throw new Error(`SQLite storage is not persistent: ${storageType || 'unknown'}`)
+      const db = adaptSQLocal(client)
       _db = db
 
       await db.sql(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
@@ -136,6 +140,7 @@ export async function initDB(): Promise<boolean> {
       debugLog('db', 'sqlite ready')
       return true
     } catch (err) {
+      if (client) await client.destroy().catch(() => {})
       // sqlocal 抛 'OPFS not available'、wasm init 失败、cross-origin isolated 缺失
       // 等任何 SQLite 不可用的情况：都降级到 IndexedDB/localStorage。
       const reason = describeError(err)

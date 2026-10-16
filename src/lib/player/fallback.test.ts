@@ -144,6 +144,22 @@ function urlOf(r: FallbackNextResult): string {
   assertEqual(c.next().status, 'exhausted', 'fill pending cycle: cancelled')
 }
 
+{
+  const c = createFallbackController(['https://expired'])
+  c.next()
+  c.setFillPending(true)
+  c.removeUrl('https://expired')
+  assertEqual(c.next().status, 'waiting', 'failed startup URL waits for fresh candidates')
+  c.mergeUrls(['https://expired', 'https://fresh'])
+  assertEqual(urlOf(c.next()), 'https://fresh', 'incremental recovery never re-adds a failed URL')
+  c.mergeUrls(['https://fresh', 'https://next'])
+  assertEqual(urlOf(c.next()), 'https://next', 'merging candidates preserves the consumed cursor')
+  c.setFillPending(false)
+  assertEqual(c.next().status, 'exhausted', 'incremental completion exhausts only after all fresh candidates')
+  c.updateUrls(['https://expired'])
+  assertEqual(urlOf(c.next()), 'https://expired', 'a new request may retry a freshly resolved same URL')
+}
+
 console.log(`\n${passed} passed, ${failed} failed${failed ? ' — FAIL' : ' — all good'}`)
 // 用 exitCode 而非 process.exit()：Windows + Node 类型擦除 loader 下强退会撞上 libuv 句柄断言
 process.exitCode = failed ? 1 : 0
