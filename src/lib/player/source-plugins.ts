@@ -32,6 +32,7 @@ export interface SourcePluginCandidate {
 
 export interface ResolveSourcePluginOptions {
   signal?: AbortSignal
+  isStale?: () => boolean
   fetchImpl?: typeof fetch
   stopAfterFirst?: boolean
 }
@@ -51,18 +52,18 @@ function storage(): Storage | null {
 
 function normalizeEndpoint(value: unknown): string {
   const raw = String(value || '').trim()
-  if (!raw) throw new TypeError('音源插件需要解析地址')
+  if (!raw) throw new TypeError('sourcePlugins.endpointRequired')
   let url: URL
   try {
     url = new URL(raw)
   } catch {
-    throw new TypeError('音源插件地址无效')
+    throw new TypeError('sourcePlugins.invalidEndpoint')
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new TypeError('音源插件仅支持 http/https 地址')
+    throw new TypeError('sourcePlugins.httpOnly')
   }
   if (url.username || url.password) {
-    throw new TypeError('音源插件地址不能包含用户名或密码')
+    throw new TypeError('sourcePlugins.noCredentials')
   }
   url.hash = ''
   return url.toString()
@@ -75,9 +76,12 @@ function normalizeTimeout(value: unknown): number {
 }
 
 function normalizePlugin(input: Partial<PlaybackSourcePlugin>, index = 0): PlaybackSourcePlugin | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  if (typeof input.id !== 'string' || typeof input.name !== 'string' || typeof input.endpoint !== 'string') return null
+  if (input.enabled !== undefined && typeof input.enabled !== 'boolean') return null
   const id = String(input.id || '').trim().toLowerCase()
   const name = String(input.name || '').trim()
-  if (!PLUGIN_ID_PATTERN.test(id) || !name) return null
+  if (!PLUGIN_ID_PATTERN.test(id) || !name || name.length > 64) return null
   try {
     return {
       id,
@@ -92,17 +96,26 @@ function normalizePlugin(input: Partial<PlaybackSourcePlugin>, index = 0): Playb
   }
 }
 
-export function listSourcePlugins(): PlaybackSourcePlugin[] {
+export function listSourcePlugins(strict = false): PlaybackSourcePlugin[] {
   const store = storage()
-  if (!store) return []
+  if (!store) {
+    if (strict) throw new Error('sourcePlugins.storageUnavailable')
+    return []
+  }
   try {
     const parsed = JSON.parse(store.getItem(SOURCE_PLUGIN_STORAGE_KEY) || '[]')
-    if (!Array.isArray(parsed)) return []
+    if (!Array.isArray(parsed)) throw new TypeError('sourcePlugins.invalidConfig')
+    const ids = new Set<string>()
     return parsed
       .map((item, index) => normalizePlugin(item as Partial<PlaybackSourcePlugin>, index))
-      .filter((item): item is PlaybackSourcePlugin => item !== null)
+      .filter((item): item is PlaybackSourcePlugin => {
+        if (!item || ids.has(item.id)) return false
+        ids.add(item.id)
+        return true
+      })
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name))
   } catch {
+    if (strict) throw new Error('sourcePlugins.loadFailed')
     return []
   }
 }
@@ -110,13 +123,22 @@ export function listSourcePlugins(): PlaybackSourcePlugin[] {
 export function saveSourcePlugins(plugins: PlaybackSourcePlugin[]): PlaybackSourcePlugin[] {
   const normalized = plugins
     .map((item, index) => normalizePlugin({ ...item, priority: index }, index))
-    .filter((item): item is PlaybackSourcePlugin => item !== null)
-  storage()?.setItem(SOURCE_PLUGIN_STORAGE_KEY, JSON.stringify(normalized))
+    .map(item => {
+      if (!item) throw new TypeError('sourcePlugins.invalidConfig')
+      return item
+    })
+  const store = storage()
+  if (!store) throw new Error('sourcePlugins.storageUnavailable')
+  try {
+    store.setItem(SOURCE_PLUGIN_STORAGE_KEY, JSON.stringify(normalized))
+  } catch {
+    throw new Error('sourcePlugins.saveFailed')
+  }
   return normalized
 }
 
 export function createSourcePlugin(input: { name: string; endpoint: string }): PlaybackSourcePlugin {
-  const existing = listSourcePlugins()
+  const existing = listSourcePlugins(true)
   const base = String(input.name || 'source')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
@@ -133,23 +155,23 @@ export function createSourcePlugin(input: { name: string; endpoint: string }): P
     priority: existing.length,
     timeoutMs: DEFAULT_TIMEOUT_MS,
   })
-  if (!plugin) throw new TypeError('音源插件配置无效')
+  if (!plugin) throw new TypeError('sourcePlugins.invalidConfig')
   saveSourcePlugins([...existing, plugin])
   return plugin
 }
 
 export function updateSourcePlugin(id: string, patch: Partial<PlaybackSourcePlugin>): PlaybackSourcePlugin[] {
-  const plugins = listSourcePlugins()
+  const plugins = listSourcePlugins(true)
   const next = plugins.map(plugin => plugin.id === id ? { ...plugin, ...patch, id: plugin.id } : plugin)
   return saveSourcePlugins(next)
 }
 
 export function removeSourcePlugin(id: string): PlaybackSourcePlugin[] {
-  return saveSourcePlugins(listSourcePlugins().filter(plugin => plugin.id !== id))
+  return saveSourcePlugins(listSourcePlugins(true).filter(plugin => plugin.id !== id))
 }
 
 export function moveSourcePlugin(id: string, delta: -1 | 1): PlaybackSourcePlugin[] {
-  const plugins = listSourcePlugins()
+  const plugins = listSourcePlugins(true)
   const index = plugins.findIndex(plugin => plugin.id === id)
   const target = index + delta
   if (index < 0 || target < 0 || target >= plugins.length) return plugins
@@ -170,10 +192,8 @@ function asUrlList(payload: unknown): { urls: string[]; level?: string } {
   for (const value of rawUrls) {
     if (typeof value !== 'string') continue
     try {
-      const url = new URL(value)
-      if ((url.protocol === 'https:' || url.protocol === 'http:') && !urls.includes(url.toString())) {
-        urls.push(url.toString())
-      }
+      const url = normalizeEndpoint(value)
+      if (!urls.includes(url)) urls.push(url)
     } catch { /* invalid provider response */ }
   }
   return { urls, level: typeof record.level === 'string' ? record.level : undefined }
@@ -185,6 +205,7 @@ async function resolveOne(
   fetchImpl: typeof fetch,
   parentSignal?: AbortSignal,
 ): Promise<SourcePluginCandidate[]> {
+  if (parentSignal?.aborted) return []
   const controller = new AbortController()
   const onAbort = () => controller.abort(parentSignal?.reason)
   parentSignal?.addEventListener('abort', onAbort, { once: true })
@@ -193,6 +214,10 @@ async function resolveOne(
   try {
     const response = await fetchImpl(plugin.endpoint, {
       method: 'POST',
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      referrerPolicy: 'no-referrer',
       headers: { 'content-type': 'application/json', 'accept': 'application/json' },
       body: JSON.stringify({
         protocol: 'zt-playback-resolver',
@@ -201,8 +226,9 @@ async function resolveOne(
       }),
       signal: controller.signal,
     })
-    if (!response.ok) return []
+    if (controller.signal.aborted || !response.ok) return []
     const result = asUrlList(await response.json())
+    if (controller.signal.aborted) return []
     return result.urls.map(url => ({
       url,
       pluginId: plugin.id,
@@ -226,13 +252,14 @@ async function resolveOne(
  */
 export async function resolveWithSourcePlugins(
   request: SourcePluginResolveRequest,
-  { signal, fetchImpl = fetch, stopAfterFirst = true }: ResolveSourcePluginOptions = {},
+  { signal, isStale = () => false, fetchImpl = fetch, stopAfterFirst = true }: ResolveSourcePluginOptions = {},
 ): Promise<SourcePluginCandidate[]> {
   const plugins = listSourcePlugins().filter(plugin => plugin.enabled)
   const candidates: SourcePluginCandidate[] = []
   for (const plugin of plugins) {
-    if (signal?.aborted) break
+    if (signal?.aborted || isStale()) return []
     const resolved = await resolveOne(plugin, request, fetchImpl, signal)
+    if (signal?.aborted || isStale()) return []
     for (const candidate of resolved) {
       if (!candidates.some(item => item.url === candidate.url)) candidates.push(candidate)
     }

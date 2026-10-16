@@ -196,7 +196,7 @@
       </button>
     </div>
 
-    <div class="settings-group-label">音源</div>
+    <div class="settings-group-label">{t('sourcePlugins.title')}</div>
     <SourcePluginSettings />
 
     <div class="settings-group-label">本地数据</div>

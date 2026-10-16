@@ -50,42 +50,58 @@ async function getTauriInvoke(): Promise<InvokeFn | null> {
   return tauriInvokePromise
 }
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError')
+}
+
+async function withRequestTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeout: number = DEFAULT_TIMEOUT,
+  signal?: AbortSignal,
+): Promise<T> {
+  throwIfAborted(signal)
+  const controller = new AbortController()
+  let rejectStopped!: (reason: unknown) => void
+  const stopped = new Promise<never>((_, reject) => { rejectStopped = reject })
+  const timer = setTimeout(() => {
+    rejectStopped(new Error('API request timeout'))
+    controller.abort()
+  }, timeout)
+  const onAbort = () => {
+    rejectStopped(signal?.reason ?? new DOMException('Aborted', 'AbortError'))
+    controller.abort(signal?.reason)
+  }
+  signal?.addEventListener('abort', onAbort, { once: true })
+  try {
+    return await Promise.race([operation(controller.signal), stopped])
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
 async function fetchWithTimeout(
   url: string | URL,
   opts: RequestInit = {},
   timeout: number = DEFAULT_TIMEOUT,
   signal?: AbortSignal,
 ): Promise<Response> {
-  const controller = new AbortController()
-  let timedOut = false
-  const timer = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, timeout)
-  const onAbort = () => controller.abort(signal?.reason)
-  if (signal) {
-    if (signal.aborted) controller.abort()
-    else signal.addEventListener('abort', onAbort, { once: true })
-  }
-  try {
-    return await fetch(url, { ...opts, signal: controller.signal })
-  } catch (err) {
-    if (err && typeof err === 'object' && 'name' in err && (err as { name: unknown }).name === 'AbortError' && timedOut) {
-      throw new Error('API request timeout')
-    }
-    throw err
-  } finally {
-    clearTimeout(timer)
-    if (signal) signal.removeEventListener('abort', onAbort)
-  }
+  return withRequestTimeout(requestSignal => fetch(url, { ...opts, signal: requestSignal }), timeout, signal)
 }
 
 export { fetchWithTimeout }
 
+const WRITE_ENDPOINTS = new Set([
+  '/playlist/tracks', '/playlist/create', '/playlist/name/update', '/playlist/desc/update',
+  '/playlist/delete', '/playlist/subscribe', '/follow', '/artist/sub', '/comment',
+  '/login/cellphone', '/login', '/logout', '/like', '/song/like', '/scrobble/v1',
+  '/send/text', '/send/song', '/send/album', '/send/playlist',
+])
+
 function isProxyBadGateway(err: unknown, status?: number): boolean {
   if (status === 502 || status === 503 || status === 504) return true
   const rec = err && typeof err === 'object' ? err as { message?: unknown } : null
-  const m = (rec && typeof rec.message === 'string' ? rec.message : '').toLowerCase()
+  const m = (typeof err === 'string' ? err : rec && typeof rec.message === 'string' ? rec.message : '').toLowerCase()
   return m.includes('502') || m.includes('bad gateway') || m.includes('econnreset') || m.includes('socket hang up')
 }
 
@@ -110,10 +126,15 @@ async function request(
   body: RequestParams | null = null,
   options: ApiRequestOptions = {},
 ): Promise<unknown> {
-  const invoke = await getTauriInvoke()
+  const signal = options.signal
+  throwIfAborted(signal)
+  const sessionVersion = apiSession.getVersion()
   const apiBase = apiSession.getBase()
   const provider = options.provider || 'netease'
   const cookie = options.noCookie ? '' : apiSession.getCookie()
+  const invoke = await getTauriInvoke()
+  throwIfAborted(signal)
+  const maxRetries = WRITE_ENDPOINTS.has(endpoint) ? 0 : 2
   const withRandomCNIP = options.randomCNIP !== false
   const requestParams = withRandomCNIP ? { randomCNIP: true, ...params } : params
   const requestBody = body ? (withRandomCNIP ? { randomCNIP: true, ...body } : body) : body
@@ -128,14 +149,16 @@ async function request(
   })
   if (cacheKey && !options.refresh) {
     const cached = await readApiCache(cacheKey).catch(() => null)
+    throwIfAborted(signal)
     if (cached) return cached
   }
   if (invoke) {
     let attempt = 0
-    const maxTauriRetries = 2
-    while (attempt <= maxTauriRetries) {
+    while (attempt <= maxRetries) {
       try {
-        const result = await invoke('api_request', {
+        throwIfAborted(signal)
+        // ponytail: 取消只停止 JS 等待与回写，Rust 请求仍会完成；真要释放网络资源需增加 requestId/cancel IPC。
+        const result = await withRequestTimeout(() => invoke('api_request', {
           request: {
             provider,
             base: apiBase,
@@ -146,12 +169,14 @@ async function request(
             cookie,
             allowErrorBody: !!options.allowErrorBody,
           },
-        }) as ApiInvokeResult
-        if (options.saveCookie !== false) apiSession.saveCookieFromResponse(result.data, result.cookie)
+        }), DEFAULT_TIMEOUT, signal) as ApiInvokeResult
+        throwIfAborted(signal)
+        if (options.saveCookie !== false) apiSession.saveCookieFromResponse(result.data, result.cookie, sessionVersion)
         if (isCacheableResponse(result.data)) writeApiCache(cacheKey, result.data, cacheTtl).catch(() => {})
         return result.data
       } catch (error) {
-        if (attempt < maxTauriRetries && isProxyBadGateway(error)) {
+        throwIfAborted(signal)
+        if (attempt < maxRetries && isProxyBadGateway(error)) {
           attempt++
           await new Promise(r => setTimeout(r, 200 * attempt))
           continue
@@ -159,6 +184,7 @@ async function request(
         // 登录态失效不能拿过期缓存顶替：那会让界面显示旧数据、掩盖「要重新登录」这件事
         if (!isAuthError(error)) {
           const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+          throwIfAborted(signal)
           if (stale) return stale
         }
         throw normalizeError(error, 'api_request')
@@ -187,31 +213,38 @@ async function request(
     opts.body = new URLSearchParams(formBody).toString()
   }
 
-  // 从 invoke 路径透传 signal：在 options 里取 signal，让 withCancel 的 abort 能中止底层 fetch
-  const signal = options.signal
-
   let attempt = 0
-  const maxFetchRetries = 2
-  while (attempt <= maxFetchRetries) {
+  while (attempt <= maxRetries) {
     try {
-      const res = await fetchWithTimeout(url, opts, DEFAULT_TIMEOUT, signal)
-      if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
-      // JSON 解析失败：用 code:-1 显式标记非法响应，避免 res.ok=true 时用 code:200 掩盖解析失败
-      const data = await res.json().catch(() => ({
-        code: res.ok ? -1 : res.status,
-        message: res.ok ? `API response not JSON: ${res.status}` : `API error: ${res.status}`,
-      }))
-      if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data)
+      throwIfAborted(signal)
+      const data = await withRequestTimeout(async (requestSignal) => {
+        const res = await fetch(url, { ...opts, signal: requestSignal })
+        if (!res.ok && !options.allowErrorBody) throw new Error(`API error: ${res.status}`)
+        try {
+          return await res.json()
+        } catch (error) {
+          throwIfAborted(requestSignal)
+          // JSON 解析失败用 code:-1 标记，取消和超时继续向外抛出。
+          return {
+            code: res.ok ? -1 : res.status,
+            message: res.ok ? `API response not JSON: ${res.status}` : `API error: ${res.status}`,
+          }
+        }
+      }, DEFAULT_TIMEOUT, signal)
+      throwIfAborted(signal)
+      if (options.saveCookie !== false) apiSession.saveCookieFromResponse(data, '', sessionVersion)
       if (isCacheableResponse(data)) writeApiCache(cacheKey, data, cacheTtl).catch(() => {})
       return data
     } catch (error) {
-      if (attempt < maxFetchRetries && isProxyBadGateway(error)) {
+      throwIfAborted(signal)
+      if (attempt < maxRetries && isProxyBadGateway(error)) {
         attempt++
         await new Promise(r => setTimeout(r, 200 * attempt))
         continue
       }
       if (!isAuthError(error)) {
         const stale = cacheKey ? await readApiCache(cacheKey, { allowExpired: true }).catch(() => null) : null
+        throwIfAborted(signal)
         if (stale) return stale
       }
       throw normalizeError(error, 'fetch')
@@ -242,16 +275,16 @@ export const ncm = {
     return request('/search/hot')
   },
 
-  songUrl(id: SongId, level = 'lossless', unblock = false) {
-    return request('/song/url/v1', { id, level, unblock: unblock ? 'true' : 'false' })
+  songUrl(id: SongId, level = 'lossless', unblock = false, signal?: AbortSignal) {
+    return request('/song/url/v1', { id, level, unblock: unblock ? 'true' : 'false' }, 'GET', null, { signal })
   },
   /** 老版 /song/url — 用 br 码率，作 fallback 兜底 */
-  songUrlOld(id: SongId, br = 320000) {
-    return request('/song/url', { id, br })
+  songUrlOld(id: SongId, br = 320000, signal?: AbortSignal) {
+    return request('/song/url', { id, br }, 'GET', null, { signal })
   },
   /** 直接获取灰色歌曲链接（UnblockNeteaseMusic） */
-  songUrlMatch(id: SongId) {
-    return request('/song/url/match', { id })
+  songUrlMatch(id: SongId, signal?: AbortSignal) {
+    return request('/song/url/match', { id }, 'GET', null, { signal })
   },
   vipInfo() {
     return request('/vip/info')

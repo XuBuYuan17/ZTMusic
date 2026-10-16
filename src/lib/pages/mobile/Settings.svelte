@@ -148,7 +148,7 @@
   </section>
 
   <section class="m-settings-section" aria-labelledby="source-plugin-settings">
-    <h2 id="source-plugin-settings">音源</h2>
+    <h2 id="source-plugin-settings">{t('sourcePlugins.title')}</h2>
     <div class="m-settings-list">
       <SourcePluginSettings />
     </div>

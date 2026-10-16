@@ -6,6 +6,7 @@ import {
   removeSourcePlugin,
   resolveWithSourcePlugins,
   updateSourcePlugin,
+  saveSourcePlugins,
 } from './source-plugins.ts'
 
 let passed = 0
@@ -85,6 +86,104 @@ localStorage.setItem(SOURCE_PLUGIN_STORAGE_KEY, JSON.stringify([
   { id: 'bad', name: 'Bad', endpoint: 'file:///tmp/a', enabled: true, priority: 0, timeoutMs: 10 },
 ]))
 equal(listSourcePlugins().length, 0, 'invalid persisted plugin ignored safely')
+
+
+function throws(fn: () => unknown, message: string) {
+  let rejected = false
+  try { fn() } catch { rejected = true }
+  assert(rejected, message)
+}
+
+for (const endpoint of ['file:///tmp/song', 'https://user:password@example.test/resolve', 'ftp://example.test/a']) {
+  throws(() => createSourcePlugin({ name: 'Unsafe', endpoint }), 'rejects unsafe endpoint: ' + endpoint)
+}
+saveSourcePlugins([first])
+const beforeInvalidUpdate = memory.get(SOURCE_PLUGIN_STORAGE_KEY)
+throws(() => updateSourcePlugin(first.id, { endpoint: 'file:///bad' }), 'invalid update fails')
+equal(memory.get(SOURCE_PLUGIN_STORAGE_KEY), beforeInvalidUpdate, 'invalid update preserves original record')
+localStorage.setItem(SOURCE_PLUGIN_STORAGE_KEY, JSON.stringify([null, 7, {}, { ...first, enabled: 'false' }, first, first]))
+equal(listSourcePlugins().length, 1, 'bad or duplicate persisted records do not hide valid plugins')
+const store = localStorage
+const originalSet = store.setItem
+store.setItem = () => { throw new Error('quota') }
+throws(() => updateSourcePlugin(first.id, { enabled: false }), 'storage write failure is reported')
+equal(listSourcePlugins()[0]?.enabled, true, 'failed write preserves enabled flag')
+store.setItem = originalSet
+const originalGet = store.getItem
+store.getItem = () => { throw new Error('denied') }
+throws(() => createSourcePlugin({ name: 'New', endpoint: first.endpoint }), 'read failure prevents overwriting configuration')
+store.getItem = originalGet
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('denied') } })
+throws(() => saveSourcePlugins([first]), 'unavailable storage fails rather than claiming success')
+equal((await resolveWithSourcePlugins({ providerId: 'netease', sourceId: 1, quality: 'standard' }, { fetchImpl })).length, 0, 'unavailable storage does not break playback')
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: store })
+const backup = { ...first, id: 'plugin-backup', name: 'Backup', endpoint: 'https://backup.example.test/resolve' }
+saveSourcePlugins([first, backup])
+const request = { providerId: 'netease', sourceId: 1, quality: 'standard' }
+let calls = 0
+const multiFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+  calls++
+  equal(init?.credentials, 'omit', 'plugin request omits credentials')
+  equal(init?.cache, 'no-store', 'plugin request bypasses HTTP cache')
+  equal(init?.redirect, 'error', 'plugin request rejects redirects')
+  return Response.json({ urls: ['javascript:alert(1)', 'https://user:pass@example.test/song', 'file:///song', 7, 'https://cdn.example.test/song', 'https://cdn.example.test/song', 'http://cdn.example.test/backup'] })
+}) as typeof fetch
+const multi = await resolveWithSourcePlugins(request, { fetchImpl: multiFetch, stopAfterFirst: false })
+equal(multi.length, 2, 'valid URLs are deduplicated within and across plugins')
+equal(calls, 2, 'background mode calls plugins in sequence')
+calls = 0
+await resolveWithSourcePlugins(request, { fetchImpl: multiFetch })
+equal(calls, 1, 'foreground stops at first successful plugin')
+updateSourcePlugin(first.id, { enabled: false })
+calls = 0
+await resolveWithSourcePlugins(request, { fetchImpl: multiFetch })
+equal(calls, 1, 'disabled plugin is skipped')
+updateSourcePlugin(first.id, { enabled: true, timeoutMs: 500 })
+for (const failure of ['http', 'json', 'network', 'timeout']) {
+  const order: string[] = []
+  const failingFetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    order.push(String(input))
+    if (String(input) === first.endpoint) {
+      if (failure === 'http') return new Response('', { status: 500 })
+      if (failure === 'json') return new Response('{broken', { status: 200 })
+      if (failure === 'network') throw new Error('offline')
+      return await new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true }))
+    }
+    return Response.json({ url: 'https://cdn.example.test/backup' })
+  }) as typeof fetch
+  const result = await resolveWithSourcePlugins(request, { fetchImpl: failingFetch })
+  equal(result[0]?.pluginId, backup.id, failure + ' skips to backup')
+  equal(order.join(','), [first.endpoint, backup.endpoint].join(','), failure + ' respects configured order')
+}
+const cancelled = new AbortController()
+cancelled.abort()
+calls = 0
+await resolveWithSourcePlugins(request, { fetchImpl: multiFetch, signal: cancelled.signal })
+equal(calls, 0, 'already cancelled request never calls fetch')
+const duringFetch = new AbortController()
+let childAborted = false
+calls = 0
+const cancelFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+  calls++
+  duringFetch.abort()
+  childAborted = Boolean(init?.signal?.aborted)
+  return Response.json({ url: 'https://cdn.example.test/late' })
+}) as typeof fetch
+equal((await resolveWithSourcePlugins(request, { fetchImpl: cancelFetch, signal: duringFetch.signal, stopAfterFirst: false })).length, 0, 'cancelled fetch result is discarded')
+assert(childAborted, 'parent cancellation aborts child request')
+equal(calls, 1, 'cancellation prevents next plugin request')
+const duringJson = new AbortController()
+const jsonFetch = (async () => {
+  const response = Response.json({ url: 'https://cdn.example.test/late' })
+  response.json = async () => { duringJson.abort(); return { url: 'https://cdn.example.test/late' } }
+  return response
+}) as typeof fetch
+equal((await resolveWithSourcePlugins(request, { fetchImpl: jsonFetch, signal: duringJson.signal })).length, 0, 'cancellation during body parsing discards result')
+let stale = false
+calls = 0
+const staleFetch = (async () => { calls++; stale = true; return Response.json({ url: 'https://cdn.example.test/stale' }) }) as typeof fetch
+equal((await resolveWithSourcePlugins(request, { fetchImpl: staleFetch, isStale: () => stale, stopAfterFirst: false })).length, 0, 'stale request discards result')
+equal(calls, 1, 'stale request does not call next plugin')
 
 console.log(`\n${passed} passed, ${failed} failed${failed ? ' — FAIL' : ' — all good'}`)
 process.exitCode = failed ? 1 : 0

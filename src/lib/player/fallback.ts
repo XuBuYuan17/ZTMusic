@@ -30,7 +30,9 @@ export interface FallbackState {
 export interface FallbackController {
   next(): FallbackNextResult
   updateUrls(newUrls: unknown): void
+  mergeUrls(newUrls: unknown): void
   removeUrl(badUrl: string): void
+  hasFailedUrl(url: string): boolean
   setFillPending(pending: boolean): void
   cancelFill(): void
   getState(): FallbackState
@@ -41,6 +43,7 @@ export function createFallbackController(urls: unknown): FallbackController {
   let urlList: string[] = Array.isArray(urls) ? [...urls] : []
   let index = -1
   let fillPending = false
+  const failedUrls = new Set<string>()
 
   /** 获取下一个可尝试的 URL */
   function next(): FallbackNextResult {
@@ -57,16 +60,27 @@ export function createFallbackController(urls: unknown): FallbackController {
     urlList = Array.isArray(newUrls) ? [...newUrls] : []
     index = -1
     fillPending = false
+    failedUrls.clear()
+  }
+
+  function mergeUrls(newUrls: unknown): void {
+    if (!Array.isArray(newUrls)) return
+    for (const url of newUrls) {
+      if (typeof url === 'string' && url && !failedUrls.has(url) && !urlList.includes(url)) urlList.push(url)
+    }
   }
 
   /** 从列表中移除一个失败的 URL，自动调整当前索引 */
   function removeUrl(badUrl: string): void {
+    failedUrls.add(badUrl)
     const idx = urlList.indexOf(badUrl)
     if (idx < 0) return
     urlList.splice(idx, 1)
     if (idx <= index) index--
     if (index < -1) index = -1
   }
+
+  function hasFailedUrl(url: string): boolean { return failedUrls.has(url) }
 
   function setFillPending(pending: boolean): void { fillPending = pending }
   function cancelFill(): void { fillPending = false }
@@ -80,5 +94,5 @@ export function createFallbackController(urls: unknown): FallbackController {
     return [...urlList]
   }
 
-  return { next, updateUrls, removeUrl, setFillPending, cancelFill, getState, getUrls }
+  return { next, updateUrls, mergeUrls, removeUrl, hasFailedUrl, setFillPending, cancelFill, getState, getUrls }
 }

@@ -27,6 +27,7 @@ import {
 import { isMobileDevice } from '../utils/responsive.ts'
 import { createLruCache } from '../utils/lru-cache.ts'
 import { normalizeImageUrl, preloadCover } from '../utils/image.ts'
+import { LIMITS } from '../utils/constants.ts'
 
 // 详情曲目兼容播放器队列输入，另带歌单内的附加字段
 interface DetailTrack extends CompactTrackInput {
@@ -144,10 +145,14 @@ let _recommendationCovers = $state<Partial<Record<DiscoveryPlaylistKey, string>>
 
 let _detailRequestId = 0
 let _artistRequestId = 0
+const artistFollowRequests = new Map<SongId, object>()
 // 详情缓存覆盖一次常见的“浏览资料库 → 进歌单 → 返回 → 再进入”会话。
 // 命中后先展示缓存，再按新鲜度决定是否静默刷新；避免把网络新鲜度和首屏速度绑死。
 const detailCache = createLruCache<DetailCacheValue>({ maxEntries: 32, ttlMs: PLAYLIST_CACHE_TTL_MS })
 const playlistRequests = new Map<number, PlaylistRequestEntry>()
+const playlistPageRequests = new WeakMap<PlaylistDetail, Promise<PlaylistDetailResult>>()
+let playlistFillRequestId = 0
+let activePlaylistFillId: number | null = null
 const playlistPrefetchQueue: number[] = []
 const playlistPrefetchQueued = new Set<number>()
 let playlistPrefetchActive = 0
@@ -298,7 +303,7 @@ async function goPlaylist(id: number | null, shouldPushRoute = true, preview: Pl
     })
   } catch (e) {
     if (rid !== _detailRequestId) return
-    data = { detail: null, heroColor: '#141414' }; _playlistDetailError = pickErrorMessage(e, '加载失败')
+    data = { detail: shownProgress ? _playlistDetail : null, heroColor: _heroColor }; _playlistDetailError = pickErrorMessage(e, '加载失败')
   }
   if (rid !== _detailRequestId) return
   _playlistDetail = data.detail; _heroColor = data.heroColor; _playlistDetailLoading = false; _playlistLoadingMore = false
@@ -501,9 +506,20 @@ function handleBannerClick(banner: BannerTarget): void {
 }
 
 async function toggleArtistFollow(): Promise<void> {
-  if (!_artistDetail?.id) return; const next = !_artistDetail.followed; _artistDetail = { ..._artistDetail, followed: next }
-  try { await ncm.artistSub(_artistDetail.id, next) } catch { _artistDetail = { ..._artistDetail, followed: !next } }
-  detailCache.set('artist:' + _artistDetail.id, { artist: _artistDetail, songs: _artistSongs, albums: _artistAlbums })
+  if (!_artistDetail?.id) return
+  const artist = _artistDetail
+  const songs = _artistSongs, albums = _artistAlbums
+  const rid = _artistRequestId, token = {}
+  artistFollowRequests.set(artist.id, token)
+  const next = !artist.followed
+  _artistDetail = { ...artist, followed: next }
+  const target = _artistDetail
+  let result = target
+  try { await ncm.artistSub(artist.id, next) } catch { result = artist }
+  if (artistFollowRequests.get(artist.id) !== token) return
+  artistFollowRequests.delete(artist.id)
+  if (rid === _artistRequestId && _activeView === 'artist' && _artistDetail === target) _artistDetail = result
+  detailCache.set('artist:' + artist.id, { artist: result, songs, albums })
 }
 
 // ── 详情视图播放 wrapper（共享数据） ──
@@ -519,22 +535,33 @@ function canLoadMorePlaylist(): boolean {
 }
 
 /** 加载下一批歌单曲目（滚动触底 / 播放全部补齐共用） */
+function requestPlaylistMore(detail: PlaylistDetail): Promise<PlaylistDetailResult> {
+  const existing = playlistPageRequests.get(detail)
+  if (existing) return existing
+  const promise = loadPlaylistMore(detail as unknown as PlaylistDetailRecord)
+    .finally(() => { playlistPageRequests.delete(detail) })
+  playlistPageRequests.set(detail, promise)
+  return promise
+}
+
 async function loadMorePlaylist(): Promise<void> {
   if (_playlistLoadingMore || !_playlistDetail || !canLoadMorePlaylist()) return
   const rid = _detailRequestId
+  const detail = _playlistDetail
+  const view = _activeView, selectedId = _selectedId
+  const isCurrent = () => rid === _detailRequestId && _playlistDetail === detail && _activeView === view && _selectedId === selectedId
+  if (playlistRequests.has(Number(detail.id))) return
   _playlistLoadingMore = true
+  _playlistDetailError = ''
   try {
-    await loadPlaylistMore(_playlistDetail as unknown as PlaylistDetailRecord, (partial) => {
-      if (rid !== _detailRequestId) return
-      _playlistDetail = partial.detail as PlaylistDetail | null
-    })
-    if (rid === _detailRequestId && _playlistDetail) {
-      detailCache.set('playlist:' + _playlistDetail.id, { detail: _playlistDetail, heroColor: _heroColor })
-    }
+    await requestPlaylistMore(detail)
   } catch (e) {
-    if (rid === _detailRequestId) _playlistDetailError = pickErrorMessage(e, '加载更多失败')
+    if (isCurrent()) _playlistDetailError = pickErrorMessage(e, '加载更多失败')
   } finally {
-    if (rid === _detailRequestId) _playlistLoadingMore = false
+    if (isCurrent()) {
+      detailCache.set('playlist:' + detail.id, { detail, heroColor: _heroColor })
+      _playlistLoadingMore = false
+    }
   }
 }
 
@@ -543,37 +570,63 @@ function playTrack(id: SongId, visibleTracks?: DetailTrack[] | null): void {
   const i = tracks.findIndex(x => x.id === id); if (i >= 0 && playRecommendation(tracks, i)) return; if (i >= 0) player.playQueue(tracks, i); else player.playTrack(tracks.find(x => x.id === id) || { id }, 0)
 }
 function playAll(visibleTracks?: DetailTrack[] | null, shuffled = false): void {
-  const t = visibleTracks?.length ? visibleTracks : _playlistDetail?.tracks || []
+  const t = visibleTracks ?? (_playlistDetail?.tracks || [])
   if (!t.length) return
+  const fillId = ++playlistFillRequestId
+  activePlaylistFillId = null
   if (_activeView === 'recommendation' && !canLoadMorePlaylist() && playRecommendation(t, 0, shuffled)) return
-  // 歌单内搜索过滤出的子集，或没有更多可加载 → 播传入的这批
-  if (!canLoadMorePlaylist() || (visibleTracks?.length ?? 0) < playlistLoadedCount()) {
-    player.playQueue(t, 0)
-    return
+  const fillRemaining = canLoadMorePlaylist() && (!visibleTracks || visibleTracks.length >= playlistLoadedCount())
+  const rid = _detailRequestId
+  const view = _activeView, selectedId = _selectedId
+  let detail = _playlistDetail
+  if (shuffled) player.setMode('shuffle')
+  player.playQueue(t, 0)
+  if (!fillRemaining || !detail || player.queue.length >= LIMITS.MAX_QUEUE) return
+  activePlaylistFillId = fillId
+  const playbackRevision = player.playbackRevision
+  let queueRevision = player.queueRevision
+  const isCurrentRoute = () => rid === _detailRequestId && _activeView === view && _selectedId === selectedId
+  const isCurrentPlayback = () => fillId === playlistFillRequestId && playbackRevision === player.playbackRevision && queueRevision === player.queueRevision
+  const isCurrent = () => isCurrentRoute() && isCurrentPlayback() && _playlistDetail === detail
+  const appendLoaded = () => {
+    if (!isCurrent() || !detail) return
+    const seen = new Set(player.queue.map(track => String(track.id)))
+    const fresh = detail.tracks.filter(track => !seen.has(String(track.id))).slice(0, LIMITS.MAX_QUEUE - player.queue.length)
+    if (fresh.length) {
+      player.appendQueue(fresh)
+      queueRevision = player.queueRevision
+    }
   }
-  // 播放全部：先补齐剩余曲目，再播整张
+
   void (async () => {
-    if (_playlistLoadingMore) return
-    const rid = _detailRequestId
     _playlistLoadingMore = true
+    _playlistDetailError = ''
     try {
-      let guard = 0
-      while (canLoadMorePlaylist() && guard++ < 64) {
-        const before = playlistCursor()
-        await loadPlaylistMore(_playlistDetail as unknown as PlaylistDetailRecord, (partial) => {
-          if (rid !== _detailRequestId) return
-          _playlistDetail = partial.detail as PlaylistDetail | null
-        })
-        if (playlistCursor() <= before) break // 请求游标没推进，避免死循环
+      const pending = playlistRequests.get(Number(detail.id))?.promise
+      if (pending) {
+        await pending
+        if (!isCurrentRoute() || !isCurrentPlayback() || _playlistDetail?.id !== detail.id) return
+        detail = _playlistDetail
       }
-      if (rid === _detailRequestId && _playlistDetail?.tracks?.length) {
-        detailCache.set('playlist:' + _playlistDetail.id, { detail: _playlistDetail, heroColor: _heroColor })
-        player.playQueue(_playlistDetail.tracks, 0)
+      if (!isCurrent()) return
+      appendLoaded()
+      let guard = 0
+      while (isCurrent() && player.queue.length < LIMITS.MAX_QUEUE && getPlaylistLoadCursor(detail as unknown as PlaylistDetailRecord) < (detail.trackIds?.length || 0) && guard++ < 64) {
+        const before = getPlaylistLoadCursor(detail as unknown as PlaylistDetailRecord)
+        _playlistLoadingMore = true
+        await requestPlaylistMore(detail)
+        if (!isCurrent()) return
+        appendLoaded()
+        if (getPlaylistLoadCursor(detail as unknown as PlaylistDetailRecord) <= before) break // 请求游标没推进，避免死循环
       }
     } catch (e) {
-      if (rid === _detailRequestId) _playlistDetailError = pickErrorMessage(e, '加载歌单失败')
+      if (isCurrent()) _playlistDetailError = pickErrorMessage(e, '加载歌单失败')
     } finally {
-      if (rid === _detailRequestId) _playlistLoadingMore = false
+      if (isCurrentRoute() && _playlistDetail === detail && (activePlaylistFillId === fillId || activePlaylistFillId === null)) {
+        if (activePlaylistFillId === fillId) activePlaylistFillId = null
+        detailCache.set('playlist:' + detail.id, { detail, heroColor: _heroColor })
+        _playlistLoadingMore = false
+      }
     }
   })()
 }

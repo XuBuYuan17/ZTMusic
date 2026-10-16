@@ -14,7 +14,7 @@
  */
 
 import { musicService } from '../music/service.ts'
-import { dbCache } from '../db/cache.ts'
+import { dbCache, getUrlCacheContext, getUrlCacheMetadata, type SongUrlCacheEntry } from '../db/cache.ts'
 import { QUALITY_ORDER, PLAYBACK, FALLBACK_URL_TEMPLATE } from '../utils/constants.ts'
 import { swallowError } from '../utils/logging.ts'
 import { resolveWithSourcePlugins } from './source-plugins.ts'
@@ -64,7 +64,9 @@ function addCandidate(candidates: UrlCandidate[], candidate: UrlCandidate | null
   candidates.push(candidate)
 }
 
-function withTimeout<T>(promise: Promise<T>, timeout: number, signal?: AbortSignal): Promise<T> {
+function withTimeout<T>(request: (signal: AbortSignal) => Promise<T>, timeout: number, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'))
+  const controller = new AbortController()
   let timer: ReturnType<typeof setTimeout> | null = null
   let onAbort: (() => void) | null = null
   const cleanup = () => {
@@ -72,17 +74,24 @@ function withTimeout<T>(promise: Promise<T>, timeout: number, signal?: AbortSign
     if (onAbort && signal) { signal.removeEventListener('abort', onAbort); onAbort = null }
   }
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('play url timeout')), timeout)
+    timer = setTimeout(() => {
+      const error = new Error('play url timeout')
+      controller.abort(error)
+      reject(error)
+    }, timeout)
     if (signal) {
       if (signal.aborted) {
         reject(new DOMException('Aborted', 'AbortError'))
         return
       }
-      onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+      onAbort = () => {
+        controller.abort(signal.reason)
+        reject(new DOMException('Aborted', 'AbortError'))
+      }
       signal.addEventListener('abort', onAbort, { once: true })
     }
   })
-  return Promise.race([promise, timeoutPromise]).finally(cleanup)
+  return Promise.race([Promise.resolve().then(() => request(controller.signal)), timeoutPromise]).finally(cleanup)
 }
 
 function uniqueLevels(levels: string[]): string[] {
@@ -129,7 +138,7 @@ async function fetchSongUrl(
   signal?: AbortSignal,
 ): Promise<UrlCandidate | null> {
   try {
-    const item = await withTimeout(musicService.getStream(id, { level, unblock }), timeout, signal)
+    const item = await withTimeout(requestSignal => musicService.getStream(id, { level, unblock, signal: requestSignal }), timeout, signal)
     logPlayUrlAttempt('result', {
       id,
       level,
@@ -173,7 +182,7 @@ async function fetchSongUrl(
 
 async function fetchMatchedSongUrl(id: SongId, timeout: number, signal?: AbortSignal): Promise<UrlCandidate | null> {
   try {
-    const candidate = await withTimeout(musicService.getMatchedStream(id), timeout, signal)
+    const candidate = await withTimeout(requestSignal => musicService.getMatchedStream(id, requestSignal), timeout, signal)
     const url = candidate?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
@@ -190,7 +199,7 @@ async function fetchMatchedSongUrl(id: SongId, timeout: number, signal?: AbortSi
 
 async function fetchOldSongUrl(id: SongId, timeout: number, signal?: AbortSignal): Promise<UrlCandidate | null> {
   try {
-    const candidate = await withTimeout(musicService.getLegacyStream(id, 320000), timeout, signal)
+    const candidate = await withTimeout(requestSignal => musicService.getLegacyStream(id, 320000, requestSignal), timeout, signal)
     const url = candidate?.url || ''
     if (!url) return null
     const normalized = normalizePlayUrl(url)
@@ -200,22 +209,37 @@ async function fetchOldSongUrl(id: SongId, timeout: number, signal?: AbortSignal
   return null
 }
 
+export async function invalidatePlayableUrl(id: SongId, url: string): Promise<void> {
+  await dbCache.urlRemove(id, normalizePlayUrl(url))
+}
+
 // ===== 后台刷新/填充 =====
 
 /** 后台刷新 IndexedDB 中的 URL 缓存（不阻塞播放） */
-export async function refreshSongUrlsBg(id: SongId, preferredLevel: string): Promise<void> {
-  const fastTiers = uniqueLevels(['standard', 'higher', preferredLevel])
+export async function refreshSongUrlsBg(id: SongId, preferredLevel: string, signal?: AbortSignal, cachedEntry?: SongUrlCacheEntry): Promise<void> {
+  const context = await getUrlCacheContext()
+  const isActive = () => !signal?.aborted && context.isCurrent()
+  if (!isActive()) return
+  const existing = cachedEntry ?? await dbCache.urlGetEntry(id, context)
+  if (!isActive()) return
+  const existingLevel = existing?.candidates[0]?.level || ''
+  const targetLevel = isBetterThanLevel(existingLevel, preferredLevel) ? existingLevel : preferredLevel
+  const fastTiers = QUALITY_ORDER.slice(Math.max(0, QUALITY_ORDER.indexOf(targetLevel)))
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, {})
-    if (result?.url && !result.isTrial) {
-      dbCache.urlSet(id, [result.url]).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
+    if (!isActive()) return
+    const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, {}, signal)
+    if (!isActive()) return
+    if (result?.url && !result.isTrial && result.cacheable) {
+      dbCache.urlSetEntry(id, [result], { context, preserveHigherQuality: true, isActive }).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
       return
     }
   }
   for (const level of fastTiers) {
-    const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, {})
-    if (result?.url) {
-      dbCache.urlSet(id, [result.url]).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
+    if (!isActive()) return
+    const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, {}, signal)
+    if (!isActive()) return
+    if (result?.url && !result.isTrial && result.cacheable) {
+      dbCache.urlSetEntry(id, [result], { context, preserveHigherQuality: true, isActive }).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
       return
     }
   }
@@ -239,6 +263,8 @@ export interface FillFallbackOptions {
   /** 当前播放位置 */
   currentTime?: number
   onQualityUpgrade?: (event: QualityUpgradeEvent) => void
+  onUrls?: (urls: string[]) => void
+  isUrlFailed?: (url: string) => boolean
   /** 判断请求是否过期 */
   isStale?: () => boolean
   authOpts?: AuthHooks
@@ -258,27 +284,39 @@ export async function fillFallbackUrls(
     isPlaying = false,
     currentTime = 0,
     onQualityUpgrade,
+    onUrls,
+    isUrlFailed = () => false,
     isStale = () => false,
     authOpts = {},
     signal,
   } = options
 
-  const urls = [...currentUrls]
+  const context = await getUrlCacheContext()
+  const urls = currentUrls.filter(url => !isUrlFailed(url))
+  const cacheableCandidates: UrlCandidate[] = []
   const allLevels = orderedPlayLevels(preferredLevel)
   let upgraded = false
 
   // 用于判断请求是否仍有效
-  const isActive = () => !isStale()
+  const isActive = () => !signal?.aborted && !isStale() && context.isCurrent()
+  const activeUrls = () => urls.filter(url => !isUrlFailed(url))
+  const notifyUrls = () => {
+    if (!isActive() || !onUrls) return
+    const discovered = activeUrls().filter(url => !currentUrls.includes(url))
+    if (discovered.length > 0) onUrls(discovered)
+  }
 
   // Step 1: 后台获取偏好音质
   // covered 记录已经拿到过 URL 的实际档位：服务端会把拿不到的档位降级（非 VIP 请求
   // lossless 返回的是 exhigh），后面再问 exhigh 只会得到同一个 URL，白跑一次请求。
   const coveredLevels = new Set<string>()
   for (const level of allLevels) {
-    if (!isActive()) return urls
+    if (!isActive()) return activeUrls()
     if (coveredLevels.has(level)) continue
     const result = await fetchSongUrl(id, level, false, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
-    if (!result) continue
+    if (!isActive()) return activeUrls()
+    if (!result || isUrlFailed(result.url)) continue
+    if (result.cacheable && !result.isTrial) addCandidate(cacheableCandidates, result)
     // 服务端可能把档位降级（非 VIP 请求 lossless 拿到的是 exhigh），实际档位才算数
     const actualLevel = result.level || level
     coveredLevels.add(actualLevel)
@@ -296,61 +334,86 @@ export async function fillFallbackUrls(
         onQualityUpgrade?.({
           url: result.url,
           currentTime,
-          urls,
+          urls: activeUrls(),
           level: actualLevel,
         })
       }
     } else {
       urls.push(result.url)
     }
+    notifyUrls()
   }
 
   // Step 2: unblock 版本（另一条音源，档位覆盖情况要重新算）
   const coveredUnblockLevels = new Set<string>()
   for (const level of allLevels) {
-    if (!isActive()) return urls
+    if (!isActive()) return activeUrls()
     if (coveredUnblockLevels.has(level)) continue
     const result = await fetchSongUrl(id, level, true, PLAYBACK.FALLBACK_TIMEOUT, authOpts, signal)
-    if (!result) continue
+    if (!isActive()) return activeUrls()
+    if (!result || isUrlFailed(result.url)) continue
+    if (result.cacheable && !result.isTrial) addCandidate(cacheableCandidates, result)
     coveredUnblockLevels.add(result.level || level)
-    if (!urls.includes(result.url)) urls.push(result.url)
+    if (!urls.includes(result.url)) {
+      urls.push(result.url)
+      notifyUrls()
+    }
   }
 
   // Step 3: UnblockNeteaseMusic 直接解灰
-  if (isActive() && urls.length <= 2) {
+  if (isActive() && activeUrls().length <= 2) {
     const matched = await fetchMatchedSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT, signal)
-    if (matched?.url && !urls.includes(matched.url)) urls.push(matched.url)
+    if (!isActive()) return activeUrls()
+    if (matched?.cacheable && !isUrlFailed(matched.url)) addCandidate(cacheableCandidates, matched)
+    if (matched?.url && !isUrlFailed(matched.url) && !urls.includes(matched.url)) {
+      urls.push(matched.url)
+      notifyUrls()
+    }
   }
 
   // Step 4: 老版 /song/url 兜底
-  if (isActive() && urls.length <= 2) {
+  if (isActive() && activeUrls().length <= 2) {
     const old = await fetchOldSongUrl(id, PLAYBACK.FALLBACK_TIMEOUT, signal)
-    if (old?.url && !urls.includes(old.url)) urls.push(old.url)
+    if (!isActive()) return activeUrls()
+    if (old?.url && !isUrlFailed(old.url) && !urls.includes(old.url)) {
+      urls.push(old.url)
+      notifyUrls()
+    }
   }
 
   // Step 5: 用户配置的可拔插音源。仅在官方链路较弱时补充，避免每首歌都请求第三方。
-  if (isActive() && urls.length <= 2) {
+  if (isActive() && activeUrls().length <= 2) {
     const pluginCandidates = await resolveWithSourcePlugins({
       providerId: 'netease',
       sourceId: id,
       quality: preferredLevel,
-    }, { signal, stopAfterFirst: false })
+    }, { signal, isStale, stopAfterFirst: false })
+    if (!isActive()) return activeUrls()
     for (const candidate of pluginCandidates) {
       const url = normalizePlayUrl(candidate.url)
-      if (url && !urls.includes(url)) urls.push(url)
+      if (url && !isUrlFailed(url) && !urls.includes(url)) {
+        urls.push(url)
+        notifyUrls()
+      }
     }
   }
 
   // Step 6: 网易官方 fallback
   if (isActive()) {
     const fbUrl = normalizePlayUrl(FALLBACK_URL_TEMPLATE(id))
-    if (fbUrl && !urls.includes(fbUrl)) {
+    if (fbUrl && !isUrlFailed(fbUrl) && !urls.includes(fbUrl)) {
       urls.push(fbUrl)
+      notifyUrls()
     }
   }
 
+  if (isActive() && cacheableCandidates.length > 0) {
+    const orderedCandidates = activeUrls().flatMap(url => cacheableCandidates.filter(candidate => candidate.url === url))
+    dbCache.urlSetEntry(id, orderedCandidates, { context, preserveHigherQuality: true, isUrlFailed, isActive }).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
+  }
+
   logPlayback('fallback-urls-filled', { totalUrls: urls.length, id, upgraded })
-  return urls
+  return activeUrls()
 }
 
 export interface PlayableUrlsResult {
@@ -371,25 +434,30 @@ export async function getPlayableUrls(
   signal?: AbortSignal,
   forceRefresh = false,
 ): Promise<PlayableUrlsResult> {
-  // 两级缓存都只存 URL、不记音质（dbCache 一首歌一个槽，谁先写谁赢）。
-  // 用户在播放中途切音质时必须跳过它们，否则拿回的还是旧档位的 URL，切了个寂寞
+  if (signal?.aborted) return { urls: [], firstUrlLevel: '', isTrial: false }
+  const context = await getUrlCacheContext()
+  const isActive = () => !signal?.aborted && context.isCurrent()
+  if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
+  // 手动换档跳过旧缓存，重新请求用户指定的档位。
   if (!forceRefresh) {
     // 0. 检查预取缓存
     const cached = prefetchCache?.get(id)
     if (cached) {
       prefetchCache?.delete(id)
-      logPlayback('prefetch-hit', { id, urls: cached })
-      return { urls: cached, firstUrlLevel: 'prefetch', isTrial: false }
+      const entry = getUrlCacheMetadata(cached)
+      if (context.namespace && entry?.namespace === context.namespace && entry.expiresAt > Date.now()) {
+        logPlayback('prefetch-hit', { id, urls: cached })
+        return { urls: cached, firstUrlLevel: entry.candidates[0]?.level || entry.candidates[0]?.source || 'prefetch', isTrial: false }
+      }
     }
 
     // 1. 检查 SQLite / IndexedDB 持久缓存
     try {
-      const persisted = await dbCache.urlGet(id)
-      if (persisted && Array.isArray(persisted) && persisted.length > 0) {
+      const persisted = await dbCache.urlGetEntry(id, context)
+      if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
+      if (persisted?.urls.length) {
         logPlayback('url-cache-hit', { id })
-        // 后台刷新，不阻塞播放
-        refreshSongUrlsBg(id, preferredLevel)
-        return { urls: persisted as string[], firstUrlLevel: 'cache', isTrial: false }
+        return { urls: persisted.urls, firstUrlLevel: persisted.candidates[0]?.level || persisted.candidates[0]?.source || 'cache', isTrial: false }
       }
     } catch { /* swallow */ }
   }
@@ -399,16 +467,19 @@ export async function getPlayableUrls(
   const trialCandidates: UrlCandidate[] = []
   let firstUrlLevel = ''
 
-  // Phase 1: 快速出声
-  const fastTiers = uniqueLevels(['standard', 'higher', preferredLevel])
+  // 手动换档优先请求目标音质，再向下回退；普通点播保留快速出声策略。
+  const fastTiers = forceRefresh
+    ? QUALITY_ORDER.slice(Math.max(0, QUALITY_ORDER.indexOf(preferredLevel)))
+    : uniqueLevels(['standard', 'higher', preferredLevel])
   for (const level of fastTiers) {
     const result = await fetchSongUrl(id, level, false, PLAYBACK.FAST_TIMEOUT, authOpts, signal)
+    if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
     if (!result) continue
     if (result.isTrial) {
       addCandidate(trialCandidates, result)
     } else {
       addCandidate(candidates, result)
-      firstUrlLevel = level
+      firstUrlLevel = result.level || level
       break
     }
   }
@@ -417,12 +488,13 @@ export async function getPlayableUrls(
   if (candidates.length === 0) {
     for (const level of fastTiers) {
       const result = await fetchSongUrl(id, level, true, PLAYBACK.FAST_TIMEOUT, authOpts, signal)
+      if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
       if (!result) continue
       if (result.isTrial) {
         addCandidate(trialCandidates, result)
       } else {
         addCandidate(candidates, result)
-        firstUrlLevel = level + '+unblock'
+        firstUrlLevel = (result.level || level) + '+unblock'
         break
       }
     }
@@ -431,6 +503,7 @@ export async function getPlayableUrls(
   // Phase 3: 官方 match 解灰
   if (candidates.length === 0) {
     const matched = await fetchMatchedSongUrl(id, PLAYBACK.FAST_TIMEOUT, signal)
+    if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
     if (matched?.url) {
       addCandidate(candidates, matched)
       firstUrlLevel = 'match'
@@ -440,6 +513,7 @@ export async function getPlayableUrls(
   // Phase 4: 老版 /song/url 兜底
   if (candidates.length === 0) {
     const old = await fetchOldSongUrl(id, PLAYBACK.FAST_TIMEOUT, signal)
+    if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
     if (old?.url) {
       addCandidate(candidates, old)
       firstUrlLevel = 'old-api'
@@ -454,6 +528,7 @@ export async function getPlayableUrls(
       sourceId: id,
       quality: preferredLevel,
     }, { signal })
+    if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
     for (const plugin of pluginCandidates) {
       addCandidate(candidates, {
         url: normalizePlayUrl(plugin.url),
@@ -482,10 +557,9 @@ export async function getPlayableUrls(
   // 都报 VIP 文案，而模板 URL 不需要 cookie 就能放，歌其实在正常播
   const isTrial = candidates.length > 0 && candidates.every(candidate => candidate.isTrial)
 
-  const cacheableUrls = candidates.filter(candidate => candidate.cacheable).map(candidate => candidate.url)
-  if (cacheableUrls.length > 0) {
-    const ttl = isTrial ? 10 * 60 * 1000 : 60 * 60 * 1000
-    dbCache.urlSet(id, cacheableUrls, ttl).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
+  const cacheableCandidates = candidates.filter(candidate => candidate.cacheable && !candidate.isTrial)
+  if (isActive() && cacheableCandidates.length > 0) {
+    dbCache.urlSetEntry(id, cacheableCandidates, { context, preserveHigherQuality: !forceRefresh, isActive }).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
   }
 
   return { urls, firstUrlLevel, isTrial }

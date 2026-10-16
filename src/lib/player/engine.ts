@@ -180,7 +180,7 @@ export class AudioEngine implements PlayerEngine {
     const nextUrl = String(url).trim()
     if (!nextUrl) return
     // 重复下发同一 URL：直接返回，避免打断当前播放
-    if (nextUrl === this.currentUrl) { this._onListening?.('source', this.getState()); return }
+    if (nextUrl === this.currentUrl && !this.audio.error) { this._onListening?.('source', this.getState()); return }
     this._onListening?.('reset', this.getState())
     // 如果是预加载命中，直接 swap（swap 前会检查健康状态）
     if (this.preloadedUrl && this.preloadedUrl === nextUrl) {
@@ -191,7 +191,7 @@ export class AudioEngine implements PlayerEngine {
       // 预加载损坏：丢弃预加载，走普通 load
       this.cancelPreload()
     }
-    if (this.currentUrl && this.currentUrl !== nextUrl) {
+    if (this.currentUrl && (this.currentUrl !== nextUrl || this.audio.error)) {
       this._resetAudio(this.audio)
     }
     // 加载新 URL 时清理过期的预加载，避免后续 load 命中失效的 preloadedUrl
