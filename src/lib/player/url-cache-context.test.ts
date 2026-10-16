@@ -130,7 +130,7 @@ assert.equal(await dbCache.urlSetEntry(806, [{ url: 'https://cdn.example/stale.m
 
 {
   setStream(async () => {
-    apiSession.saveCookieFromResponse({ cookie: 'MUSIC_U=automatically-rotated-secret' })
+    apiSession.saveCookieFromResponse({ cookie: 'MUSIC_U=test-rotated' })
     return { url: 'https://cdn.example/rotated-session.mp3', level: 'standard', cacheable: true }
   })
   const result = await getPlayableUrls(817, 'standard', new Map(), 1)
@@ -266,7 +266,7 @@ for (const cryptoValue of [undefined, { subtle: { digest: async () => { throw ne
     assert.equal(manager.cache.size, 0)
     const oldUrls = ['https://cdn.example/old-account-without-crypto.mp3']
     attachUrlCacheMetadata(oldUrls, { namespace: '', urls: oldUrls, candidates: [{ url: oldUrls[0]! }], expiresAt: Date.now() + 10000 })
-    apiSession.setCookie('MUSIC_U=without-crypto-next-account')
+    apiSession.setCookie('MUSIC_U=test-no-crypto-next')
     const result = await getPlayableUrls(850, 'standard', new Map([[850, oldUrls]]), 1)
     assert.deepEqual(result.urls, ['https://cdn.example/without-web-crypto.mp3'], 'missing Web Crypto disables cache but permits playback')
     assert.equal(calls, 1, 'empty namespace memory entry must never be reused across accounts')
