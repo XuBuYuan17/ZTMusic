@@ -9,13 +9,13 @@ export function selectBuildContext({ event, ref, sha, buildWindows, buildLinux }
   if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Invalid build SHA')
 
   const publish = event !== 'pull_request' && /^refs\/tags\/v\d+\.\d+\.\d+$/.test(ref)
-  const channel = event === 'pull_request' || ref === 'refs/heads/dev' ? 'dev' : 'stable'
-
-  if (event !== 'pull_request' && !publish && !['refs/heads/main', 'refs/heads/dev'].includes(ref)) {
-    throw new Error('Only main, dev and official version tags can be built')
-  }
-
   const manual = event === 'workflow_dispatch'
+  const manualBranch = manual && /^refs\/heads\/.+$/.test(ref)
+  const channel = event === 'pull_request' || ref === 'refs/heads/dev' || (manualBranch && ref !== 'refs/heads/main') ? 'dev' : 'stable'
+
+  if (event !== 'pull_request' && !publish && !manualBranch && !['refs/heads/main', 'refs/heads/dev'].includes(ref)) {
+    throw new Error('Only main, dev, manually selected branches and official version tags can be built')
+  }
 
   return {
     channel,
