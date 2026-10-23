@@ -6,14 +6,22 @@ const mobileApp = await readFile(new URL('../../components/MobileApp.svelte', im
 
 assert.match(mobileApp, /import SettingsPage from ['"]\.\.\/pages\/mobile\/Settings\.svelte['"]/, 'mobile shell uses the dedicated settings page')
 
-for (const section of ['外观', '播放与歌词', '应用', '数据与账号', '高级', '关于']) {
-  assert.match(settings, new RegExp(`>${section}<`), `mobile settings keeps the ${section} section`)
+for (const category of ['appearance', 'playback', 'sources', 'android', 'general', 'data', 'advanced', 'about']) {
+  assert.ok(settings.includes(`category === '${category}'`), `${category} has its own page`)
 }
-
-assert.doesNotMatch(settings, /Preferences/, 'mobile settings does not duplicate the page title with a desktop-style kicker')
-assert.match(settings, /width:\s*42px;[\s\S]*height:\s*24px;/, 'mobile switches stay compact')
-assert.match(settings, /\.m-accent-picker button\s*\{[\s\S]*width:\s*28px;[\s\S]*height:\s*28px;/, 'accent choices stay visually restrained')
-assert.match(settings, /AndroidPlayerSettings/, 'native Android controls remain available')
-assert.match(settings, /desktop-lyrics-card\)[\s\S]*background:\s*transparent;/, 'Android settings are flattened into the mobile hierarchy')
-
-console.log('mobile settings: dedicated hierarchy, compact controls and restrained Android styling passed')
+assert.doesNotMatch(settings, /m-settings-intro|<details/, 'secondary pages have no slogans or nested developer card')
+assert.match(settings, /settingsCategories\(engine.native === true\)/, 'Android entrance is conditional')
+assert.match(settings, /onNavigate\?\.\(`settings-/, 'entries navigate through the shell callback')
+assert.match(settings, /min-height: 52px/, 'rows allow accessible touch targets')
+assert.match(settings, /font-size: 1\.0625rem/, 'main text respects font enlargement')
+assert.match(settings, /prefers-reduced-motion/, 'switches respect reduced motion')
+assert.match(settings, /<SourcePluginSettings mobile/, 'source list explicitly selects the mobile variant')
+assert.match(settings, /<AndroidPlayerSettings mobile/, 'Android controls explicitly select the mobile variant')
+assert.match(mobileApp, /category=\{settingsCategory\(page.view\)\}/, 'route selects the secondary page')
+assert.match(mobileApp, /const position = scrollPositions.get\(key\)/, 'return restores route scroll position')
+const desktop = await readFile(new URL('../../components/layout/DesktopPageHost.svelte', import.meta.url), 'utf8')
+assert.match(desktop, /router.activeView === 'settings' \|\| settingsCategory/, 'desktop handles mobile subviews')
+const plugins = await readFile(new URL('../../components/SourcePluginSettings.svelte', import.meta.url), 'utf8')
+assert.match(plugins, /mobile && addOpen/, 'mobile add form opens in a separate dialog')
+assert.match(plugins, /use:dialogFocus/, 'plugin dialog uses existing focus and back handling')
+console.log('mobile settings: categories, scalable touch controls, native variants and route integration passed')

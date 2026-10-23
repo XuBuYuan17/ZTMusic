@@ -290,5 +290,20 @@ router.handleNav('profile')
 assert.equal(router.activeView, 'library', 'legacy mobile profile maps to library')
 router.goBack()
 assert.equal(router.activeView, 'explore', 'mobile root back defaults to discovery')
+for (const category of ['appearance', 'playback', 'sources', 'android', 'general', 'data', 'advanced', 'about']) {
+  router.handleNav('settings')
+  router.handleNav(`settings-${category}`)
+  assert.equal(router.activeView, `settings-${category}`)
+  assert.deepEqual(router.routeStack.map(r => r.view), ['settings'], 'settings child preserves parent without an explicit push flag')
+  router.handleNav(`settings-${category}`)
+  assert.equal(router.routeStack.length, 1, 'same child never pushes itself')
+  router.goBack()
+  assert.equal(router.activeView, 'settings', 'toolbar and Android back share the same stack')
+  assert.equal(router.routeStack.length, 0)
+}
+router.handleNav('settings-playback')
+router.handleNav('library')
+assert.equal(router.routeStack.length, 0, 'tab navigation clears settings history')
+
 delete globalThis.testMobileLayout
 console.log('mobile interaction: navigation, axis lock, long press, thresholds, cancellation, click suppression and cleanup passed')

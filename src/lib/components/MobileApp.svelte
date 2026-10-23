@@ -12,6 +12,7 @@
 
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
+  import { settingsCategory, SETTINGS_CATEGORIES } from '../pages/mobile/settings-navigation.ts'
   import SettingsPage from '../pages/mobile/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
   import RecentPage from '../pages/pc/Recent.svelte'
@@ -61,6 +62,7 @@
     home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
+    ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [`settings-${item.id}`, item.title])),
     album: '专辑', artist: '歌手', user: '个人主页',
   }
   let mountedViews = $state<string[]>([])
@@ -182,12 +184,12 @@
   })
 </script>
 
-<div class="mobile-app" class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
+<div class="mobile-app" class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
   <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
     {#if isPrimaryView}
       <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
     {:else}
-      <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name="arrow-left" size={22} /></button>
+      <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
     {/if}
     {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
     {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{titles[activeView] || '哲听'}</h1>{/if}
@@ -222,17 +224,17 @@
         </div>
       {/if}
 
-      {#if activeView === 'settings' || mountedViews.includes('settings')}
+      {#if activeView === 'settings'}
         <div class="mobile-shared-page mobile-route-page" data-route-key="settings" class:mobile-route-outgoing={leavingKey === 'settings'} style:display={activeView === 'settings' ? 'block' : 'none'} inert={activeView !== 'settings'} aria-hidden={activeView !== 'settings'}>
-          <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />
+          <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} onNavigate={handleNav} />
         </div>
       {/if}
 
       {#each detailPages as page (page.key)}
       <div class="mobile-route-page mobile-detail-page" data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
-      {#if page.view === 'settings'}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />
+      {#if settingsCategory(page.view) && viewKey === page.key}
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} />
       {:else if page.view === 'about'}
         <AboutPage />
       {:else if page.view === 'liked'}
@@ -276,6 +278,18 @@
 </div>
 
 <style>
+  .settings-view { --settings-page: #f2f2f7; --settings-group: #fff; background: var(--settings-page); }
+  :global(html[data-theme="dark"]) .settings-view { --settings-page: #000; --settings-group: #1c1c1e; }
+  .settings-view :global(.mobile-page-bar) { background: var(--settings-page); }
+  .settings-view :global(.mobile-large-title) { border-bottom: 0; margin-bottom: 24px; font-size: 2.125rem; letter-spacing: 0; }
+  .settings-view :global(.mobile-page-content__inner) { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
+  .settings-view :global(.mobile-page-bar h1) { font-size: 1.0625rem; }
+  .settings-view :global(.mobile-page-bar__button) { color: var(--md-primary); }
+  .settings-view.secondary :global(.mobile-page-bar) { grid-template-columns: 80px minmax(0, 1fr) 80px; }
+  .settings-view.secondary :global(.mobile-page-bar__button) { display: flex; gap: 0; width: 80px; }
+  .settings-back-label { font-size: 1.0625rem; }
+  .settings-view :global(.mobile-page-content) { background: var(--settings-page); }
+
   .mobile-route-page { min-height: 100%; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }

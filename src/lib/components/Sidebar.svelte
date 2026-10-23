@@ -143,7 +143,7 @@
       <span class="nav-label">切换主题</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'settings'} onclick={() => nav('settings')} title="设置">
+    <button class="nav-item" class:active={activeView === 'settings' || activeView.startsWith('settings-')} onclick={() => nav('settings')} title="设置">
       <span class="nav-icon">
         <Icon name="settings" size={22} strokeWidth={1.5}/>
       </span>

@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict'
+import { settingsCategory, settingsCategories, settingsSummaries } from './settings-navigation.ts'
+
+assert.equal(settingsCategories(true).length, 8)
+assert.equal(settingsCategories(false).length, 7)
+assert.ok(!settingsCategories(false).some(item => item.id === 'android'))
+for (const item of settingsCategories(true)) assert.equal(settingsCategory(`settings-${item.id}`), item.id)
+for (const view of ['settings', 'about', 'settings-invalid', 'settings-appearance-extra']) assert.equal(settingsCategory(view), null)
+const initial = settingsSummaries({ theme: 'dark', quality: '无损', pluginCount: 0, locale: 'zh', loggedIn: false, version: '1.4.1' })
+assert.equal(initial.appearance, '深色')
+assert.equal(initial.sources, '0 个已启用')
+assert.equal(initial.data, '未登录')
+const updated = settingsSummaries({ theme: 'light', quality: '标准', pluginCount: 2, locale: 'en', loggedIn: true, version: '1.4.2' })
+assert.equal(updated.appearance, '浅色')
+assert.equal(updated.playback, '标准')
+assert.equal(updated.sources, '2 个已启用')
+assert.equal(updated.general, 'English')
+assert.equal(updated.data, '已登录')
+assert.equal(updated.about, '1.4.2')
+console.log('mobile settings navigation: eight routes, conditional entrance and current summaries passed')

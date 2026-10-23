@@ -4,6 +4,8 @@
   import { androidOverlayUiState } from '../player/android-overlay-state.ts'
   import Icon from './ui/Icon.svelte'
 
+  let { mobile = false }: { mobile?: boolean } = $props()
+
   interface OverlaySettings {
     locked: boolean
     through: boolean
@@ -211,7 +213,7 @@
   }
 </script>
 
-<section class="desktop-lyrics-card" aria-busy={busy || checking}>
+<section class="desktop-lyrics-card" class:mobile aria-busy={busy || checking}>
   <header class="desktop-lyrics-head">
     <span class="desktop-lyrics-icon" aria-hidden="true"><Icon name="music" size={22} strokeWidth={1.8} /></span>
     <div class="desktop-lyrics-title">
@@ -226,13 +228,14 @@
 
   <div class="desktop-lyrics-primary">
     <div class="primary-copy">
-      <strong>{uiState === 'active' ? '桌面歌词正在显示' : requested ? '桌面歌词已请求开启' : '显示桌面歌词'}</strong>
+      <strong>{mobile ? '桌面歌词' : uiState === 'active' ? '桌面歌词正在显示' : requested ? '桌面歌词已请求开启' : '显示桌面歌词'}</strong>
       <span>{stateDescription}</span>
     </div>
     <button
       class="primary-switch"
       class:on={requested && permission}
       type="button"
+      aria-label="显示桌面歌词"
       aria-pressed={requested && permission}
       disabled={busy || checking || awaitingPermission || !connected}
       onclick={() => setEnabled(!(requested && permission))}
@@ -274,7 +277,7 @@
         <div class="section-heading">
           <div><strong>交互方式</strong><span>控制悬浮歌词是否可移动、可点击，以及是否显示翻译</span></div>
         </div>
-        <div class="choice-row" role="group" aria-label="桌面歌词交互方式">
+        <div class="choice-row" class:mobile-interaction-rows={mobile} role="group" aria-label="桌面歌词交互方式">
           <button aria-pressed={locked} class:active={locked} onclick={() => { locked = !locked; void saveSettings() }}>锁定位置</button>
           <button aria-pressed={through} class:active={through} onclick={() => { through = !through; void saveSettings() }}>点击穿透</button>
           <button aria-pressed={bilingual} class:active={bilingual} onclick={() => { bilingual = !bilingual; void saveSettings() }}>双语歌词</button>
@@ -295,7 +298,7 @@
         <div class="section-heading"><div><strong>字体风格</strong><span>仅影响 Android 桌面悬浮歌词</span></div></div>
         <div class="choice-row" role="radiogroup" aria-label="桌面歌词字体">
           {#each [['sans-serif', '默认'], ['serif', '衬线'], ['monospace', '等宽']] as [value, label]}
-            <button role="radio" aria-checked={font === value} class:active={font === value} onclick={() => { font = value || 'sans-serif'; void saveSettings() }}>{label}</button>
+            <button role="radio" aria-checked={font === value} class:active={font === value} onclick={() => { font = value || 'sans-serif'; void saveSettings() }}>{label}{#if mobile && font === value}<Icon name="check" size={20} />{/if}</button>
           {/each}
         </div>
       </div>
@@ -305,7 +308,7 @@
   {#if status}<p class="desktop-lyrics-status" role="status" aria-live="polite">{status}</p>{/if}
 </section>
 
-<section class="desktop-lyrics-card bluetooth-lyrics-card" aria-busy={bluetoothBusy || checking}>
+<section class="desktop-lyrics-card bluetooth-lyrics-card" class:mobile aria-busy={bluetoothBusy || checking}>
   <header class="desktop-lyrics-head">
     <span class="desktop-lyrics-icon" aria-hidden="true"><Icon name="music" size={22} strokeWidth={1.8} /></span>
     <div class="desktop-lyrics-title">
@@ -314,19 +317,20 @@
       <p>把当前歌词行写入 MediaSession 标题，供车机、蓝牙 AVRCP、锁屏歌词与白羊类状态栏/灵动岛模块读取。</p>
     </div>
     <span class="state-pill" class:active={bluetoothLyricsEnabled}>
-      <i aria-hidden="true"></i>{checking ? '正在检查' : bluetoothLyricsEnabled ? '已开启' : '已关闭'}
+      <i aria-hidden="true"></i>{checking ? '正在检查' : mobile && !connected ? '服务不可用' : bluetoothLyricsEnabled ? '已开启' : '已关闭'}
     </span>
   </header>
 
   <div class="desktop-lyrics-primary">
     <div class="primary-copy">
-      <strong>{bluetoothLyricsEnabled ? '正在发送当前歌词行' : '启用 MediaSession / 蓝牙歌词'}</strong>
+      <strong>{mobile ? '蓝牙 / 灵动岛歌词' : bluetoothLyricsEnabled ? '正在发送当前歌词行' : '启用 MediaSession / 蓝牙歌词'}</strong>
       <span>只在歌词换行时更新；关闭后会恢复原歌名。开启后系统媒体通知也可能显示当前歌词，这是兼容 AVRCP 的预期行为。</span>
     </div>
     <button
       class="primary-switch"
       class:on={bluetoothLyricsEnabled}
       type="button"
+      aria-label="蓝牙 / 灵动岛歌词"
       aria-pressed={bluetoothLyricsEnabled}
       disabled={bluetoothBusy || checking || !connected}
       onclick={() => setBluetoothLyrics(!bluetoothLyricsEnabled)}
@@ -417,4 +421,53 @@
     .desktop-lyrics-settings { grid-template-columns: 1fr; }
     .settings-section--wide { grid-column: auto; }
   }
+
+  .mobile.desktop-lyrics-card { margin: 0 0 24px; padding: 0; border: 0; border-radius: var(--radius-md); background: var(--settings-group, var(--bg)); box-shadow: none; }
+  .mobile.desktop-lyrics-card::before, .mobile .desktop-lyrics-icon, .mobile .settings-eyebrow { display: none; }
+  .mobile .desktop-lyrics-primary { flex-direction: row; align-items: center; gap: 12px; margin: 0; padding: 12px 16px; border-radius: 0; background: transparent; box-shadow: none; }
+  .mobile .primary-copy strong { font-size: 1.0625rem; line-height: 1.4; font-weight: 400; }
+  .mobile .primary-copy span { font-size: .8125rem; line-height: 1.5; }
+  .mobile .primary-switch { align-self: center; position: relative; min-height: 44px; width: 52px; padding: 0; background: transparent; }
+  .mobile .primary-switch > span { width: 52px; height: 32px; }
+  .mobile .primary-switch > span::after { width: 26px; height: 26px; top: 3px; left: 3px; background: #fff; }
+  .mobile .primary-switch.on > span { background: var(--md-primary); }
+  .mobile .primary-switch.on > span::after { transform: translateX(20px); }
+  .mobile .primary-switch em { display: none; }
+  .mobile .permission-panel { display: flex; flex-direction: column; align-items: stretch; margin: 0; padding: 12px 16px; border-radius: 0; box-shadow: none; background: transparent; border-top: 1px solid var(--border); }
+  .mobile .permission-mark { display: none; }
+  .mobile .permission-copy strong { font-size: .9375rem; font-weight: 500; }
+  .mobile .permission-copy p { font-size: .8125rem; line-height: 1.5; }
+  .mobile .permission-actions { flex-direction: row; flex-wrap: wrap; }
+  .mobile .permission-button, .mobile .text-button { width: auto; min-height: 44px; white-space: normal; font-size: .9375rem; font-weight: 400; border-radius: var(--radius-sm); color: var(--md-primary); background: transparent; }
+  .mobile .desktop-lyrics-settings { display: grid; grid-template-columns: 1fr; gap: 0; margin: 0; }
+  .mobile .settings-section { padding: 12px 16px; border-top: 1px solid var(--border); border-radius: 0; background: transparent; }
+  .mobile .section-heading strong { font-size: 1.0625rem; line-height: 1.4; font-weight: 400; }
+  .mobile .section-heading span { font-size: .8125rem; line-height: 1.5; }
+  .mobile .section-heading em { font-size: .9375rem; }
+  .mobile .choice-row { gap: 6px; }
+  .mobile .choice-row button { min-height: 44px; padding: 8px 12px; border-radius: var(--radius-sm); font-size: .9375rem; font-weight: 400; }
+  .mobile .choice-row button.active { color: var(--md-primary); background: var(--md-primary-container); box-shadow: none; }
+  .mobile input[type='range'] { min-height: 44px; accent-color: var(--md-primary); }
+  .mobile .desktop-lyrics-status { margin: 0; padding: 0 16px 12px; font-size: .8125rem; line-height: 1.5; }
+  @media (prefers-reduced-motion: reduce) { .mobile .primary-switch > span, .mobile .primary-switch > span::after { transition: none; } }
+
+  .mobile .desktop-lyrics-head { display: none; }
+  .mobile .desktop-lyrics-primary { min-height: 52px; }
+  .mobile .primary-copy span { color: var(--text-secondary); }
+  .mobile .settings-section:has(.mobile-interaction-rows) { padding: 0; }
+  .mobile .settings-section:has(.mobile-interaction-rows) .section-heading { padding: 14px 16px 4px; }
+  .mobile .settings-section:has(.mobile-interaction-rows) .section-heading span { display: none; }
+  .mobile .mobile-interaction-rows { display: grid; gap: 0; margin: 0; }
+  .mobile .mobile-interaction-rows button { position: relative; min-height: 52px; margin: 0 16px; padding: 10px 64px 10px 0; border-radius: 0; background: transparent; box-shadow: none; font-size: 1.0625rem; color: var(--text); text-align: left; }
+  .mobile .mobile-interaction-rows button.active { background: transparent; color: var(--text); box-shadow: none; }
+  .mobile .mobile-interaction-rows button + button { border-top: 1px solid var(--border); }
+  .mobile .mobile-interaction-rows button::before { content: ''; position: absolute; width: 52px; height: 32px; right: 0; top: calc(50% - 16px); border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 28%, transparent); }
+  .mobile .mobile-interaction-rows button.active::before { background: var(--md-primary); }
+  .mobile .mobile-interaction-rows button::after { content: ''; position: absolute; right: 23px; top: calc(50% - 13px); width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+  .mobile .mobile-interaction-rows button.active::after { right: 3px; }
+  .mobile .settings-section:has(.choice-row) .section-heading strong { font-size: .8125rem; color: var(--text-secondary); }
+  .mobile .choice-row[role='radiogroup'] { display: grid; gap: 0; }
+  .mobile .choice-row[role='radiogroup'] button { min-height: 48px; display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-radius: 0; background: transparent; color: var(--text); font-size: 1.0625rem; }
+  .mobile .choice-row[role='radiogroup'] button + button { border-top: 1px solid var(--border); }
+  .mobile .choice-row[role='radiogroup'] button.active { color: var(--md-primary); }
 </style>

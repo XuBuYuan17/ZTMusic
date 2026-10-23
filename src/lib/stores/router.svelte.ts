@@ -643,6 +643,7 @@ function handleNav(view: string, extra?: number | null, preserveSource = false):
   if (view === 'artist' && extra) { goArtist(extra); return }
   if (view === 'user' && extra) { goUser(extra); return }
   if (view === 'dailyHistory') { goDailyHistory(); return }
+  if (view.startsWith('settings-')) preserveSource = true
   if (preserveSource && view !== _activeView) pushRoute()
   else if (!preserveSource) _routeStack = []
   _routeTransition = preserveSource ? 'forward' : 'soft'; _previousView = _activeView; _activeView = view; _selectedId = null

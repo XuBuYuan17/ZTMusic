@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { settingsCategory } from '../../pages/mobile/settings-navigation.ts'
   import { router } from '../../stores/router.svelte.ts'
   import { pageMotion } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
@@ -164,7 +165,7 @@
             onOpenAlbum={openAlbumRef}
           />
         {/await}
-      {:else if router.activeView === 'settings'}
+      {:else if router.activeView === 'settings' || settingsCategory(router.activeView)}
         {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />{/await}
       {:else if router.activeView === 'about'}
         {#await loadAboutPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
