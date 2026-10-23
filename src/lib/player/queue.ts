@@ -162,11 +162,37 @@ export function restoreShuffleState(value: unknown, queueLength: number, current
 }
 
 export function replaceQueueState(tracks: unknown, startIndex: number = 0): QueueState {
-  const queue = compactQueue(tracks)
+  const source = Array.isArray(tracks) ? tracks : []
+  const selected = Math.min(Math.max(Number.isInteger(startIndex) ? startIndex : 0, 0), Math.max(0, source.length - 1))
+  const offset = Math.max(0, Math.min(selected - Math.floor(LIMITS.MAX_QUEUE / 2), source.length - LIMITS.MAX_QUEUE))
+  const queue = compactQueue(source.slice(offset, offset + LIMITS.MAX_QUEUE))
+  const preceding = compactQueue(source.slice(offset, selected)).length
   const queueIndex = queue.length === 0
     ? -1
-    : Math.min(Math.max(Number.isInteger(startIndex) ? startIndex : 0, 0), queue.length - 1)
+    : Math.min(preceding, queue.length - 1)
   return { queue, queueIndex, shuffleState: createShuffleState() }
+}
+
+export function appendQueueState(
+  queue: readonly CompactTrack[],
+  shuffleState: ShuffleState,
+  tracks: readonly CompactTrackInput[],
+  currentIndex: number,
+): QueueState {
+  const nextQueue = compactQueue([...queue, ...tracks])
+  const restored = restoreShuffleState(shuffleState, queue.length, currentIndex)
+  if (restored.order.length) {
+    const begin = restored.position + 1
+    for (let index = queue.length; index < nextQueue.length; index++) {
+      const at = begin + Math.floor(Math.random() * (restored.order.length - begin + 1))
+      restored.order.splice(at, 0, index)
+    }
+  }
+  return {
+    queue: nextQueue,
+    queueIndex: nextQueue.length ? Math.max(0, Math.min(currentIndex, nextQueue.length - 1)) : -1,
+    shuffleState: restored,
+  }
 }
 
 export interface QueueSelectionResolution {

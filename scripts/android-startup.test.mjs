@@ -99,7 +99,7 @@ const adaptive = await read('src-tauri/android/res/mipmap-anydpi-v26/ic_launcher
 assert.match(adaptive, /<adaptive-icon[\s\S]*<background[\s\S]*<foreground/)
 assert.ok(!activity.includes('SplashActivity'))
 const emptyIcon = await read('src-tauri/android/res/drawable/zt_startup_empty.xml')
-assert.match(emptyIcon, /android:fillColor="@android:color\\/transparent"/)
+assert.match(emptyIcon, /android:fillColor="@android:color\/transparent"/)
 assert.ok(!/bitmap|zt_portrait|ic_launcher/.test(emptyIcon), 'system startup drawable must stay visually empty')
 
 // Exercise the actual Android overlay generator against a regenerated project, including a second run.

@@ -62,6 +62,7 @@ let _user = $state<AuthUser | null>(null)
 let _loginMode = $state<string | null>(null)
 let _cookieOk = $state(true)
 let _vipInfo = $state<VipInfo | null>(null)
+let _sessionVersion = 0
 
 function deepFind(obj: unknown, key: string): string | undefined {
   if (!obj || typeof obj !== 'object') return undefined
@@ -87,12 +88,11 @@ function deepFind(obj: unknown, key: string): string | undefined {
 /** 检测登录 cookie 是否仍然有效。只在服务端「明确」说失效时标记，不清 cookie */
 async function checkLoginStatus(): Promise<boolean> {
   if (!_loginMode) return true
-  const modeSnapshot = _loginMode  // 记录本次检测时的登录会话
+  const sessionVersion = _sessionVersion
   try {
     const verdict = classifyLoginStatus(await ncm.loginStatus())
+    if (_sessionVersion !== sessionVersion) return _cookieOk
     if (verdict === 'expired') {
-      // 二次校验：await 期间用户可能已重新登录，_loginMode 会被 setUser 覆盖
-      if (_loginMode !== modeSnapshot) return true
       // 只标记失效，保留 cookie 与 auth_user：App.svelte 靠 cookieOk 的 true→false 边沿弹登录框，
       // 用户手动重登才覆盖。清 storage 不可逆，不该由一次后台检测触发
       _cookieOk = false
@@ -144,6 +144,7 @@ export const auth = {
   checkLoginStatus,
 
   init() {
+    const sessionVersion = ++_sessionVersion
     const stored = getStorageJson<unknown>('auth_user', null)
     const vip = getStorageJson<unknown>('auth_vip', null)
     const mode = getStorage('auth_mode', '')
@@ -152,18 +153,22 @@ export const auth = {
         _user = normalizeUser(stored)
         _vipInfo = vip as VipInfo | null
         _loginMode = mode
+        _cookieOk = true
         // 串行：先校验 cookie，通过后再刷新 VIP，避免失效 cookie 下的过期 VIP 信息被写回缓存
         checkLoginStatus().then((valid) => {
-          if (valid) this.refreshVipInfo()
+          if (valid && _sessionVersion === sessionVersion) this.refreshVipInfo()
         })
       } catch { this.clear() }
     }
   },
 
   setUser(user: unknown, mode: string) {
+    _sessionVersion++
     _user = normalizeUser(user)
     _loginMode = mode
     _cookieOk = true
+    _vipInfo = null
+    removeStorage('auth_vip')
     setStorage('auth_user', _user)
     setStorage('auth_mode', mode)
   },
@@ -174,8 +179,10 @@ export const auth = {
       removeStorage('auth_vip')
       return null
     }
+    const sessionVersion = _sessionVersion
     try {
       const res = await fetchVipInfo(ncm) as unknown
+      if (_sessionVersion !== sessionVersion) return _vipInfo
       _vipInfo = normalizeVipInfo(res) as VipInfo
       setStorage('auth_vip', _vipInfo)
       return _vipInfo
@@ -191,6 +198,7 @@ export const auth = {
   },
 
   clear() {
+    _sessionVersion++
     _user = null
     _loginMode = null
     _vipInfo = null
@@ -268,13 +276,14 @@ export const auth = {
   },
 
   async logout() {
+    const sessionVersion = _sessionVersion
     try { await ncm.logout() } catch {}
+    if (_sessionVersion !== sessionVersion) return
     clearCookie()
     this.clear()
   },
 
   async getQrCode(): Promise<QrCodePayload> {
-    clearCookie() // 清除过期 cookie，避免干扰
     const keyRes = await ncm.loginQrKey()
     const kr = asRecord(keyRes)
     if (!kr || kr.code !== 200) throw new Error('获取二维码失败')

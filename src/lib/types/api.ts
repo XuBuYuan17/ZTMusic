@@ -64,12 +64,13 @@ export interface ApiResponse {
 }
 
 export interface ApiSession {
+  getVersion(): number
   getBase(): string
   setBase(base: string): void
   getCookie(): string
   setCookie(cookie: string): void
   clearCookie(): void
-  saveCookieFromResponse(data: unknown, rawCookie?: string): void
+  saveCookieFromResponse(data: unknown, rawCookie?: string, expectedVersion?: number): void
 }
 
 /** createApiCacheKey 的输入；cookie 参与 hash，避免跨账号串缓存 */

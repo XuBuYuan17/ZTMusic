@@ -98,6 +98,7 @@ export interface SearchOptions {
 export interface StreamOptions {
   level?: string
   unblock?: boolean
+  signal?: AbortSignal
 }
 
 /** 搜索结果中的歌手（比 Artist 多统计字段） */

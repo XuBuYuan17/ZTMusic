@@ -26,7 +26,7 @@ export interface PlaylistDetailRecord extends Loose {
   tracks: Loose[]
   trackIds?: TrackIdRef[]
   tracksPartial?: boolean
-  /** 已经尝试解析到 trackIds 的哪个位置；与实际成功渲染的 tracks.length 分离。 */
+  /** 已经成功请求到 trackIds 的哪个位置；与实际成功渲染的 tracks.length 分离。 */
   trackLoadCursor?: number
 }
 
@@ -72,7 +72,7 @@ async function loadSongsByIds(ids: SongId[]): Promise<Loose[]> {
   for (let index = 0; index < uniqueIds.length; index += SONG_DETAIL_BATCH_SIZE) {
     chunks.push(uniqueIds.slice(index, index + SONG_DETAIL_BATCH_SIZE))
   }
-  const results = await Promise.all(chunks.map(chunk => musicService.getTracks(chunk).catch(() => [])))
+  const results = await Promise.all(chunks.map(chunk => musicService.getTracks(chunk)))
   const songMap = new Map<SongId, Loose>()
   for (const song of results.flat()) songMap.set(song.id, song as unknown as Loose)
   return uniqueIds
@@ -105,7 +105,7 @@ export function reconstructPlaylistTracks(
 }
 
 /**
- * 分页游标必须按“已经尝试过多少个 trackId”推进，而不是 tracks.length。
+ * 分页游标必须按“已经成功请求过多少个 trackId”推进，而不是 tracks.length。
  * 个别歌曲详情缺失时，tracks.length 会变小；若拿它做游标会反复请求同一批 ID。
  */
 export function playlistLoadCursor(detail: Pick<PlaylistDetailRecord, 'trackIds' | 'tracks' | 'trackLoadCursor'>): number {
@@ -157,13 +157,21 @@ export async function loadPlaylistMore(
   for (let index = 0; index < batchIds.length; index += 50) {
     groups.push(batchIds.slice(index, index + 50))
   }
-  const groupSongs = await mapWithConcurrency(groups, 4, (group) => loadSongsByIds(group).catch(() => []))
-  const nextCursor = Math.min(trackIds.length, cursor + batchIds.length)
-  const tracks = reconstructPlaylistTracks(trackIds, activeDetail.tracks || [], groupSongs.flat(), nextCursor)
+  const results = await mapWithConcurrency(groups, 4, (group) => loadSongsByIds(group).then(
+    value => ({ status: 'fulfilled' as const, value }),
+    reason => ({ status: 'rejected' as const, reason }),
+  ))
+  const failedIndex = results.findIndex(result => result.status === 'rejected')
+  const completedCount = failedIndex < 0 ? batchIds.length : groups.slice(0, failedIndex).reduce((sum, group) => sum + group.length, 0)
+  const nextCursor = Math.min(trackIds.length, cursor + completedCount)
+  const songs = results.flatMap(result => result.status === 'fulfilled' ? result.value : [])
+  const tracks = reconstructPlaylistTracks(trackIds, activeDetail.tracks || [], songs, cursor + batchIds.length)
   if (tracks.length) activeDetail.tracks = tracks
   activeDetail.trackLoadCursor = nextCursor
   activeDetail.tracksPartial = nextCursor < trackIds.length
   if (onProgress) onProgress({ detail: activeDetail, heroColor: '' })
+  const failed = results[failedIndex]
+  if (failed?.status === 'rejected') throw failed.reason
   return { detail: activeDetail, heroColor: '' }
 }
 
@@ -215,7 +223,12 @@ export async function loadPlaylistDetail(
     for (let i = 0; i < idsToLoad.length; i += 50) {
       const batch = idsToLoad.slice(i, i + 50)
       if (!batch.length) continue
-      const songs = await loadSongsByIds(batch)
+      let songs: Loose[]
+      try { songs = await loadSongsByIds(batch) } catch (error) {
+        activeDetail.tracks = reconstructPlaylistTracks(trackIds, [...fallbackMap.values()], [...songMap.values()], loadedCount)
+        if (onProgress) onProgress({ detail: activeDetail, heroColor })
+        throw error
+      }
       for (const song of songs) songMap.set(song.id as SongId, song)
       loadedCount = Math.max(loadedCount, i + batch.length)
       tracks = buildTracks(songMap, Math.max(loadedCount, activeDetail.tracks?.length || 0))

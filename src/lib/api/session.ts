@@ -58,13 +58,19 @@ export function normalizeCookieForRequest(cookieString: string | null | undefine
 
 let apiBase = loadApiBase()
 let apiCookie = getStorage(API_COOKIE_KEY, '') || ''
+let sessionVersion = 0
 
 export const apiSession: ApiSession = {
+  getVersion(): number {
+    return sessionVersion
+  },
+
   getBase(): string {
     return apiBase
   },
 
   setBase(url: string): void {
+    sessionVersion++
     setStorage(API_BASE_KEY, url)
     apiBase = url
   },
@@ -74,16 +80,19 @@ export const apiSession: ApiSession = {
   },
 
   setCookie(cookie: string): void {
+    sessionVersion++
     apiCookie = cookie || ''
     setStorage(API_COOKIE_KEY, apiCookie)
   },
 
   clearCookie(): void {
+    sessionVersion++
     apiCookie = ''
     removeStorage(API_COOKIE_KEY)
   },
 
-  saveCookieFromResponse(data: unknown, rawCookie: string = ''): void {
+  saveCookieFromResponse(data: unknown, rawCookie: string = '', expectedVersion: number = sessionVersion): void {
+    if (expectedVersion !== sessionVersion) return
     const rec = data && typeof data === 'object' ? data as { cookie?: unknown; data?: unknown } : null
     const nested = rec?.data && typeof rec.data === 'object'
       ? (rec.data as { cookie?: unknown }).cookie

@@ -64,5 +64,16 @@ audio.paused = true
 audio.dispatchEvent(new Event('waiting'))
 assert.equal(loadSignals, 1, 'paused waiting events must be ignored')
 
+let mediaLoads = 0
+audio.load = () => { mediaLoads++; audio.error = null }
+engine.load('https://audio.test/retry')
+const firstLoads = mediaLoads
+engine.load('https://audio.test/retry')
+assert.equal(mediaLoads, firstLoads, 'a healthy duplicate URL must not restart playback')
+audio.error = { code: 2, message: 'Temporary network failure' } as MediaError
+engine.load('https://audio.test/retry')
+assert.ok(mediaLoads > firstLoads, 'an explicit retry must reload an errored element even for the same URL')
+assert.equal(audio.error, null)
+
 engine.destroy()
 console.log('audio engine loading semantics: play, waiting and playing transitions passed')

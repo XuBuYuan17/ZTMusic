@@ -29,8 +29,8 @@ export interface MusicProvider {
   getTopSongs(limit?: number): Promise<Song[]>
   getLyrics(id: SongId): Promise<LyricLine[]>
   getStream(id: SongId, options?: StreamOptions): Promise<PlayStream>
-  getMatchedStream(id: SongId): Promise<PlayStream>
-  getLegacyStream(id: SongId, bitrate?: number): Promise<PlayStream>
+  getMatchedStream(id: SongId, signal?: AbortSignal): Promise<PlayStream>
+  getLegacyStream(id: SongId, bitrate?: number, signal?: AbortSignal): Promise<PlayStream>
   getTracks(ids: SongId[]): Promise<Song[]>
   getPlaylist(id: SongId): Promise<PlaylistDetail | null>
   getAlbum(id: SongId): Promise<AlbumDetail>
