@@ -93,7 +93,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
       shared = clone(cover, 'player-surface-cover')
       Object.assign(shared.style, {
         left: '0', top: '0', width: `${coverTarget.width}px`, height: `${coverTarget.width}px`,
-        borderRadius: getComputedStyle(cover).borderRadius, zIndex: '30',
+        borderRadius: getComputedStyle(cover).borderRadius, opacity: '1', zIndex: '30',
       })
       set(cover, 'visibility', 'hidden')
     }

@@ -17,6 +17,9 @@ const surface = () => page.evaluate(() => {
   const cover = document.querySelector('.ly-container .am-flying-cover')
   return { phase: controller.phase, p: controller.sheetProgress.get(),
     shared: shared?.getBoundingClientRect().toJSON(), cover: cover?.getBoundingClientRect().toJSON(),
+    sharedOpacity: shared && getComputedStyle(shared).opacity,
+    sharedVisibility: shared && getComputedStyle(shared).visibility,
+    sharedImageLoaded: !!shared?.querySelector('img')?.naturalWidth,
     nav: document.querySelector('.mobile-tab-bar').style.transform,
     modal: !!document.querySelector('.ly-fullscreen'), sharedCount: document.querySelectorAll('.player-surface-cover').length }
 })
@@ -62,6 +65,9 @@ try {
       state = await surface()
       assert.ok(Math.abs(state.p - .7) < .01)
       assert.equal(state.nav, 'translateY(70%)')
+      assert.equal(state.sharedOpacity, '1', 'shared artwork is visible throughout the morph')
+      assert.equal(state.sharedVisibility, 'visible')
+      assert.equal(state.sharedImageLoaded, true, 'the visible shared layer contains the loaded artwork')
       assert.ok(Math.abs(state.shared.width - state.shared.height) < 1)
       await pointer('pointermove', x, y - travel * .5)
       await frames()
@@ -117,6 +123,50 @@ try {
     }
   }
 
+  await page.evaluate(() => window.mobileFixture.setDesktopTitlebar(true))
+  const desktopResults = []
+  for (const viewport of [{ width: 375, height: 667 }, { width: 400, height: 720 }, { width: 400, height: 700 }, { width: 400, height: 701 }, { width: 420, height: 800 }]) {
+    await page.setViewportSize(viewport)
+    await page.evaluate(() => window.mobileFixture.openPlayer())
+    await phase('open')
+    await frames()
+    const layout = await page.evaluate(() => {
+      const handle = document.querySelector('.m-player-dismiss')
+      const handleRect = handle.getBoundingClientRect()
+      const titlebarRect = document.querySelector('.fixture-titlebar').getBoundingClientRect()
+      const coverRect = document.querySelector('.ly-container .am-flying-cover').getBoundingClientRect()
+      const titleRect = document.querySelector('.am-track-info').getBoundingClientRect()
+      const hit = document.elementFromPoint(handleRect.left + handleRect.width / 2, handleRect.top + handleRect.height / 2)
+      return { handle: handleRect.toJSON(), titlebar: titlebarRect.toJSON(), cover: coverRect.toJSON(), title: titleRect.toJSON(), handleHit: !!hit && handle.contains(hit) }
+    })
+    assert.ok(layout.handle.top >= layout.titlebar.bottom, 'the full dismiss handle clears the desktop titlebar')
+    assert.equal(layout.handleHit, true, 'the titlebar cannot intercept dismiss input')
+    assert.ok(layout.cover.top >= layout.handle.bottom, 'the cover fits below the reserved header and handle')
+    assert.ok(layout.cover.bottom <= layout.title.top, 'cover geometry fits its grid row without overlapping the title')
+    assert.ok(Math.abs(layout.cover.width - layout.cover.height) < 1)
+    await page.screenshot({ path: `browser-artifacts/player-surface-desktop-${viewport.width}x${viewport.height}.png` })
+    await page.locator('.m-player-dismiss').click()
+    await phase('closed')
+
+    const mini = await page.locator('.mini-player-artwork').boundingBox()
+    await page.evaluate(() => window.mobileFixture.surface.beginDrag(700))
+    await frames()
+    let state = await surface()
+    near(state.shared, { left: mini.x, top: mini.y, width: mini.width, height: mini.height }, 'desktop mini artwork origin')
+    const travel = Math.min(440, Math.max(300, viewport.height * .45))
+    await page.evaluate(travel => window.mobileFixture.surface.dragTo(700 - travel * .7), travel)
+    await frames()
+    state = await surface()
+    assert.equal(state.sharedOpacity, '1')
+    assert.ok(Math.abs(state.shared.left - (mini.x + (layout.cover.left - mini.x) * .7)) < 1.5)
+    assert.ok(Math.abs(state.shared.top - (mini.y + (layout.cover.top - mini.y) * .7)) < 1.5, 'titlebar avoidance preserves viewport-based morph coordinates')
+    await page.evaluate(() => window.mobileFixture.surface.cancelDrag())
+    await phase('closed')
+    desktopResults.push({ ...viewport, status: 'passed' })
+    console.log(`player surface: desktop titlebar ${viewport.width}x${viewport.height} passed`)
+  }
+  await page.evaluate(() => window.mobileFixture.setDesktopTitlebar(false))
+
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.evaluate(() => window.mobileFixture.openPlayer())
   await phase('open')
@@ -158,8 +208,8 @@ try {
     await phase('closed')
   }
   assert.deepEqual(errors, [], 'browser runtime errors')
-  await writeFile('browser-artifacts/player-surface-results.json', JSON.stringify({ results, errors }, null, 2))
-  console.log(JSON.stringify({ results, reducedMotion: 'passed', resize: 'passed', errors }))
+  await writeFile('browser-artifacts/player-surface-results.json', JSON.stringify({ results, desktopResults, errors }, null, 2))
+  console.log(JSON.stringify({ results, desktopResults, reducedMotion: 'passed', resize: 'passed', errors }))
 } finally {
   await context.close()
   await browser.close()

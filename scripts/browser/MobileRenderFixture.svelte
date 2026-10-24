@@ -13,6 +13,7 @@
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
   let showPlayer = $state(false)
+  let desktopTitlebar = $state(false)
   const surface = createPlayerSurfaceController()
   const unsubscribe = surface.subscribe(({ phase }) => { showPlayer = phase !== 'closed' })
   onDestroy(() => { unsubscribe(); surface.destroy() })
@@ -27,6 +28,10 @@
       openPlayer: () => surface.open(),
       closePlayer: () => surface.close(),
       surface,
+      setDesktopTitlebar: (enabled: boolean) => {
+        desktopTitlebar = enabled
+        document.documentElement.classList.toggle('desktop-titlebar', enabled)
+      },
       seekForSurfaceTest: () => { player.seek = time => { player.currentTime = time } },
       setSurfaceArtwork: (value: string) => { player.cover = value === 'normal' ? user.avatarUrl : value },
       back: () => router.goBack(),
@@ -46,6 +51,7 @@
     } })
   })
 </script>
+{#if desktopTitlebar}<header class="fixture-titlebar" aria-label="测试窗口标题栏">哲听 Dev</header>{/if}
 <div class="app-shell" use:desktopFeedback use:mobileFeedback>
   <main class="main-area">
     <MobileApp activeView={router.activeView} theme="dark" accentTheme="red"
@@ -58,3 +64,7 @@
   <MobileMiniPlayer controller={surface} onOpenSheet={() => surface.open()} onToggleQueue={() => {}} />
 </div>
 <LyricsPageV2 show={showPlayer} controller={surface} onClose={() => surface.close()} />
+
+<style>
+  .fixture-titlebar { position: fixed; inset: 0 0 auto; height: var(--titlebar-h); z-index: 700; padding: 8px 14px; background: var(--bg); }
+</style>
