@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { settingsCategory, settingsCategories, settingsSummaries } from './settings-navigation.ts'
+import { settingsCategory, settingsCategories, settingsSummaries } from '../settings-navigation.ts'
 
 assert.equal(settingsCategories(true).length, 8)
 assert.equal(settingsCategories(false).length, 7)

@@ -16,7 +16,7 @@ const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCs
 for (const page of ['Explore', 'Library']) {
   assert.ok(mobileApp.includes(`../pages/pc/${page}.svelte`), `mobile must render the PC ${page} page`)
 }
-assert.ok(mobileApp.includes('../pages/mobile/Settings.svelte'), 'mobile settings must use the dedicated restrained settings page')
+assert.ok(mobileApp.includes('../pages/Settings.svelte'), 'mobile settings must use the shared categorized settings page')
 assert.ok(!mobileApp.includes('../pages/pc/Settings.svelte'), 'mobile shell must not fall back to the desktop settings hierarchy')
 
 const navTargets = [...sidebar.matchAll(/nav\('([^']+)'\)/g)].map((match) => match[1])

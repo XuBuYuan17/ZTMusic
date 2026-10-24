@@ -8,7 +8,7 @@
   import { coverUrl } from '../utils/image.ts';
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
-  import { QUALITY_LABELS } from '../composables/useSettings.svelte.ts';
+  import { QUALITY_LABELS } from '../player/quality.ts';
   import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import PlaybackControls from './PlaybackControls.svelte';
   import ProgressBar from './ProgressBar.svelte';

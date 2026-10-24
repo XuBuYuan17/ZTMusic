@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte'
   import MobileApp from '../../src/lib/components/MobileApp.svelte'
+  import DesktopPageHost from '../../src/lib/components/layout/DesktopPageHost.svelte'
+  import { responsive } from '../../src/lib/utils/responsive.ts'
   import AppleMusicPlayer from '../../src/lib/components/AppleMusicPlayer.svelte'
   import { router } from '../../src/lib/stores/router.svelte.ts'
   import { desktopFeedback } from '../../src/lib/app/desktop-motion.ts'
@@ -11,6 +13,7 @@
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
   let showPlayer = $state(false)
+  $effect(() => { document.documentElement.classList.toggle('mobile-runtime', $responsive.isMobile) })
   $effect(() => {
     auth.user; auth.isLoggedIn; auth.cookieOk
     player.queueRevision; player.queueIndex; player.id; player.mode
@@ -25,7 +28,7 @@
       login: () => auth.setUser(user, 'account'),
       logout: () => auth.clear(),
       navigate: (view: string) => router.handleNav(view),
-      snapshot: () => ({ view: router.activeView, selectedId: router.selectedId, queue: player.queue.map(t => t.id), index: player.queueIndex, id: player.id, mode: player.mode, kind: discoveryPlayback.kind, busy: discoveryPlayback.busy, error: discoveryPlayback.error }),
+      snapshot: () => ({ view: router.activeView, routes: router.routeStack.map(route => route.view), selectedId: router.selectedId, queue: player.queue.map(t => t.id), index: player.queueIndex, id: player.id, mode: player.mode, kind: discoveryPlayback.kind, busy: discoveryPlayback.busy, error: discoveryPlayback.error }),
       advance: () => { const index = player.queueIndex + 1; if (player.queue[index]) { player.queueIndex = index; player.id = player.queue[index].id } },
       normalPlayback: () => player.playQueue([{ id: 555, name: '普通歌曲' }]),
       enableSilentPlayback: () => {
@@ -40,10 +43,14 @@
 </script>
 <div class="app-shell" use:desktopFeedback use:mobileFeedback>
   <main class="main-area">
+    {#if $responsive.isMobile}
     <MobileApp activeView={router.activeView} theme="dark" accentTheme="red"
       onNavigate={router.handleNav} onBack={router.goBack}
       onOpenLogin={() => { (window as unknown as { loginRequests: number }).loginRequests = ((window as unknown as { loginRequests: number }).loginRequests || 0) + 1 }}
       onOpenPlaylist={(id, push, preview) => void router.goPlaylist(Number(id), push, preview as never)} />
+    {:else}
+      <DesktopPageHost theme="dark" accentTheme="red" onOpenLogin={() => {}} onSetTheme={() => {}} onSetAccentTheme={() => {}} />
+    {/if}
   </main>
 </div>
 {#if showPlayer}

@@ -17,6 +17,7 @@
   import { wallpaper } from './lib/stores/wallpaper.svelte.ts'
   import { getStorage, setStorage } from './lib/utils/storage.ts'
   import { getSetting, migrateSettings, setSetting } from './lib/utils/settings.ts'
+  import { SETTING_DEFINITIONS, settingValueForLayout } from './lib/settings/definitions.ts'
   import { countUnreadMessages, getInitialMessageReadState, loadMessageReadState } from './lib/services/message-read-state.ts'
   import { extractMessageList, loadPrivateMessageResponse } from './lib/services/message-data.ts'
   import { coverUrl, preloadCover } from './lib/utils/image.ts'
@@ -345,12 +346,8 @@
 
   const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
 
-  const defaultPage = getSetting('default_page', 'home')
-  if (isMobileRuntime()) { router.handleNav('explore') }
-  else if (defaultPage === 'library') { router.handleNav('library') }
-  else if (defaultPage === 'explore') { router.activeView = 'explore' }
-  else if (defaultPage === 'browse') { router.activeView = 'explore' }
-  else { router.handleNav('home') }
+  const defaultPage = settingValueForLayout(SETTING_DEFINITIONS.default_page, getSetting('default_page'), isMobileRuntime())
+  router.handleNav(defaultPage)
 </script>
 
 <WallpaperLayer />

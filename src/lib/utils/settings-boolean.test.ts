@@ -7,7 +7,6 @@
  * 关闭歌词模糊开关后 UI 仍显示"开"（PC 端写了，两边漂移）。
  */
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
 
 const store = new Map<string, string>()
 globalThis.localStorage = {
@@ -42,12 +41,11 @@ assert.equal(getSetting('accent_theme'), 'violet')
 assert.equal(setSetting('accent_theme', 'invalid'), 'red')
 passed += 3
 
-// 设置页必须用 === 'true' 收敛 setBooleanSetting 的返回值，否则开关显示会反
-const composable = await readFile(new URL('../composables/useSettings.svelte.ts', import.meta.url), 'utf8')
-for (const fn of ['handleRestoreSession', 'handleLyricsBlur', 'handleLyricsTextBlur']) {
-  const body = composable.slice(composable.indexOf(`function ${fn}(`))
-  const line = body.slice(0, body.indexOf('\n', body.indexOf('setBooleanSetting')))
-  check(line.includes("=== 'true'"), `${fn} must coerce setBooleanSetting via === 'true'`)
+for (const key of ['restore_session', 'lyrics_blur_effect', 'lyrics_text_blur_effect']) {
+  setBooleanSetting(key, false)
+  check(getBooleanSetting(key) === false, `${key} must remain false after saving`)
+  setBooleanSetting(key, true)
+  check(getBooleanSetting(key) === true, `${key} must remain true after saving`)
 }
 
 console.log(`settings boolean contract: ${passed} assertions passed`)

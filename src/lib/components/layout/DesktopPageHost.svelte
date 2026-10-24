@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { settingsCategory } from '../../pages/mobile/settings-navigation.ts'
+  import { settingsCategory } from '../../pages/settings-navigation.ts'
   import { router } from '../../stores/router.svelte.ts'
   import { pageMotion } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
@@ -37,7 +37,7 @@
   const loadRecentPage = lazyModule(() => import('../../pages/pc/Recent.svelte'))
   const loadLocalMusicPage = lazyModule(() => import('../../pages/LocalMusicPage.svelte'))
   const loadListeningStatsPage = lazyModule(() => import('../../pages/pc/ListeningReport.svelte'))
-  const loadSettingsPage = lazyModule(() => import('../../pages/pc/Settings.svelte'))
+  const loadSettingsPage = lazyModule(() => import('../../pages/Settings.svelte'))
   const loadLikedPage = lazyModule(() => import('../../pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('../../pages/PlaylistPage.svelte'))
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
@@ -59,7 +59,7 @@
 
 <div class="content-scroll" id="main-content">
   <div class="content-inner">
-    {#if router.isSecondaryView}
+    {#if router.isSecondaryView && !settingsCategory(router.activeView)}
       <div class="content-back-rail">
         <button type="button" class="content-back" onclick={router.goBack} aria-label="返回上一页">
           <span class="content-back-icon"><Icon name="arrow-left" size={20} strokeWidth={2} /></span>
@@ -166,7 +166,7 @@
           />
         {/await}
       {:else if router.activeView === 'settings' || settingsCategory(router.activeView)}
-        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />{/await}
+        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(router.activeView)} onNavigate={router.handleNav} onBack={router.goSettingsHome} />{/await}
       {:else if router.activeView === 'about'}
         {#await loadAboutPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default />

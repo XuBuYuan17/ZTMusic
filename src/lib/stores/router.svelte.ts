@@ -651,6 +651,15 @@ function handleNav(view: string, extra?: number | null, preserveSource = false):
   _playlistDetailError = ''; _playlistDetailLoading = false; _artistError = ''; _artistLoading = false
 }
 
+function goSettingsHome(): void {
+  if (_activeView === 'settings') return
+  while (_activeView.startsWith('settings-') && _routeStack.length) goBack()
+  if (_activeView !== 'settings') {
+    handleNav('settings')
+    _routeTransition = 'back'
+  }
+}
+
 function goBack(): void {
   invalidateDetailRequests(); const prev = _routeStack[_routeStack.length - 1]; _routeStack = _routeStack.slice(0, -1)
   if (!prev) { handleNav(isMobileDevice() ? 'explore' : 'home'); return }
@@ -692,7 +701,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, goSettingsHome, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,
