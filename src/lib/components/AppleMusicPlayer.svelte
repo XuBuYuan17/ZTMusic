@@ -2,7 +2,8 @@
   import { onDestroy } from 'svelte';
   import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
   import { responsive } from '../utils/responsive.ts';
-  import { mobileDrag } from '../app/mobile-interaction.ts';
+  import { playerSurfaceGesture } from '../player-motion/gesture.ts';
+  import type { PlayerSurfaceController } from '../player-motion/controller.ts';
   import Icon from './ui/Icon.svelte';
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
@@ -33,6 +34,7 @@
   type SafeTimer = ReturnType<typeof setTimeout>;
 
   let {
+    surfaceController,
     onClose,
     onOpenArtist,
     onOpenAlbum,
@@ -41,6 +43,7 @@
     showLocalQueue = false,
     toggleLocalQueue,
   }: {
+    surfaceController?: PlayerSurfaceController;
     onClose?: () => void;
     onOpenArtist?: (id: number | null) => void;
     onOpenAlbum?: (id: number | null) => void;
@@ -72,7 +75,13 @@
     if (!playerRoot) return;
     const root = playerRoot;
     root.addEventListener('mobile-player-dismiss', modeMotion.destroy);
-    return () => root.removeEventListener('mobile-player-dismiss', modeMotion.destroy);
+    root.addEventListener('mobile-player-suspend', modeMotion.suspend);
+    root.addEventListener('mobile-player-resume', modeMotion.resume);
+    return () => {
+      root.removeEventListener('mobile-player-dismiss', modeMotion.destroy);
+      root.removeEventListener('mobile-player-suspend', modeMotion.suspend);
+      root.removeEventListener('mobile-player-resume', modeMotion.resume);
+    };
   });
   let showMoreMenu = $state(false);
   let menuMessage = $state('');
@@ -139,6 +148,7 @@
   }
 
   function toggleLyricsMode(): void {
+    if ($responsive.isMobile && surfaceController && surfaceController.phase !== 'open') return;
     if ($responsive.isMobile) void modeMotion.change(playerRoot, () => { lyricsMode = !lyricsMode; });
     else lyricsMode = !lyricsMode;
   }
@@ -323,7 +333,10 @@
   {#if $responsive.isMobile}
     <div class="am-flying-cover" role="button" tabindex="0" aria-label="切换封面与歌词，左右滑动切歌" onclick={handleCoverClick}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLyricsMode(); } }}
-      use:mobileDrag={{ close: () => onClose?.(), next: () => { if (player.id) player.next() }, previous: () => { if (player.id) player.prev() }, target: () => playerRoot?.closest<HTMLElement>('.ly-container') ?? null, blocked: () => !!(secondaryPanel || showMoreMenu || showLocalQueue) }}>
+      use:playerSurfaceGesture={{ controller: surfaceController,
+        changeTrack: (direction) => { playerRoot.style.removeProperty('--cover-drag-x'); if (player.id) { if (direction > 0) player.next(); else player.prev(); } },
+        horizontal: (x) => { playerRoot.style.setProperty('--cover-drag-x', `${Math.max(-48, Math.min(48, x * .4))}px`); },
+        blocked: () => !!(secondaryPanel || showMoreMenu || showLocalQueue) }}>
       {@render coverArtwork()}
     </div>
   {:else}
@@ -501,7 +514,7 @@
     to { transform: rotate(360deg); }
   }
 
-  .am-flying-cover:active {
+  :global(html:not(.mobile-runtime)) .am-flying-cover:active {
     transform: scale(0.96) !important;
   }
   .lyrics-mode .am-flying-cover {

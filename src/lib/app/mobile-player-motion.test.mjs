@@ -1,16 +1,6 @@
 import assert from 'node:assert/strict'
-import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, mobilePlayerTiming, playerDragProgress, finishPlayerDrag } from './mobile-player-motion.ts'
+import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, mobilePlayerTiming } from './mobile-player-motion.ts'
 import { rememberCardOrigin, hasCoverOrigin, flyCover, takeCoverOrigin } from './desktop-motion.ts'
-
-assert.equal(playerDragProgress(700, 525, 700), .25)
-assert.equal(playerDragProgress(700, 750, 700), 0)
-assert.equal(playerDragProgress(700, -100, 700), 1)
-assert.equal(playerDragProgress(700, 525, 0), 0)
-assert.equal(finishPlayerDrag(.1, 0, 70), false, 'short slow pulls return to mini')
-assert.equal(finishPlayerDrag(.3, 0, 210), true)
-assert.equal(finishPlayerDrag(.1, -.8, 70), true, 'a deliberate upward flick completes')
-assert.equal(finishPlayerDrag(.1, -.8, 20), false, 'tiny movements do not open')
-assert.equal(finishPlayerDrag(.8, -.8, 500, true), false, 'pointer cancellation always returns')
 
 let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
@@ -26,7 +16,7 @@ const element = (rect) => {
     cloneNode() { return element({ ...this.rect }) },
     animate(frames, options) {
       let finish
-      const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true } }
+      const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true }, pause() { this.paused = true }, play() { this.paused = false } }
       calls.push({ node: this, frames, options, animation, finish })
       return animation
     },
@@ -75,6 +65,12 @@ assert.equal(calls[2].options.delay, mobilePlayerTiming.contentDelay, 'lyrics ta
 assert.equal(calls[0].options.easing, mobilePlayerTiming.easing)
 assert.equal(calls[2].options.easing, mobilePlayerTiming.contentEasing)
 assert.equal(cover.style.transition, 'none', 'CSS layout transitions are frozen while FLIP owns the cover motion')
+controller.suspend()
+assert.ok(calls.every(call => call.animation.paused), 'sheet takeover freezes the current mode animations')
+await controller.change(root, change)
+assert.equal(mode, true, 'mode changes are blocked while the sheet owns the shared cover')
+controller.resume()
+assert.ok(calls.every(call => !call.animation.paused), 'returning to fullscreen resumes the frozen mode')
 const pending = [...calls]
 await controller.change(root, change)
 assert.equal(mode, false)
@@ -88,6 +84,15 @@ assert.equal(calls.length, count)
 reduce = false
 const interrupted = controller.change(root, change)
 controller.destroy()
+
+const pendingMode = createMobilePlayerMotion()
+const pendingChange = pendingMode.change(root, () => {})
+const beforeSuspend = calls.length
+pendingMode.suspend()
+await pendingChange
+assert.equal(calls.length, beforeSuspend, 'sheet takeover cancels an unresolved layout measurement')
+pendingMode.resume()
+pendingMode.destroy()
 await interrupted
 assert.equal(calls.length, count, 'unmount cancels a pending layout measurement')
 const first = controller.change(root, change)

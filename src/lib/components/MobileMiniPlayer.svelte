@@ -1,23 +1,21 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import { fly } from 'svelte/transition'
-  import type { MobilePlayerDrag } from '../app/mobile-player-motion.ts'
+  import type { PlayerSurfaceController } from '../player-motion/controller.ts'
+  import { playerSurfaceGesture } from '../player-motion/gesture.ts'
   import { player } from '../stores/player.svelte.ts'
   import { getStartupTrack } from '../app/startup-track.ts'
   import { coverUrl, progressiveCover } from '../utils/image.ts'
   import Icon from './ui/Icon.svelte'
 
-  let { onOpenSheet, onToggleQueue, showQueuePanel = false }: {
-    onOpenSheet: (origin: Element, drag?: MobilePlayerDrag) => void
+  let { controller, onOpenSheet, onToggleQueue, showQueuePanel = false }: {
+    controller: PlayerSurfaceController
+    onOpenSheet: (origin: Element) => void
     onToggleQueue: () => void
     showQueuePanel?: boolean
   } = $props()
   let artwork = $state<HTMLElement>()
   let coverFailed = $state(false)
-  let start: { x: number; y: number; id: number; time: number } | null = null
-  let moved = false
-  let gesture: MobilePlayerDrag | null = null
-  let axis: 'horizontal' | 'vertical' | null = null
   let swipeX = $state(0)
   let draggingTrack = $state(false)
   let switchingTrack = $state(false)
@@ -35,54 +33,6 @@
     : playbackLoading ? '正在载入…' : ''))
   $effect(() => { cover; coverFailed = false })
 
-  function down(event: PointerEvent) {
-    if (!event.isPrimary || event.button !== 0) return
-    start = { x: event.clientX, y: event.clientY, id: event.pointerId, time: event.timeStamp }
-    moved = false
-    gesture = null
-    axis = null
-    swipeX = 0
-    draggingTrack = false
-    ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  }
-  function move(event: PointerEvent) {
-    if (start?.id !== event.pointerId) return
-    const dx = event.clientX - start.x, dy = event.clientY - start.y
-    moved ||= Math.max(Math.abs(dx), Math.abs(dy)) >= 10
-    if (!axis && moved) {
-      if (Math.abs(dx) > Math.abs(dy) * 1.4) axis = 'horizontal'
-      else if (Math.abs(dy) > Math.abs(dx) * 1.4) axis = 'vertical'
-    }
-    if (axis === 'horizontal') {
-      draggingTrack = true
-      swipeX = Math.max(-42, Math.min(42, dx * .55))
-    }
-    if (gesture) { gesture.currentY = event.clientY; gesture.time = event.timeStamp; return }
-    if (axis === 'vertical' && dy < -10 && (player.id || initialTrack)) {
-      gesture = { pointerId: event.pointerId, startY: start.y, currentY: event.clientY, startTime: start.time, time: event.timeStamp }
-      onOpenSheet(artwork!, gesture)
-    }
-  }
-  function finish(event: PointerEvent) {
-    if (start?.id !== event.pointerId) return
-    const dx = event.clientX - start.x, dy = event.clientY - start.y
-    move(event)
-    start = null
-    if (gesture) {
-      gesture.currentY = event.clientY
-      gesture.released = true
-      gesture.cancelled = event.type !== 'pointerup'
-      moved = true
-      return
-    }
-    draggingTrack = false
-    if (event.type !== 'pointerup') { moved = true; swipeX = 0; return }
-    if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
-      void switchTrack(dx < 0 ? 1 : -1)
-      return
-    }
-    swipeX = 0
-  }
   async function switchTrack(direction: 1 | -1) {
     if (switchingTrack || !player.id) return
     switchingTrack = true
@@ -98,8 +48,7 @@
     switchingTrack = false
     requestAnimationFrame(() => { swipeX = 0 })
   }
-  function open(event: MouseEvent) {
-    if (event.detail !== 0 && moved) { event.preventDefault(); return }
+  function open() {
     if (player.id || initialTrack) onOpenSheet(artwork!)
   }
   function play(): void {
@@ -110,7 +59,9 @@
 
 <div class="player-bar mobile-mini-player" role="group" aria-label="迷你播放器" aria-busy={playbackLoading}>
   <button class="mini-player-open" class:dragging={draggingTrack} class:switching={switchingTrack} style={`--mini-track-x:${swipeX}px`} type="button" aria-label={`打开播放器：${title}`} disabled={!player.id && !initialTrack}
-    onclick={open} onpointerdown={down} onpointermove={move} onpointerup={finish} onpointercancel={finish}>
+    onclick={open} use:playerSurfaceGesture={{ controller, opening: true, blocked: () => !player.id && !initialTrack,
+      horizontal: (x) => { draggingTrack = x !== 0; swipeX = Math.max(-42, Math.min(42, x * .55)) },
+      changeTrack: (direction) => { draggingTrack = false; void switchTrack(direction) } }}>
     {#key player.id}
       <span class="mini-player-track" in:fly={{ x: trackDirection * 22, duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 190 }}>
         <span class="mini-player-artwork lcd-artwork" bind:this={artwork}>
