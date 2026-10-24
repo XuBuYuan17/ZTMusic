@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync, tick, untrack } from 'svelte'
+  import { flushSync, onDestroy, tick, untrack } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { getStartupTrack } from './lib/app/startup-track.ts'
@@ -12,6 +12,7 @@
   import { player } from './lib/stores/player.svelte.ts'
   import { discoveryPlayback } from './lib/stores/discovery-playback.svelte.ts'
   import { playerMorph } from './lib/stores/player-morph.svelte.ts'
+  import { createPlayerSurfaceController } from './lib/player-motion/controller.ts'
   import { auth } from './lib/stores/auth.svelte.ts'
   import { router } from './lib/stores/router.svelte.ts'
   import { wallpaper } from './lib/stores/wallpaper.svelte.ts'
@@ -48,18 +49,6 @@
   import WindowTitleBar from './lib/components/WindowTitleBar.svelte'
   import { isTauriDesktop } from './lib/utils/runtime.ts'
 
-  let playerDrag = $state<import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag | null>(null)
-
-  interface LyricsOrigin {
-    x?: number
-    y?: number
-    top?: number
-    right?: number
-    bottom?: number
-    left?: number
-    radius?: number
-  }
-
   type MessageTargetUser = { userId: SongId; nickname?: unknown; avatarUrl?: unknown }
 
   const isMobileRuntime = (): boolean => isMobileDevice()
@@ -72,12 +61,14 @@
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
   let showSheet = $state(false)
+  const mobileSurface = createPlayerSurfaceController()
+  const unsubscribeSurface = mobileSurface.subscribe(({ phase }) => { showSheet = phase !== 'closed' })
+  onDestroy(() => { unsubscribeSurface(); mobileSurface.destroy() })
   let showLogin = $state(false)
   let showFollowDialog = $state(false)
   let showQueuePanel = $state(false)
   let showMobileDrawer = $state(false)
   let mobileMenuTrigger: HTMLButtonElement | null = null
-  let lyricsOrigin = $state<LyricsOrigin | null>(null)
   let messageTargetUser = $state<MessageTargetUser | null>(null)
   let notificationUnread = $state(0)
   let isMobile = $state(isMobileRuntime())
@@ -291,26 +282,11 @@
   })
 
   // ── UI 函数 ──
-  function openSheet(originEl?: Element | null, drag?: import('./lib/app/mobile-player-motion.ts').MobilePlayerDrag): void {
-    playerDrag = drag ?? null
-    // 桌面走连续 morph 层；移动保持原有覆盖层链路
+  function openSheet(_originEl?: Element | null): void {
     if (!isMobile) { playerMorph.open(); return }
-    const source = originEl || document.querySelector('.lcd-artwork__img') || document.querySelector('.player-bar')
-    if (source) {
-      const r = source.getBoundingClientRect()
-      lyricsOrigin = {
-        x: r.left + r.width / 2,
-        y: r.top + r.height / 2,
-        top: r.top,
-        right: window.innerWidth - r.right,
-        bottom: window.innerHeight - r.bottom,
-        left: r.left,
-        radius: Math.min(14, r.width / 4, r.height / 4),
-      }
-    } else lyricsOrigin = null
-    showSheet = true
+    mobileSurface.open()
   }
-  function closeSheet(): void { showSheet = false; playerDrag = null }
+  function closeSheet(): void { mobileSurface.close() }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
   function openMobileDrawer(trigger: HTMLButtonElement): void {
@@ -421,14 +397,14 @@
 {#if !isMobile || player.id || getStartupTrack(player)}
   <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
     {#if isMobile}
-      <MobileMiniPlayer onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
+      <MobileMiniPlayer controller={mobileSurface} onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
     {:else}
       <PlayerBar onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} onOpenArtist={openArtistRef} />
     {/if}
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} origin={lyricsOrigin} drag={playerDrag} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} controller={mobileSurface} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}

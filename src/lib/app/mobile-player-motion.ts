@@ -12,24 +12,6 @@ export const mobilePlayerTiming = {
   contentEasing: 'cubic-bezier(.2,0,0,1)',
 } as const
 
-export interface MobilePlayerDrag {
-  pointerId: number
-  startY: number
-  currentY: number
-  startTime: number
-  time: number
-  released?: boolean
-  cancelled?: boolean
-}
-
-export function playerDragProgress(startY: number, currentY: number, travel: number) {
-  return travel > 0 ? Math.max(0, Math.min(1, (startY - currentY) / travel)) : 0
-}
-
-export function finishPlayerDrag(progress: number, velocity: number, distance: number, cancelled = false) {
-  return !cancelled && (progress >= .25 || (velocity <= -.5 && distance >= 48))
-}
-
 export function sheetCoverTransform(from: { left: number; top: number; width: number; height: number }, to: { left: number; top: number; width: number; height: number }, sheetOffset = 0) {
   if (from.width <= 0 || from.height <= 0) return 'none'
   return `translate(${to.left - from.left}px, ${to.top - from.top - sheetOffset}px) scale(${to.width / from.width}, ${to.height / from.height})`
@@ -55,6 +37,8 @@ export function miniLyricMotion(node: HTMLElement, value: { text: string; lyric:
 
 export function createMobilePlayerMotion() {
   let generation = 0
+  let suspended = false
+  let pendingLayout = false
   const animations = new Set<Animation>()
   const restores = new Map<HTMLElement, string>()
 
@@ -70,6 +54,7 @@ export function createMobilePlayerMotion() {
 
   function cancel() {
     generation++
+    pendingLayout = false
     animations.forEach(animation => animation.cancel())
     animations.clear()
     restores.forEach((style, node) => { node.style.cssText = style })
@@ -84,11 +69,13 @@ export function createMobilePlayerMotion() {
       ...options,
     })
     animations.add(animation)
+    if (suspended) animation.pause()
     return animation.finished.catch(() => {})
   }
 
   return {
     async change(node: HTMLElement, update: () => void) {
+      if (suspended) return
       const entering = !node.classList.contains('lyrics-mode')
       const cover = node.querySelector<HTMLElement>('.am-flying-cover')
       const title = node.querySelector<HTMLElement>(entering ? '.am-track-info' : '.am-corner-info')
@@ -120,8 +107,10 @@ export function createMobilePlayerMotion() {
       ]) freezeTransition(node.querySelector<HTMLElement>(selector))
 
       update()
+      pendingLayout = true
       await tick()
       if (version !== generation || !node.isConnected) return
+      pendingLayout = false
       if (reducedMotion()) { cancel(); return }
 
       const pending: Promise<unknown>[] = []
@@ -193,6 +182,16 @@ export function createMobilePlayerMotion() {
 
       void Promise.all(pending).then(() => { if (version === generation) cancel() })
     },
-    destroy: cancel,
+    suspend() {
+      suspended = true
+      if (pendingLayout) cancel()
+      else animations.forEach(animation => animation.pause())
+    },
+    resume() {
+      if (!suspended) return
+      suspended = false
+      animations.forEach(animation => animation.play())
+    },
+    destroy() { suspended = false; cancel() },
   }
 }

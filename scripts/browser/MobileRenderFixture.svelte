@@ -1,7 +1,9 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
   import MobileApp from '../../src/lib/components/MobileApp.svelte'
-  import AppleMusicPlayer from '../../src/lib/components/AppleMusicPlayer.svelte'
+  import LyricsPageV2 from '../../src/lib/components/LyricsPageV2.svelte'
+  import MobileMiniPlayer from '../../src/lib/components/MobileMiniPlayer.svelte'
+  import { createPlayerSurfaceController } from '../../src/lib/player-motion/controller.ts'
   import { router } from '../../src/lib/stores/router.svelte.ts'
   import { desktopFeedback } from '../../src/lib/app/desktop-motion.ts'
   import { mobileFeedback } from '../../src/lib/app/mobile-feedback.ts'
@@ -11,6 +13,9 @@
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
   let showPlayer = $state(false)
+  const surface = createPlayerSurfaceController()
+  const unsubscribe = surface.subscribe(({ phase }) => { showPlayer = phase !== 'closed' })
+  onDestroy(() => { unsubscribe(); surface.destroy() })
   $effect(() => {
     auth.user; auth.isLoggedIn; auth.cookieOk
     player.queueRevision; player.queueIndex; player.id; player.mode
@@ -19,8 +24,11 @@
   onMount(() => {
     installPlaylistDiscMotion()
     Object.assign(window, { mobileFixture: {
-      openPlayer: () => { showPlayer = true },
-      closePlayer: () => { showPlayer = false },
+      openPlayer: () => surface.open(),
+      closePlayer: () => surface.close(),
+      surface,
+      seekForSurfaceTest: () => { player.seek = time => { player.currentTime = time } },
+      setSurfaceArtwork: (value: string) => { player.cover = value === 'normal' ? user.avatarUrl : value },
       back: () => router.goBack(),
       login: () => auth.setUser(user, 'account'),
       logout: () => auth.clear(),
@@ -46,8 +54,7 @@
       onOpenPlaylist={(id, push, preview) => void router.goPlaylist(Number(id), push, preview as never)} />
   </main>
 </div>
-{#if showPlayer}
-  <div class="ly-fullscreen"><div class="ly-container">
-    <AppleMusicPlayer onClose={() => showPlayer = false} />
-  </div></div>
-{/if}
+<div class="player-bar-wrap">
+  <MobileMiniPlayer controller={surface} onOpenSheet={() => surface.open()} onToggleQueue={() => {}} />
+</div>
+<LyricsPageV2 show={showPlayer} controller={surface} onClose={() => surface.close()} />
