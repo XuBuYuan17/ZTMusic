@@ -34,7 +34,7 @@ export const LIMITS = {
  * 音质优先级（索引越小音质越好）。
  * 保持 string[] 而非 QualityLevel[]：链路里还会出现 'standard+unblock' 这类派生 level。
  */
-export const QUALITY_ORDER: string[] = ['lossless', 'exhigh', 'higher', 'standard']
+export { QUALITY_ORDER } from '../player/quality.ts'
 
 export const ERROR_MESSAGES = {
   NO_URL: '当前歌曲暂无可用音源',

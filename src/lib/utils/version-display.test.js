@@ -19,8 +19,7 @@ const check = (cond, msg) => { assert.ok(cond, msg); passed++ }
 // 展示版本号的页面必须 import package.json 并渲染 pkg.version
 const PAGES = [
   'src/lib/pages/AboutPage.svelte',
-  'src/lib/pages/pc/Settings.svelte',
-  'src/lib/pages/mobile/Settings.svelte',
+  'src/lib/pages/Settings.svelte',
 ]
 
 for (const page of PAGES) {

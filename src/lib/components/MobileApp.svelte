@@ -5,15 +5,17 @@
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport } from '../app/mobile-interaction.ts'
+  import { settingsBackGesture } from '../app/settings-back-gesture.ts'
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
+  import { t } from '../i18n/index.svelte.ts'
   import Icon from './ui/Icon.svelte'
 
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
-  import { settingsCategory, SETTINGS_CATEGORIES } from '../pages/mobile/settings-navigation.ts'
-  import SettingsPage from '../pages/mobile/Settings.svelte'
+  import { settingsCategory, settingsView, SETTINGS_CATEGORIES } from '../pages/settings-navigation.ts'
+  import SettingsPage from '../pages/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
   import RecentPage from '../pages/pc/Recent.svelte'
   import DailyHistoryPage from '../pages/pc/DailyHistory.svelte'
@@ -58,13 +60,13 @@
   let scrollTop = $state(0)
   $effect(() => { if (primaryViews.includes(activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
-  const titles: Record<string, string> = {
-    home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
+  const titles: Record<string, string> = $derived({
+    home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: t('settings.title'),
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
-    ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [`settings-${item.id}`, item.title])),
+    ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [settingsView(item.id), t(item.titleKey)])),
     album: '专辑', artist: '歌手', user: '个人主页',
-  }
+  })
   let mountedViews = $state<string[]>([])
   let contentEl = $state<HTMLElement | null>(null)
   let rootEl = $state<HTMLElement | null>(null)
@@ -189,7 +191,7 @@
     {#if isPrimaryView}
       <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
     {:else}
-      <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
+      <button class="mobile-page-bar__button" onclick={() => settingsCategory(activeView) ? router.goSettingsHome() : onBack?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">{t('settings.title')}</span>{/if}</button>
     {/if}
     {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
     {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{titles[activeView] || '哲听'}</h1>{/if}
@@ -198,7 +200,7 @@
     {/if}
   </header>
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: router.goSettingsHome }}>
     <div class="mobile-page-content__inner">
       {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
@@ -234,7 +236,7 @@
       <div class="mobile-route-page mobile-detail-page" data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
       {#if settingsCategory(page.view) && viewKey === page.key}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} />
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={router.goSettingsHome} />
       {:else if page.view === 'about'}
         <AboutPage />
       {:else if page.view === 'liked'}
@@ -288,6 +290,7 @@
   .settings-view.secondary :global(.mobile-page-bar) { grid-template-columns: 80px minmax(0, 1fr) 80px; }
   .settings-view.secondary :global(.mobile-page-bar__button) { display: flex; gap: 0; width: 80px; }
   .settings-back-label { font-size: 1.0625rem; }
+  .settings-view.secondary :global(.mobile-page-content) { touch-action: pan-y; }
   .settings-view :global(.mobile-page-content) { background: var(--settings-page); }
 
   .mobile-route-page { min-height: 100%; }
