@@ -9,7 +9,7 @@
  * 读不到任何操作的状态，因此不会残留上一个资源（例如歌单 A）的操作。
  * 外壳自身只有一个实例，host 跟着外壳组件创建，不进全局。
  */
-import { getContext, setContext } from 'svelte'
+import { getContext, setContext, untrack } from 'svelte'
 
 /** 外壳可以放在顶部栏；页面自己放在内容区 */
 export type PageActionPlacement = 'top' | 'content'
@@ -40,9 +40,9 @@ export function createPageChromeHost(): PageChromeHost {
   let entries = $state<Array<() => PageChrome>>([])
   return {
     register(chrome) {
-      entries = [...entries, chrome]
+      entries = untrack(() => [...entries, chrome])
       // 只移除自己这一条：注销顺序与注册顺序不一致时不会误删别人的
-      return () => { entries = entries.filter(entry => entry !== chrome) }
+      return () => { entries = untrack(() => entries.filter(entry => entry !== chrome)) }
     },
     get current() {
       const factory = entries[entries.length - 1]

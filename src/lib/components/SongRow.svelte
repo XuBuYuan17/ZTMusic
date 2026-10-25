@@ -101,7 +101,7 @@
       onclick={(event) => { event.stopPropagation(); openRowMenu(event) }}
     ><Icon name="more" size={20} /></button>
   </td>
-  <td class="col-artist artist-links">
+  <td class="col-artist"><div class="artist-links">
     {#if row.artists.length}
       {#each row.artists as artist, artistIndex ((artist.id ?? artist.name) + ':' + artistIndex)}
         {#if artistIndex > 0}<span class="artist-sep">/</span>{/if}
@@ -114,7 +114,7 @@
     {:else}
       <span class="song-row__muted">未知歌手</span>
     {/if}
-  </td>
+  </div></td>
   <td class="col-album">
     {#if row.album?.id}
       {@const albumId = row.album.id}

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte'
+  import DesktopPageHost from '../../src/lib/components/layout/DesktopPageHost.svelte'
+  import { setLayoutMode } from '../../src/lib/utils/layout-mode.ts'
   import MobileApp from '../../src/lib/components/MobileApp.svelte'
   import LyricsPageV2 from '../../src/lib/components/LyricsPageV2.svelte'
   import MobileMiniPlayer from '../../src/lib/components/MobileMiniPlayer.svelte'
@@ -12,6 +14,7 @@
   import { discoveryPlayback } from '../../src/lib/stores/discovery-playback.svelte.ts'
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
+  let desktopLayout = $state(false)
   let showPlayer = $state(false)
   let desktopTitlebar = $state(false)
   const surface = createPlayerSurfaceController()
@@ -25,6 +28,11 @@
   onMount(() => {
     installPlaylistDiscMotion()
     Object.assign(window, { mobileFixture: {
+      setLayout: (layout: 'mobile' | 'desktop') => {
+        desktopLayout = layout === 'desktop'
+        setLayoutMode(desktopLayout ? 'pc' : 'mobile')
+        document.documentElement.classList.toggle('mobile-runtime', !desktopLayout)
+      },
       openPlayer: () => surface.open(),
       closePlayer: () => surface.close(),
       surface,
@@ -54,10 +62,14 @@
 {#if desktopTitlebar}<header class="fixture-titlebar" aria-label="测试窗口标题栏">哲听 Dev</header>{/if}
 <div class="app-shell" use:desktopFeedback use:mobileFeedback>
   <main class="main-area">
+    {#if desktopLayout}
+      <DesktopPageHost theme="dark" accentTheme="red" onOpenLogin={() => {}} onSetTheme={() => {}} onSetAccentTheme={() => {}} />
+    {:else}
     <MobileApp activeView={router.activeView} theme="dark" accentTheme="red"
       onNavigate={router.handleNav} onBack={router.goBack}
       onOpenLogin={() => { (window as unknown as { loginRequests: number }).loginRequests = ((window as unknown as { loginRequests: number }).loginRequests || 0) + 1 }}
       onOpenPlaylist={(id, push, preview) => void router.goPlaylist(Number(id), push, preview as never)} />
+    {/if}
   </main>
 </div>
 <div class="player-bar-wrap">

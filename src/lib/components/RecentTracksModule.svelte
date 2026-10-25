@@ -28,7 +28,7 @@
 
   async function load(): Promise<void> {
     try {
-      sources = await loadLocalRecentTracks(limit)
+      sources = (await loadLocalRecentTracks(limit)).slice(0, limit)
     } catch {
       sources = []
     }
