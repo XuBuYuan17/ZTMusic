@@ -14,7 +14,7 @@ async function check(name: string, run: () => void | Promise<void>) {
 }
 
 function harness() {
-  let mobile = false, calls = 0
+  let mobile = false, calls = 0, initializing = false
   let mounted: Array<() => unknown> = [], destroyed: Array<() => unknown> = []
   const scroller = { scrollTop: 0 }
   let search = async () => ({ songs: [{ id: 42, name: 'Result' }], artists: [], playlists: [] })
@@ -24,12 +24,22 @@ function harness() {
     onMount: (callback: () => unknown) => mounted.push(callback), onDestroy: (callback: () => unknown) => destroyed.push(callback),
     tick: async () => {}, isMobileDevice: () => mobile,
     document: { querySelector: () => scroller },
+    getScrollViewport: () => {
+      assert.ok(initializing, 'context must only be read during initialization')
+      return { element: () => scroller, top: () => 0, entered: () => {} }
+    },
+    toSongRows: (tracks: Array<Record<string, unknown>>) => tracks.map((source, index) => ({
+      id: source.id, source, name: String(source.name ?? ''), artists: [], album: null,
+      cover: '', durationMs: 0, durationLabel: '', addedAt: 0, addedLabel: '', addedTitle: '',
+      index,
+    })),
     musicService: { search: () => { calls++; return search() } },
     router: { prefetchPlaylists() {} }, setTimeout: () => 0,
   })
   runInContext(stripTypeScriptTypes(withoutImports(moduleScript)), context)
   function mountPage() {
     mounted = []; destroyed = []
+    initializing = true
     const page = runInContext(stripTypeScriptTypes(`(() => { ${withoutImports(instanceScript)}
       return { setQuery: value => keyword = value, setCategory: value => activeCategory = value, search: doSearch,
         view: () => JSON.parse(JSON.stringify({ keyword, activeCategory, results, loading, searchError })) }
@@ -37,6 +47,7 @@ function harness() {
       setQuery: (value: string) => void; setCategory: (value: string) => void; search: () => Promise<void>
       view: () => { keyword: string; activeCategory: string; results: { songs: Array<{ id: number }> }; loading: boolean; searchError: string }
     }
+    initializing = false
     const mounts = mounted, destroys = destroyed
     return { ...page,
       mount: async () => { for (const callback of mounts) await callback(); await new Promise<void>(resolve => setImmediate(resolve)) },
@@ -69,17 +80,19 @@ await check('desktop return restores query, category, results and scroll without
   assert.equal(runtime.calls(), 1)
 })
 
-await check('mobile instances neither consume nor overwrite the desktop snapshot', async () => {
+await check('layout switch keeps the same search session instead of clearing it', async () => {
   const runtime = harness()
   const desktop = runtime.mountPage(); await desktop.mount()
-  desktop.setQuery('desktop query'); await desktop.search(); desktop.destroy()
+  desktop.setQuery('desktop query'); await desktop.search(); desktop.setCategory('songs'); desktop.destroy()
   runtime.mobile(true)
   const mobile = runtime.mountPage(); await mobile.mount()
-  assert.equal(mobile.view().keyword, '')
+  // 快照与布局无关：换到窄屏仍带着搜索词与分类
+  assert.equal(mobile.view().keyword, 'desktop query')
+  assert.equal(mobile.view().activeCategory, 'songs')
   mobile.setQuery('mobile query'); await mobile.search(); mobile.destroy()
   runtime.mobile(false)
   const returned = runtime.mountPage(); await returned.mount()
-  assert.equal(returned.view().keyword, 'desktop query')
+  assert.equal(returned.view().keyword, 'mobile query', 'the same session is shared by both layouts')
 })
 
 await check('returning during an unfinished search restarts it instead of showing empty completed results', async () => {

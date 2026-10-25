@@ -18,6 +18,9 @@
   import { coverUrl, progressiveCover } from '../../utils/image.ts'
   import { extractCover } from '../../utils/normalize.ts'
   import SongListActions from '../../components/SongListActions.svelte'
+  import SongList from '../../components/SongList.svelte'
+  import { toSongRows } from '../../components/song-row.ts'
+  import { getScrollViewport, trackScrollTop, restoreScrollTop } from '../../app/scroll-viewport.ts'
 
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import Icon from '../../components/ui/Icon.svelte'
@@ -58,6 +61,17 @@
     try { const s = await loadDailyHistoryDetailData(ncm, date as string | number); if (rid === _requestId) { dailyHistorySongs = s; save() } }
     finally { if (rid === _requestId) dailyHistoryLoading = false }
   }
+
+  const scrollViewport = getScrollViewport()
+
+  // 移动外壳负责路由滚动；桌面页在挂载时恢复并记录。
+  $effect(() => {
+    const cancelRestore = restoreScrollTop('dailyHistory', scrollViewport)
+    const stopTracking = trackScrollTop('dailyHistory', scrollViewport)
+    return () => { cancelRestore(); stopTracking() }
+  })
+
+  const rows = $derived(toSongRows(dailyHistorySongs))
 
   function playAll(): void { if (dailyHistorySongs.length) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], 0) }
   function playTrack(track: NormalizedSong): void {
@@ -145,60 +159,26 @@
             <h2>{selectedDailyDate || '每日推荐'}</h2>
           </div>
         </div>
-        <div class="daily-song-list">
-          {#each Array(8) as _, i}
-            <div class="daily-song-row skeleton-row">
-              <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
-              <span class="daily-song-cover daily-cover-placeholder skeleton-block"></span>
-              <span class="daily-song-main">
-                <strong class="skeleton-line"></strong>
-                <em class="skeleton-line narrow"></em>
-              </span>
-              <span class="daily-song-album skeleton-line medium"></span>
-              <span class="daily-song-dur skeleton-line short"></span>
-            </div>
-          {/each}
-        </div>
+        <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
       </section>
     {:else if dailyHistorySongs.length > 0}
-        <section class="daily-song-panel">
-          <div class="daily-section-header">
-            <div>
-              <div class="daily-section-eyebrow">Songs</div>
-              <h2>{selectedDailyDate || '每日推荐'}</h2>
-            </div>
-            <button onclick={playAll}>播放全部</button>
+      <section class="daily-song-panel">
+        <div class="daily-section-header">
+          <div>
+            <div class="daily-section-eyebrow">Songs</div>
+            <h2>{selectedDailyDate || '每日推荐'}</h2>
           </div>
-          <div class="daily-song-list">
-            {#each dailyHistorySongs as track, i (track.id)}
-              <div class="daily-song-row" class:active={player.id === track.id} role="button" tabindex="0" onclick={() => playTrack(track)} onkeydown={(event) => handleSongKeydown(event, track)} oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
-                <span class="daily-song-index">{String(i + 1).padStart(2, '0')}</span>
-                {#if coverOf(track)}
-                  <img class="daily-song-cover" use:progressiveCover={{ source: coverOf(track), size: 96 }} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                {:else}
-                  <span class="daily-song-cover daily-cover-placeholder">♫</span>
-                {/if}
-                <span class="daily-song-main">
-                  <strong>{track.name}</strong>
-                  <em>
-                    {#each artistsOf(track) as artist, index (artist.id || (artist.name as SongId))}
-                      {#if index > 0}<span class="artist-sep">/</span>{/if}
-                      {#if artist.id}
-                          <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(artist.id!) }}>{artist.name}</button>
-                      {:else}
-                        <span>{artist.name}</span>
-                      {/if}
-                    {/each}
-                  </em>
-                  <small class="mobile-track-meta"><span>{albumOf(track)}</span>{#if track.dt || track.duration}<time>{formatDuration((track.duration as number) || track.dt)}</time>{/if}</small>
-                </span>
-                <span class="daily-song-album">{albumOf(track)}</span>
-                <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}><Icon name="more" size={22} /></button>
-            <span class="daily-song-dur">{formatDuration((track.duration as number) || track.dt || 0)}</span>
-              </div>
-            {/each}
-          </div>
-        </section>
+          <button onclick={playAll}>播放全部</button>
+        </div>
+        <SongList
+          {rows}
+          currentId={player.id}
+          rowActions={songActions?.bindRow ?? null}
+          onPlay={(row) => playTrack(row.source as NormalizedSong)}
+          {onOpenArtist}
+          {onOpenAlbum}
+        />
+      </section>
     {:else}
       <div class="daily-empty">
         <Icon name="calendar" size={48} />
@@ -237,25 +217,10 @@
   .daily-section-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
   .daily-section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: 0; margin: 0; }
   .daily-section-header button { border: none; background: transparent; color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
-  .daily-song-list { display: grid; gap: 2px; }
-  .daily-song-row { width: 100%; min-height: 56px; display: grid; grid-template-columns: 38px 48px minmax(0, 1.2fr) minmax(120px, 0.8fr) 70px; gap: 12px; align-items: center; padding: 8px 10px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms var(--ease-out); }
-  .daily-song-row:hover { background: var(--bg-hover); }
-  .daily-song-row.active { background: var(--accent-bg); }
-  .daily-song-index { color: var(--text-tertiary); font-size: 12px; font-weight: 700; text-align: center; }
-  .daily-song-cover { width: 48px; height: 48px; border: 1px solid color-mix(in srgb, var(--border) 70%, transparent); border-radius: var(--radius-xs); object-fit: cover; box-shadow: var(--shadow-sm); }
-  .daily-cover-placeholder { display: grid; place-items: center; background: var(--bg-surface); color: var(--text-tertiary); }
-  .daily-song-main { min-width: 0; display: grid; gap: 2px; }
-  .daily-song-main strong, .daily-song-album { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .daily-song-main em { min-width: 0; color: var(--text-tertiary); font-size: 12px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .artist-link { border: none; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-  .artist-link:hover { color: var(--accent); }
-  .artist-sep { margin: 0 4px; color: var(--text-tertiary); }
-  .daily-song-album, .daily-song-dur { color: var(--text-tertiary); font-size: 12px; }
-  .daily-song-dur { justify-self: end; }
   .daily-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-secondary); text-align: center; }
   .daily-empty p { margin: 0; }
   .daily-empty-hint { color: var(--text-tertiary); font-size: 13px; }
-  @media (prefers-reduced-motion: reduce) { .daily-date-chip, .daily-song-row { transition: none; } }
-  @media (max-width: 900px) { .daily-hero { align-items: flex-start; flex-direction: column; justify-content: flex-end; } .daily-song-row { grid-template-columns: 36px 46px minmax(0, 1fr) 48px; } .daily-song-album { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .daily-date-chip { transition: none; } }
+  @media (max-width: 900px) { .daily-hero { align-items: flex-start; flex-direction: column; justify-content: flex-end; } }
   @media (max-width: 560px) { .daily-hero { min-height: 240px; padding: 22px; } .daily-hero h1 { font-size: 42px; } .daily-date-chip { min-width: 78px; } }
 </style>

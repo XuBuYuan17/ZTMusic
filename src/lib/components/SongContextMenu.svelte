@@ -10,6 +10,7 @@
   import { coverUrl } from '../utils/image.ts'
   import { parseLikeCheck } from '../utils/like-check.ts'
   import { debugLog } from '../utils/error.ts'
+  import { notifyLikeChange } from '../services/likes.ts'
   import Icon from './ui/Icon.svelte'
   import SongPlaylistPanel from './SongPlaylistPanel.svelte'
 
@@ -200,6 +201,8 @@
       await ncm.like(trackId, nextLiked, uid)
       if (mt?.id !== trackId) return
       liked = nextLiked
+      // 让喜欢页等列表据此刷新；请求失败时不会走到这里，行也不会丢
+      notifyLikeChange(trackId as SongId)
       showToast(nextLiked ? '已添加到我喜欢' : '已取消喜欢')
     } catch {
       showToast('操作失败')

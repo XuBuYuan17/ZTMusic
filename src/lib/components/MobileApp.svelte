@@ -4,7 +4,10 @@
   onMount(() => { announceAndroidFrame(); onReady?.() })
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
-  import { mobileViewport } from '../app/mobile-interaction.ts'
+  import { mobileViewport, mobileEdgeBack } from '../app/mobile-interaction.ts'
+  import { requestBack } from '../app/back-navigation.ts'
+  import { setScrollViewport } from '../app/scroll-viewport.ts'
+  import { createPageChromeHost, setPageChromeHost } from '../app/page-chrome.svelte.ts'
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
@@ -12,6 +15,7 @@
 
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
+  import HomePage from '../pages/pc/Home.svelte'
   import { settingsCategory, SETTINGS_CATEGORIES } from '../pages/mobile/settings-navigation.ts'
   import SettingsPage from '../pages/mobile/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
@@ -51,15 +55,16 @@
     onUnreadChange?: (count: unknown) => void
   } = $props()
 
-  $effect(() => { if (activeView === 'home' || activeView === 'profile') onNavigate?.('library') })
 
   const primaryViews = ['explore', 'search', 'library', 'settings']
+  // 只有「还能返回」的页面才启用边缘返回：主视图没有上一页
+  const canEdgeBack = $derived(!primaryViews.includes(activeView) || router.routeStack.length > 0)
   let selectedTab = $state([...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => primaryViews.includes(view)) ?? 'explore')
   let scrollTop = $state(0)
   $effect(() => { if (primaryViews.includes(activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const titles: Record<string, string> = {
-    home: '资料库', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
+    home: '我的主页', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
     messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
     ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [`settings-${item.id}`, item.title])),
@@ -70,6 +75,18 @@
   let rootEl = $state<HTMLElement | null>(null)
   let previousKey: string | null = null
   const scrollPositions = new Map<string, number>()
+  // 向页面暴露滚动视口；滚动位置的记忆/恢复由本组件按 viewKey 负责，页面不参与复位
+  setScrollViewport({
+    element: () => contentEl,
+    top: () => contentEl?.getBoundingClientRect().top ?? 0,
+    entered: () => {},
+    restoresScroll: true,
+  })
+  // 页面操作：页面注册，本组件决定哪些放到顶部栏
+  const pageChrome = createPageChromeHost()
+  setPageChromeHost(pageChrome)
+  const activeChrome = $derived(pageChrome.current)
+  const pageBarActions = $derived(activeChrome?.actions.filter(action => action.placement === 'top') ?? [])
   const viewKey = $derived(primaryViews.includes(activeView) || activeView === 'search' ? activeView : `${activeView}:${router.selectedId ?? ''}:${router.routeStack.length}`)
   type DetailPage = {
     key: string; view: string; id: typeof router.selectedId
@@ -156,17 +173,13 @@
     })
   })
 
-  function detailAction(action: 'playlist-share' | 'playlist-more') {
-    contentEl?.querySelector('.mobile-route-page:not([inert]) .playlist-detail-hero')?.dispatchEvent(new Event(action))
-  }
-
   function rememberScroll(): void { if (contentEl) scrollPositions.set(viewKey, contentEl.scrollTop) }
   function openFromCurrentView<A extends unknown[]>(callback: ((...args: A) => void) | undefined, ...args: A): void {
     rememberScroll()
     callback?.(...args)
   }
   function handleNav(view: string, extra?: number | null): void {
-    if (view === 'home' || view === 'profile') view = 'library'
+    if (view === 'profile') view = 'home'
     if (view === activeView) {
       contentEl?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
       return
@@ -184,17 +197,21 @@
   })
 </script>
 
-<div class="mobile-app" class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
+<div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
   <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
     {#if isPrimaryView}
       <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
     {:else}
-      <button class="mobile-page-bar__button" onclick={() => onBack?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
+      <button class="mobile-page-bar__button" onclick={() => (activeChrome?.back ?? onBack)?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
     {/if}
     {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
-    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{titles[activeView] || '哲听'}</h1>{/if}
-    {#if activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}
-      <div class="mobile-detail-actions">{#if activeView !== 'recommendation'}<button type="button" aria-label="分享歌单" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-share')}><Icon name="share" size={24} /></button>{/if}<button type="button" aria-label="更多歌单操作" disabled={!router.playlistDetail} onclick={() => detailAction('playlist-more')}><Icon name="more" size={24} /></button></div>
+    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>{/if}
+    {#if pageBarActions.length}
+      <div class="mobile-detail-actions">
+        {#each pageBarActions as action (action.id)}
+          <button type="button" aria-label={action.label} disabled={action.disabled} onclick={action.run}><Icon name={action.icon} size={24} /></button>
+        {/each}
+      </div>
     {/if}
   </header>
 
@@ -237,6 +254,8 @@
         <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} />
       {:else if page.view === 'about'}
         <AboutPage />
+      {:else if page.view === 'home'}
+        <HomePage onNavigate={handleNav} {onOpenLogin} onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)} {onOpenUser} {onOpenAlbum} />
       {:else if page.view === 'liked'}
         <LikedPage {onOpenArtist} {onOpenAlbum} {onOpenLogin} />
       {:else if page.view === 'recent'}
@@ -253,7 +272,8 @@
         <PlaylistPage recommendation={page.view === 'recommendation'} playlistDetail={page.playlist} loading={page.loading} loadingMore={page.loadingMore}
           hasMore={page.hasMore} error={page.error} selectedId={page.id} heroColor={page.color}
           detailType={page.view === 'album' ? '专辑' : '歌单'} onBack={onBack} onPlayAll={router.playAll} onPlayTrack={router.playTrack}
-          onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onLoadMore={() => { if (viewKey === page.key) void router.loadMorePlaylist() }} />
+          active={viewKey === page.key}
+          onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onRetryLoad={router.retryDetail} onLoadMore={() => { if (viewKey === page.key) void router.loadMorePlaylist() }} />
       {:else if page.view === 'artist'}
         <ArtistPage artist={page.artist} songs={page.songs} albums={page.albums} loading={page.artistLoading}
           error={page.artistError} onBack={onBack} onPlayAll={router.playArtistAll} onPlayTrack={router.playArtistTrack}

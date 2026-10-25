@@ -1,4 +1,5 @@
 import { cubicIn } from 'svelte/easing'
+import { isAndroidRuntime } from '../utils/runtime.ts'
 
 export type SwipeDirection = 'horizontal' | 'vertical' | null
 
@@ -199,4 +200,134 @@ export function mobileSheet(node: HTMLElement, options: { duration?: number } = 
     easing: context.direction === 'out' ? cubicIn : dampedOut,
     css: (t: number) => `translate: 0 ${(1 - t) * 100}%`,
   }
+}
+
+/** 边缘返回手势的起点宽度（px） */
+export const EDGE_BACK_WIDTH = 24
+
+/**
+ * 边缘返回是否可以从这次按下开始。
+ *
+ * 单独抽成纯函数是为了能把「短滑 / 纵向 / 取消 / 多指 / 输入框 / 滑块 / 横向列表 / 弹层 / 平台」这些
+ * 拒绝条件写成可跑的断言；真正的指针生命周期仍复用 mobileDrag 那一套（isPrimary、button 0、capture、click 抑制）。
+ */
+export interface EdgeBackStartInput {
+  /** 当前页面是否还有可返回的目标 */
+  enabled: boolean
+  /** 只有移动布局才有边缘手势 */
+  mobile: boolean
+  /** Android 有自己的系统边缘返回，不叠加自定义手势 */
+  android: boolean
+  clientX: number
+  isPrimary: boolean
+  button: number
+  /** 起点落在输入框/滑块/横向列表/弹层等冲突区域 */
+  blocked: boolean
+}
+
+export function edgeBackStartAllowed(input: EdgeBackStartInput): boolean {
+  if (!input.enabled || !input.mobile || input.android) return false
+  if (!input.isPrimary || input.button !== 0) return false
+  if (input.blocked) return false
+  return input.clientX <= EDGE_BACK_WIDTH
+}
+
+/** 冲突区域的统一判定：输入、滑块、横向滚动容器、弹层 */
+export function edgeBackBlockedTarget(target: EventTarget | null): boolean {
+  const element = target instanceof Element ? target : null
+  if (!element) return false
+  return Boolean(element.closest(
+    'button, a, [role="button"], input, textarea, select, [contenteditable="true"], [role="slider"], [role="dialog"], [data-bottom-panel], ' +
+    '.mobile-cover-rail, .mobile-song-rail, .mobile-feature-rail, .daily-date-scroll, .music-card-rail, .accent-picker',
+  ))
+}
+
+/**
+ * 从左侧边缘右滑返回。方向锁与阈值直接复用 createMobileSwipe：
+ * 只有判定为水平、且位移超过阈值（返回 'previous'）才提交一次返回。
+ */
+export function mobileEdgeBack(node: HTMLElement, options: { enabled: () => boolean; onBack: () => void; blocked?: () => boolean }) {
+  const swipe = createMobileSwipe(true)
+  let pointer: number | null = null
+  let suppressClick = false
+  let committed = false
+
+  function mobile(): boolean {
+    return document.documentElement.classList.contains('mobile-runtime')
+  }
+  function android(): boolean {
+    // Android 有自己的系统边缘返回：不叠加自定义手势，避免一次滑动退两级
+    return isAndroidRuntime()
+  }
+  function down(event: PointerEvent): void {
+    if (pointer !== null) { cancel(); return }
+    if (event.isPrimary) suppressClick = false
+    const allowed = edgeBackStartAllowed({
+      enabled: options.enabled(),
+      mobile: mobile(),
+      android: android(),
+      clientX: event.clientX,
+      isPrimary: event.isPrimary,
+      button: event.button,
+      blocked: Boolean(options.blocked?.()) || document.documentElement.classList.contains('mobile-panel-open') || edgeBackBlockedTarget(event.target),
+    })
+    if (!allowed) return
+    pointer = event.pointerId
+    suppressClick = false
+    committed = false
+    swipe.start(event.clientX, event.clientY)
+  }
+  function move(event: PointerEvent): void {
+    if (event.pointerId !== pointer) return
+    const delta = swipe.move(event.clientX, event.clientY)
+    if (delta.direction === 'horizontal') {
+      suppressClick = true
+      if (!node.hasPointerCapture(event.pointerId)) node.setPointerCapture(event.pointerId)
+    }
+  }
+  function finish(event: PointerEvent): void {
+    if (event.pointerId !== pointer) return
+    if (event.type === 'lostpointercapture' && event.target !== node) return
+    const cancelled = event.type !== 'pointerup'
+    const result = cancelled ? (swipe.cancel(), null) : swipe.end()
+    pointer = null
+    if (node.hasPointerCapture(event.pointerId)) node.releasePointerCapture(event.pointerId)
+    if (result === 'previous' && !committed) {
+      committed = true
+      options.onBack()
+    }
+    if (suppressClick) setTimeout(() => { suppressClick = false }, 350)
+  }
+  function click(event: MouseEvent): void {
+    if (!suppressClick) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    suppressClick = false
+  }
+  function cancel(): void {
+    swipe.cancel()
+    const id = pointer
+    pointer = null
+    if (id !== null && node.hasPointerCapture(id)) node.releasePointerCapture(id)
+  }
+  node.addEventListener('pointerdown', down)
+  node.addEventListener('pointermove', move)
+  node.addEventListener('pointerup', finish)
+  node.addEventListener('pointercancel', finish)
+  node.addEventListener('lostpointercapture', finish)
+  node.addEventListener('click', click, true)
+  window.addEventListener('resize', cancel)
+  window.addEventListener('orientationchange', cancel)
+  return { destroy() {
+    swipe.cancel()
+    if (pointer !== null && node.hasPointerCapture(pointer)) node.releasePointerCapture(pointer)
+    node.removeEventListener('pointerdown', down)
+    node.removeEventListener('pointermove', move)
+    node.removeEventListener('pointerup', finish)
+    node.removeEventListener('pointercancel', finish)
+    node.removeEventListener('lostpointercapture', finish)
+    node.removeEventListener('click', click, true)
+    window.removeEventListener('resize', cancel)
+    window.removeEventListener('orientationchange', cancel)
+  } }
 }

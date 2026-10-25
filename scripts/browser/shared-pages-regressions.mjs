@@ -1,0 +1,162 @@
+import assert from 'node:assert/strict'
+import { pathToFileURL } from 'node:url'
+
+if (!process.env.PR9_PLAYWRIGHT_MODULE) throw new Error('Set PR9_PLAYWRIGHT_MODULE to an existing Playwright module; do not install dependencies.')
+const { chromium } = await import(pathToFileURL(process.env.PR9_PLAYWRIGHT_MODULE).href)
+const browser = await chromium.launch({ headless: true, ...(process.env.ZT_BROWSER_CHANNEL ? { channel: process.env.ZT_BROWSER_CHANNEL } : {}) })
+const base = process.env.ZT_BROWSER_URL || 'http://127.0.0.1:5196'
+const errors = []
+const passed = []
+try {
+  const context = await browser.newContext({ viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true })
+  const page = await context.newPage()
+  page.on('pageerror', error => errors.push(error.message))
+  await page.route('**/*', route => {
+    const url = new URL(route.request().url())
+    if (url.origin === base && !url.pathname.startsWith('/ncm-api')) return route.continue()
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, data: [], songs: [], ids: [] }) })
+  })
+  await page.goto(`${base}/scripts/browser/mobile-render.html`)
+  await page.waitForFunction(() => Boolean(window.mobileFixture))
+  await page.evaluate(async () => {
+    const { configureBackNavigation } = await import('/src/lib/app/back-navigation.ts')
+    const { dismissTopDialog } = await import('/src/lib/app/desktop-motion.ts')
+    const { router } = await import('/src/lib/stores/router.svelte.ts')
+    configureBackNavigation({ dismissDialog: dismissTopDialog, popPage: router.goBack })
+    window.mobileFixture.login()
+    window.mobileFixture.enableSilentPlayback()
+    window.mobileFixture.navigate('library')
+  })
+  const current = '.mobile-route-page:not([inert])'
+  const snapshot = () => page.evaluate(async () => {
+    const { router } = await import('/src/lib/stores/router.svelte.ts')
+    return { view: router.activeView, stack: router.routeStack.map(route => route.view) }
+  })
+  const navigate = async view => {
+    await page.evaluate(view => window.mobileFixture.navigate(view), view)
+    await page.waitForTimeout(450)
+  }
+  const back = async () => {
+    await page.evaluate(() => window.mobileFixture.back())
+    await page.waitForTimeout(450)
+  }
+  await page.locator(`${current} .library-home-link`).click()
+  await page.locator(`${current} .profile-home__dashboard`).waitFor({ state: 'visible' })
+  for (const width of [320, 375, 430]) {
+    await page.setViewportSize({ width, height: 667 })
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme)
+      assert.equal(await page.locator(`${current} h2`).filter({ hasText: '本周常听' }).isVisible(), true)
+      assert.equal(await page.locator(`${current} h2`).filter({ hasText: '最近播放' }).isVisible(), true)
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `home overflows at ${width}/${theme}`)
+    }
+  }
+  passed.push('mobile home modules: 320/375/430px, light/dark')
+  await page.locator(`${current} .profile-home__quick button`).filter({ hasText: '最近播放' }).click()
+  assert.deepEqual(await snapshot(), { view: 'recent', stack: ['library', 'home'] })
+  await back()
+  assert.equal((await snapshot()).view, 'home')
+  await back()
+  assert.equal((await snapshot()).view, 'library')
+  passed.push('library -> home -> recent -> home -> library')
+
+  await page.evaluate(async () => {
+    const { router } = await import('/src/lib/stores/router.svelte.ts')
+    router.handleNav('about', null, true)
+  })
+  await page.waitForTimeout(450)
+  const button = await page.locator('.mobile-page-bar__button').first().boundingBox()
+  assert.ok(button)
+  await page.mouse.click(20, button.y + button.height / 2)
+  assert.equal((await snapshot()).view, 'library', 'the left edge of the back button remains clickable')
+  await page.evaluate(async () => {
+    const { router } = await import('/src/lib/stores/router.svelte.ts')
+    router.handleNav('about', null, true)
+  })
+  await page.waitForTimeout(450)
+  await page.mouse.move(5, 250)
+  await page.mouse.down()
+  await page.mouse.move(35, 252, { steps: 3 })
+  await page.mouse.up()
+  assert.equal((await snapshot()).view, 'about', 'a short edge swipe does not return')
+  await page.mouse.move(5, 250)
+  await page.mouse.down()
+  await page.mouse.move(130, 252, { steps: 6 })
+  await page.mouse.up()
+  assert.equal((await snapshot()).view, 'library', 'a horizontal edge swipe returns once')
+  passed.push('back button edge clicks, short swipe and committed swipe')
+
+  await navigate('recent')
+  await page.locator(`${current} .track-table tbody tr`).first().waitFor()
+  await page.evaluate(() => {
+    const scroller = document.querySelector('.mobile-page-content')
+    scroller.dispatchEvent(new Event('touchstart'))
+    scroller.scrollTop = 160
+  })
+  await page.waitForTimeout(80)
+  await navigate('dailyHistory')
+  await page.evaluate(() => {
+    const scroller = document.querySelector('.mobile-page-content')
+    scroller.dispatchEvent(new Event('touchstart'))
+    scroller.scrollTop = 50
+  })
+  await back()
+  assert.ok(Math.abs(await page.locator('.mobile-page-content').evaluate(node => node.scrollTop) - 160) < 2, 'hidden daily history must not overwrite recent scroll')
+  for (const view of ['about', 'localMusic', 'listeningStats', 'messages', 'artist', 'user', 'recent']) await navigate(view)
+  assert.equal(await page.locator(`${current} .track-table tbody tr`).count(), 12)
+  passed.push('independent history scroll and cache eviction/remount')
+
+  await page.evaluate(() => { document.querySelector('.mobile-page-content').scrollTop = 0 })
+  const row = page.locator(`${current} .col-title`).nth(1)
+  const rowBox = await row.boundingBox()
+  assert.ok(rowBox)
+  const cdp = await context.newCDPSession(page)
+  const playingBefore = await page.evaluate(() => window.mobileFixture.snapshot().id)
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: rowBox.x + 20, y: rowBox.y + 10 }] })
+  await page.waitForTimeout(1400)
+  assert.ok(await page.locator('[role="dialog"]:visible,[role="menu"]:visible').count(), 'a shared history row opens its menu on long press')
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+  assert.equal(await page.evaluate(() => window.mobileFixture.snapshot().id), playingBefore, 'releasing a held menu must not play the row')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(450)
+  passed.push('touch long press and release click suppression on a non-playlist page')
+
+  await navigate('library')
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.waitForTimeout(250)
+  await page.locator(`${current} .library-card`).first().click({ button: 'right' })
+  await page.locator('.playlist-action-sheet').waitFor({ state: 'visible' })
+  await page.waitForTimeout(500)
+  assert.equal(await page.locator('.playlist-action-sheet').isVisible(), true, 'desktop right-click menu stays open')
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(450)
+  await page.locator(`${current} .library-card`).first().focus()
+  await page.keyboard.press('Shift+F10')
+  await page.locator('.playlist-action-sheet').waitFor({ state: 'visible' })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(450)
+  passed.push('desktop library right-click and keyboard menus')
+
+  await page.evaluate(async () => {
+    const { mount, unmount, tick } = await import('/node_modules/.vite/deps/svelte.js')
+    const Search = (await import('/src/lib/pages/SearchPage.svelte')).default
+    const target = document.body.appendChild(document.createElement('div'))
+    const first = mount(Search, { target })
+    await new Promise(resolve => setTimeout(resolve, 80))
+    const input = target.querySelector('input[type="search"]')
+    input.value = 'retained query'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await tick()
+    await unmount(first)
+    const second = mount(Search, { target })
+    await new Promise(resolve => setTimeout(resolve, 80))
+    if (target.querySelector('input[type="search"]').value !== 'retained query') throw new Error('search snapshot was not restored')
+    await unmount(second)
+    target.remove()
+  })
+  passed.push('real SearchPage teardown and async snapshot remount')
+  assert.deepEqual(errors, [], 'no browser runtime errors')
+  console.log(JSON.stringify({ passed, runtimeErrors: errors }, null, 2))
+} finally {
+  await browser.close()
+}

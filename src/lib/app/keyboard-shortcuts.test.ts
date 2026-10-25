@@ -85,7 +85,7 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── space toggles play ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey(' ')
   assertEqual(player.toggleCount, 1, 'space toggles play')
   uninstall()
@@ -94,25 +94,16 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── ignored while typing in input ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey(' ', { target: { tagName: 'INPUT', isContentEditable: false } })
   assertEqual(player.toggleCount, 0, 'ignored in input')
-  uninstall()
-}
-
-// ── ignored on mobile ──
-{
-  const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => true })
-  fireKey(' ')
-  assertEqual(player.toggleCount, 0, 'ignored on mobile')
   uninstall()
 }
 
 // ── arrow seek ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey('ArrowRight')
   assertEqual(player.seekedTo, 55, 'right seeks +5')
   fireKey('ArrowLeft')
@@ -123,7 +114,7 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── ctrl+arrow switches track ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey('ArrowRight', { ctrl: true })
   assertEqual(player.nextCount, 1, 'ctrl+right = next')
   fireKey('ArrowLeft', { meta: true })
@@ -134,7 +125,7 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── volume up/down ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey('ArrowUp')
   assertEqual(Math.round((player.volumeSet ?? 0) * 100), 85, 'up = +5%')
   fireKey('ArrowDown')
@@ -145,7 +136,7 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── mute toggle ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey('m')
   assertEqual(player.volumeSet, 0, 'm mutes')
   fireKey('m')
@@ -156,7 +147,7 @@ function fireKey(key: string, opts: FireKeyOptions = {}): void {
 // ── Linux 媒体键兜底：DE 不转发 XF86Audio* 时 WebKitGTK 仍会触发这些 keydown ──
 {
   const player = makePlayer()
-  const uninstall = installKeyboardShortcuts({ player, isMobile: () => false })
+  const uninstall = installKeyboardShortcuts({ player })
   fireKey('MediaPlayPause')
   assertEqual(player.toggleCount, 1, 'MediaPlayPause toggles play')
   fireKey('MediaTrackNext')

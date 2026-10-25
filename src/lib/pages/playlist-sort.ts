@@ -47,6 +47,30 @@ export function playlistSearchText(track: SortablePlaylistTrack): string {
   return [track.name, playlistArtistText(track), album].filter(Boolean).join(' ').toLocaleLowerCase('zh-CN')
 }
 
+/** 排序键的展示名（工具栏与表头共用，避免两处各写一份） */
+export function playlistSortLabel(sort: PlaylistSortKey): string {
+  if (sort === 'title') return '歌曲'
+  if (sort === 'artist') return '歌手'
+  if (sort === 'duration') return '时长'
+  return '加入时间'
+}
+
+/** 排序方向展示名；不同排序键的方向语义不同 */
+export function playlistSortDirectionLabel(sort: PlaylistSortKey, direction: PlaylistSortDir): string {
+  if (sort === 'added') return direction === 'desc' ? '最新优先' : '最早优先'
+  if (sort === 'duration') return direction === 'desc' ? '从长到短' : '从短到长'
+  return direction === 'asc' ? 'A 到 Z' : 'Z 到 A'
+}
+
+export function playlistAriaSort(
+  sort: PlaylistSortKey,
+  direction: PlaylistSortDir,
+  key: PlaylistSortKey,
+): 'ascending' | 'descending' | 'none' {
+  if (sort !== key) return 'none'
+  return direction === 'asc' ? 'ascending' : 'descending'
+}
+
 function compareOptionalNumber(a: number, b: number, direction: number): number {
   if (!a && !b) return 0
   if (!a) return 1

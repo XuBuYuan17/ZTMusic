@@ -637,7 +637,6 @@ function playExploreSong(t: DetailTrack | null | undefined): void { if (t) playe
 function handleNav(view: string, extra?: number | null, preserveSource = false): void {
   invalidateDetailRequests()
   if (view === 'profile') view = 'home'
-  if (isMobileDevice() && view === 'home') view = 'library'
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
@@ -649,6 +648,21 @@ function handleNav(view: string, extra?: number | null, preserveSource = false):
   _routeTransition = preserveSource ? 'forward' : 'soft'; _previousView = _activeView; _activeView = view; _selectedId = null
   _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
   _playlistDetailError = ''; _playlistDetailLoading = false; _artistError = ''; _artistLoading = false
+}
+
+/**
+ * 整页失败时重新进入当前详情：复用同一个 go* 入口与缓存策略，
+ * 不压栈（不产生新的路由历史），也不改动其它页面的加载状态。
+ */
+function retryDetail(): void {
+  if (_selectedId === null) return
+  if (_activeView === 'recommendation') {
+    const entry = discoveryPlaylists.find(item => item.routeId === _selectedId)
+    if (entry) { void goRecommendation(entry.key, false); return }
+  }
+  if (_activeView === 'album') { void goAlbum(_selectedId, false); return }
+  if (_activeView === 'artist') { void goArtist(_selectedId, false); return }
+  if (_activeView === 'playlist') { void goPlaylist(_selectedId, false); return }
 }
 
 function goBack(): void {
@@ -692,7 +706,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, retryDetail, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

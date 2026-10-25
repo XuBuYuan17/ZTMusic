@@ -2,7 +2,7 @@
   import type { NormalizedPlaylist } from '../utils/normalize.ts'
   import { coverUrl, progressiveCover } from '../utils/image.ts'
   import Spinner from './Spinner.svelte'
-  import { responsive } from '../utils/responsive.ts'
+  import { isTouchDevice, responsive } from '../utils/responsive.ts'
   import { mobileLongPress } from '../app/mobile-interaction.ts'
   import { router } from '../stores/router.svelte.ts'
 
@@ -40,8 +40,9 @@
   let coverFailed = $state(false)
   $effect(() => { pl.picUrl; coverFailed = false })
   let card: HTMLElement
+  // 歌单操作属于能力，不由布局决定：窄窗口的 Windows 仍可右键/按 Shift+F10 打开
   function openOptions() {
-    if (!$responsive.isMobile || !onOptions) return
+    if (!onOptions) return
     card.focus({ preventScroll: true })
     onOptions(pl, card)
   }
@@ -72,7 +73,7 @@
 
   function handleKeydown(e: KeyboardEvent): void {
     if (e.target !== e.currentTarget) return
-    if ($responsive.isMobile && (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10'))) { e.preventDefault(); openOptions(); return }
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); openOptions(); return }
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       onOpen?.(pl)
@@ -91,15 +92,15 @@
   role="button"
   tabindex="0"
   aria-label={`打开歌单 ${pl.name}`}
-  aria-haspopup={$responsive.isMobile && onOptions ? 'dialog' : undefined}
-  aria-keyshortcuts={$responsive.isMobile && onOptions ? 'Shift+F10' : undefined}
+  aria-haspopup={onOptions ? 'dialog' : undefined}
+  aria-keyshortcuts={onOptions ? 'Shift+F10' : undefined}
   bind:this={card}
-  use:mobileLongPress={{ enabled: () => $responsive.isMobile && !!onOptions && !card.closest('[inert]'), open: openOptions }}
+  use:mobileLongPress={{ enabled: () => isTouchDevice() && !!onOptions && !card.closest('[inert]'), open: openOptions }}
   onpointerenter={prefetch}
   onpointerdown={prefetch}
   onfocus={prefetch}
   onclick={() => onOpen?.(pl)}
-  oncontextmenu={(event) => { if ($responsive.isMobile) { event.preventDefault(); openOptions() } }}
+  oncontextmenu={(event) => { event.preventDefault(); openOptions() }}
   onkeydown={handleKeydown}
 >
   <div class="library-card-cover">

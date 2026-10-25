@@ -1,12 +1,13 @@
 <script lang="ts">
   import { flushSync, onDestroy, tick, untrack } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
+  import { configureBackNavigation, registerBackLayers, requestBack } from './lib/app/back-navigation.ts'
   import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
   import { getStartupTrack } from './lib/app/startup-track.ts'
   import { loadCachedExploreData } from './lib/services/explore.ts'
   import { ncm } from './lib/api/client.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
-  import { isTauriRuntime, runtimePlatform } from './lib/utils/runtime.ts'
+  import { isAndroidRuntime } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
   import type { SongId } from './lib/types/music.ts'
   import { player } from './lib/stores/player.svelte.ts'
@@ -82,18 +83,46 @@
     sync()
     return () => observer.disconnect()
   })
+  // 原生返回键属于平台能力，与布局无关：Android 横屏走 PC 外壳时同样要能返回
   $effect(() => {
-    if (!isMobile || !isTauriRuntime() || !/Android/i.test(runtimePlatform())) return
-    if (!mobileDialogOpen && !showMobileDrawer && !showSheet && !showQueuePanel && router.activeView === 'explore' && router.routeStack.length === 0) return
-    return subscribeAndroidBack(() => {
-      if (dismissTopDialog()) return
-      if (showMobileDrawer) { closeMobileDrawer(); return }
-      if (showSheet) { closeSheet(); return }
-      if (showQueuePanel) { closeQueue(); return }
-      if (router.routeStack.length) router.goBack()
-      else router.handleNav('explore')
-    })
+    if (!isAndroidRuntime()) return
+    // 没有任何可返回的目标时不订阅，把返回键交还给系统（退出应用）。
+    // 「根视图」按导航语义判断（home / explore 是两端各自的起点），不看窗口宽度。
+    const atRoot = router.activeView === 'explore' || router.activeView === 'home'
+    const hasBackTarget = mobileDialogOpen || showMobileDrawer || showSheet || showQueuePanel
+      || router.routeStack.length > 0 || !atRoot
+    if (!hasBackTarget) return
+    return subscribeAndroidBack(() => { requestBack() })
   })
+  // 「还有地方可返回吗」：弹层、浮层、页面历史或不在根视图
+  function hasBackTargetNow(): boolean {
+    if (mobileDialogOpen || showMobileDrawer || showSheet || showQueuePanel) return true
+    if (router.routeStack.length > 0) return true
+    return router.activeView !== 'explore' && router.activeView !== 'home'
+  }
+
+  // 四个返回入口（页面按钮 / 外壳 / Escape / Android）共用同一份顺序
+  configureBackNavigation({ dismissDialog: dismissTopDialog, popPage: () => router.goBack() })
+  registerBackLayers({
+    drawer: () => (showMobileDrawer ? (closeMobileDrawer(), true) : false),
+    sheet: () => (showSheet ? (closeSheet(), true) : false),
+    queue: () => (showQueuePanel ? (closeQueue(), true) : false),
+  })
+
+  // Escape：弹层自己在捕获阶段处理并停止冒泡，这里只兜底「没有弹层时的返回」
+  $effect(() => {
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return
+      if (!hasBackTargetNow()) return
+      event.preventDefault()
+      requestBack()
+    }
+    window.addEventListener('keydown', onKeydown)
+    return () => window.removeEventListener('keydown', onKeydown)
+  })
+
   $effect(() => {
     if (!isMobile) return
     const feedback = mobileFeedback(document.body)
@@ -238,8 +267,8 @@
     _prevCookieOk = auth.cookieOk
   })
 
-  // PC 端全局键盘快捷键（移动布局自动忽略）
-  $effect(() => installKeyboardShortcuts({ player, isMobile: () => isMobile }))
+  // 键盘快捷键是输入方式，不随布局开关；输入框聚焦时由模块自身忽略
+  $effect(() => installKeyboardShortcuts({ player }))
 
   // 拖拽发起 morph 时先收队列，避免两个 overlay 叠在一起；open 态 tools 开队列不受影响
   $effect(() => { if (playerMorph.phase === 'dragging' && showQueuePanel) showQueuePanel = false })
@@ -371,7 +400,7 @@
           onSetTheme={setTheme}
           {accentTheme}
           onSetAccentTheme={setAccentTheme}
-          onBack={router.goBack}
+          onBack={() => { requestBack() }}
           onOpenMenu={openMobileDrawer}
           targetUser={messageTargetUser}
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}

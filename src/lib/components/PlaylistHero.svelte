@@ -6,7 +6,8 @@
   import CoverPreview from './CoverPreview.svelte'
   import { tick } from 'svelte'
   import type { SongId } from '../types/music.ts'
-  import PlaylistActionSheet, { sharePlaylist, playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
+  import PlaylistActionSheet, { playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
+  import { heroCreatorName, heroMetaText, heroPlayback } from './playlist-hero-content.ts'
   import Icon from './ui/Icon.svelte'
 
   interface HeroDetail {
@@ -26,16 +27,18 @@
     loadingMore = false,
     heroColor = '#141414',
     detailType = '歌单',
-    shareable = true,
     coverIsBundled = false,
     totalCount = 0,
     visibleCount = 0,
     totalDuration = 0,
+    showMenu = $bindable(false),
     onBack,
     onPlayAll,
     onShuffle,
     onQueue,
     onNext,
+    onMore,
+    onShare,
     onTools,
   }: {
     detail?: HeroDetail | null
@@ -43,16 +46,20 @@
     loadingMore?: boolean
     heroColor?: string
     detailType?: string
-    shareable?: boolean
     coverIsBundled?: boolean
     totalCount?: number
     visibleCount?: number
     totalDuration?: number
+    showMenu?: boolean
     onBack?: () => void
     onPlayAll?: () => void
     onShuffle?: () => void
     onQueue?: () => void
     onNext?: () => void
+    /** 由页面统一提供的「更多」入口；顶部栏与内容区都走这里 */
+    onMore?: () => void
+    /** 由页面统一提供的分享入口 */
+    onShare?: () => void
     onTools?: () => void
   } = $props()
 
@@ -72,32 +79,33 @@
   const creator = $derived(rec(detail?.creator))
   const playlistTrackIds = $derived((detail?.trackIds?.length ? detail.trackIds : detail?.tracks || []).map(trackIdOf).filter((id): id is SongId => id !== null))
   const containsCurrentTrack = $derived(player.id != null && player.id !== 0 && playlistTrackIds.some(id => String(id) === String(player.id)))
-  const heroPlaying = $derived(containsCurrentTrack && player.playing)
-  let showMenu = $state(false)
+  // 播放态沿用播放器状态来源；按钮语义（暂停/继续 vs 播放全部）由纯函数决定，见 playlist-hero-content.ts
+  const playback = $derived(heroPlayback({
+    containsCurrentTrack,
+    playing: player.playing,
+    visibleCount,
+    compact: $responsive.isMobile,
+  }))
   let menuClosing = $state(false)
   let pendingAction: (() => void) | null = null
+  // 打开由页面驱动（顶部栏和 hero 按钮共用 showMenu），这里只负责清掉上一次的退场标记
+  $effect(() => { if (showMenu) menuClosing = false })
   function closeMenu(action: (() => void) | null = null) { pendingAction = action; menuClosing = true }
   function finishMenu() { showMenu = false; const action = pendingAction; pendingAction = null; if (action) void tick().then(action) }
   function toggleHeroPlayback(): void {
-    if (containsCurrentTrack) player.togglePlay()
+    if (playback.mode === 'toggle') player.togglePlay()
     else onPlayAll?.()
   }
-  function heroActions(node: HTMLElement) {
-    const share = () => { if (!node.closest('[inert]') && shareable && detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }
-    const more = () => { if (!node.closest('[inert]')) { menuClosing = false; showMenu = true } }
-    node.addEventListener('playlist-share', share); node.addEventListener('playlist-more', more)
-    return { destroy() { node.removeEventListener('playlist-share', share); node.removeEventListener('playlist-more', more) } }
-  }
   const menuActions = $derived<PlaylistAction[]>([
-    { label: heroPlaying ? '暂停' : '播放全部', icon: heroPlaying ? 'pause' : 'play', disabled: !visibleCount && !containsCurrentTrack, onSelect: () => closeMenu(toggleHeroPlayback) },
+    { label: playback.menuLabel, icon: playback.icon, disabled: playback.disabled, onSelect: () => closeMenu(toggleHeroPlayback) },
     ...(onShuffle ? [{ label: '随机播放', icon: 'shuffle-lg', disabled: !visibleCount, onSelect: () => closeMenu(onShuffle) }] : []),
     ...(onQueue ? [{ label: '加入播放队列', icon: 'add', disabled: !visibleCount, onSelect: () => closeMenu(onQueue) }] : []),
     ...(onNext ? [{ label: '下一首插播', icon: 'queue', disabled: !visibleCount, onSelect: () => closeMenu(onNext) }] : []),
-    ...(shareable ? [{ label: `分享${detailType}`, icon: 'share', disabled: detail?.id == null, onSelect: () => closeMenu(() => { if (detail?.id != null) void sharePlaylist(detail.id, detail.name, detailType) }) }] : []),
+    ...(onShare ? [{ label: `分享${detailType}`, icon: 'share', disabled: detail?.id == null, onSelect: () => closeMenu(onShare) }] : []),
     ...(onTools ? [{ label: '搜索与排序', icon: 'search', onSelect: () => closeMenu(onTools) }] : []),
     ...(detail?.description ? [{ label: `${detailType}简介`, icon: 'info', onSelect: () => closeMenu(() => descriptionExpanded = true) }] : []),
   ])
-  const creatorName = $derived(typeof detail?.creator === 'string' ? detail.creator : typeof creator?.nickname === 'string' ? creator.nickname : typeof creator?.name === 'string' ? creator.name : '')
+  const creatorName = $derived(heroCreatorName(detail?.creator))
   let previewOpen = $state(false)
   let descriptionExpanded = $state(false)
   let coverFailed = $state(false)
@@ -110,11 +118,7 @@
     return typeof record?.id === 'string' || typeof record?.id === 'number' ? record.id : null
   }
 
-  function durationText(ms: number): string {
-    const minutes = Math.round(ms / 60000)
-    return minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟` : `${minutes} 分钟`
-  }
-
+  // 展示用格式化（时长/元信息）见 playlist-hero-content.ts
   function rec(v: unknown): Record<string, unknown> | null {
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
   }
@@ -137,7 +141,7 @@
     </div>
   </div>
 {:else}
-  <div class="playlist-detail-hero" class:is-syncing={loading} use:heroActions style={`--playlist-hero-color:${heroColor}`}>
+  <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
     {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover(320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
     {#if cover && $responsive.isMobile}
@@ -163,7 +167,7 @@
       <div class="playlist-mobile-creator">{creatorName}</div>
       <div class="playlist-meta">
         {#if creator?.avatarUrl}<img class="playlist-meta-avatar" src={coverUrl(creator.avatarUrl as string, 48)} alt="" referrerpolicy="no-referrer" />{/if}
-        {creatorName}{#if totalCount} · {totalCount} 首{:else if loading} · 正在加载歌曲{/if}{#if totalDuration} · {durationText(totalDuration)}{/if}{#if loadingMore} · 正在补全{/if}
+        {heroMetaText({ creatorName, totalCount, loading, totalDuration, loadingMore })}
       </div>
       {#if detail.description && (!$responsive.isMobile || descriptionExpanded)}
         {#if $responsive.isMobile}
@@ -173,9 +177,9 @@
         {/if}
       {/if}
       <div class="playlist-hero-actions">
-        <button class="playlist-play-btn" aria-label={heroPlaying ? '暂停播放' : '播放全部'} aria-pressed={heroPlaying} onclick={toggleHeroPlayback} disabled={!visibleCount && !containsCurrentTrack}>
-          <Icon name={heroPlaying ? 'pause' : 'play'} size={17} fill="currentColor" />
-          <span>{heroPlaying ? '暂停' : ($responsive.isMobile ? '播放' : '播放全部')}</span>
+        <button class="playlist-play-btn" aria-label={playback.pressed ? '暂停播放' : '播放全部'} aria-pressed={playback.pressed} onclick={toggleHeroPlayback} disabled={playback.disabled}>
+          <Icon name={playback.icon} size={17} fill="currentColor" />
+          <span>{playback.label}</span>
         </button>
         {#if onShuffle}
           <button class="playlist-shuffle-btn" aria-label="随机播放" onclick={onShuffle} disabled={!visibleCount}>
@@ -183,7 +187,7 @@
             <span>随机播放</span>
           </button>
         {/if}
-        {#if $responsive.isMobile}<button class="playlist-more-btn" type="button" aria-label={`${detailType}操作`} aria-haspopup="dialog" aria-expanded={showMenu} onclick={() => { menuClosing = false; showMenu = true }}><Icon name="more" size={24} /></button>{/if}
+        <button class="playlist-more-btn" type="button" aria-label={`${detailType}操作`} aria-haspopup="dialog" aria-expanded={showMenu} onclick={() => onMore?.()}><Icon name="more" size={24} /></button>
       </div>
     </div>
   </div>
@@ -191,7 +195,7 @@
 
 {#if previewOpen && detail}<CoverPreview src={resolvedCover(1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
 
-{#if showMenu && detail && $responsive.isMobile}
+{#if showMenu && detail}
   <div class="library-options-portal" use:playlistPortal>
   <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} {coverIsBundled} actions={menuActions} label={`${detailType}操作`}
     onPlay={visibleCount || containsCurrentTrack ? () => closeMenu(toggleHeroPlayback) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
@@ -199,6 +203,8 @@
 {/if}
 
 <style>
+  /* 操作入口常驻声明，显隐交给布局：窄布局（下一段 :global 规则）把它显示出来 */
+  .playlist-more-btn { display: none; }
   .playlist-mobile-creator { display: none; }
   .playlist-detail-hero {
     position: relative;

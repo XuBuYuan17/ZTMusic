@@ -9,8 +9,10 @@ const [source, layout] = await Promise.all([
 assert.match(source, /trackIds\?: unknown\[\]/, 'playlist detail exposes full track ids to the hero')
 assert.match(source, /detail\?\.trackIds\?\.length \? detail\.trackIds : detail\?\.tracks \|\| \[\]/, 'full playlist ids win over partially loaded tracks')
 assert.match(source, /const containsCurrentTrack = \$derived\(/, 'hero derives playback ownership from the current player track')
-assert.match(source, /if \(containsCurrentTrack\) player\.togglePlay\(\)/, 'current playlist track toggles the shared player instead of replaying the queue')
-assert.match(source, /disabled=\{!visibleCount && !containsCurrentTrack\}/, 'pause and resume remain available even when a search hides all rows')
+// 暂停/继续的语义已抽到 playlist-hero-content.ts（行为由 playlist-hero-content.test.ts 覆盖）
+assert.match(source, /heroPlayback\(\{/, 'playback semantics come from the tested pure helper')
+assert.match(source, /if \(playback\.mode === 'toggle'\) player\.togglePlay\(\)/, 'current playlist track toggles the shared player instead of replaying the queue')
+assert.match(source, /disabled=\{playback\.disabled\}/, 'pause and resume remain available even when a search hides all rows')
 assert.doesNotMatch(source, /ownsPlayback/, 'hero must not keep a local playback ownership flag that goes stale after external track changes')
 
 assert.match(layout, /width: min\(58vw, 292px\)/, 'mobile cover leaves more of the first viewport for tracks')

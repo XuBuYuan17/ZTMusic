@@ -2,7 +2,7 @@
   import type { SearchResult } from '../types/music.ts'
   type CategoryKey = 'all' | 'songs' | 'artists' | 'playlists'
   interface SearchSnapshot { keyword: string; results: SearchResult; activeCategory: CategoryKey; scrollTop: number; loading: boolean; searchError: string }
-  let desktopSearchSnapshot: SearchSnapshot | null = null
+  let searchSnapshot: SearchSnapshot | null = null
 </script>
 
 <script lang="ts">
@@ -15,8 +15,10 @@
   import { coverUrl as imageCoverUrl } from '../utils/image.ts'
   import ArtistNames from '../components/ArtistNames.svelte'
   import SongListActions from '../components/SongListActions.svelte'
+  import { getScrollViewport } from '../app/scroll-viewport.ts'
+  import SongList from '../components/SongList.svelte'
+  import { toSongRows } from '../components/song-row.ts'
   import Icon from '../components/ui/Icon.svelte'
-  import { isMobileDevice } from '../utils/responsive.ts'
 
   interface ArtistRefish { id?: SongId; name: string }
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
@@ -27,8 +29,9 @@
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
   } = $props()
 
-  const desktop = !isMobileDevice()
-  const initial = desktop ? desktopSearchSnapshot : null
+  // 快照与布局无关：换布局、返回本页都保留搜索词、分类与结果
+  const scrollViewport = getScrollViewport()
+  const initial = searchSnapshot
   let keyword = $state(initial?.keyword || '')
   let loading = $state(false)
   let searchError = $state(initial?.searchError || '')
@@ -47,14 +50,14 @@
     if (initial.loading) await doSearch()
     await tick()
     if (destroyed) return
-    const scroller = document.querySelector<HTMLElement>('.content-scroll')
+    const scroller = scrollViewport?.element()
     if (scroller) scroller.scrollTop = initial.scrollTop
   })
   onDestroy(() => {
     destroyed = true
     requestId++
-    if (desktop) desktopSearchSnapshot = { keyword, results: $state.snapshot(results), activeCategory,
-      scrollTop: document.querySelector<HTMLElement>('.content-scroll')?.scrollTop || 0, loading, searchError }
+    searchSnapshot = { keyword, results: $state.snapshot(results), activeCategory,
+      scrollTop: scrollViewport?.element()?.scrollTop || 0, loading, searchError }
   })
 
   $effect(() => {
@@ -106,6 +109,10 @@
     }
     if (currentRequest === requestId) loading = false
   }
+
+  // 结果展示交给共享列表；搜索词、分类、过滤与请求逻辑仍在本页
+  const songRows = $derived(toSongRows(results.songs))
+  const previewRows = $derived(songRows.slice(0, 8))
 
   function playSong(track: Song | null | undefined): void {
     player.playTrack(track, 0)
@@ -246,15 +253,7 @@
         {#if results.songs.length > 0}
           <section class="search-songs-panel">
             <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
-            <div class="search-songs">
-              {#each results.songs.slice(0, 8) as track (track.id)}
-                <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
-                  {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                  <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /><span class="search-desktop-album">{#if track.al?.name} · {track.al.name}{/if}</span></em><small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small></span>
-                  <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
-                </div>
-              {/each}
-            </div>
+            <SongList rows={previewRows} currentId={player.id} rowActions={songActions?.bindRow ?? null} onPlay={(row) => playSong(row.source as Song)} {onOpenArtist} {onOpenAlbum} />
           </section>
         {/if}
 
@@ -294,15 +293,7 @@
       {:else if activeCategory === 'songs'}
         <section class="search-songs-panel">
           <div class="search-section-header"><h2>歌曲</h2><button onclick={playAllSongs}>播放全部</button></div>
-          <div class="search-songs">
-            {#each results.songs as track (track.id)}
-              <div role="button" tabindex="0" onkeydown={(event) => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); playSong(track) } }} class="search-song-row" class:active={player.id === track.id} onclick={() => playSong(track)} {...songActions?.bindRow(track)}>
-                {#if track.picUrl}<img class="search-song-cover" src={imageCoverUrl(track.picUrl, 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<div class="search-song-cover search-cover-placeholder">♫</div>{/if}
-                <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /><span class="search-desktop-album">{#if track.al?.name} · {track.al.name}{/if}</span></em><small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small></span>
-                <span class="search-song-dur">{formatDuration(track.dt)}</span><button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
-              </div>
-            {/each}
-          </div>
+          <SongList rows={songRows} currentId={player.id} rowActions={songActions?.bindRow ?? null} onPlay={(row) => playSong(row.source as Song)} {onOpenArtist} {onOpenAlbum} />
         </section>
       {:else if activeCategory === 'artists'}
         <section class="search-side-card">
@@ -370,10 +361,10 @@
   .search-section-header h2 { font-size: 18px; font-weight: 700; letter-spacing: 0; }
   .search-section-header span, .search-section-header button { color: var(--text-tertiary); font-size: 12px; font-weight: 700; }
   .search-section-header button { color: var(--accent); border: none; background: transparent; cursor: pointer; }
-  .search-hot-list, .search-songs, .search-compact-list { display: grid; gap: 5px; }
-  .search-hot-row, .search-song-row, .search-compact-list button { display: grid; align-items: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: pointer; text-align: left; border-radius: var(--radius-md); }
+  .search-hot-list, .search-compact-list { display: grid; gap: 5px; }
+  .search-hot-row, .search-compact-list button { display: grid; align-items: center; width: 100%; border: none; background: transparent; color: var(--text); cursor: pointer; text-align: left; border-radius: var(--radius-md); }
   .search-hot-row { grid-template-columns: 44px minmax(0, 1fr) 58px; min-height: 44px; padding: 0 12px; }
-  .search-hot-row:hover, .search-song-row:hover, .search-compact-list button:hover { background: var(--bg-hover); }
+  .search-hot-row:hover, .search-compact-list button:hover { background: var(--bg-hover); }
   .search-hot-row.top { background: color-mix(in srgb, var(--accent-bg) 72%, transparent); }
   .search-hot-row.top span { color: var(--accent); }
   .search-hot-row span { color: var(--text-tertiary); font-weight: 700; }
@@ -395,9 +386,6 @@
   .search-feature-song small { color: var(--accent); font-size: 12px; font-weight: 700; }
   .search-feature-song strong { font-size: 22px; line-height: 1.14; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .search-feature-song em, .search-song-info em, .search-compact-list em, .search-playlist-grid em { color: var(--text-tertiary); font-size: 12px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .search-song-row { grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 12px; min-height: 56px; padding: 6px 8px; }
-  .search-song-row.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .search-song-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; }
   .search-cover-placeholder, .search-avatar-ph { display: grid; place-items: center; background: var(--bg-surface); color: var(--text-tertiary); }
   .search-song-dur { color: var(--text-tertiary); font-size: 12px; justify-self: end; }
   .search-compact-list button { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; min-height: 56px; padding: 6px; }
@@ -423,7 +411,7 @@
     .search-section-header { margin-bottom: 10px; }
     .search-section-header h2 { font-size: 16px; }
     .search-section-header span, .search-section-header button { font-size: 11px; }
-    .search-chart-songs, .search-hot-list, .search-songs, .search-compact-list { gap: 3px; }
+    .search-chart-songs, .search-hot-list, .search-compact-list { gap: 3px; }
     .search-hot-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
     .search-hot-row { grid-template-columns: 26px minmax(0, 1fr); min-height: 36px; padding: 0 8px; background: color-mix(in srgb, var(--bg-surface) 58%, transparent); }
     .search-hot-row em { display: none; }
@@ -433,8 +421,6 @@
     .search-feature-song { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; }
     .search-feature-song img, .search-feature-cover { width: 72px; height: 72px; border-radius: var(--radius-md); }
     .search-feature-song strong { font-size: 18px; }
-    .search-song-row { grid-template-columns: 42px minmax(0, 1fr); min-height: 54px; }
-    .search-song-cover { width: 42px; height: 42px; }
     .search-song-dur { display: none; }
     .search-playlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
     .search-playlist-grid img, .search-playlist-grid .search-cover-placeholder { border-radius: var(--radius-md); }

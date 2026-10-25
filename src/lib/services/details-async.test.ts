@@ -426,9 +426,44 @@ await check('filtered play all keeps playing only the visible subset', () => {
   assert.deepEqual(played, [[1]])
 })
 
+await check('a late playlist response cannot overwrite the playlist opened after it', async () => {
+  const { context, router } = routerHarness()
+  const slowA = deferred<PlaylistDetailResult>()
+  const makeDetail = (id: number): PlaylistDetailRecord => ({
+    id, name: `P${id}`, coverImgUrl: '', picUrl: '', creator: null, description: '',
+    tracks: songsFor([id]) as unknown as Record<string, unknown>[],
+    trackIds: [{ id }], trackCount: 1, trackLoadCursor: 1, tracksPartial: false,
+  } as unknown as PlaylistDetailRecord)
+  let calls = 0
+  context.loadPlaylistDetail = async (_extract: unknown, id: SongId) => {
+    calls++
+    if (Number(id) === 1) return slowA.promise
+    return { detail: makeDetail(Number(id)), heroColor: '#222' }
+  }
+
+  const openingA = router.goPlaylist(1)
+  await flush()
+  await router.goPlaylist(2)
+  assert.equal(router.playlistDetail?.id, 2, 'B is showing')
+
+  // A 的慢请求此刻才回来：不得覆盖 B 的资源，也不得改动选中项
+  slowA.resolve({ detail: makeDetail(1), heroColor: '#111' } as PlaylistDetailResult)
+  await openingA
+  await flush()
+  assert.equal(router.playlistDetail?.id, 2, 'late A must not overwrite B')
+  assert.equal(router.selectedId, 2, 'selection stays on B')
+
+  // 回到 A：读到的是 A 自己的资源（而不是 B 的残留）
+  await router.goPlaylist(1)
+  assert.equal(router.playlistDetail?.id, 1, 'reopening A loads A again')
+  assert.equal(router.selectedId, 1)
+  assert.ok(calls >= 3, 'stale A response is discarded rather than cached as B')
+})
+
 await check('page observer pauses on failure and resumes after the error is cleared', async () => {
-  const page = await readFile(new URL('../pages/PlaylistPage.svelte', import.meta.url), 'utf8')
-  const action = page.slice(page.indexOf('  function loadMoreSentinel('), page.indexOf('  let totalTrackCount'))
+  // 触底哨兵在共享列表里，页面与歌单适配层都不再持有 IntersectionObserver
+  const list = await readFile(new URL('../components/SongList.svelte', import.meta.url), 'utf8')
+  const action = list.slice(list.indexOf('  function loadMoreSentinel('), list.indexOf('</script>'))
   let callback!: (entries: Array<{ isIntersecting: boolean }>) => void
   let calls = 0, disconnected = false, error = '', loading = false
   const context = createContext({

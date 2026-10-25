@@ -30,6 +30,8 @@ export interface UserProfileData {
   createdPlaylists: NormalizedPlaylist[]
   likedPlaylist: NormalizedPlaylist | null
   weeklyTracks: NormalizedRecordSong[]
+  /** 周榜请求是否失败（失败不能当成「本周没有听歌」） */
+  weeklyTracksFailed: boolean
   followsPreview: UserPreview[]
   followersPreview: UserPreview[]
 }
@@ -167,8 +169,30 @@ export async function loadUserProfileData(
     createdPlaylists,
     likedPlaylist,
     weeklyTracks,
+    weeklyTracksFailed: recordResult?.status === 'rejected',
     followsPreview,
     followersPreview,
+  }
+}
+
+/**
+ * 只取关注/粉丝预览（各 8 位）。
+ *
+ * 主页在 loadUserProfileData 里已经顺带拿到了，资料库概览没有整份资料，
+ * 又需要同一份预览与跳转能力，所以单独暴露这一条，避免再拉整份 profile。
+ */
+export async function loadSocialPreview(
+  api: Pick<UserProfileApi, 'userFollows' | 'userFolloweds'>,
+  userId: SongId,
+  limit = 8,
+): Promise<{ followsPreview: UserPreview[]; followersPreview: UserPreview[] }> {
+  const [followsResult, followersResult] = await Promise.allSettled([
+    api.userFollows(userId, limit, 0),
+    api.userFolloweds(userId, limit, 0),
+  ])
+  return {
+    followsPreview: listFrom(valueOf(followsResult), ['follow', 'follows']).map(normalizeUserPreview).filter((user): user is UserPreview => user !== null),
+    followersPreview: listFrom(valueOf(followersResult), ['followeds']).map(normalizeUserPreview).filter((user): user is UserPreview => user !== null),
   }
 }
 
