@@ -162,6 +162,23 @@ try {
   assert.equal(await page.locator('.content-scroll .track-table tbody tr[data-row-index]').count(), 4)
   passed.push('playlist registration remains reactive: filtering, sorting and real host replacement')
 
+  await navigate('search')
+  await page.locator('.content-scroll .search-input').fill('layout snapshot')
+  await page.locator('.content-scroll .search-input').press('Enter')
+  await page.waitForFunction(() => document.querySelector('.search-page')?.getAttribute('aria-busy') === 'false')
+  await page.locator('.search-category-tabs button').filter({ hasText: '歌曲' }).click()
+  await page.setViewportSize({ width: 403, height: 723 })
+  await page.evaluate(() => window.mobileFixture.setLayout('mobile'))
+  await page.locator(current + ' .search-input').waitFor()
+  assert.equal(await page.locator(current + ' .search-input').inputValue(), 'layout snapshot')
+  assert.match(await page.locator(current + ' .search-category-tabs button.active').innerText(), /歌曲/)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.evaluate(() => window.mobileFixture.setLayout('desktop'))
+  await page.locator('.content-scroll .search-input').waitFor()
+  assert.equal(await page.locator('.content-scroll .search-input').inputValue(), 'layout snapshot')
+  assert.match(await page.locator('.content-scroll .search-category-tabs button.active').innerText(), /歌曲/)
+  passed.push('real search host handoff retains query and category in both directions')
+
   await page.evaluate(async () => {
     const { mount, unmount, tick } = await import('/node_modules/.vite/deps/svelte.js')
     const Search = (await import('/src/lib/pages/SearchPage.svelte')).default

@@ -3,10 +3,11 @@
   type CategoryKey = 'all' | 'songs' | 'artists' | 'playlists'
   interface SearchSnapshot { keyword: string; results: SearchResult; activeCategory: CategoryKey; scrollTop: number; loading: boolean; searchError: string }
   let searchSnapshot: SearchSnapshot | null = null
+  let searchSnapshotOwner = 0
 </script>
 
 <script lang="ts">
-  import { onMount, onDestroy, tick } from 'svelte'
+  import { onMount, onDestroy, tick, untrack } from 'svelte'
   import type { Song, HotSearchItem, SongId } from '../types/music.ts'
   import { musicService } from '../music/service.ts'
   import { player } from '../stores/player.svelte.ts'
@@ -23,7 +24,8 @@
   interface ArtistRefish { id?: SongId; name: string }
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
 
-  let { onOpenArtist, onOpenAlbum, onOpenPlaylist }: {
+  let { onOpenArtist, onOpenAlbum, onOpenPlaylist, active = true }: {
+    active?: boolean
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
@@ -32,6 +34,7 @@
   // 快照与布局无关：换布局、返回本页都保留搜索词、分类与结果
   const scrollViewport = getScrollViewport()
   const initial = searchSnapshot
+  const snapshotOwner = ++searchSnapshotOwner
   let keyword = $state(initial?.keyword || '')
   let loading = $state(false)
   let searchError = $state(initial?.searchError || '')
@@ -45,6 +48,24 @@
   let destroyed = false
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
+  function saveSnapshot(): void {
+    if (!active || snapshotOwner !== searchSnapshotOwner) return
+    searchSnapshot = { keyword, results: $state.snapshot(results), activeCategory,
+      scrollTop: scrollViewport?.element()?.scrollTop ?? searchSnapshot?.scrollTop ?? 0, loading, searchError }
+  }
+
+  // 外壳可能先创建接替实例，再销毁旧实例；会话不能只在销毁时交接。
+  $effect(() => {
+    keyword; results; activeCategory; loading; searchError
+    if (active) untrack(saveSnapshot)
+  })
+  $effect(() => {
+    if (!active) return
+    const scroller = scrollViewport?.element()
+    scroller?.addEventListener('scroll', saveSnapshot, { passive: true })
+    return () => scroller?.removeEventListener('scroll', saveSnapshot)
+  })
+
   onMount(async () => {
     if (!initial) return
     if (initial.loading) await doSearch()
@@ -56,8 +77,7 @@
   onDestroy(() => {
     destroyed = true
     requestId++
-    searchSnapshot = { keyword, results: $state.snapshot(results), activeCategory,
-      scrollTop: scrollViewport?.element()?.scrollTop || 0, loading, searchError }
+    saveSnapshot()
   })
 
   $effect(() => {

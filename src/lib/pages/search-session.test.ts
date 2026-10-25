@@ -41,10 +41,10 @@ function harness() {
     mounted = []; destroyed = []
     initializing = true
     const page = runInContext(stripTypeScriptTypes(`(() => { ${withoutImports(instanceScript)}
-      return { setQuery: value => keyword = value, setCategory: value => activeCategory = value, search: doSearch,
+      return { setQuery: value => keyword = value, setCategory: value => activeCategory = value, search: doSearch, save: saveSnapshot,
         view: () => JSON.parse(JSON.stringify({ keyword, activeCategory, results, loading, searchError })) }
     })()`), context) as {
-      setQuery: (value: string) => void; setCategory: (value: string) => void; search: () => Promise<void>
+      setQuery: (value: string) => void; setCategory: (value: string) => void; search: () => Promise<void>; save: () => void
       view: () => { keyword: string; activeCategory: string; results: { songs: Array<{ id: number }> }; loading: boolean; searchError: string }
     }
     initializing = false
@@ -57,6 +57,19 @@ function harness() {
   return { mountPage, scroller, calls: () => calls, mobile: (value: boolean) => { mobile = value },
     search: (callback: typeof search) => { search = callback } }
 }
+
+await check('a replacement can mount before old teardown without losing or overwriting the search session', async () => {
+  const runtime = harness()
+  const old = runtime.mountPage(); await old.mount()
+  old.setQuery('old query'); await old.search(); old.setCategory('songs'); old.save()
+  const next = runtime.mountPage(); await next.mount()
+  assert.equal(next.view().keyword, 'old query')
+  assert.equal(next.view().activeCategory, 'songs')
+  next.setQuery('new query'); await next.search(); next.save()
+  old.destroy()
+  const returned = runtime.mountPage(); await returned.mount()
+  assert.equal(returned.view().keyword, 'new query', 'late old teardown must not replace the current session')
+})
 
 await check('desktop playlist host connects pagination and manual retry', async () => {
   const host = await readFile(new URL('../components/layout/DesktopPageHost.svelte', import.meta.url), 'utf8')
