@@ -26,3 +26,12 @@ export function isTauriDesktop(): boolean {
   const p = runtimePlatform()
   return !/Android|iPhone|iPad|iPod/i.test(p) && /Linux|Win|Mac/i.test(p)
 }
+
+/**
+ * Android 原生容器。**平台能力判定**，与窗口宽高、当前布局无关：
+ * 横屏走 PC 外壳时，返回键、原生媒体控制等能力仍然存在。
+ * 只复用上面的 isTauriRuntime / runtimePlatform，不引入新的识别规则。
+ */
+export function isAndroidRuntime(): boolean {
+  return isTauriRuntime() && /Android/i.test(runtimePlatform())
+}

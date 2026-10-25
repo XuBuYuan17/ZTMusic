@@ -31,6 +31,11 @@ const CACHE_TTL: Record<string, number> = {
   '/user/playlist': 5 * MINUTE,
   '/user/record': 5 * MINUTE,
   '/user/subcount': 5 * MINUTE,
+  // 主页（loadUserProfileData）与资料库（loadMobileLibraryData）都会请求这两项：
+  // 不属于同一批 playlist/subcount 缓存，之前每次进页面都各打一次网络。
+  // 与同组账号资料保持 5 分钟窗口，换来同账号重复进入只请求一次。
+  '/user/detail': 5 * MINUTE,
+  '/user/level': 5 * MINUTE,
   '/toplist': 60 * MINUTE,
   '/toplist/detail': 30 * MINUTE,
   '/top/list': 30 * MINUTE,

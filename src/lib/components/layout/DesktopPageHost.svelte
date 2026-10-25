@@ -4,6 +4,9 @@
   import { pageMotion } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
   import { lazyModule } from '../../app/lazy-module.ts'
+  import { setScrollViewport } from '../../app/scroll-viewport.ts'
+  import { requestBack } from '../../app/back-navigation.ts'
+  import { createPageChromeHost, setPageChromeHost } from '../../app/page-chrome.svelte.ts'
   import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from '../../app/nav-refs.ts'
   import Icon from '../ui/Icon.svelte'
   import HomePage from '../../pages/pc/Home.svelte'
@@ -27,6 +30,21 @@
     targetUser?: unknown
     onUnreadChange?: (count: number) => void
   } = $props()
+
+  // 向页面暴露滚动视口：页面不再按 class 查找 .content-scroll
+    // 页面返回按钮与外壳返回走同一套层级：弹层 → 浮层 → 页面历史
+  function goBackFromPage(): void { requestBack() }
+
+let scrollEl = $state<HTMLElement | null>(null)
+  setScrollViewport({
+    element: () => scrollEl,
+    top: () => scrollEl?.getBoundingClientRect().top ?? 0,
+    // 桌面没有按路由记忆滚动位置，进入页面即回到顶部（与原有行为一致）
+    entered: () => scrollEl?.scrollTo({ top: 0 }),
+  })
+  // 桌面没有顶部操作栏，只承接页面提供的返回行为
+  const pageChrome = createPageChromeHost()
+  setPageChromeHost(pageChrome)
 
   const loadExplorePage = lazyModule(() => import('../../pages/pc/Explore.svelte'))
   const loadDailyHistoryPage = lazyModule(() => import('../../pages/pc/DailyHistory.svelte'))
@@ -57,11 +75,11 @@
   })
 </script>
 
-<div class="content-scroll" id="main-content">
+<div class="content-scroll" id="main-content" bind:this={scrollEl}>
   <div class="content-inner">
     {#if router.isSecondaryView}
       <div class="content-back-rail">
-        <button type="button" class="content-back" onclick={router.goBack} aria-label="返回上一页">
+        <button type="button" class="content-back" onclick={() => (pageChrome.current?.back ?? router.goBack)()} aria-label="返回上一页">
           <span class="content-back-icon"><Icon name="arrow-left" size={20} strokeWidth={2} /></span>
           <span class="content-back-label">返回</span>
         </button>
@@ -89,12 +107,13 @@
             selectedId={router.selectedId}
             heroColor={router.heroColor}
             detailType={router.activeView === 'album' ? '专辑' : '歌单'}
-            onBack={router.goBack}
+            onBack={goBackFromPage}
             onPlayAll={router.playAll}
             onPlayTrack={router.playTrack}
             onOpenArtist={openArtistRef}
             onOpenAlbum={openAlbumRef}
             onLoadMore={router.loadMorePlaylist}
+            onRetryLoad={router.retryDetail}
           />
         {/await}
       {:else if router.activeView === 'search'}
@@ -109,7 +128,7 @@
             albums={router.artistAlbums}
             loading={router.artistLoading}
             error={router.artistError}
-            onBack={router.goBack}
+            onBack={goBackFromPage}
             onPlayAll={router.playArtistAll}
             onPlayTrack={router.playArtistTrack}
             onOpenAlbum={openAlbumRef}
@@ -122,7 +141,7 @@
         {#await loadUserProfilePage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             userId={router.selectedId}
-            onBack={router.goBack}
+            onBack={goBackFromPage}
             onOpenUser={openUserRef}
             onOpenPlaylist={openPlaylistRef}
             onOpenArtist={openArtistRef}

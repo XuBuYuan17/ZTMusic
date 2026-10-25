@@ -9,14 +9,22 @@
   transition: background 0.55s var(--ease-in-out);
 }
 
+/* 内容区顶部安全空间：唯一真相源。
+   原生标题栏（Tauri 桌面 38px）+ 顶部安全区（刘海/状态栏）在这里合成一个值，
+   PC 与移动外壳都只消费 --app-top-inset，页面和页面条不再各自补 38px。 */
+:root {
+  --titlebar-h: 0px;
+  --app-top-inset: calc(var(--titlebar-h) + env(safe-area-inset-top, 0px));
+}
+
 /* 自定义标题栏（仅 Tauri 桌面）：高度变量供 fixed overlay 避让 */
 html.desktop-titlebar {
   --titlebar-h: 38px;
 }
 
 html.desktop-titlebar .app-shell {
-  height: calc(100vh - var(--titlebar-h));
-  margin-top: var(--titlebar-h);
+  height: calc(100vh - var(--app-top-inset));
+  margin-top: var(--app-top-inset);
 }
 
 .sidebar {

@@ -131,14 +131,16 @@ interface ShortcutsPlayer {
 
 interface KeyboardShortcutsOptions {
   player: ShortcutsPlayer
-  isMobile?: () => boolean
 }
 
 /**
  * 安装全局键盘快捷键。
+ *
+ * 键盘属于**输入方式**，不由布局决定：窄窗口走移动外壳时快捷键照常可用。
+ * 触摸设备上不会产生 keydown，无需额外设备判断；输入框聚焦时由 isEditableTarget 忽略。
  * @returns 卸载函数
  */
-export function installKeyboardShortcuts({ player, isMobile }: KeyboardShortcutsOptions): () => void {
+export function installKeyboardShortcuts({ player }: KeyboardShortcutsOptions): () => void {
   if (typeof window === 'undefined') return () => {}
 
   let lastVolume = player.volume > 0 ? player.volume : 0.8
@@ -169,7 +171,6 @@ export function installKeyboardShortcuts({ player, isMobile }: KeyboardShortcuts
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
-    if (isMobile?.()) return
     if (isEditableTarget(e.target)) return
     if (e.altKey) return
 

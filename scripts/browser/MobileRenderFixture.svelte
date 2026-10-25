@@ -1,7 +1,11 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { onDestroy, onMount, untrack } from 'svelte'
+  import DesktopPageHost from '../../src/lib/components/layout/DesktopPageHost.svelte'
+  import { setLayoutMode } from '../../src/lib/utils/layout-mode.ts'
   import MobileApp from '../../src/lib/components/MobileApp.svelte'
-  import AppleMusicPlayer from '../../src/lib/components/AppleMusicPlayer.svelte'
+  import LyricsPageV2 from '../../src/lib/components/LyricsPageV2.svelte'
+  import MobileMiniPlayer from '../../src/lib/components/MobileMiniPlayer.svelte'
+  import { createPlayerSurfaceController } from '../../src/lib/player-motion/controller.ts'
   import { router } from '../../src/lib/stores/router.svelte.ts'
   import { desktopFeedback } from '../../src/lib/app/desktop-motion.ts'
   import { mobileFeedback } from '../../src/lib/app/mobile-feedback.ts'
@@ -10,7 +14,12 @@
   import { discoveryPlayback } from '../../src/lib/stores/discovery-playback.svelte.ts'
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
+  let desktopLayout = $state(false)
   let showPlayer = $state(false)
+  let desktopTitlebar = $state(false)
+  const surface = createPlayerSurfaceController()
+  const unsubscribe = surface.subscribe(({ phase }) => { showPlayer = phase !== 'closed' })
+  onDestroy(() => { unsubscribe(); surface.destroy() })
   $effect(() => {
     auth.user; auth.isLoggedIn; auth.cookieOk
     player.queueRevision; player.queueIndex; player.id; player.mode
@@ -19,8 +28,20 @@
   onMount(() => {
     installPlaylistDiscMotion()
     Object.assign(window, { mobileFixture: {
-      openPlayer: () => { showPlayer = true },
-      closePlayer: () => { showPlayer = false },
+      setLayout: (layout: 'mobile' | 'desktop') => {
+        desktopLayout = layout === 'desktop'
+        setLayoutMode(desktopLayout ? 'pc' : 'mobile')
+        document.documentElement.classList.toggle('mobile-runtime', !desktopLayout)
+      },
+      openPlayer: () => surface.open(),
+      closePlayer: () => surface.close(),
+      surface,
+      setDesktopTitlebar: (enabled: boolean) => {
+        desktopTitlebar = enabled
+        document.documentElement.classList.toggle('desktop-titlebar', enabled)
+      },
+      seekForSurfaceTest: () => { player.seek = time => { player.currentTime = time } },
+      setSurfaceArtwork: (value: string) => { player.cover = value === 'normal' ? user.avatarUrl : value },
       back: () => router.goBack(),
       login: () => auth.setUser(user, 'account'),
       logout: () => auth.clear(),
@@ -38,16 +59,24 @@
     } })
   })
 </script>
+{#if desktopTitlebar}<header class="fixture-titlebar" aria-label="测试窗口标题栏">哲听 Dev</header>{/if}
 <div class="app-shell" use:desktopFeedback use:mobileFeedback>
   <main class="main-area">
+    {#if desktopLayout}
+      <DesktopPageHost theme="dark" accentTheme="red" onOpenLogin={() => {}} onSetTheme={() => {}} onSetAccentTheme={() => {}} />
+    {:else}
     <MobileApp activeView={router.activeView} theme="dark" accentTheme="red"
       onNavigate={router.handleNav} onBack={router.goBack}
       onOpenLogin={() => { (window as unknown as { loginRequests: number }).loginRequests = ((window as unknown as { loginRequests: number }).loginRequests || 0) + 1 }}
       onOpenPlaylist={(id, push, preview) => void router.goPlaylist(Number(id), push, preview as never)} />
+    {/if}
   </main>
 </div>
-{#if showPlayer}
-  <div class="ly-fullscreen"><div class="ly-container">
-    <AppleMusicPlayer onClose={() => showPlayer = false} />
-  </div></div>
-{/if}
+<div class="player-bar-wrap">
+  <MobileMiniPlayer controller={surface} onOpenSheet={() => surface.open()} onToggleQueue={() => {}} />
+</div>
+<LyricsPageV2 show={showPlayer} controller={surface} onClose={() => surface.close()} />
+
+<style>
+  .fixture-titlebar { position: fixed; inset: 0 0 auto; height: var(--titlebar-h); z-index: 700; padding: 8px 14px; background: var(--bg); }
+</style>

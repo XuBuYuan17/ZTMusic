@@ -15,7 +15,10 @@
   import { coverUrl } from '../utils/image.ts'
   import { formatPlayCount } from '../format.ts'
   import UserProfileHero from '../components/UserProfileHero.svelte'
-  import SocialPreview from '../components/SocialPreview.svelte'
+  import SocialPreviewSection from '../components/SocialPreviewSection.svelte'
+  import CompactTrackList from '../components/CompactTrackList.svelte'
+  import type { CompactTrackRow } from '../components/CompactTrackList.svelte'
+  import PlaylistCoverCard from '../components/PlaylistCoverCard.svelte'
   import Icon from '../components/ui/Icon.svelte'
   import Spinner from '../components/Spinner.svelte'
 
@@ -77,6 +80,14 @@
     }
   }
 
+  const weeklyRows = $derived<CompactTrackRow[]>(profile?.weeklyTracks.slice(0, 8).map((track, index) => ({
+    key: `${String(track.id)}#${index}`,
+    title: String(track.name ?? ''),
+    subtitle: `${formatPlayCount(track.playCount) || '0'} 次播放`,
+    cover: track.picUrl || '',
+    rank: index + 1,
+  })) ?? [])
+
   function playWeekly(index: number): void {
     if (profile?.weeklyTracks.length) player.playQueue(profile.weeklyTracks as unknown as CompactTrackInput[], index)
   }
@@ -105,18 +116,7 @@
     <div class="user-page__grid">
       <section class="user-page__panel">
         <header><div><span>WEEKLY</span><h2>本周常听</h2></div><em>{profile.weeklyTracks.length ? `${profile.weeklyTracks.length} 首` : ''}</em></header>
-        {#if profile.weeklyTracks.length}
-          <div class="user-page__tracks">
-            {#each profile.weeklyTracks as track, index (track.id)}
-              <button onclick={() => playWeekly(index)}>
-                <span class="user-page__rank">{index + 1}</span>
-                {#if track.picUrl}<img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}
-                <span class="user-page__track-copy"><strong>{track.name}</strong><em>{formatPlayCount(track.playCount)} 次播放</em></span>
-                <Icon name="play" size={15} fill="currentColor" />
-              </button>
-            {/each}
-          </div>
-        {:else}<div class="user-page__empty">听歌排行未公开</div>{/if}
+        <CompactTrackList ranked rows={weeklyRows} emptyText="听歌排行未公开" onPlay={playWeekly} />
       </section>
 
       <section class="user-page__panel">
@@ -124,20 +124,14 @@
         {#if profile.createdPlaylists.length}
           <div class="user-page__playlists">
             {#each profile.createdPlaylists.slice(0, 8) as playlist (playlist.id)}
-              <button onclick={() => onOpenPlaylist?.(playlist.id, true, playlist)}>
-                {#if playlist.picUrl}<img src={coverUrl(playlist.picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="user-page__cover-empty">♫</span>{/if}
-                <strong>{playlist.name}</strong><em>{playlist.trackCount} 首</em>
-              </button>
+              <PlaylistCoverCard title={String(playlist.name ?? '')} meta={`${playlist.trackCount ?? 0} 首`} cover={String(playlist.picUrl ?? '')} onSelect={() => onOpenPlaylist?.(playlist.id, true, playlist)} />
             {/each}
           </div>
         {:else}<div class="user-page__empty">暂无公开歌单</div>{/if}
       </section>
     </div>
 
-    <div class="user-page__social">
-      <SocialPreview title="关注" count={profile.follows} users={profile.followsPreview} {onOpenUser} />
-      <SocialPreview title="粉丝" count={profile.followeds} users={profile.followersPreview} {onOpenUser} />
-    </div>
+    <SocialPreviewSection follows={profile.follows} followeds={profile.followeds} followsPreview={profile.followsPreview} followersPreview={profile.followersPreview} {onOpenUser} />
   {/if}
 </div>
 
@@ -147,35 +141,17 @@
   .user-page__hero-skeleton { min-height: 316px; border-radius: var(--radius-xl); }
   .user-page__loading, .user-page__error { min-height: 180px; display: grid; place-items: center; gap: 8px; color: var(--text-secondary); text-align: center; }
   .user-page__error button { padding: 9px 16px; border-radius: 999px; color: white; background: var(--accent); }
-  .user-page__grid, .user-page__social { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 18px; }
+  .user-page__grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 18px; }
   .user-page__panel { min-width: 0; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 84%, transparent); }
   .user-page__panel > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
   .user-page__panel header span { color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
   .user-page__panel h2 { margin-top: 3px; font-size: 20px; }
   .user-page__panel header > em { color: var(--text-tertiary); font-size: 11px; font-style: normal; }
-  .user-page__tracks { display: grid; gap: 3px; }
-  .user-page__tracks > button { min-width: 0; display: grid; grid-template-columns: 24px 42px minmax(0, 1fr) 20px; align-items: center; gap: 10px; padding: 7px 9px; border-radius: var(--radius-md); color: var(--text); text-align: left; }
-  .user-page__tracks > button:hover { background: var(--bg-hover); }
-  .user-page__tracks img { width: 42px; height: 42px; object-fit: cover; border-radius: var(--radius-sm); }
-  .user-page__rank { color: var(--text-tertiary); font-size: 11px; text-align: center; }
-  .user-page__track-copy { min-width: 0; display: grid; }
-  .user-page__track-copy strong, .user-page__track-copy em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .user-page__track-copy strong { font-size: 13px; }
-  .user-page__track-copy em { color: var(--text-tertiary); font-size: 10px; font-style: normal; }
-  .user-page__playlists { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
-  .user-page__playlists button { min-width: 0; display: grid; gap: 5px; color: var(--text); text-align: left; }
-  .user-page__playlists img, .user-page__cover-empty { width: 100%; aspect-ratio: 1; display: grid; place-items: center; object-fit: cover; border-radius: var(--radius-md); background: var(--bg-elevated); }
-  .user-page__playlists strong, .user-page__playlists em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .user-page__playlists strong { font-size: 12px; }
-  .user-page__playlists em { color: var(--text-tertiary); font-size: 10px; font-style: normal; }
   .user-page__empty { min-height: 180px; display: grid; place-items: center; color: var(--text-tertiary); font-size: 12px; }
-  @media (max-width: 1050px) { .user-page__grid, .user-page__social { grid-template-columns: 1fr; } }
+  @media (max-width: 1050px) { .user-page__grid { grid-template-columns: 1fr; } }
   :global(html.mobile-runtime) .user-page { gap: 14px; padding: 12px 14px 24px; }
   :global(html.mobile-runtime) .user-page__back { position: sticky; top: 8px; z-index: 10; width: 38px; padding: 0; justify-content: center; color: white; background: rgba(20,20,22,.72); backdrop-filter: blur(16px); }
   :global(html.mobile-runtime) .user-page__back :global(svg) { margin: 0; }
   :global(html.mobile-runtime) .user-page__back { font-size: 0; }
   :global(html.mobile-runtime) .user-page__panel { padding: 16px; border-radius: var(--radius-lg); }
-  :global(html.mobile-runtime) .user-page__playlists { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; }
-  :global(html.mobile-runtime) .user-page__playlists button { flex: 0 0 112px; }
-  :global(html.mobile-runtime) .user-page__social { gap: 12px; }
 </style>

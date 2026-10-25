@@ -88,6 +88,17 @@
 {/if}
 
 <style>
+  :global(html:not(.mobile-runtime)) .mobile-choice-backdrop { position: fixed; inset: var(--titlebar-h, 0px) 0 0; z-index: 340; width: 100%; border: 0; background: rgb(0 0 0 / .4); }
+  :global(html:not(.mobile-runtime)) .playlist-action-sheet { position: fixed; z-index: 350; top: calc(50% + var(--titlebar-h, 0px) / 2); left: 50%; translate: -50% -50%; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - var(--titlebar-h, 0px) - 32px); overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg); box-shadow: var(--shadow-lg); }
+  :global(html:not(.mobile-runtime)) .m-sheet-handle { display: none; }
+  .library-options-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 40px; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .library-options-cover { position: relative; width: 64px; height: 64px; overflow: hidden; padding: 0; border: 0; border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-secondary); }
+  h2 { margin: 0; font-size: 18px; line-height: 24px; overflow-wrap: anywhere; }
+  .mobile-choice-done { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; color: var(--text-secondary); background: transparent; }
+  .mobile-choice-body { display: grid; gap: 4px; padding-top: 8px; }
+  .library-option { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 48px; padding: 12px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); font: inherit; text-align: left; }
+  .library-option:hover { background: var(--bg-hover); }
+  .library-option--danger { color: var(--danger); }
   :global(html.mobile-runtime) .playlist-action-sheet { padding: 0 0 max(12px, env(safe-area-inset-bottom)); max-height: calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))); border-radius: var(--radius-xl) var(--radius-xl) 0 0; background: var(--bg); box-shadow: 0 -12px 40px rgb(0 0 0 / .14); }
   :global(html.mobile-runtime) .playlist-action-sheet .library-options-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 48px; align-items: center; gap: 14px; min-height: 84px; padding: 4px 12px 14px 20px; border-bottom: 1px solid var(--border); }
   :global(html.mobile-runtime) .playlist-action-sheet .library-options-cover { position: relative; width: 64px; height: 64px; padding: 0; border: 0; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-surface); color: var(--text-secondary); }

@@ -4,6 +4,8 @@
   import { formatDuration } from '../format.ts'
   import { coverUrl, coverRectUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
+  import SongList from '../components/SongList.svelte'
+  import { toSongRows } from '../components/song-row.ts'
 
   // 与 router 的 DetailTrack 结构对齐（只列本组件实际读取的字段），router 传入时结构兼容
   interface ArtistTrack {
@@ -108,6 +110,8 @@
 
   const visibleSongs = $derived(showAllSongs ? songs : songs.slice(0, 5))
   // router.artistAlbums 是 unknown[]，在边界单点 cast 成本页展示接口
+  // 热门歌曲交给共享列表；歌手页只保留自己的取数、关注与专辑区
+  const songRows = $derived(toSongRows(visibleSongs))
   const albumCards = $derived(albums as unknown as ArtistAlbumCard[])
 
   $effect(() => {
@@ -157,30 +161,7 @@
       <div class="artist-section-header">
         <h2>热门歌曲</h2>
       </div>
-      <table class="track-table">
-        <thead>
-          <tr>
-            <th class="col-num">#</th>
-            <th class="col-cover"></th>
-            <th>标题</th>
-            <th>歌手</th>
-            <th class="col-album">专辑</th>
-            <th class="col-dur">时长</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each Array(8) as _, i}
-            <tr class="skeleton-table-row">
-              <td class="col-num">{i + 1}</td>
-              <td class="col-cover"><div class="track-cover-placeholder skeleton-block"></div></td>
-              <td class="col-title"><span class="skeleton-line"></span></td>
-              <td class="col-artist"><span class="skeleton-line medium"></span></td>
-              <td class="col-album"><span class="skeleton-line narrow"></span></td>
-              <td class="col-dur"><span class="skeleton-line short"></span></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <SongList skeleton rows={[]} skeletonLabel="加载热门歌曲" />
     </section>
     <section class="artist-section" aria-label="加载专辑作品">
       <h2>专辑作品</h2>
@@ -259,54 +240,14 @@
             <button class="artist-section-action" onclick={onPlayAll}>播放全部</button>
           </div>
         </div>
-        <table class="track-table">
-          <thead>
-            <tr>
-              <th class="col-num">#</th>
-              <th class="col-cover"></th>
-              <th>标题</th>
-              <th>歌手</th>
-              <th class="col-album">专辑</th>
-              <th class="col-dur">时长</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each visibleSongs as track, i (track.id)}
-              <tr
-                class:active={player.id === track.id}
-                role="button"
-                tabindex="0"
-                onclick={() => onPlayTrack?.(track)}
-                onkeydown={(event) => handleRowKeydown(event, track)}
-                oncontextmenu={(e) => handleSongContext(track, e)}
-              >
-                <td class="col-num">{i + 1}</td>
-                <td class="col-cover">
-                  {#if coverOf(track)}
-                    <img class="track-cover-img" src={coverUrl(coverOf(track), 80)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  {:else}
-                    <div class="track-cover-placeholder">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-                    </div>
-                  {/if}
-                </td>
-                <td class="col-title">{track.name}<button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button></td>
-                <td class="col-artist artist-links">
-                  {#each artistsOf(track) as item, index (item.id || (item.name as SongId))}
-                    {#if index > 0}<span class="artist-sep">/</span>{/if}
-                    {#if item.id}
-                      <button class="artist-link" onclick={(event) => { event.stopPropagation(); onOpenArtist?.(item.id!) }}>{item.name}</button>
-                    {:else}
-                      <span>{item.name}</span>
-                    {/if}
-                  {/each}
-                </td>
-                <td class="col-album">{albumOf(track).name || ''}</td>
-                <td class="col-dur" data-duration-missing={!track.dt && !track.duration}>{durationOf(track)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+        <SongList
+          rows={songRows}
+          currentId={player.id}
+          rowActions={songActions?.bindRow ?? null}
+          onPlay={(row) => onPlayTrack?.(row.source as ArtistTrack)}
+          {onOpenArtist}
+          {onOpenAlbum}
+        />
       </section>
     {/if}
 
@@ -380,10 +321,6 @@
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: 0; }
   .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; line-clamp: 6; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
-  .artist-links { display: flex; align-items: center; gap: 5px; min-width: 0; }
-  .artist-link { border: none; background: transparent; color: inherit; padding: 0; font: inherit; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .artist-link:hover { color: var(--accent); text-decoration: underline; }
-  .artist-sep { color: var(--text-tertiary); }
   .artist-albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; }
   .artist-album-card { cursor: pointer; transition: transform .18s, background-color .18s; min-width: 0; padding: 8px; border-radius: var(--radius-lg); }
   .artist-album-card:hover { transform: translateY(-2px); background: var(--bg-hover); }

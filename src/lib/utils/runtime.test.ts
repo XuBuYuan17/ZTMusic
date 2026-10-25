@@ -4,7 +4,7 @@
  * 退出码：0 = 过，1 = 挂。
  */
 import assert from 'node:assert/strict'
-import { isTauriDesktop, isTauriRuntime, runtimePlatform } from './runtime.ts'
+import { isAndroidRuntime, isTauriDesktop, isTauriRuntime, runtimePlatform } from './runtime.ts'
 
 type RuntimeWindow = (Window & typeof globalThis) & { __TAURI_INTERNALS__?: unknown }
 
@@ -62,6 +62,27 @@ function restore(): void {
   setRuntime({ hasTauri: true, platform: 'Linux aarch64', userAgent: 'Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36' })
   assert.equal(isTauriRuntime(), true, 'Android still uses Tauri IPC')
   assert.equal(isTauriDesktop(), false, 'Android is not a Linux desktop')
+  assert.equal(isAndroidRuntime(), true, 'Android native container is detected by platform, not by window size')
+}
+
+// ── Android 识别只看平台：横屏宽窗口不改变结论 ──
+{
+  setRuntime({ hasTauri: true, platform: 'Linux aarch64', userAgent: 'Mozilla/5.0 (Linux; Android 15)' })
+  Object.defineProperty(globalThis, 'innerWidth', { value: 1280, configurable: true })
+  Object.defineProperty(globalThis, 'innerHeight', { value: 720, configurable: true })
+  assert.equal(isAndroidRuntime(), true, 'Android keeps platform capability in landscape')
+}
+
+// ── 桌面不是 Android ──
+{
+  setRuntime({ hasTauri: true, platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows)' })
+  assert.equal(isAndroidRuntime(), false, 'Windows desktop is not Android')
+}
+
+// ── 浏览器不是 Android 原生容器 ──
+{
+  setRuntime({ hasTauri: false, platform: 'Linux armv8l', userAgent: 'Mozilla/5.0 (Linux; Android 14) Chrome' })
+  assert.equal(isAndroidRuntime(), false, 'browser on Android is not the native container')
 }
 
 // ── navigator 缺失（SSR / node 环境） ──
@@ -78,4 +99,4 @@ function restore(): void {
 }
 
 restore()
-console.log('runtime detection: 14 assertions passed')
+console.log('runtime detection: 18 assertions passed')

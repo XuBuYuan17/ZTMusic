@@ -1,6 +1,6 @@
 import QRCode from 'qrcode'
 import { coverUrl } from '../utils/image.ts'
-import { isTauriRuntime, runtimePlatform } from '../utils/runtime.ts'
+import { isAndroidRuntime } from '../utils/runtime.ts'
 import type { SongId } from '../types/music.ts'
 
 export interface SongShareInput {
@@ -279,7 +279,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 async function shareWithAndroid(blob: Blob, input: SongShareInput, url: string, text: string): Promise<boolean> {
-  if (!isTauriRuntime() || !/Android/i.test(runtimePlatform())) return false
+  if (!isAndroidRuntime()) return false
   const { invoke } = await import('@tauri-apps/api/core')
   const bytes = new Uint8Array(await blob.arrayBuffer())
   await invoke('plugin:zt-player|execute', {

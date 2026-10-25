@@ -9,7 +9,7 @@ import type {
 } from '../types/player.ts'
 
 import { AndroidEngine } from './android-engine.ts'
-import { isTauriRuntime, runtimePlatform } from '../utils/runtime.ts'
+import { isAndroidRuntime } from '../utils/runtime.ts'
 
 function createAudioElement(): HTMLAudioElement {
   const audio = new Audio()
@@ -271,4 +271,4 @@ export class AudioEngine implements PlayerEngine {
   }
 }
 
-export const engine: PlayerEngine = isTauriRuntime() && /Android/i.test(runtimePlatform()) ? new AndroidEngine() : new AudioEngine()
+export const engine: PlayerEngine = isAndroidRuntime() ? new AndroidEngine() : new AudioEngine()

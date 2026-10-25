@@ -19,6 +19,8 @@ for (const native of [false, true]) {
     const context = {
       isTauriRuntime: () => native,
       runtimePlatform: () => native ? 'Android' : 'Windows',
+      // android-startup 现在复用 runtime.ts 的 isAndroidRuntime()（组合逻辑由 runtime.test.ts 覆盖）
+      isAndroidRuntime: () => native,
       matchMedia: query => ({ matches: query.includes('dark') }),
       localStorage: { getItem: () => saved },
       performance: { mark() {} },

@@ -21,13 +21,25 @@
   import { responsive } from '../../utils/responsive.ts'
   import Icon from '../../components/ui/Icon.svelte'
   import PlaylistActionSheet, { queuePlaylist, sharePlaylist, playlistPortal, type PlaylistAction } from '../../components/PlaylistActionSheet.svelte'
-  import HomePage from './Home.svelte'
+  import UserProfileHero from '../../components/UserProfileHero.svelte'
+  import ProfileQuickEntries from '../../components/ProfileQuickEntries.svelte'
+  import RecentTracksModule from '../../components/RecentTracksModule.svelte'
+  import PlaylistSection from '../../components/PlaylistSection.svelte'
+  import SocialPreviewSection from '../../components/SocialPreviewSection.svelte'
+  import { libraryPlaylistActions, runLibraryPlaylistAction } from '../../components/library-playlist-actions.ts'
+  import { buildProfileQuickEntries } from '../../components/profile-quick-entries.ts'
+  import { loadListeningReport } from '../../services/listening-report-store.ts'
+  import { summarizeReport, listeningTime } from '../../services/listening-report.ts'
+  import { loadLocalRecentTracks } from '../../services/home.ts'
+  import type { UserProfileData } from '../../services/user-profile.ts'
 
   interface LibraryData {
     stats: { follow: number; fans: number; playlist: number }
     createdPlaylists: NormalizedPlaylist[]
     savedPlaylists: NormalizedPlaylist[]
     likedPlaylist: NormalizedPlaylist | null
+    /** 资料概览用的最小身份信息；预告/周排行为空，由主页负责 */
+    profile: { nickname: string; avatarUrl: string; signature: string; level: number; listenSongs: number }
   }
   interface RawPlaylist {
     specialType?: number
@@ -76,7 +88,7 @@
     pendingAction = null
     if (action) tick().then(() => { optionsOrigin?.focus({ preventScroll: true }); action() })
   }
-  $effect(() => { if (!$responsive.isMobile || !auth.isLoggedIn) closeOptions() })
+  $effect(() => { if (!auth.isLoggedIn) closeOptions() })
 
   // 轻提示
   let notice = $state('')
@@ -86,6 +98,7 @@
     createdPlaylists: [],
     savedPlaylists: [],
     likedPlaylist: null,
+    profile: { nickname: '', avatarUrl: '', signature: '', level: 0, listenSongs: 0 },
   }
 
   let data = $derived(library || emptyLibrary)
@@ -105,6 +118,58 @@
   function save(): void {
     librarySnapshot = { userId: auth.user?.userId, library, likedCovers: [...likedCovers] }
   }
+
+  // 资料概览里的「本地听歌统计 / 最近播放」读的是本机数据，不走网络
+  let quickStats = $state({ statsError: false, plays: 0, milliseconds: 0, recentCount: 0 })
+
+  async function loadQuickStats(): Promise<void> {
+    const [stats, recent] = await Promise.allSettled([loadListeningReport(), loadLocalRecentTracks(8)])
+    const summary = stats.status === 'fulfilled' ? summarizeReport(stats.value.records) : null
+    quickStats = {
+      statsError: stats.status === 'rejected',
+      plays: summary?.plays ?? 0,
+      milliseconds: summary?.milliseconds ?? 0,
+      recentCount: recent.status === 'fulfilled' ? recent.value.length : 0,
+    }
+  }
+
+  // 资料概览：复用 UserProfileHero，只喂身份与四个统计，不渲染完整主页
+  const overviewProfile = $derived<UserProfileData | null>(auth.user ? {
+    userId: auth.user.userId,
+    nickname: data.profile.nickname || String(auth.user.nickname ?? ''),
+    avatarUrl: data.profile.avatarUrl || String(auth.user.avatarUrl ?? ''),
+    backgroundUrl: '',
+    signature: data.profile.signature,
+    level: data.profile.level,
+    listenSongs: data.profile.listenSongs,
+    follows: data.stats.follow,
+    followeds: data.stats.fans,
+    playlistCount: data.stats.playlist,
+    followed: false,
+    artistId: null,
+    artistName: '',
+    identityLabel: '',
+    createdPlaylists: [],
+    likedPlaylist: null,
+    weeklyTracks: [],
+    // 资料库概览不展示周榜，这里不是「请求失败」
+    weeklyTracksFailed: false,
+    followsPreview: [],
+    followersPreview: [],
+  } : null)
+
+  const overviewEntries = $derived(buildProfileQuickEntries({
+    likedCount: data.likedPlaylist?.trackCount ?? 0,
+    statsText: quickStats.milliseconds ? `${quickStats.plays} 次 · ${listeningTime(quickStats.milliseconds)}` : '',
+    statsError: quickStats.statsError,
+    recentCount: quickStats.recentCount,
+    onOpenFavorites: () => data.likedPlaylist
+      ? onOpenPlaylist?.(data.likedPlaylist.id as SongId, true, data.likedPlaylist)
+      : onNavigate?.('liked'),
+    onOpenStats: () => onNavigate?.('listeningStats'),
+    onOpenRecent: () => onNavigate?.('recent'),
+    onOpenDaily: () => onNavigate?.('dailyHistory'),
+  }))
 
   async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
     const id = liked?.id
@@ -156,12 +221,14 @@
     try {
       const rawUid: unknown = auth.user?.userId || auth.user?.id
       const uid: SongId = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : 0
+      const owner: unknown = rawUid
       const [plRes, subRes, detailRes] = await Promise.all([
         ncm.userPlaylist(uid).catch(() => ({ playlist: [] })),
         ncm.userSubcount().catch(() => ({})),
         ncm.userDetail(uid).catch(() => ({})),
       ])
-      if (rid !== _requestId) return
+      // 请求期间换号时，过期结果不得写进新账号的状态与快照
+      if (rid !== _requestId || (auth.user?.userId || auth.user?.id) !== owner) return
 
       const rawList = rec(plRes)?.playlist
       const all: unknown[] = Array.isArray(rawList) ? rawList.slice(0, 100) : []
@@ -188,6 +255,13 @@
         createdPlaylists: created,
         savedPlaylists: saved,
         likedPlaylist: liked,
+        profile: {
+          nickname: String(profile.nickname ?? auth.user?.nickname ?? ''),
+          avatarUrl: String(profile.avatarUrl ?? auth.user?.avatarUrl ?? ''),
+          signature: String(profile.signature ?? ''),
+          level: Number(profile.level) || 0,
+          listenSongs: Number(profile.listenSongs) || 0,
+        },
       }
       save()
       void loadLikedCovers(liked, rid)
@@ -224,14 +298,12 @@
     if (!pl?.id || unsubscribing) return
     unsubscribing = true
     try {
-      const res = await ncm.playlistSubscribe(pl.id as SongId, false)
-      const r = rec(res)
-      if (r && r.code !== 200) throw new Error((r.message || r.msg || '操作失败') as string)
+      const result = await runLibraryPlaylistAction('unsubscribe', pl.id as SongId, ncm)
+      // 失败时不关弹窗、不动列表，只提示
+      if (!result.ok) { showNotice(result.message); return }
       unsubscribeTarget = null
-      showNotice('已取消收藏')
+      showNotice(result.message)
       notifyPlaylistChange(pl.id as SongId)
-    } catch (e) {
-      showNotice(((e as { message?: unknown } | null | undefined)?.message || '操作失败') as string)
     } finally {
       unsubscribing = false
     }
@@ -251,13 +323,11 @@
     if (!pl?.id || deleting) return
     deleting = true
     try {
-      const r = rec(await ncm.playlistDelete(pl.id as SongId))
-      if (r && r.code !== 200) throw new Error((r.message || r.msg || '删除失败') as string)
+      const result = await runLibraryPlaylistAction('delete', pl.id as SongId, ncm)
+      if (!result.ok) { showNotice(result.message); return }
       deleteTarget = null
-      showNotice('已删除歌单')
+      showNotice(result.message)
       notifyPlaylistChange(pl.id as SongId)
-    } catch (e) {
-      showNotice(((e as { message?: unknown } | null | undefined)?.message || '删除失败') as string)
     } finally {
       deleting = false
     }
@@ -265,6 +335,7 @@
 
   $effect(() => {
     if (auth.isLoggedIn && auth.user) load()
+    if (auth.isLoggedIn) void loadQuickStats()
     // 歌单在别处被改名 / 删除 / 取消收藏时跟着刷新。不监听的话这份列表会一直拿着旧名字
     const reload = () => { void load() }
     window.addEventListener(PLAYLIST_CHANGE, reload)
@@ -276,7 +347,7 @@
 </script>
 
 {#snippet playlistCard(pl: NormalizedPlaylist, kind: PlaylistKind, index: number)}
-  <LibraryPlaylistCard {pl} {index} liked={kind === 'liked'} owned={kind === 'owned'} managed={kind === 'saved'}
+  <LibraryPlaylistCard {pl} {index} liked={kind === 'liked'} owned={libraryPlaylistActions(kind).some(action => action.id === 'edit')} managed={libraryPlaylistActions(kind).some(action => action.id === 'unsubscribe')}
     covers={kind === 'liked' ? likedCovers : []} busy={kind === 'liked' && playingLiked}
     onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
     onPlay={kind === 'liked' ? () => playLiked() : undefined}
@@ -298,7 +369,16 @@
     {#if notice}<div class="library-notice" role="status">{notice}</div>{/if}
 
     {#if $responsive.isMobile}
-      <HomePage profileOnly {onOpenLogin} {onNavigate} onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)} />
+      {#if overviewProfile}
+        <UserProfileHero profile={overviewProfile} isOwn />
+        <button class="library-home-link" type="button" onclick={() => onNavigate?.('home')}>
+          查看完整个人主页
+          <Icon name="chevron-right" size={16} />
+        </button>
+        <ProfileQuickEntries entries={overviewEntries} loading={!library} />
+        <RecentTracksModule onOpenAll={() => onNavigate?.('recent')} />
+        <SocialPreviewSection follows={data.stats.follow} followeds={data.stats.fans} loadFor={auth.user?.userId} />
+      {/if}
       <div class="library-mobile-tools"><span>点按打开，长按管理</span><button type="button" onclick={() => showCreateModal = true}><Icon name="add" size={20} />创建歌单</button></div>
     {:else}
     <div class="library-header">
@@ -355,12 +435,11 @@
     {:else if likedPlaylist || createdPlaylists.length || savedPlaylists.length}
       {#if $responsive.isMobile}
         {#each [{ title: '我创建的歌单', kind: 'owned' as const, playlists: createdPlaylists }, { title: '我收藏的歌单', kind: 'saved' as const, playlists: otherSavedPlaylists }] as section}
-          <section class="library-mobile-section" aria-label={section.title}>
-            <header><h2>{section.title}</h2><span>{section.playlists.length}</span></header>
+          <PlaylistSection variant="group" title={section.title} count={section.playlists.length}>
             {#if section.playlists.length}
               <div class="library-grid">{#each section.playlists as pl, i (pl.id as SongId)}{@render playlistCard(pl, section.kind, i)}{/each}</div>
             {:else}<div class="library-section-empty">{section.kind === 'owned' ? '创建一张歌单，收好喜欢的音乐' : '还没有收藏的歌单'}</div>{/if}
-          </section>
+          </PlaylistSection>
         {/each}
       {:else}
         <div class="library-grid">
@@ -418,12 +497,17 @@
     { label: '加入播放队列', icon: 'add', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'append')) },
     { label: '下一首插播', icon: 'queue', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'next')) },
     { label: '分享歌单', icon: 'share', onSelect: () => closeOptions(() => void sharePlaylist(selected.pl.id, String(selected.pl.name))) },
-    ...(selected.kind === 'owned' ? [
-      { label: '编辑歌单', icon: 'edit', onSelect: () => closeOptions(() => editTarget = selected.pl) },
-      { label: '删除歌单', icon: 'trash', danger: true, onSelect: () => closeOptions(() => confirmDelete(selected.pl)) },
-    ] : selected.kind === 'saved' ? [
-      { label: '取消收藏', icon: 'heart', danger: true, onSelect: () => closeOptions(() => confirmUnsubscribe(selected.pl)) },
-    ] : []),
+    // 管理项由策略模块决定：非本人歌单不会出现编辑/删除
+    ...libraryPlaylistActions(selected.kind).map(action => ({
+      label: action.label,
+      icon: action.icon,
+      danger: action.danger,
+      onSelect: () => closeOptions(() => {
+        if (action.id === 'edit') editTarget = selected.pl
+        else if (action.id === 'delete') confirmDelete(selected.pl)
+        else confirmUnsubscribe(selected.pl)
+      }),
+    })),
   ]}
   <div class="library-options-portal" use:playlistPortal>
   <PlaylistActionSheet show={!optionsClosing} title={String(selected.pl.name)} cover={selected.pl.picUrl || ''} {actions}

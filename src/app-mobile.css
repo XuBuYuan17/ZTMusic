@@ -4,6 +4,12 @@ html.mobile-runtime {
   --mobile-tabs-h: 56px;
   --mobile-stack-gap: 0px;
   --mobile-dock-gap: 0px;
+  /* 底部占位：标签栏 + 安全区（+ 迷你播放条）。与 shell.css 的 --app-top-inset
+     一起构成外壳安全空间，内容区与浮层只消费这几个派生值。 */
+  --app-bottom-inset: env(safe-area-inset-bottom, 0px);
+  --mobile-tabs-space: calc(var(--mobile-tabs-h) + var(--app-bottom-inset));
+  --mobile-dock-space: calc(var(--mobile-tabs-space) + var(--mobile-dock-gap));
+  --mobile-dock-space-player: calc(var(--mobile-dock-space) + var(--mobile-player-h) + var(--mobile-stack-gap));
   --mobile-content-gutter: 20px;
   --mobile-section-gap: 24px;
   /* desktop-system.css:2-3 只在 html:not(.mobile-runtime) 下定义过这两个，移动端补一档。
@@ -74,11 +80,13 @@ html.mobile-runtime #app {
 
 html.mobile-runtime .app-shell {
   width: 100%;
-  height: var(--mobile-viewport-height, 100dvh);
+  /* 顶部让出原生标题栏 + 安全区：Windows 窄窗口走移动布局时不再被标题栏盖住。
+     浏览器与 Android 下 --app-top-inset 为 0 或仅安全区，视觉不变。 */
+  height: calc(var(--mobile-viewport-height, 100dvh) - var(--app-top-inset));
   min-width: 0;
   min-height: 0;
   padding: 0;
-  margin: 0;
+  margin: var(--app-top-inset) 0 0;
   gap: 0;
   border: 0;
   border-radius: 0;
@@ -121,8 +129,8 @@ html.mobile-runtime .mobile-page-bar {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) 48px;
   align-items: center;
-  min-height: calc(var(--mobile-page-bar-h) + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left));
+  min-height: var(--mobile-page-bar-h);
+  padding: 0 max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left));
   border-bottom: 0;
   background: var(--bg);
 }
@@ -168,7 +176,7 @@ html.mobile-runtime .mobile-page-content {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  scroll-padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(var(--mobile-dock-space) + 24px);
 }
 
 html.mobile-runtime .mobile-page-content__inner {
@@ -177,13 +185,13 @@ html.mobile-runtime .mobile-page-content__inner {
   max-width: 1080px;
   min-width: 0;
   margin-inline: auto;
-  padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 24px + env(safe-area-inset-bottom)) max(var(--mobile-content-gutter), env(safe-area-inset-left));
+  padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) calc(var(--mobile-dock-space) + 24px) max(var(--mobile-content-gutter), env(safe-area-inset-left));
 }
 
 html.mobile-runtime .mobile-route-page .fade-in { animation: none !important; }
 
 /* 导航以 main-area 为定位包含块，与外部 fixed 播放条对齐。 */
-html.mobile-runtime .mobile-tab-bar { position: absolute; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: calc(var(--mobile-tabs-h) + env(safe-area-inset-bottom)); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); gap: 0; border-radius: 0; border-top: 2px solid var(--border); background: var(--bg); box-shadow: none; }
+html.mobile-runtime .mobile-tab-bar { position: absolute; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: var(--mobile-tabs-space); padding: 0 env(safe-area-inset-right) var(--app-bottom-inset) env(safe-area-inset-left); gap: 0; border-radius: 0; border-top: 2px solid var(--border); background: var(--bg); box-shadow: none; }
 
 html.mobile-runtime .mobile-tab {
   display: flex;
@@ -227,11 +235,11 @@ html.mobile-runtime .mobile-tab__label {
 
 /* 内容避让整个双栏高度，再留 24px 阅读余量。 */
 html.mobile-runtime:has(.player-bar-wrap) .mobile-page-content__inner {
-  padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + var(--mobile-stack-gap) + 24px + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--mobile-dock-space-player) + 24px);
 }
 
 html.mobile-runtime:has(.player-bar-wrap) .mobile-page-content {
-  scroll-padding-bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + var(--mobile-stack-gap) + 24px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(var(--mobile-dock-space-player) + 24px);
 }
 
 html.mobile-runtime .mobile-shared-page,
@@ -243,11 +251,12 @@ html.mobile-runtime .mobile-page-content__inner > :is(.playlist-page, .artist-pa
 /* The existing PC Sidebar becomes the mobile navigation drawer. */
 html.mobile-runtime .app-shell > .sidebar.in-drawer {
   position: fixed;
-  inset: 0 auto 0 0;
+  /* fixed 相对视口，不吃 --app-top-inset；抽屉自己让出原生标题栏，安全区仍由 padding 负责。 */
+  inset: var(--titlebar-h) auto 0 0;
   z-index: 210;
   display: flex !important;
   width: min(82vw, var(--sidebar-w));
-  height: var(--mobile-viewport-height, 100dvh);
+  height: calc(var(--mobile-viewport-height, 100dvh) - var(--titlebar-h));
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
@@ -283,7 +292,7 @@ html.mobile-runtime .player-bar-wrap.sidebar-collapsed {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-stack-gap) + env(safe-area-inset-bottom));
+  bottom: calc(var(--mobile-dock-space) + var(--mobile-stack-gap));
   z-index: 90;
   width: auto;
   pointer-events: auto;
@@ -358,17 +367,18 @@ html.mobile-runtime .ctrl-btn--play { background: var(--md-primary); color: var(
 html.mobile-runtime .action-btn--queue { background: transparent; color: var(--text-secondary); }
 html.mobile-runtime .player-bar__actions { width: 48px; min-width: 48px; padding: 0; gap: 0; justify-content: center; }
 
-/* Toast 的 120px 偏移是按 PC 播放条定的，移动端要同时让开标签栏与悬浮播放条 */
+/* Toast 的 120px 偏移是按 PC 播放条定的，移动端要同时让开标签栏与悬浮播放条。
+   底部占位统一取 --mobile-dock-space(-player)，不再逐条重算「标签栏 + 安全区」。 */
 html.mobile-runtime .toast {
-  bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + 12px + env(safe-area-inset-bottom));
+  bottom: calc(var(--mobile-dock-space) + 12px);
 }
 html.mobile-runtime:has(.player-bar-wrap) .toast {
-  bottom: calc(var(--mobile-tabs-h) + var(--mobile-dock-gap) + var(--mobile-player-h) + var(--mobile-stack-gap) + 12px + env(safe-area-inset-bottom));
+  bottom: calc(var(--mobile-dock-space-player) + 12px);
 }
-html.mobile-runtime.mobile-chrome-hidden .toast { bottom: calc(var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
-html.mobile-runtime.mobile-chrome-hidden:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-player-h) + var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime.mobile-chrome-hidden .toast { bottom: calc(var(--mobile-dock-space) + 12px); }
+html.mobile-runtime.mobile-chrome-hidden:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-dock-space-player) + 12px); }
 html.mobile-runtime.mobile-keyboard-open .toast,
-html.mobile-runtime.mobile-keyboard-open:has(.player-bar-wrap) .toast { bottom: calc(12px + env(safe-area-inset-bottom)); }
+html.mobile-runtime.mobile-keyboard-open:has(.player-bar-wrap) .toast { bottom: calc(12px + var(--app-bottom-inset)); }
 
 html.mobile-runtime.mobile-keyboard-open .player-bar-wrap {
   visibility: hidden;
@@ -387,21 +397,10 @@ html.mobile-runtime.mobile-keyboard-open .mobile-page-content__inner {
 
 /* PC page components keep their visual system; only their geometry changes. */
 html.mobile-runtime .profile-home { gap: var(--mobile-section-gap); }
-html.mobile-runtime .profile-home__quick,
-html.mobile-runtime .profile-home__quick-skeleton { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-html.mobile-runtime .profile-home__quick > button { min-height: 104px; padding: 14px; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 10px; }
-html.mobile-runtime .profile-home__quick-icon { width: 40px; height: 40px; }
-html.mobile-runtime .profile-home__dashboard,
-html.mobile-runtime .profile-home__social { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-html.mobile-runtime .profile-home__panel,
-html.mobile-runtime .profile-home__section { padding: 0; }
 html.mobile-runtime .profile-home__cover-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 html.mobile-runtime .profile-home__logged-out { min-height: calc(100dvh - 190px); }
 
 @media (max-width: 420px) {
-  html.mobile-runtime .profile-home__quick > button { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 12px; }
-  html.mobile-runtime .profile-home__quick-icon { grid-row: auto; }
-  html.mobile-runtime .profile-home__quick-label { overflow-wrap: anywhere; }
   html.mobile-runtime .player-bar__lcd { gap: 8px; }
 }
 
@@ -430,6 +429,9 @@ html.mobile-runtime .library-page .library-header { align-items: center; justify
 html.mobile-runtime .library-header .library-stats { width: auto; gap: 0; }
 html.mobile-runtime .library-stat:not(:last-child) { display: none; }
 html.mobile-runtime .library-manage-hint { margin: 0; color: var(--text-secondary); font-size: 12px; }
+/* 资料库只组合自己的模块；完整主页是独立推入页，经这条入口进入 */
+html.mobile-runtime .library-home-link { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; border: 1px solid var(--border); border-radius: var(--radius-lg); color: var(--text-secondary); background: var(--bg-surface); font-size: 13px; font-weight: 500; }
+html.mobile-runtime .library-home-link:active { color: var(--text); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 html.mobile-runtime .library-page .library-quick-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 20px; }
 html.mobile-runtime .library-page .library-quick-chip { flex-direction: row; justify-content: center; gap: 8px; min-width: 0; min-height: 48px; padding: 8px 4px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; background: var(--md-container-high); color: var(--text); }
 html.mobile-runtime .library-quick-chip svg { width: 20px; height: 20px; color: var(--md-primary); }
@@ -663,7 +665,7 @@ html.mobile-runtime :is(.segmented-control, .follow-dialog-tabs, .song-menu__tab
   }
 }
 
-html.mobile-runtime .mobile-page-bar.primary { min-height: calc(48px + env(safe-area-inset-top)); grid-template-columns: 48px minmax(0, 1fr) 48px; border-bottom: 1px solid transparent; }
+html.mobile-runtime .mobile-page-bar.primary { min-height: 48px; grid-template-columns: 48px minmax(0, 1fr) 48px; border-bottom: 1px solid transparent; }
 html.mobile-runtime .mobile-page-bar.primary .mobile-page-bar__button { grid-column: 3; color: var(--accent); margin: 0; }
 html.mobile-runtime .mobile-page-bar.primary .mobile-compact-title { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 17px; font-weight: 700; opacity: 0; transition: opacity 160ms ease; }
 html.mobile-runtime .mobile-page-bar.primary.collapsed { border-bottom-color: var(--border); }
@@ -716,9 +718,6 @@ html.mobile-runtime .library-page .library-card .library-card-cover { width: 100
 html.mobile-runtime .library-page .library-card .library-card-info { margin-top: 6px; min-height: 48px; }
 html.mobile-runtime .library-mobile-section h2 { font-size: 22px; line-height: 28px; }
 html.mobile-runtime .library-mobile-section header > span { background: transparent; font-size: 13px; }
-html.mobile-runtime .library-page .profile-home__quick-label { display: none; }
-html.mobile-runtime .library-page .profile-home__quick > button { border: 0; border-radius: var(--radius-sm); box-shadow: none; min-height: 100px; padding: 12px; background: var(--bg-surface); }
-html.mobile-runtime .library-page .profile-home__quick strong { font-size: 15px; }
 html.mobile-runtime .library-page .user-profile-hero { min-height: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none; color: var(--text); }
 html.mobile-runtime .library-page :is(.user-profile-hero__background, .user-profile-hero__wash, .user-profile-hero__label) { display: none; }
 html.mobile-runtime .library-page .user-profile-hero__content { min-height: 0; padding: 8px 0 16px; gap: 20px; }
@@ -745,9 +744,6 @@ html.mobile-runtime .search-page .search-header { display: none; }
 html.mobile-runtime .search-page .search-chart-panel { border: 0; border-radius: 0; background: transparent; padding: 0; }
 html.mobile-runtime .search-page .search-section-header h2 { font-size: 22px; }
 html.mobile-runtime .search-page .search-input { background: transparent; }
-html.mobile-runtime .toast { bottom: calc(var(--mobile-tabs-h) + 12px + env(safe-area-inset-bottom)); }
-html.mobile-runtime:has(.player-bar-wrap) .toast { bottom: calc(var(--mobile-tabs-h) + var(--mobile-player-h) + 12px + env(safe-area-inset-bottom)); }
-html.mobile-runtime.mobile-keyboard-open .toast { bottom: calc(12px + env(safe-area-inset-bottom)); }
 html.mobile-runtime .mobile-page-bar.primary .mobile-page-bar__button svg, html.mobile-runtime .mobile-song-more svg { rotate: 90deg; }
 html.mobile-runtime .mobile-tab.active .mobile-tab__icon { color: var(--accent); }
 
@@ -759,8 +755,6 @@ html.mobile-runtime .mobile-detail-actions { grid-column: 2 / 4; grid-row: 1; di
 html.mobile-runtime .mobile-detail-actions button { width: 48px; height: 48px; display: grid; place-items: center; background: transparent; color: var(--text); }
 html.mobile-runtime .mobile-detail-actions button:last-child svg { rotate: 90deg; }
 html.mobile-runtime .mobile-page-bar h1.mobile-playlist-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-html.mobile-runtime .playlist-detail-page .playlist-toolbar { display: none; }
-html.mobile-runtime .playlist-detail-page.show-mobile-tools .playlist-toolbar { display: grid; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr { grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 22px 18px; min-height: 64px; padding: 8px 48px 8px 0; gap: 2px 12px; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 16px; font-weight: 400; line-height: 22px; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 14px; line-height: 18px; }
@@ -770,8 +764,6 @@ html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbod
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active { background: transparent; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active .col-title { color: var(--md-primary); }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .m-track-more svg { rotate: 90deg; }
-
-html.mobile-runtime .mobile-page-content .playlist-detail-page:not(.show-mobile-tools) .playlist-toolbar { display: none; }
 
 html.mobile-runtime .library-card > .library-card-info > .library-card-creator { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

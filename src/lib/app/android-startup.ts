@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
-import { isTauriRuntime, runtimePlatform } from '../utils/runtime.ts'
+import { isAndroidRuntime } from '../utils/runtime.ts'
 
-const android = (): boolean => isTauriRuntime() && /Android/i.test(runtimePlatform())
+const android = (): boolean => isAndroidRuntime()
 let frameAnnounced = false
 
 export function initialAndroidTheme(): 'light' | 'dark' {

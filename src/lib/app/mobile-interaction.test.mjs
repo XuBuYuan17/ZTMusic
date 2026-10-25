@@ -285,9 +285,9 @@ router.handleNav('settings')
 assert.equal(router.routeStack.length, 0, 'desktop default keeps existing navigation behavior')
 globalThis.testMobileLayout = true
 router.handleNav('home')
-assert.equal(router.activeView, 'library', 'legacy mobile home maps to library')
+assert.equal(router.activeView, 'home', 'mobile can open the full home page')
 router.handleNav('profile')
-assert.equal(router.activeView, 'library', 'legacy mobile profile maps to library')
+assert.equal(router.activeView, 'home', 'legacy profile alias resolves to the home page')
 router.goBack()
 assert.equal(router.activeView, 'explore', 'mobile root back defaults to discovery')
 for (const category of ['appearance', 'playback', 'sources', 'android', 'general', 'data', 'advanced', 'about']) {

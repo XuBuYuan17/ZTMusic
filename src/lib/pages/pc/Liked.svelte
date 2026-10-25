@@ -16,6 +16,9 @@
   import { normalizeSong } from '../../utils/normalize.ts'
   import Spinner from '../../components/Spinner.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
+  import SongList from '../../components/SongList.svelte'
+  import { toSongRows } from '../../components/song-row.ts'
+  import { LIKE_CHANGE } from '../../services/likes.ts'
   import Icon from '../../components/ui/Icon.svelte'
 
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
@@ -77,9 +80,18 @@
     return Array.isArray(list) ? list as RefArtist[] : []
   }
 
+  const rows = $derived(toSongRows(songs))
+
   $effect(() => {
     if (auth.isLoggedIn) untrack(loadLiked)
     else loading = false
+  })
+
+  // 菜单里取消喜欢后刷新列表与计数；请求失败不会触发事件，行保持原样
+  $effect(() => {
+    const refresh = () => void loadLiked()
+    window.addEventListener(LIKE_CHANGE, refresh)
+    return () => window.removeEventListener(LIKE_CHANGE, refresh)
   })
 </script>
 
@@ -99,7 +111,7 @@
     {/if}
   </div>
 
-  {#if loading && !initial}
+  {#if loading && !songs.length}
     <div class="liked-skeleton">
       {#each Array(10) as _, i}
         <div class="liked-skeleton-row">
@@ -125,34 +137,15 @@
       <p style="font-size:13px;color:var(--text-tertiary)">在播放时点击 ♥ 按钮添加</p>
     </div>
   {:else}
-      <div class="liked-song-list">
-        {#each songs as track, i (track.id as SongId)}
-          <div class="liked-song-row" role="button" tabindex="0"
-            class:active={player.id === track.id}
-            onclick={() => playTrack(track)}
-            onkeydown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); playTrack(track) } }}
-            oncontextmenu={(e) => { e.preventDefault(); songActions?.bindRow(track)?.oncontextmenu?.(e) }}>
-            <span class="liked-song-index">{i + 1}</span>
-            <img class="liked-song-cover" src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-            <span class="liked-song-main">
-              <strong>{track.name}</strong>
-              <em>
-                {#each artistsOf(track) as artist, j ((artist.id || artist.name) as SongId)}
-                  {#if j > 0}<span class="artist-sep">/</span>{/if}
-                  {#if artist.id}
-                    <button class="artist-link" onclick={(e) => { e.stopPropagation(); onOpenArtist?.(artist.id) }}>{artist.name}</button>
-                  {:else}
-                    <span>{artist.name}</span>
-                  {/if}
-                {/each}
-              </em>
-              <small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt || track.duration}<time>{formatDuration(track.dt || (track.duration as number))}</time>{/if}</small>
-            </span>
-            <button class="m-track-more" type="button" aria-label={`更多操作：${track.name}`} onkeydown={(event) => event.stopPropagation()} onclick={(event) => songActions?.bindRow(track).oncontextmenu(event)}>•••</button>
-            <span class="liked-song-dur">{formatDuration(track.dt || (track.duration as number) || 0)}</span>
-          </div>
-        {/each}
-      </div>
+    <SongList
+      {rows}
+      currentId={player.id}
+      rowActions={songActions?.bindRow ?? null}
+      emptyText="还没有喜欢的歌曲"
+      onPlay={(row) => playTrack(row.source as NormalizedSong)}
+      {onOpenArtist}
+      {onOpenAlbum}
+    />
   {/if}
 </div>
 
@@ -262,80 +255,6 @@
     border-radius: var(--radius-sm);
   }
 
-  .liked-song-list {
-    display: grid;
-    gap: 2px;
-    overflow: visible;
-  }
-
-  .liked-song-row {
-    display: grid;
-    grid-template-columns: 38px 48px minmax(0, 1fr) 70px;
-    gap: 12px;
-    align-items: center;
-    min-height: 56px;
-    padding: 8px 10px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background-color 150ms var(--ease-out);
-  }
-
-  .liked-song-row:hover {
-    background: var(--bg-hover);
-  }
-
-  .liked-song-row.active {
-    background: var(--accent-bg);
-    color: var(--accent);
-  }
-
-  .liked-song-index {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-  }
-
-  .liked-song-cover {
-    width: 48px;
-    height: 48px;
-    border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-    border-radius: var(--radius-xs);
-    object-fit: cover;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .liked-song-main {
-    min-width: 0;
-    display: grid;
-    gap: 3px;
-  }
-
-  .liked-song-main strong {
-    overflow: hidden;
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .liked-song-main em {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-style: normal;
-    font-size: 12px;
-    color: var(--text-tertiary);
-  }
-
-  .liked-song-dur {
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 700;
-    text-align: right;
-  }
-
   .liked-empty {
     display: grid;
     place-items: center;
@@ -346,24 +265,6 @@
     background: var(--bg-elevated);
     color: var(--text-secondary);
     text-align: center;
-  }
-
-  .artist-sep {
-    margin: 0 3px;
-    color: var(--text-tertiary);
-  }
-
-  .artist-link {
-    background: none;
-    border: none;
-    color: var(--accent);
-    cursor: pointer;
-    padding: 0;
-    font: inherit;
-  }
-
-  .artist-link:hover {
-    text-decoration: underline;
   }
 
   @media (max-width: 860px) {
@@ -429,26 +330,6 @@
       grid-column: 1 / -1;
       width: 100%;
       height: 42px;
-    }
-
-    .liked-song-row {
-      grid-template-columns: 42px minmax(0, 1fr) 46px;
-      gap: 10px;
-      min-height: 58px;
-      padding: 7px 2px;
-    }
-
-    .liked-song-index {
-      display: none;
-    }
-
-    .liked-song-cover {
-      width: 42px;
-      height: 42px;
-    }
-
-    .liked-song-dur {
-      font-size: 11px;
     }
   }
 </style>

@@ -464,3 +464,21 @@
   }
 }
 
+/* 预览区的截断说明入口：说明「只显示了前面一部分」并给出展开方式。
+   窄屏变体也放在这里，避免再被 app-mobile.css 覆盖一次。 */
+.music-preview-more {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.music-preview-more:hover {
+  background: var(--bg-hover);
+}
+
+html.mobile-runtime .music-preview-more { width: 100%; min-height: 44px; margin-top: 8px; border-radius: var(--radius-md); font-size: 13px; }

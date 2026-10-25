@@ -484,7 +484,6 @@ html.mobile-runtime .daily-page .m-track-more svg { display: block; }
 html.mobile-runtime .mobile-page-content .mobile-track-meta { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 13px; line-height: 18px; font-weight: 400; color: var(--text-secondary); }
 html.mobile-runtime .mobile-track-meta > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html.mobile-runtime .mobile-track-meta time { flex: none; font-variant-numeric: tabular-nums; }
-html.mobile-runtime .search-desktop-album { display: none; }
 html.mobile-runtime .mobile-page-content :is(.playlist-detail-page, .playlist-track-surface, .playlist-toolbar, .playlist-track-row, .playlist-skeleton-row) { animation: none; opacity: 1; }
 html.mobile-runtime .mobile-page-content .local-track { min-height: 80px; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) 48px; border: 0; border-radius: var(--radius-xs); }
 html.mobile-runtime .mobile-page-content .local-track-main { min-height: 80px; box-sizing: border-box; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
