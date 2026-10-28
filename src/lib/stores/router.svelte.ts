@@ -665,6 +665,16 @@ function retryDetail(): void {
   if (_activeView === 'playlist') { void goPlaylist(_selectedId, false); return }
 }
 
+/** 设置子页统一回到分类首页：清掉中间的分类历史，不产生重复栈帧。 */
+function goSettingsHome(): void {
+  if (_activeView === 'settings') return
+  while (_activeView.startsWith('settings-') && _routeStack.length) goBack()
+  if (_activeView !== 'settings') {
+    handleNav('settings')
+    _routeTransition = 'back'
+  }
+}
+
 function goBack(): void {
   invalidateDetailRequests(); const prev = _routeStack[_routeStack.length - 1]; _routeStack = _routeStack.slice(0, -1)
   if (!prev) { handleNav(isMobileDevice() ? 'explore' : 'home'); return }
@@ -706,7 +716,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, retryDetail, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, retryDetail, goSettingsHome, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

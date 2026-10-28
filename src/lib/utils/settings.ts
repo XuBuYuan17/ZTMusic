@@ -1,28 +1,9 @@
-import { QUALITY_ORDER, STORAGE_KEYS } from './constants.ts'
+import { SETTING_DEFAULTS, storedSettingDefinition } from '../settings/definitions.ts'
 import { getStorage, setStorage } from './storage.ts'
+export { SETTING_DEFAULTS }
 
 export const SETTINGS_SCHEMA_KEY = 'settings_schema_version'
 export const SETTINGS_SCHEMA_VERSION = 4
-
-export const SETTING_DEFAULTS: Record<string, string> = {
-  'default_page': 'home',
-  'layout_mode': 'auto',
-  'lyrics_blur_effect': 'true',
-  'lyrics_text_blur_effect': 'true',
-  'wallpaper_video_play': 'true',
-  'accent_theme': 'red',
-  [STORAGE_KEYS.RESTORE_SESSION]: 'true',
-  [STORAGE_KEYS.VOLUME]: '0.8',
-  [STORAGE_KEYS.MODE]: 'list',
-  [STORAGE_KEYS.PREFERRED_QUALITY]: 'standard',
-}
-
-const BOOLEAN_KEYS = new Set<string>([
-  'lyrics_blur_effect',
-  'lyrics_text_blur_effect',
-  'wallpaper_video_play',
-  STORAGE_KEYS.RESTORE_SESSION,
-])
 
 /** setSetting 的入参：布尔开关收 'true'/'false'，音量收 number，其余为字符串 */
 export type SettingValue = string | number | boolean
@@ -35,53 +16,19 @@ function hasStorageKey(key: string): boolean {
   }
 }
 
-function normalizeBoolean(value: SettingValue | null | undefined, fallback: string = 'true'): string {
-  if (value === true || value === 'true') return 'true'
-  if (value === false || value === 'false') return 'false'
-  return fallback
-}
-
-function normalizeVolume(value: SettingValue | null | undefined): string {
-  const num = Number.parseFloat(String(value))
-  if (!Number.isFinite(num)) return SETTING_DEFAULTS[STORAGE_KEYS.VOLUME] ?? '0.8'
-  return String(Math.min(Math.max(num, 0), 1))
-}
-
-function oneOf(value: unknown, allowed: readonly string[]): value is string {
-  return typeof value === 'string' && allowed.includes(value)
-}
-
-function normalizeMode(value: SettingValue | null | undefined): string {
-  return oneOf(value, ['list', 'shuffle', 'repeat']) ? value : (SETTING_DEFAULTS[STORAGE_KEYS.MODE] ?? 'list')
-}
-
-function normalizeQuality(value: SettingValue | null | undefined): string {
-  return oneOf(value, QUALITY_ORDER) ? value : (SETTING_DEFAULTS[STORAGE_KEYS.PREFERRED_QUALITY] ?? 'standard')
-}
-
-function normalizeDefaultPage(value: SettingValue | null | undefined): string {
-  return oneOf(value, ['home', 'explore', 'library']) ? value : (SETTING_DEFAULTS.default_page ?? 'home')
-}
-
-function normalizeLayoutMode(value: SettingValue | null | undefined): string {
-  return oneOf(value, ['auto', 'pc', 'mobile']) ? value : (SETTING_DEFAULTS.layout_mode ?? 'auto')
-}
-
-function normalizeAccentTheme(value: SettingValue | null | undefined): string {
-  return oneOf(value, ['red', 'berry', 'violet', 'blue', 'teal', 'orange', 'cover'])
-    ? value
-    : (SETTING_DEFAULTS.accent_theme ?? 'red')
-}
-
 function normalizeSetting(key: string, value: SettingValue | null | undefined): string {
-  if (BOOLEAN_KEYS.has(key)) return normalizeBoolean(value, SETTING_DEFAULTS[key] ?? 'true')
-  if (key === STORAGE_KEYS.VOLUME) return normalizeVolume(value)
-  if (key === STORAGE_KEYS.MODE) return normalizeMode(value)
-  if (key === STORAGE_KEYS.PREFERRED_QUALITY) return normalizeQuality(value)
-  if (key === 'default_page') return normalizeDefaultPage(value)
-  if (key === 'layout_mode') return normalizeLayoutMode(value)
-  if (key === 'accent_theme') return normalizeAccentTheme(value)
-  return value == null ? (SETTING_DEFAULTS[key] ?? '') : String(value)
+  const definition = storedSettingDefinition(key)
+  if (!definition) return value == null ? '' : String(value)
+  if (definition.kind === 'boolean') {
+    if (value === true || value === 'true') return 'true'
+    if (value === false || value === 'false') return 'false'
+    return definition.defaultValue
+  }
+  if (definition.kind === 'number') {
+    const number = Number.parseFloat(String(value))
+    return Number.isFinite(number) ? String(Math.min(Math.max(number, definition.min), definition.max)) : definition.defaultValue
+  }
+  return typeof value === 'string' && definition.options.some(option => option.value === value) ? value : definition.defaultValue
 }
 
 /**

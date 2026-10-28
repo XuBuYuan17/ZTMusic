@@ -1,28 +1,23 @@
 /**
  * useSettings — 设置页共享状态与操作
  *
- * PC（pages/pc/Settings.svelte）与移动端（pages/mobile/Settings.svelte）的
- * 两套模板（class 体系不同）共用这一份逻辑，避免两边各改一次而产生漂移。
+ * PC 与移动端的公共设置页（pages/Settings.svelte）使用同一份状态与操作。
  *
  * 用法：
  *   const s = useSettings()
- *   s.lyricsBlur              // 响应式读
- *   s.handleLyricsBlur(!s.lyricsBlur)
+ *   s.fieldValue('lyrics_blur_effect')
+ *   s.changeField('lyrics_blur_effect', false)
  */
 import { ncm, DEFAULT_API_BASE } from '../api/client.ts'
 import { player, clearHistory } from '../stores/player.svelte.ts'
 import { auth } from '../stores/auth.svelte.ts'
 import { i18n, setLocale } from '../i18n/index.svelte.ts'
-import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../utils/settings.ts'
-import { getLayoutMode, setLayoutMode } from '../utils/layout-mode.ts'
+import { getSetting, setSetting, type SettingValue } from '../utils/settings.ts'
+import { setLayoutMode } from '../utils/layout-mode.ts'
+import { SETTING_DEFINITIONS, type SettingFieldKey } from '../settings/definitions.ts'
 import { dbCache } from '../db/cache.ts'
 
-export const QUALITY_LABELS = {
-  lossless: '无损',
-  exhigh: '极高',
-  higher: '较高',
-  standard: '标准',
-}
+export { QUALITY_LABELS } from '../player/quality.ts'
 
 /** 内置后端地址，供设置页展示「恢复默认」的参照值 */
 export { DEFAULT_API_BASE }
@@ -41,13 +36,11 @@ function formatBytes(bytes: number | undefined): string {
 }
 
 export function useSettings() {
-  let defaultPage = $state(getSetting('default_page', 'home'))
-  let layoutMode = $state(getLayoutMode())
-  let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
-  let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
-  let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
-  let currentLocale = $state<string>(i18n.locale)
-  let preferredQuality = $state(player.preferredLevel)
+  const values = $state<Record<string, string>>(Object.fromEntries(
+    Object.entries(SETTING_DEFINITIONS)
+      .filter(([, definition]) => 'category' in definition && 'defaultValue' in definition)
+      .map(([key]) => [key, getSetting(key)]),
+  ))
 
   let clearMsg = $state('')
   let clearCacheMsg = $state('')
@@ -120,37 +113,18 @@ export function useSettings() {
     }, 500)
   }
 
-  function handleDefaultPage(val: string): void {
-    defaultPage = setSetting('default_page', val)
+  function fieldValue(key: Exclude<SettingFieldKey, 'theme'>): string | boolean {
+    if (key === 'locale') return i18n.locale
+    if (key === 'preferred_quality') return player.preferredLevel
+    return SETTING_DEFINITIONS[key].kind === 'boolean' ? values[key] === 'true' : values[key] ?? ''
   }
 
-  function handleLayoutMode(val: string): void {
-    layoutMode = setLayoutMode(val)
-  }
-
-  function handleRestoreSession(val: boolean): void {
-    restoreSession = setBooleanSetting('restore_session', val) === 'true'
-  }
-
-  function handleLyricsBlur(val: boolean): void {
-    lyricsBlur = setBooleanSetting('lyrics_blur_effect', val) === 'true'
-    window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: lyricsBlur }))
-  }
-
-  function handleLyricsTextBlur(val: boolean): void {
-    lyricsTextBlur = setBooleanSetting('lyrics_text_blur_effect', val) === 'true'
-    window.dispatchEvent(new CustomEvent('lyrics-text-blur-change', { detail: lyricsTextBlur }))
-  }
-
-  function handleLocale(val: string): void {
-    currentLocale = val
-    setLocale(val)
-  }
-
-  // 读回 player 而非直接用入参：setPreferredLevel 会校验 QUALITY_ORDER，非法值应保持原状
-  function handleQuality(val: string): void {
-    player.setPreferredLevel(val)
-    preferredQuality = player.preferredLevel
+  function changeField(key: Exclude<SettingFieldKey, 'theme'>, value: SettingValue): void {
+    if (key === 'locale') { setLocale(String(value)); return }
+    if (key === 'preferred_quality') { player.setPreferredLevel(String(value)); return }
+    values[key] = key === 'layout_mode' ? setLayoutMode(String(value)) : setSetting(key, value)
+    const definition = SETTING_DEFINITIONS[key]
+    if ('changeEvent' in definition) window.dispatchEvent(new CustomEvent(definition.changeEvent, { detail: fieldValue(key) }))
   }
 
   function handleClearHistory(): void {
@@ -192,13 +166,8 @@ export function useSettings() {
   }
 
   return {
-    get defaultPage() { return defaultPage },
-    get layoutMode() { return layoutMode },
-    get restoreSession() { return restoreSession },
-    get lyricsBlur() { return lyricsBlur },
-    get lyricsTextBlur() { return lyricsTextBlur },
-    get currentLocale() { return currentLocale },
-    get preferredQuality() { return preferredQuality },
+    get currentLocale() { return i18n.locale },
+    get preferredQuality() { return player.preferredLevel },
     get clearMsg() { return clearMsg },
     get clearCacheMsg() { return clearCacheMsg },
     get cacheSizeText() { return cacheSizeText },
@@ -209,13 +178,8 @@ export function useSettings() {
     get apiBaseValue() { return apiBaseValue },
 
     handleSetApiBase,
-    handleDefaultPage,
-    handleLayoutMode,
-    handleRestoreSession,
-    handleLyricsBlur,
-    handleLyricsTextBlur,
-    handleLocale,
-    handleQuality,
+    fieldValue,
+    changeField,
     handleClearHistory,
     handleClearCache,
     handleClearIdbCache,

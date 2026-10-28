@@ -12,6 +12,7 @@
   import { coverUrl, progressiveCover } from '../utils/image.ts';
   import { extractColor } from '../player/colors.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
+  import { QUALITY_LABELS } from '../player/quality.ts';
   import { shareSong } from '../share/song-share.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
@@ -105,12 +106,7 @@
       || null,
   );
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
-  const qualityLabels: Record<string, string> = {
-    lossless: '无损',
-    exhigh: '极高',
-    higher: '较高',
-    standard: '标准',
-  };
+  const qualityLabels = QUALITY_LABELS;
   let moreMenuItems = $derived<MenuItem[]>([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
     { label: '播放队列', icon: 'list', action: handleToggleLocalQueue, disabled: !player.id },

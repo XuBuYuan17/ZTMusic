@@ -411,7 +411,7 @@
   .source-add-dialog { position: relative; box-sizing: border-box; width: 100%; max-height: 90%; overflow: auto; padding: 8px 0 max(16px, env(safe-area-inset-bottom)); border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bg-elevated); color: var(--text); }
   .source-add-dialog header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; }
   .source-add-dialog h2 { margin: 0; font-size: 1.0625rem; }
-  .source-add-dialog header button { min-height: 44px; border: 0; background: transparent; color: var(--md-primary); font: inherit; }
+  .source-add-dialog header button { min-height: 44px; border: 0; background: transparent; color: var(--md-primary, var(--accent)); font: inherit; }
   .source-add-dialog .source-plugin-add { padding: 16px; background: transparent; gap: 16px; }
   .source-add-dialog .source-plugin-add label { grid-template-columns: 1fr; gap: 6px; }
   .source-add-dialog .source-plugin-add label > span { font-size: .9375rem; }

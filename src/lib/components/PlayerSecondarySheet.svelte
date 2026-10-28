@@ -5,7 +5,7 @@
   import type { SongId } from '../types/music.ts';
   import { player } from '../stores/player.svelte.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
-  import { QUALITY_LABELS } from '../composables/useSettings.svelte.ts';
+  import { QUALITY_LABELS } from '../player/quality.ts';
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
 

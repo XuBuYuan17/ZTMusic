@@ -12,8 +12,8 @@ const messages = await read('./pc/Messages.svelte')
 const chat = await read('../components/messages/ChatDialog.svelte')
 const local = await read('./LocalMusicPage.svelte')
 const about = await read('./AboutPage.svelte')
-const settings = await read('./mobile/Settings.svelte')
-const settingsNav = await read('./mobile/settings-navigation.ts')
+const settings = await read('./Settings.svelte')
+const settingsNav = await read('./settings-navigation.ts')
 const shortcuts = await read('../app/keyboard-shortcuts.ts')
 
 // ── 1) 保留独立的页面：没有共享列表/卡片，也没有真实的重复点 ──
@@ -42,8 +42,8 @@ assert.ok(!local.includes('mobileLongPress'), 'local rows do not use the shared 
 assert.ok(local.includes('type="password"'), 'webdav credentials stay a normal form field')
 
 // ── 4) 平台能力有明确状态，且不按布局判断 ──
-assert.ok(settings.includes("category === 'android' && engine.native"), 'android settings are gated on the platform capability')
-assert.ok(settingsNav.includes('android || item.id !== ') || settingsNav.includes("item.id !== 'android'"), 'the android category is filtered by the capability flag')
+assert.ok(settings.includes('settingsCategoryGroups(engine.native === true)') && settings.includes("category !== 'android' || engine.native"), 'android settings are gated on the platform capability')
+assert.ok(settingsNav.includes("android || !('requires' in item)"), 'the android category is filtered by the capability flag')
 for (const [name, page] of [['report', report], ['messages', messages], ['local', local], ['about', about], ['settings', settings]] as const) {
   assert.ok(!page.includes('isMobileDevice'), `${name} must not gate capability on the layout`)
 }

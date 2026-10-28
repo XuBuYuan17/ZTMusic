@@ -1,22 +1,26 @@
 <script lang="ts">
-  import { auth } from '../../stores/auth.svelte.ts'
-  import { t } from '../../i18n/index.svelte.ts'
-  import { DEFAULT_API_BASE, QUALITY_LABELS, useSettings } from '../../composables/useSettings.svelte.ts'
-  import { wallpaper } from '../../stores/wallpaper.svelte.ts'
-  import { formatWallpaperSize } from '../../services/wallpaper-storage.ts'
-  import { ACCENT_THEME_OPTIONS } from '../../theme/accent.ts'
-  import { settingsCategories, settingsSummaries, type SettingsCategory } from './settings-navigation.ts'
-  import { listSourcePlugins } from '../../player/source-plugins.ts'
-  import { engine } from '../../player/engine.ts'
-  import pkg from '../../../../package.json'
-  import Icon from '../../components/ui/Icon.svelte'
-  import SettingSelect from '../../components/SettingSelect.svelte'
-  import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
-  import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
+  import { auth } from '../stores/auth.svelte.ts'
+  import { t } from '../i18n/index.svelte.ts'
+  import { DEFAULT_API_BASE, useSettings } from '../composables/useSettings.svelte.ts'
+  import { wallpaper } from '../stores/wallpaper.svelte.ts'
+  import { formatWallpaperSize } from '../services/wallpaper-storage.ts'
+  import { ACCENT_THEME_OPTIONS } from '../theme/accent.ts'
+  import { SETTINGS_CATEGORIES, settingsCategoryGroups, settingsSummaries, settingsView, type SettingsCategory } from './settings-navigation.ts'
+  import { settingsFields, settingOptions, settingValueForLayout, type SettingField } from '../settings/definitions.ts'
+  import { QUALITY_OPTIONS } from '../player/quality.ts'
+  import { responsive } from '../utils/responsive.ts'
+  import { listSourcePlugins } from '../player/source-plugins.ts'
+  import { engine } from '../player/engine.ts'
+  import pkg from '../../../package.json'
+  import Icon from '../components/ui/Icon.svelte'
+  import SettingSelect from '../components/SettingSelect.svelte'
+  import AndroidPlayerSettings from '../components/AndroidPlayerSettings.svelte'
+  import SourcePluginSettings from '../components/SourcePluginSettings.svelte'
 
-  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate }: {
+  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate, onBack }: {
     category?: SettingsCategory | null
     onNavigate?: (view: string) => void
+    onBack?: () => void
     theme?: string
     accentTheme?: string
     onSetTheme?: (theme: string) => void
@@ -26,22 +30,34 @@
   const settings = useSettings()
   const summaries = $derived(settingsSummaries({
     theme,
-    quality: QUALITY_LABELS[settings.preferredQuality as keyof typeof QUALITY_LABELS] || settings.preferredQuality,
-    pluginCount: listSourcePlugins().filter(item => item.enabled).length,
+    quality: t(QUALITY_OPTIONS.find(option => option.value === settings.preferredQuality)?.labelKey ?? settings.preferredQuality),
+    pluginCount: category === null ? listSourcePlugins().filter(item => item.enabled).length : 0,
     locale: settings.currentLocale,
     loggedIn: auth.isLoggedIn,
     version: pkg.version,
-  }))
-  const qualityOptions = Object.entries(QUALITY_LABELS).map(([value, label]) => ({ value, label }))
-  const defaultPageOptions = [
-    { value: 'explore', label: t('page.explore', '发现') },
-    { value: 'library', label: t('page.library', '资料库') },
-  ]
-  const layoutOptions = [
-    { value: 'auto', label: '自动' },
-    { value: 'pc', label: 'PC 布局' },
-    { value: 'mobile', label: '移动布局' },
-  ]
+  }, t))
+  const currentCategory = $derived(SETTINGS_CATEGORIES.find(item => item.id === category))
+  const fields = $derived(category ? settingsFields(category) : [])
+
+  function fieldValue(field: SettingField): string | boolean {
+    return field.key === 'theme' ? theme : settings.fieldValue(field.key)
+  }
+
+  function fieldOptions(field: SettingField) {
+    return field.kind === 'select' ? settingOptions(field, $responsive.isMobile).map(option => ({
+      value: option.value, label: option.labelKey ? t(option.labelKey) : option.label ?? option.value,
+    })) : []
+  }
+
+  function selectedValue(field: SettingField): string {
+    const value = String(fieldValue(field))
+    return field.kind === 'select' ? settingValueForLayout(field, value, $responsive.isMobile) : value
+  }
+
+  function changeField(field: SettingField, value: string | boolean): void {
+    if (field.key === 'theme') onSetTheme?.(String(value))
+    else settings.changeField(field.key, value)
+  }
   let wallpaperInput = $state<HTMLInputElement | null>(null)
   let wallpaperStatus = $derived(
     wallpaper.error || (wallpaper.active
@@ -58,33 +74,52 @@
 </script>
 
 <div class="m-settings">
-  {#if category === null}
-    {#each [['appearance', 'playback'], ['sources', 'android'], ['general', 'data', 'advanced', 'about']] as group}
-    <div class="m-settings-list m-settings-home">
-      {#each settingsCategories(engine.native === true).filter(item => group.includes(item.id)) as item}
-        <button class="m-settings-row m-settings-entry" type="button" onclick={() => onNavigate?.(`settings-${item.id}`)}>
-          <span class="m-entry-icon"><Icon name={item.icon} fill="none" size={21} /></span>
-          <strong>{item.title}</strong>
-          <span class="m-row-value">{summaries[item.id]}</span>
-          <Icon name="chevron-right" fill="none" size={17} />
-        </button>
-      {/each}
+  {#if !$responsive.isMobile}
+    <h1 class="m-settings-title">{currentCategory ? t(currentCategory.titleKey) : t('settings.title')}</h1>
+  {/if}
+  {#if category !== null}
+    <div class="m-settings-list">
+      <button class="m-settings-row m-settings-entry m-settings-back" type="button" onclick={() => onBack?.()}>
+        <Icon name="chevron-left" fill="none" size={20} />
+        <strong>{t('settings.back')}</strong>
+      </button>
     </div>
+  {:else}
+    {#each settingsCategoryGroups(engine.native === true) as group}
+      <div class="m-settings-list m-settings-home">
+        {#each group as item}
+          <button class="m-settings-row m-settings-entry" type="button" onclick={() => onNavigate?.(settingsView(item.id))}>
+            <span class="m-entry-icon"><Icon name={item.icon} fill="none" size={21} /></span>
+            <strong>{t(item.titleKey)}</strong>
+            <span class="m-row-value">{summaries[item.id]}</span>
+            <Icon name="chevron-right" fill="none" size={17} />
+          </button>
+        {/each}
+      </div>
     {/each}
   {/if}
 
-  {#if category === 'appearance'}
-
-  <section class="m-settings-section" aria-labelledby="appearance-settings">
-    <h2 id="appearance-settings">显示与个性化</h2>
-    <div class="m-settings-list">
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>主题模式</strong>
-        </div>
-        <SettingSelect label="主题模式" value={theme} options={[{ value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }]} onChange={value => onSetTheme?.(value)} />
-      </div>
-
+  {#if currentCategory && (category !== 'android' || engine.native)}
+    <section class="m-settings-section" aria-labelledby="settings-category-title">
+      <h2 id="settings-category-title">{t(currentCategory.sectionKey)}</h2>
+      {#if category === 'android'}
+        <div class="m-android-content"><AndroidPlayerSettings mobile /></div>
+      {:else}
+        <div class="m-settings-list">
+          {#each fields as field (field.key)}
+            <div class="m-settings-row" data-setting-key={field.key}>
+              <div class="m-settings-copy">
+                <strong>{t(field.labelKey)}</strong>
+                {#if field.descriptionKey}<span>{t(field.descriptionKey)}</span>{/if}
+              </div>
+              {#if field.kind === 'boolean'}
+                <button class="m-switch" type="button" class:on={fieldValue(field) === true} aria-label={t(field.labelKey)} aria-pressed={fieldValue(field) === true} onclick={() => changeField(field, !fieldValue(field))}><span>{t(fieldValue(field) ? 'common.on' : 'common.off')}</span></button>
+              {:else}
+                <SettingSelect label={t(field.labelKey)} value={selectedValue(field)} options={fieldOptions(field)} onChange={value => changeField(field, value)} />
+              {/if}
+            </div>
+          {/each}
+          {#if category === 'appearance'}
       <div class="m-settings-row m-settings-row--palette">
         <div class="m-settings-copy">
           <strong>强调色</strong>
@@ -130,103 +165,10 @@
           <button class="m-switch" type="button" class:on={wallpaper.videoPlaying} aria-label="播放动态壁纸" aria-pressed={wallpaper.videoPlaying} onclick={() => wallpaper.setVideoPlaying(!wallpaper.videoPlaying)}><span>{wallpaper.videoPlaying ? '开' : '关'}</span></button>
         </div>
       {/if}
-    </div>
-  </section>
 
-  {/if}
-
-  {#if category === 'playback'}
-  <section class="m-settings-section" aria-labelledby="playback-settings">
-    <h2 id="playback-settings">音频与歌词效果</h2>
-    <div class="m-settings-list">
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>{t('settings.quality', '默认音质')}</strong>
-        </div>
-        <SettingSelect label={t('settings.quality', '默认音质')} value={settings.preferredQuality} options={qualityOptions} onChange={settings.handleQuality} />
-      </div>
-
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>{t('settings.restoreSession', '记住上次播放')}</strong>
-        </div>
-        <button class="m-switch" type="button" class:on={settings.restoreSession} aria-label="记住上次播放" aria-pressed={settings.restoreSession} onclick={() => settings.handleRestoreSession(!settings.restoreSession)}><span>{settings.restoreSession ? '开' : '关'}</span></button>
-      </div>
-
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>歌词背景模糊</strong>
-        </div>
-        <button class="m-switch" type="button" class:on={settings.lyricsBlur} aria-label="歌词背景模糊" aria-pressed={settings.lyricsBlur} onclick={() => settings.handleLyricsBlur(!settings.lyricsBlur)}><span>{settings.lyricsBlur ? '开' : '关'}</span></button>
-      </div>
-
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>歌词文字模糊</strong>
-        </div>
-        <button class="m-switch" type="button" class:on={settings.lyricsTextBlur} aria-label="歌词文字模糊" aria-pressed={settings.lyricsTextBlur} onclick={() => settings.handleLyricsTextBlur(!settings.lyricsTextBlur)}><span>{settings.lyricsTextBlur ? '开' : '关'}</span></button>
-      </div>
-    </div>
-  </section>
-
-    <p class="m-settings-note">音质按可用音源选择。记住上次播放会在启动时恢复进度；歌词模糊分别使用封面生成背景、弱化非当前行。</p>
-  {/if}
-
-  {#if category === 'sources'}
-  <section class="m-settings-section" aria-labelledby="source-plugin-settings">
-    <h2 id="source-plugin-settings">播放音源</h2>
-    <div class="m-settings-list">
-      <SourcePluginSettings mobile />
-    </div>
-  </section>
-
-  {/if}
-
-  {#if category === 'android' && engine.native}
-    <section class="m-settings-section m-settings-section--android" aria-labelledby="android-settings">
-      <h2 id="android-settings">系统集成</h2>
-      <div class="m-android-content">
-        <AndroidPlayerSettings mobile />
-      </div>
-    </section>
-  {/if}
-
-  {#if category === 'general'}
-  <section class="m-settings-section" aria-labelledby="app-settings">
-    <h2 id="app-settings">应用</h2>
-    <div class="m-settings-list">
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>{t('settings.language', '语言')}</strong>
-          <span>{t('settings.languageDesc', '界面语言')}</span>
-        </div>
-        <SettingSelect label={t('settings.language', '语言')} value={settings.currentLocale} options={[{ value: 'zh', label: '中文' }, { value: 'en', label: 'English' }]} onChange={settings.handleLocale} />
-      </div>
-
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>{t('settings.defaultPage', '启动默认页面')}</strong>
-          <span>{t('settings.defaultPageDesc', '启动时自动打开的页面')}</span>
-        </div>
-        <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage === 'home' ? 'explore' : settings.defaultPage} options={defaultPageOptions} onChange={settings.handleDefaultPage} />
-      </div>
-
-      <div class="m-settings-row">
-        <div class="m-settings-copy">
-          <strong>布局模式</strong>
-          <span>自动模式会根据屏幕方向切换</span>
-        </div>
-        <SettingSelect label="布局模式" value={settings.layoutMode} options={layoutOptions} onChange={settings.handleLayoutMode} />
-      </div>
-    </div>
-  </section>
-
-  {/if}
-
-  {#if category === 'data'}
-  <section class="m-settings-section" aria-labelledby="data-settings">
-    <h2 id="data-settings">数据与账号</h2>
-    <div class="m-settings-list">
+          {:else if category === 'sources'}
+            <SourcePluginSettings mobile />
+          {:else if category === 'data'}
       <button class="m-settings-row m-settings-row--button" type="button" onclick={settings.handleClearHistory}>
         <div class="m-settings-copy">
           <strong>{t('settings.clearHistory', '清除播放历史')}</strong>
@@ -252,20 +194,13 @@
           <span class="m-row-value action">{settings.cookieCheckMsg || '检测'}</span>
         </button>
       {/if}
-    </div>
-  </section>
 
-  {/if}
-
-  {#if category === 'advanced'}
-  <section class="m-settings-section" aria-labelledby="advanced-settings">
-    <h2 id="advanced-settings">连接与存储</h2>
-    <div class="m-settings-list">
+          {:else if category === 'advanced'}
       <div class="m-developer-content">
         <div class="m-settings-row m-settings-row--stacked">
           <div class="m-settings-copy">
             <strong>API 后端地址</strong>
-            <span>留空时使用内置地址</span>
+            <span>修改后自动保存并生效</span>
           </div>
           <input type="url" aria-label="API 后端地址" class="m-settings-input" placeholder="https://your-api-server.com" value={settings.apiBaseValue} oninput={(e) => settings.handleSetApiBase((e.target as HTMLInputElement).value)} />
           <small class="m-api-hint">{DEFAULT_API_BASE}{#if settings.apiBaseStatus} · {settings.apiBaseStatus}{/if}</small>
@@ -279,31 +214,33 @@
           <span class="m-row-value danger">{settings.idbCleared || t('settings.clear', '清除')}</span>
         </button>
       </div>
-    </div>
-  </section>
 
-  {/if}
-
-  {#if category === 'about'}
-  <section class="m-settings-section" aria-labelledby="about-settings">
-    <h2 id="about-settings">版本信息</h2>
-    <div class="m-settings-list">
+          {:else if category === 'about'}
       <div class="m-settings-row m-settings-row--static">
         <div class="m-settings-copy"><strong>哲听</strong><span>当前版本</span></div>
         <span class="m-row-value">{pkg.version}</span>
       </div>
-    </div>
-  </section>
 
+          {/if}
+        </div>
+      {/if}
+    </section>
   {/if}
-
+  {#if category === 'playback'}<p class="m-settings-note">{t('settings.playbackNote')}</p>{/if}
   {#if category === 'data' && auth.isLoggedIn}
     <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} />退出登录</button>
   {/if}
 </div>
 
 <style>
-  .m-settings { display: grid; gap: 24px; padding-bottom: 24px; }
+  .m-settings { --settings-group: #fff; display: grid; gap: 24px; max-width: 840px; margin-inline: auto; padding-bottom: 24px; }
+  :global(html[data-theme="dark"]) .m-settings { --settings-group: #1c1c1e; }
+  :global(html:not(.mobile-runtime)) .m-settings { --md-primary: var(--accent); --md-primary-container: color-mix(in srgb, var(--accent) 12%, var(--settings-group)); --md-surface: var(--settings-group); }
+  .m-settings-title { margin: 0; font-size: 2.125rem; line-height: 1.2; }
+  .m-settings-back { color: var(--md-primary); }
+  .m-settings-back > :global(svg) { color: inherit; opacity: 1; }
+  .m-settings-row:focus-visible { outline: 2px solid var(--md-primary); outline-offset: -3px; }
+  .m-settings :global(select.settings-select) { min-width: 116px; min-height: 44px; max-width: 48%; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--settings-group); font: inherit; }
   .m-settings-section { display: grid; gap: 8px; min-width: 0; }
   .m-settings-section > h2 { margin: 0; padding: 0 16px; color: var(--text-secondary); font-size: .8125rem; line-height: 1.5; font-weight: 400; }
   .m-settings-note { margin: 0; padding: 0 16px; color: var(--text-secondary); font-size: .8125rem; line-height: 1.5; }
