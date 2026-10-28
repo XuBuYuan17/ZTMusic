@@ -31,6 +31,7 @@
 
   $effect(() => {
     const uid = loadFor
+    loaded = null
     if (uid === undefined || uid === null || uid === '') return
     if (followsPreview || followersPreview) return
     let alive = true

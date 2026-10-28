@@ -115,8 +115,8 @@ const PLAYLIST_PREFETCH_CONCURRENCY = 2
 const PLAYLIST_PREFETCH_BURST = 4
 
 // ── 导航状态 ──
-let _activeView = $state('home')
-let _previousView = $state('home')
+let _activeView = $state('library')
+let _previousView = $state('library')
 let _selectedId = $state<number | null>(null)
 let _routeStack = $state<RouteEntry[]>([])
 let _routeTransition = $state('soft')
@@ -482,6 +482,10 @@ async function goArtist(id: number | null, shouldPushRoute = true): Promise<void
 
 function goUser(id: number | null, shouldPushRoute = true): void {
   if (!id || id <= 0) return
+  if (auth.isLoggedIn && auth.user?.userId && String(id) === String(auth.user.userId)) {
+    if (_activeView !== 'library') handleNav('library')
+    return
+  }
   if (shouldPushRoute) pushRoute()
   _routeTransition = shouldPushRoute ? 'forward' : 'back'
   _previousView = _activeView
@@ -636,7 +640,7 @@ function playExploreSong(t: DetailTrack | null | undefined): void { if (t) playe
 
 function handleNav(view: string, extra?: number | null, preserveSource = false): void {
   invalidateDetailRequests()
-  if (view === 'profile') view = 'home'
+  if (view === 'home' || view === 'profile') view = 'library'
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
@@ -676,7 +680,7 @@ function goBack(): void {
   if (prev.view === 'album') { goAlbum(prev.id, false); return }
   if (prev.view === 'artist') { goArtist(prev.id, false); return }
   if (prev.view === 'user') { goUser(prev.id, false); return }
-  const bv = prev.view || 'home'; _routeTransition = 'back'; _previousView = _activeView; _activeView = bv
+  const bv = !prev.view || prev.view === 'home' || prev.view === 'profile' ? 'library' : prev.view; _routeTransition = 'back'; _previousView = _activeView; _activeView = bv
   _selectedId = null; _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
 }
 

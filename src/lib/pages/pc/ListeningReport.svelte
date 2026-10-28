@@ -27,10 +27,8 @@
   const dayCells = $derived<WallCell[]>(report.chart.map(day => ({ key: day.day, label: day.day.slice(8), caption: day.day, value: day.milliseconds, level: levelOf(day.milliseconds, dayMax) })))
   // 列是一周，所以首列前面要补上这段区间开始时还没到的几天，格子才对得上星期
   const dayLead = $derived(dayCells.length ? (new Date(`${dayCells[0]!.key}T12:00:00`).getDay() + 6) % 7 : 0)
-  // 凑不满一列就说明这个周期没有第二个维度可看，横过来铺一行比竖着一根条强
-  const dayHeat = $derived(dayCells.length + dayLead > 7)
-  const dayCols = $derived(Math.ceil((dayCells.length + (dayHeat ? dayLead : 0)) / 7))
-  const daySlots = $derived<(WallCell | null)[]>(dayHeat ? [...new Array<null>(dayLead).fill(null), ...dayCells] : dayCells)
+  const dayCols = $derived(Math.ceil((dayCells.length + dayLead) / 7))
+  const daySlots = $derived<(WallCell | null)[]>([...new Array<null>(dayLead).fill(null), ...dayCells])
   // 一周可能横跨两个月，取这周第一天所在的月份，和 GitHub 一个算法
   const monthMarks = $derived.by(() => {
     const marks: { key: string; label: string; start: number; span: number }[] = []
@@ -85,14 +83,31 @@
   <!-- ponytail: 365 个格子逐个做 tab 停靠点会毁掉键盘导航，所以整块图当成一张 role="img" 用汇总标签念，
        逐格详情只在 title 里。要逐格键盘可达就得改成 roving tabindex。 -->
   {#snippet heat(slots: (WallCell | null)[], cols: number, label: string)}
-    <div class="wall-figure" role="img" aria-label={label} use:revealLatestDays>
-      <div class="wall-months" style={`grid-template-columns:repeat(${cols},minmax(0,1fr))`}>
-        {#each monthMarks as mark (mark.key)}<span style={`grid-column:${mark.start + 1}/span ${mark.span}`}>{mark.label}</span>{/each}
-      </div>
+    <div class="wall-figure wall-figure-heat" class:wall-figure-compact={cols <= 12} style={`--wall-cell-size:${cols <= 12 ? 28 : 12}px`} role="img" aria-label={label}>
       <div class="wall-weekdays">{#each ['一', '', '三', '', '五', '', '日'] as text}<span>{text}</span>{/each}</div>
-      <div class="wall-grid wall-grid-heat" style={`aspect-ratio:${cols}/7`}>
-        {#each slots as cell, i (cell?.key ?? `blank${i}`)}
-          <span class="wall-cell" style={`--fill:${(cell?.level ?? 0) * 18}%`} title={cell ? `${cell.caption}：${listeningTime(cell.value)}` : undefined}></span>
+      <div class="wall-scroll" use:revealLatestDays>
+        <div class="wall-months" style={`grid-template-columns:repeat(${cols},var(--wall-cell-size))`}>
+          {#each monthMarks as mark, i (mark.key)}{#if i > 0 || mark.span > 1 || monthMarks.length === 1}<span style={`grid-column:${mark.start + 1}/span ${mark.span}`}>{mark.label}</span>{/if}{/each}
+        </div>
+        <div class="wall-grid wall-grid-heat">
+          {#each slots as cell, i (cell?.key ?? `blank${i}`)}
+            <span class="wall-cell" class:wall-cell-blank={!cell} style={`--fill:${(cell?.level ?? 0) * 18}%`} title={cell ? `${cell.caption}：${listeningTime(cell.value)}` : undefined}></span>
+          {/each}
+        </div>
+      </div>
+    </div>
+    <div class="wall-legend" aria-hidden="true"><span class="wall-scroll-hint">左右滑动查看更多</span><span>少</span>{#each [0, 18, 36, 54, 72, 90] as fill}<i class="wall-cell" style={`--fill:${fill}%`}></i>{/each}<span>多</span></div>
+  {/snippet}
+
+  {#snippet week(cells: WallCell[], label: string)}
+    <div class="wall-figure wall-week-figure" role="img" aria-label={label}>
+      <div class="wall-week-strip">
+        {#each weekdayNames as weekday, i}
+          {@const cell = cells[i]}
+          <div class="wall-week-day">
+            <span class="wall-cell" class:wall-cell-future={!cell} style={`--fill:${(cell?.level ?? 0) * 18}%`} title={cell ? `${cell.caption}：${listeningTime(cell.value)}` : undefined}>{cell?.label ?? ''}</span>
+            <span class="wall-week-label">{weekday}</span>
+          </div>
         {/each}
       </div>
     </div>
@@ -112,8 +127,9 @@
     </div>
   {/snippet}
 
+  <div class="report-masthead"><span>哲听 · 个人聆听档案</span><strong>聆听时报</strong><span>{new Date(now).toLocaleDateString('zh-CN')}</span></div>
   <header class="report-header">
-    <div><span class="eyebrow">YOUR LISTENING JOURNAL</span><h1>音乐，留下了足迹。</h1><p>本地听歌统计{#if archive} · 从 {new Date(archive.startedAt).toLocaleDateString('zh-CN')} 开始记录{/if}</p></div>
+    <div><span class="eyebrow">THE LISTENING JOURNAL</span><h1>音乐，留下了足迹。</h1><p>本地听歌统计{#if archive} · 从 {new Date(archive.startedAt).toLocaleDateString('zh-CN')} 开始记录{/if}</p></div>
     <nav aria-label="统计周期">{#each periods as item}<button class:active={period === item.id} aria-pressed={period === item.id} onclick={() => { period = item.id; now = Date.now() }}>{item.label}</button>{/each}</nav>
   </header>
 
@@ -128,21 +144,21 @@
       <div class="report-covers" aria-hidden="true">{#each covers as row, i}<img src={coverUrl(row.track.cover, 400)} alt="" referrerpolicy="no-referrer" style={`--i:${i}`} />{/each}{#if !covers.length}<div class="cover-placeholder"><Icon name="music" size={70} strokeWidth={1} /><span>下一首，新的足迹</span></div>{/if}</div>
     </section>
 
-    <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">DAILY RHYTHM</span><h2>聆听的日常</h2></div><span>{period === 'all' ? '最近 53 周' : periodLabel} · 一格一天</span></div>
-      {#if dayHeat}{@render heat(daySlots, dayCols, wallLabel)}{:else}{@render strip(dayCells, 1, wallLabel)}{/if}
+    <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">01 / DAILY RHYTHM</span><h2>聆听的日常</h2></div><span>{period === 'all' ? '最近 53 周' : periodLabel} · 一格一天</span></div>
+      {#if period === 'week'}{@render week(dayCells, wallLabel)}{:else}{@render heat(daySlots, dayCols, wallLabel)}{/if}
     </section>
 
     <div class="report-clocks">
-      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">HOUR BY HOUR</span><h2>聆听的时钟</h2></div><span>{periodLabel} · 一格一小时</span></div>
+      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">02 / HOUR BY HOUR</span><h2>聆听的时钟</h2></div><span>{periodLabel} · 一格一小时</span></div>
         {@render strip(hourCells, 3, `每小时聆听时长，${periodLabel}`)}
       </section>
-      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">WEEK BY WEEK</span><h2>一周的分布</h2></div><span>{periodLabel} · 一格一天</span></div>
+      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">03 / WEEK BY WEEK</span><h2>一周的分布</h2></div><span>{periodLabel} · 一格一天</span></div>
         {@render strip(weekdayCells, 1, `每星期聆听时长，${periodLabel}`)}
       </section>
     </div>
 
     <div class="report-rankings report-facts">
-      <section><div class="section-heading"><div><span class="eyebrow">HABITS</span><h2>习惯</h2></div><span>{periodLabel}</span></div>
+      <section><div class="section-heading"><div><span class="eyebrow">04 / HABITS</span><h2>习惯</h2></div><span>{periodLabel}</span></div>
         {#if report.activeDays}<dl class="fact-list">
           <div><dt>当前连续<small>最长 {report.streak.longest} 天</small></dt><dd>{report.streak.current} 天</dd></div>
           <div><dt>日均聆听<small>按有聆听的日子算</small></dt><dd>{listeningTime(report.averagePerDay)}</dd></div>
@@ -150,7 +166,7 @@
           <div><dt>单曲循环最多<small>{report.topTrack ? `${report.topTrack.plays} 次有效播放` : '—'}</small></dt><dd title={report.topTrack?.track.name || ''}>{report.topTrack?.track.name || '—'}</dd></div>
         </dl>{:else}<p class="ranking-empty">听上几天，这里会出现你的习惯。</p>{/if}
       </section>
-      <section><div class="section-heading"><div><span class="eyebrow">DISCOVERY</span><h2>发现</h2></div><span>{periodLabel}</span></div>
+      <section><div class="section-heading"><div><span class="eyebrow">05 / DISCOVERY</span><h2>发现</h2></div><span>{periodLabel}</span></div>
         {#if report.activeDays}<dl class="fact-list">
           <div><dt>新遇见的歌<small>第一次听</small></dt><dd>{report.discovered.tracks} 首</dd></div>
           <div><dt>新遇见的歌手<small>第一次听</small></dt><dd>{report.discovered.artists} 位</dd></div>
@@ -161,10 +177,10 @@
     </div>
 
     <div class="report-rankings">
-      <section><div class="section-heading"><div><span class="eyebrow">ON REPEAT</span><h2>反复相遇的歌</h2></div><span>TOP 10</span></div>
+      <section><div class="section-heading"><div><span class="eyebrow">06 / ON REPEAT</span><h2>反复相遇的歌</h2></div><span>TOP 10</span></div>
         {#if !report.tracks.length}<p class="ranking-empty">这个周期还没有聆听记录。</p>{:else}<ol class="track-ranking">{#each report.tracks as row, i}<li><span class="rank-number">{String(i + 1).padStart(2, '0')}</span>{#if row.track.cover}<img src={coverUrl(row.track.cover, 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="rank-placeholder"><Icon name="music" size={22} /></span>{/if}<div class="rank-copy"><strong title={row.track.name}>{row.track.name}</strong><small>{row.track.artists.join(' / ') || '未知歌手'}</small></div><div class="rank-time"><span>{listeningTime(row.milliseconds)}</span><small>{row.plays} 次有效播放</small></div></li>{/each}</ol>{/if}
       </section>
-      <section><div class="section-heading"><div><span class="eyebrow">FAMILIAR VOICES</span><h2>熟悉的声音</h2></div><span>TOP 5</span></div>
+      <section><div class="section-heading"><div><span class="eyebrow">07 / FAMILIAR VOICES</span><h2>熟悉的声音</h2></div><span>TOP 5</span></div>
         {#if !report.artists.length}<p class="ranking-empty">听过的声音，会慢慢汇集在这里。</p>{:else}<ol class="artist-ranking">{#each report.artists as artist, i}<li><span class="artist-initial" aria-hidden="true">{artist.name.slice(0, 1)}</span><div><strong>{artist.name}</strong><small>{listeningTime(artist.milliseconds)} · {artist.plays} 次有效播放</small><span class="artist-meter"><i style={`width:${artist.milliseconds / (report.artists[0]?.milliseconds || 1) * 100}%`}></i></span></div><span class="rank-number">{i + 1}</span></li>{/each}</ol>{/if}
       </section>
     </div>
@@ -174,43 +190,61 @@
 </div>
 
 <style>
-  .listening-report { max-width: 1360px; margin: 0 auto; padding: clamp(24px, 3.5vw, 56px); color: var(--text); }
-  .report-header { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 30px; }
-  .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .16em; color: var(--accent); }
-  h1 { font-size: clamp(26px, 2.5vw, 38px); letter-spacing: -.04em; margin: 10px 0; }
+  .listening-report { max-width: 1360px; margin: 0 auto; padding: clamp(24px, 3.5vw, 56px); color: var(--text); background: color-mix(in srgb, var(--bg-surface) 96%, var(--text)); }
+  .report-masthead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; padding: 4px 0 18px; border-bottom: 3px double var(--text-secondary); }
+  .report-masthead strong { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(28px, 4vw, 44px); line-height: 1; white-space: nowrap; }
+  .report-masthead > span { color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+  .report-masthead > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  .report-header { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding: 20px 0 24px; margin-bottom: 0; border-bottom: 1px solid var(--text-secondary); }
+  .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--accent); }
+  h1 { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(26px, 2.5vw, 38px); margin: 10px 0; }
   p { color: var(--text-tertiary); font-size: 12px; line-height: 1.8; }
-  nav { display: flex; flex-shrink: 0; padding: 4px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-layer); }
+  nav { display: flex; flex-shrink: 0; padding: 0; border-bottom: 1px solid var(--border); }
   button { font: inherit; cursor: pointer; }
-  nav button { border: 0; background: transparent; color: var(--text-secondary); padding: 8px 18px; font-size: 12px; border-radius: 999px; }
-  nav button.active { background: var(--bg-elevated); color: var(--text); box-shadow: 0 2px 8px #0000000c; }
+  nav button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-secondary); padding: 8px 15px; font-size: 12px; }
+  nav button.active { border-bottom-color: var(--accent); color: var(--text); font-weight: 700; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .report-hero { position: relative; display: grid; grid-template-columns: 1.25fr 1fr; min-height: 290px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: radial-gradient(ellipse at 90% 30%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 65%), var(--bg-surface); padding: 36px; gap: 20px; }
+  .report-hero { position: relative; display: grid; grid-template-columns: 1.15fr 1fr; min-height: 250px; gap: 30px; padding: 30px 0; border-bottom: 3px double var(--text-secondary); }
   .hero-copy { z-index: 1; min-width: 0; }
-  .hero-copy h2 { font-size: clamp(30px, 3.8vw, 58px); line-height: 1.2; letter-spacing: -.045em; font-weight: 700; margin: 20px 0 12px; }
+  .hero-copy h2 { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(30px, 3.8vw, 56px); line-height: 1.2; font-weight: 700; margin: 14px 0 10px; }
   .report-numbers { display: flex; gap: clamp(25px, 4vw, 70px); margin-top: 30px; }
   .report-numbers strong { display: block; font-size: 23px; font-variant-numeric: tabular-nums; font-weight: 500; }
   .report-numbers span { display: block; color: var(--text-tertiary); font-size: 11px; margin-top: 6px; }
-  .report-covers { position: relative; min-width: 0; min-height: 210px; align-self: center; }
-  .report-covers img { position: absolute; width: min(62%, 210px); aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md); left: calc(4% + var(--i) * 17%); top: calc(10px + var(--i) * 4px); transform: rotate(calc(-8deg + var(--i) * 8deg)); box-shadow: 0 15px 35px #0003; border: 3px solid var(--bg-elevated); }
-  .cover-placeholder { height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: color-mix(in srgb, var(--accent) 40%, var(--text-tertiary)); }
+  .report-covers { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 6px; align-self: center; padding-left: 24px; border-left: 1px solid var(--border); }
+  .report-covers img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0; }
+  .cover-placeholder { grid-column: 1 / -1; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: color-mix(in srgb, var(--accent) 40%, var(--text-tertiary)); }
   .cover-placeholder span { font-size: 12px; letter-spacing: .1em; }
-  .report-rhythm { margin: 32px 0; padding: 24px 26px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .report-rhythm { margin: 28px 0; padding: 20px 0; border-top: 1px solid var(--text-secondary); border-bottom: 1px solid var(--border); }
   .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .section-heading h2 { margin: 7px 0 0; font-size: 19px; font-weight: 500; }
+  .section-heading h2 { margin: 7px 0 0; font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: 20px; font-weight: 700; }
   .section-heading > span { color: var(--text-tertiary); font-size: 10px; flex-shrink: 0; }
   /* 热力图：颜色深浅代替柱高。0 级格子的底色必须比卡片背景深一档 ——
      --bg-layer(#eee) 和页面 --bg(#e8e8ed) 只差 6 个色阶，直接拿它当空格子会看不见，整块糊成散点 */
-  .wall-figure { --wall-empty: color-mix(in srgb, var(--text) 9%, var(--bg-layer)); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; }
-  .wall-months { grid-area: 1 / 2; display: grid; gap: 3px; font-size: 10px; color: var(--text-tertiary); }
-  .wall-months span { overflow: hidden; white-space: nowrap; }
-  .wall-weekdays { grid-area: 2 / 1; display: grid; grid-template-rows: repeat(7, minmax(0, 1fr)); gap: 3px; font-size: 10px; line-height: 1; color: var(--text-tertiary); text-align: right; }
-  .wall-grid { grid-area: 2 / 2; display: grid; grid-auto-flow: column; gap: 3px; }
-  .wall-grid-heat { grid-template-rows: repeat(7, minmax(0, 1fr)); grid-auto-columns: minmax(0, 1fr); }
+  .wall-figure { --wall-empty: color-mix(in srgb, var(--text) 9%, var(--bg-layer)); --wall-cell-size: 12px; display: grid; max-width: 100%; gap: 4px 8px; }
+  .wall-figure-heat { grid-template-columns: 20px minmax(0, 1fr); align-items: start; }
+  .wall-figure-compact { grid-template-columns: 20px max-content; justify-content: center; }
+  .wall-scroll { min-width: 0; max-width: 100%; display: grid; grid-template-columns: max-content; gap: 4px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 6px; }
+  .wall-months { display: grid; width: max-content; height: 18px; gap: 3px; font-size: 10px; line-height: 18px; color: var(--text-tertiary); }
+  .wall-months span { overflow: visible; white-space: nowrap; }
+  .wall-weekdays { display: grid; grid-template-rows: repeat(7, var(--wall-cell-size)); align-items: center; gap: 3px; margin-top: 22px; font-size: 10px; line-height: 1; color: var(--text-tertiary); text-align: right; }
+  .wall-grid { display: grid; grid-auto-flow: column; gap: 3px; }
+  .wall-grid-heat { width: max-content; grid-template-rows: repeat(7, var(--wall-cell-size)); grid-auto-columns: var(--wall-cell-size); }
   .wall-grid-strip { grid-template-rows: 26px; grid-auto-columns: minmax(0, 1fr); }
   .wall-figure-strip { grid-template-columns: minmax(0, 1fr); }
   .wall-figure-strip .wall-grid { grid-area: 1 / 1; }
   .wall-axis { grid-area: 2 / 1; display: grid; gap: 3px; font-size: 10px; line-height: 1; color: var(--text-tertiary); }
   .wall-cell { border-radius: 2px; background: color-mix(in srgb, var(--accent) var(--fill), var(--wall-empty)); }
+  .wall-cell-blank { visibility: hidden; }
+  .wall-week-figure { display: block; }
+  .wall-week-strip { width: min(100%, 420px); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0 auto; }
+  .wall-week-day { min-width: 0; display: grid; gap: 6px; text-align: center; }
+  .wall-week-day .wall-cell { aspect-ratio: 1; display: grid; place-items: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+  .wall-week-day .wall-cell-future { border: 1px dashed color-mix(in srgb, var(--text) 22%, transparent); background: color-mix(in srgb, var(--text) 3%, transparent); }
+  .wall-week-label { color: var(--text-tertiary); font-size: 11px; line-height: 1; }
+  .wall-legend { --wall-empty: color-mix(in srgb, var(--text) 9%, var(--bg-layer)); display: flex; align-items: center; justify-content: end; gap: 4px; margin-top: 6px; color: var(--text-tertiary); font-size: 10px; }
+  .wall-legend i { width: 10px; height: 10px; flex: none; }
+  .wall-scroll-hint { display: none; margin-right: auto; }
+  .wall-figure-compact + .wall-legend .wall-scroll-hint { display: none; }
   .report-clocks { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; margin: 32px 0; }
   .report-clocks > .report-rhythm { margin: 0; min-width: 0; }
   .report-facts { margin: 32px 0; }
@@ -219,8 +253,9 @@
   .fact-list > div:last-child { border-bottom: 0; padding-bottom: 0; }
   .fact-list dt { color: var(--text-tertiary); font-size: 11px; flex-shrink: 0; }
   .fact-list dd { margin: 0; min-width: 0; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .report-rankings { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 36px; }
+  .report-rankings { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 30px; padding: 22px 0; border-top: 1px solid var(--text-secondary); }
   .report-rankings > section { min-width: 0; }
+  .report-rankings > section + section { padding-left: 24px; border-left: 1px solid var(--border); }
   ol { padding: 0; margin: 0; list-style: none; }
   .track-ranking li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .rank-number { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; width: 19px; flex-shrink: 0; }
@@ -237,7 +272,7 @@
   .artist-ranking strong { display: -webkit-box; line-clamp: 2; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; }
   .artist-meter { display: block; height: 3px; background: var(--bg-layer); border-radius: 3px; margin-top: 10px; overflow: hidden; }
   .artist-meter i { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 55%, var(--bg-layer)); }
-  .legacy-report { display: flex; align-items: center; gap: 28px; margin-top: 36px; padding: 24px; border-radius: var(--radius-lg); background: var(--bg-layer); }
+  .legacy-report { display: flex; align-items: center; gap: 28px; margin-top: 24px; padding: 20px 0; border-top: 3px double var(--text-secondary); border-bottom: 1px solid var(--border); }
   .legacy-report > div:first-child { flex: 1; }
   .legacy-report h2 { font-size: 16px; margin: 8px 0; }
   .legacy-report strong { font-size: 16px; font-weight: 500; }
@@ -247,5 +282,5 @@
   .ranking-empty, .report-empty { padding: 35px 0; color: var(--text-tertiary); }
   .report-notice { display: flex; gap: 16px; align-items: center; margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
   .report-notice button { flex-shrink: 0; border: 0; background: var(--bg-layer); padding: 8px 12px; border-radius: var(--radius-xs); color: var(--text); }
-  @media (max-width: 1100px) { .report-hero { padding: 26px; } .report-rankings { gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .legacy-report { flex-wrap: wrap; } .legacy-report > div:first-child { flex-basis: 100%; } }
+  @media (max-width: 1100px) { .report-hero { padding: 24px 0; } .report-rankings { gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .legacy-report { flex-wrap: wrap; } .legacy-report > div:first-child { flex-basis: 100%; } }
 </style>

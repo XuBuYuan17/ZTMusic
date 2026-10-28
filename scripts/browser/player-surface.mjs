@@ -20,6 +20,9 @@ const surface = () => page.evaluate(() => {
     sharedOpacity: shared && getComputedStyle(shared).opacity,
     sharedVisibility: shared && getComputedStyle(shared).visibility,
     sharedImageLoaded: !!shared?.querySelector('img')?.naturalWidth,
+    sharedRadius: shared ? parseFloat(getComputedStyle(shared).borderTopLeftRadius) * shared.getBoundingClientRect().width / shared.offsetWidth : null,
+    miniRadius: parseFloat(getComputedStyle(document.querySelector('.mini-player-artwork')).borderTopLeftRadius),
+    coverRadius: cover ? parseFloat(getComputedStyle(cover).borderTopLeftRadius) : null,
     nav: document.querySelector('.mobile-tab-bar').style.transform,
     modal: !!document.querySelector('.ly-fullscreen'), sharedCount: document.querySelectorAll('.player-surface-cover').length }
 })
@@ -69,6 +72,7 @@ try {
       assert.equal(state.sharedVisibility, 'visible')
       assert.equal(state.sharedImageLoaded, true, 'the visible shared layer contains the loaded artwork')
       assert.ok(Math.abs(state.shared.width - state.shared.height) < 1)
+      assert.ok(Math.abs(state.sharedRadius - (state.miniRadius + (state.coverRadius - state.miniRadius) * state.p)) < 1, 'visible cover corners interpolate without shrinking at the mini player')
       await pointer('pointermove', x, y - travel * .5)
       await frames()
       state = await surface()
@@ -174,6 +178,38 @@ try {
   await page.evaluate(() => window.mobileFixture.closePlayer())
   await phase('closed')
   await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.evaluate(() => { window.mobileFixture.enableSilentPlayback(); window.mobileFixture.prepareMiniSwipe() })
+  await page.setViewportSize({ width: 375, height: 667 })
+  const swipeMini = page.locator('.player-bar-wrap .mini-player-open')
+  const swipeBox = await swipeMini.boundingBox()
+  const swipeY = swipeBox.y + swipeBox.height / 2
+  const swipeStart = swipeBox.x + swipeBox.width / 2
+  await pointer('pointerdown', swipeStart, swipeY, '.player-bar-wrap .mini-player-open')
+  await pointer('pointermove', swipeStart - 55, swipeY)
+  assert.equal(await page.locator('.mini-player-preview strong').innerText(), '下一首测试')
+  await pointer('pointerup', swipeStart - 55, swipeY)
+  assert.equal((await page.evaluate(() => window.mobileFixture.snapshot())).id, 702, 'a short drag returns without changing track')
+  await pointer('pointerdown', swipeStart, swipeY, '.player-bar-wrap .mini-player-open')
+  await pointer('pointermove', swipeStart - 90, swipeY)
+  assert.equal(await page.locator('.mini-player-preview strong').innerText(), '下一首测试')
+  await pointer('pointerup', swipeStart - 90, swipeY)
+  await page.waitForFunction(() => window.mobileFixture.snapshot().id === 703)
+  await pointer('pointerdown', swipeStart, swipeY, '.player-bar-wrap .mini-player-open')
+  await pointer('pointermove', swipeStart + 90, swipeY)
+  assert.equal(await page.locator('.mini-player-preview strong').innerText(), '当前歌曲测试')
+  await pointer('pointerup', swipeStart + 90, swipeY)
+  await page.waitForFunction(() => window.mobileFixture.snapshot().id === 702)
+  await pointer('pointerdown', swipeStart, swipeY, '.player-bar-wrap .mini-player-open')
+  await pointer('pointermove', swipeStart - 90, swipeY)
+  await pointer('pointercancel', swipeStart - 90, swipeY)
+  assert.equal((await page.evaluate(() => window.mobileFixture.snapshot())).id, 702, 'a cancelled drag never changes track')
+  assert.equal(await page.locator('.mini-player-preview').count(), 0, 'cancel removes the preview')
+  await pointer('pointerdown', swipeStart, swipeY, '.player-bar-wrap .mini-player-open')
+  await pointer('pointermove', swipeStart - 90, swipeY)
+  await pointer('pointerup', swipeStart - 90, swipeY)
+  await page.evaluate(() => window.mobileFixture.prepareMiniSwipe())
+  await page.waitForTimeout(180)
+  assert.equal((await page.evaluate(() => window.mobileFixture.snapshot())).id, 702, 'a replaced queue cancels the pending swipe commit')
   await page.evaluate(() => window.mobileFixture.seekForSurfaceTest())
   await page.evaluate(() => window.mobileFixture.openPlayer())
   await phase('open')

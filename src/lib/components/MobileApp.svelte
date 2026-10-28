@@ -15,7 +15,6 @@
 
   import ExplorePage from '../pages/pc/Explore.svelte'
   import LibraryPage from '../pages/pc/Library.svelte'
-  import HomePage from '../pages/pc/Home.svelte'
   import { settingsCategory, SETTINGS_CATEGORIES } from '../pages/mobile/settings-navigation.ts'
   import SettingsPage from '../pages/mobile/Settings.svelte'
   import LikedPage from '../pages/pc/Liked.svelte'
@@ -179,7 +178,7 @@
     callback?.(...args)
   }
   function handleNav(view: string, extra?: number | null): void {
-    if (view === 'profile') view = 'home'
+    if (view === 'home' || view === 'profile') view = 'library'
     if (view === activeView) {
       contentEl?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
       return
@@ -254,8 +253,6 @@
         <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} />
       {:else if page.view === 'about'}
         <AboutPage />
-      {:else if page.view === 'home'}
-        <HomePage onNavigate={handleNav} {onOpenLogin} onOpenPlaylist={(id, push, preview) => onOpenPlaylist?.(id as SongId, push, preview)} {onOpenUser} {onOpenAlbum} />
       {:else if page.view === 'liked'}
         <LikedPage {onOpenArtist} {onOpenAlbum} {onOpenLogin} />
       {:else if page.view === 'recent'}

@@ -15,8 +15,6 @@
   import { ncm } from '../../api/client.ts'
   import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
   import { formatDuration } from '../../format.ts'
-  import { coverUrl, progressiveCover } from '../../utils/image.ts'
-  import { extractCover } from '../../utils/normalize.ts'
   import SongListActions from '../../components/SongListActions.svelte'
   import SongList from '../../components/SongList.svelte'
   import { toSongRows } from '../../components/song-row.ts'
@@ -85,10 +83,6 @@
     return (track.artists || track.ar || []) as TrackArtist[]
   }
 
-  function coverOf(track: NormalizedSong | null): string {
-    return track?.picUrl || extractCover(track)
-  }
-
   function albumOf(track: NormalizedSong): string {
     return ((track.album as { name?: unknown } | null | undefined)?.name as string) || (track.al?.name as string) || ''
   }
@@ -107,16 +101,13 @@
   }
 
   const selectedDateMeta = $derived(dailyHistoryDates.find(item => (item.date || item) === selectedDailyDate) || null)
-  const heroSong = $derived(dailyHistorySongs[0] || null)
-  const heroCover = $derived(coverOf(heroSong) || '')
 </script>
 
 <div class="daily-page fade-in">
+  <div class="daily-masthead"><span>哲听 · 推荐档案</span><strong>每日推荐</strong><span>往期精选</span></div>
   <section class="daily-hero">
-    <div class="daily-hero-bg" style={heroCover ? `background-image:url(${coverUrl(heroCover, 900)})` : ''}></div>
-    <div class="daily-hero-shade"></div>
     <div class="daily-hero-copy">
-      <div class="daily-kicker">Daily Archive</div>
+      <div class="daily-kicker">THE DAILY ARCHIVE</div>
       <h1>历史日推</h1>
       <p>回看每天为你推送过的歌曲，把错过的那一首重新捡回来。</p>
       <div class="daily-hero-stats" data-date={selectedDailyDate}>
@@ -130,6 +121,7 @@
     {/if}
   </section>
 
+    {#if dailyHistoryDates.length > 0}<div class="daily-date-heading"><strong>往期档案</strong><span>选择日期回看推荐</span></div>{/if}
     {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
       <div class="daily-date-scroll" aria-label="加载历史日期">
         {#each Array(7) as _}

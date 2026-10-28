@@ -88,7 +88,7 @@
     if (!isAndroidRuntime()) return
     // 没有任何可返回的目标时不订阅，把返回键交还给系统（退出应用）。
     // 「根视图」按导航语义判断（home / explore 是两端各自的起点），不看窗口宽度。
-    const atRoot = router.activeView === 'explore' || router.activeView === 'home'
+    const atRoot = router.activeView === 'explore' || router.activeView === 'library'
     const hasBackTarget = mobileDialogOpen || showMobileDrawer || showSheet || showQueuePanel
       || router.routeStack.length > 0 || !atRoot
     if (!hasBackTarget) return
@@ -98,7 +98,7 @@
   function hasBackTargetNow(): boolean {
     if (mobileDialogOpen || showMobileDrawer || showSheet || showQueuePanel) return true
     if (router.routeStack.length > 0) return true
-    return router.activeView !== 'explore' && router.activeView !== 'home'
+    return router.activeView !== 'explore' && router.activeView !== 'library'
   }
 
   // 四个返回入口（页面按钮 / 外壳 / Escape / Android）共用同一份顺序
@@ -351,7 +351,7 @@
   const toggleTheme = createThemeTransition({ getTheme: () => theme, setTheme: (value) => theme = value, tick })
 
   const defaultPage = getSetting('default_page', 'home')
-  if (isMobileRuntime()) { router.handleNav('explore') }
+  if (isMobileRuntime()) { router.handleNav(defaultPage === 'library' || defaultPage === 'home' ? 'library' : 'explore') }
   else if (defaultPage === 'library') { router.handleNav('library') }
   else if (defaultPage === 'explore') { router.activeView = 'explore' }
   else if (defaultPage === 'browse') { router.activeView = 'explore' }

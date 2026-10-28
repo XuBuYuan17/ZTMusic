@@ -43,6 +43,12 @@ await ncm.userPlaylist(42)
 await ncm.userPlaylist(42)
 assert.equal(fetches.length, 1, 'userPlaylist already dedupes through the cache')
 
+fetches = []
+await ncm.userPlaylist(42, { limit: 100, offset: 100, cache: false })
+const pageUrl = new URL(fetches[0]!)
+assert.equal(pageUrl.searchParams.get('limit'), '100')
+assert.equal(pageUrl.searchParams.get('offset'), '100')
+
 // ── 换账号：缓存键含 cookie，必须重新请求，不能读上一账号的缓存 ──
 fetches = []
 apiSession.setCookie('MUSIC_A_T=bbb; MUSIC_U=u2')

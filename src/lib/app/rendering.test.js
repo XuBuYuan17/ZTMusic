@@ -47,7 +47,7 @@ const lazyRoutes = [
   'LocalMusicPage',
 ]
 
-assert.ok(desktopHost.includes("{#if router.activeView === 'home'}"), 'desktop routes should use conditional rendering')
+assert.ok(desktopHost.includes("{:else if router.activeView === 'library'}"), 'desktop routes should render the unified library')
 assert.ok(!desktopHost.includes('<div style:display={router.activeView'), 'inactive desktop pages must not remain mounted')
 assert.ok(!desktopHost.includes('{#key router.activeView}'), 'desktop route changes should not add a second forced remount boundary')
 assert.ok(app.includes("const loadMobileApp = lazyModule(() => import("), 'mobile application should not be in the desktop startup bundle')
@@ -155,9 +155,8 @@ assert.ok(homePage.includes('userId: auth.user?.userId'), '主页快照必须写
 // D02：资料库组合模块，不再渲染完整主页
 assert.ok(!librarySource.includes('Home.svelte'), '资料库不得再渲染整页主页')
 assert.ok(!homePage.includes('profileOnly'), '主页不再提供裁切式的 profileOnly 模式')
-assert.ok(homePage.includes('ProfileQuickEntries') && librarySource.includes('ProfileQuickEntries'), '两端必须复用同一个快捷入口组件')
-assert.ok(homePage.includes('buildProfileQuickEntries(') && librarySource.includes('buildProfileQuickEntries('), '两端必须复用同一个入口定义')
-assert.ok(librarySource.includes('UserProfileHero'), '资料库概览必须复用 UserProfileHero')
+assert.ok(librarySource.includes('LikedCoverFalls'), '资料库的喜欢入口复用封面瀑布流')
+assert.ok(librarySource.includes('library-identity'), '资料库包含个人身份信息')
 assert.ok(!homePage.includes('likedPlaylist?.trackCount ?? 0} 首'), '入口文案不得在页面里各自硬编码')
 // D03：最近播放模块
 assert.ok(homePage.includes('RecentTracksModule') && librarySource.includes('RecentTracksModule'), '两端复用同一个最近播放模块')
@@ -166,7 +165,7 @@ assert.ok(!homePage.includes('profile-home__track-list'), '列表样式不得再
 assert.ok(recentModule.includes('player.playQueue(sources as unknown as CompactTrackInput[], index)'), '预览播放必须用原始队列 + 列表索引')
 assert.ok(recentModule.includes('local-listening-history-change') && recentModule.includes('LISTENING_CHANGE'), '播放历史变化后模块要刷新')
 // D04：本周常听模块
-assert.ok(homePage.includes('WeeklyListenModule'), '主页必须复用本周常听模块')
+assert.ok(librarySource.includes('WeeklyListenModule'), '资料库必须复用本周常听模块')
 assert.ok(weeklyModule.includes('weeklyListenState(') && weeklyModule.includes('weeklyListenCanExpand('), '数据状态与展开能力由可测逻辑决定')
 assert.ok(weeklyModule.includes('本周常听加载失败') && weeklyModule.includes('onRetry'), '失败必须显示失败文案并可重试，不能当成没有听歌')
 assert.ok(lyricsCss.includes('html.desktop-titlebar:not(.mobile-runtime) .ly-container'), 'fullscreen lyrics top buttons must clear the titlebar')

@@ -24,7 +24,7 @@ assert.ok(section.includes('library-mobile-section'), 'group variant keeps the g
 
 // ── 两个页面都走同一套组件，网格/分组吃同一份数据 ──
 assert.ok(home.includes("import PlaylistCoverCard from '../../components/PlaylistCoverCard.svelte'"))
-assert.ok(home.includes('PlaylistSection') && library.includes('PlaylistSection'))
+assert.ok(home.includes('PlaylistSection') && library.includes('library-playlists'))
 assert.ok((home.match(/<PlaylistCoverCard/g) ?? []).length === 2, 'both home grids use the same card')
 assert.ok(home.includes('createdPlaylists') && home.includes('recommendPlaylists'), 'grids read the same normalized playlists')
 assert.ok(!home.includes('onEdit') && !home.includes('onDelete'), 'home cards expose no management actions')
@@ -34,8 +34,8 @@ assert.ok(home.includes("moreLabel=\"全部歌单\"") && home.includes("onMore={
 assert.ok(home.includes("moreLabel=\"更多推荐\"") && home.includes("onMore={() => onNavigate?.('explore')}"), 'recommend preview links to explore')
 assert.ok(home.includes('slice(0, 6)'), 'previews stay truncated, the full entry is the way out')
 
-// ── 管理能力仍在业务卡片上 ──
-assert.ok(library.includes('LibraryPlaylistCard'), 'library keeps the management-capable card')
-assert.ok(library.includes('kind: \'owned\'') && library.includes('kind: \'saved\''), 'ownership comes from data, not layout')
+// ── 资料库卡片继续提供按归属区分的管理操作 ──
+assert.ok(library.includes('openOptions(item.pl, item.kind') && library.includes('libraryPlaylistActions(selected.kind)'), 'library cards retain ownership-aware management')
+assert.ok(library.includes("kind: 'owned'") && library.includes("kind: 'saved'"), 'ownership comes from data, not layout')
 
 console.log('playlist card surface: display card, section and truncation passed')

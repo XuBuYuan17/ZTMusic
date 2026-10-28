@@ -10,36 +10,35 @@
   import { musicService } from '../../music/service.ts'
   import { player } from '../../stores/player.svelte.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
-  import { normalizePlaylist } from '../../utils/normalize.ts'
+  import { normalizePlaylist, normalizeRecordSong, type NormalizedRecordSong } from '../../utils/normalize.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
   import CreatePlaylistModal from '../../components/CreatePlaylistModal.svelte'
   import PlaylistEditModal from '../../components/PlaylistEditModal.svelte'
-  import LibraryPlaylistCard from '../../components/LibraryPlaylistCard.svelte'
+  import PlaylistGroupPicker from '../../components/PlaylistGroupPicker.svelte'
   import { PLAYLIST_CHANGE, notifyPlaylistChange } from '../../stores/router.svelte.ts'
-  import { tick } from 'svelte'
-  import { responsive } from '../../utils/responsive.ts'
+  import { onDestroy, tick } from 'svelte'
+  import { isTouchDevice, responsive } from '../../utils/responsive.ts'
   import Icon from '../../components/ui/Icon.svelte'
   import PlaylistActionSheet, { queuePlaylist, sharePlaylist, playlistPortal, type PlaylistAction } from '../../components/PlaylistActionSheet.svelte'
-  import UserProfileHero from '../../components/UserProfileHero.svelte'
-  import ProfileQuickEntries from '../../components/ProfileQuickEntries.svelte'
+  import LikedCoverFalls from '../../components/LikedCoverFalls.svelte'
   import RecentTracksModule from '../../components/RecentTracksModule.svelte'
-  import PlaylistSection from '../../components/PlaylistSection.svelte'
-  import SocialPreviewSection from '../../components/SocialPreviewSection.svelte'
+  import WeeklyListenModule from '../../components/WeeklyListenModule.svelte'
   import { libraryPlaylistActions, runLibraryPlaylistAction } from '../../components/library-playlist-actions.ts'
-  import { buildProfileQuickEntries } from '../../components/profile-quick-entries.ts'
-  import { loadListeningReport } from '../../services/listening-report-store.ts'
-  import { summarizeReport, listeningTime } from '../../services/listening-report.ts'
-  import { loadLocalRecentTracks } from '../../services/home.ts'
-  import type { UserProfileData } from '../../services/user-profile.ts'
+  import { coverUrl } from '../../utils/image.ts'
+  import { formatPlayCount } from '../../format.ts'
+  import { reducedMotion } from '../../app/desktop-motion.ts'
+  import { mobileLongPress } from '../../app/mobile-interaction.ts'
+  import { readPlaylistGroups, PLAYLIST_GROUPS_CHANGE, type PlaylistGroup } from '../../services/playlist-groups.ts'
+  import { loadLibraryPlaylists } from '../../services/library-playlists.ts'
 
   interface LibraryData {
-    stats: { follow: number; fans: number; playlist: number }
+    stats: { follow: number | null; fans: number | null; playlist: number | null }
     createdPlaylists: NormalizedPlaylist[]
     savedPlaylists: NormalizedPlaylist[]
     likedPlaylist: NormalizedPlaylist | null
     /** 资料概览用的最小身份信息；预告/周排行为空，由主页负责 */
-    profile: { nickname: string; avatarUrl: string; signature: string; level: number; listenSongs: number }
+    profile: { nickname: string; avatarUrl: string; signature: string; level: number | null; listenSongs: number | null }
   }
   interface RawPlaylist {
     specialType?: number
@@ -58,6 +57,85 @@
   let loading = $state(false)
   let error = $state('')
   let _requestId = 0
+  let ownerId = initial?.userId ?? null
+  let weeklyTracks = $state<NormalizedRecordSong[]>([])
+  let weeklyLoading = $state(false)
+  let weeklyFailed = $state(false)
+  let weeklyRequestId = 0
+  let expandedCollection = $state<string | null>(null)
+  let customGroups = $state<PlaylistGroup[]>([])
+  let groupLoadError = $state('')
+  let collectionRoot = $state<HTMLElement | null>(null)
+  let collectionAnimations: Animation[] = []
+  let collectionMotionVersion = 0
+  function cancelCollectionMotion(): void {
+    collectionMotionVersion++
+    collectionAnimations.forEach(animation => animation.cancel())
+    collectionAnimations = []
+  }
+  async function setExpandedCollection(id: string | null): Promise<void> {
+    const affected = new Set([expandedCollection, id].filter((value): value is string => value !== null))
+    const covers = [...(collectionRoot?.querySelectorAll<HTMLElement>('.collection-group') ?? [])]
+      .filter(group => group.dataset.groupId && affected.has(group.dataset.groupId))
+      .flatMap(group => [...group.querySelectorAll<HTMLElement>('.collection-item__cover')].slice(0, 3))
+    const before = new Map(covers.filter(node => getComputedStyle(node).visibility !== 'hidden').map(node => {
+      const rect = node.getBoundingClientRect()
+      const transform = getComputedStyle(node).transform
+      const match = transform.match(/^matrix\(\s*([^,]+),\s*([^,]+)/)
+      const angle = match ? Math.atan2(Number(match[2]), Number(match[1])) : 0
+      const rotatedWidth = Math.abs(Math.cos(angle)) * node.offsetWidth + Math.abs(Math.sin(angle)) * node.offsetHeight
+      return [node, { rect, angle, width: rotatedWidth ? node.offsetWidth * rect.width / rotatedWidth : 0 }]
+    }))
+    cancelCollectionMotion()
+    const version = collectionMotionVersion
+    expandedCollection = id
+    await tick()
+    if (version !== collectionMotionVersion || reducedMotion()) return
+    for (const [node, source] of before) {
+      if (!node.isConnected || getComputedStyle(node).visibility === 'hidden') continue
+      const target = node.getBoundingClientRect()
+      if (!source.width || !target.width || !target.height) continue
+      const transform = getComputedStyle(node).transform
+      const match = transform.match(/^matrix\(\s*([^,]+),\s*([^,]+)/)
+      const targetAngle = match ? Math.atan2(Number(match[2]), Number(match[1])) : 0
+      const rotatedWidth = Math.abs(Math.cos(targetAngle)) * node.offsetWidth + Math.abs(Math.sin(targetAngle)) * node.offsetHeight
+      const targetWidth = rotatedWidth ? node.offsetWidth * target.width / rotatedWidth : 0
+      if (!targetWidth) continue
+      const x = source.rect.left + source.rect.width / 2 - target.left - target.width / 2
+      const y = source.rect.top + source.rect.height / 2 - target.top - target.height / 2
+      const scale = source.width / targetWidth
+      const index = Number(node.closest<HTMLElement>('.collection-item')?.dataset.index ?? 0)
+      try {
+        const animation = node.animate([
+          { transform: `translate(${x}px, ${y}px) rotate(${source.angle}rad) scale(${scale})` },
+          { transform: `translate(0, 0) rotate(${targetAngle}rad) scale(1)` },
+        ], { duration: 400, delay: Math.min(index, 3) * 35, easing: 'cubic-bezier(.22,.7,.2,1)', fill: 'backwards' })
+        collectionAnimations.push(animation)
+      } catch (error) { console.warn('[collection] 封面过渡不可用', error) }
+    }
+  }
+  function dismissPlaylistManager(): void { void setExpandedCollection(null) }
+  function openCollection(id: string): void { void setExpandedCollection(expandedCollection === id ? null : id) }
+  onDestroy(cancelCollectionMotion)
+  function dismissOnOutside(event: PointerEvent): void {
+    if (!expandedCollection || !(event.target instanceof Element)) return
+    if (event.target.closest('.collection-groups, .library-options-portal, .library-management-portal, [role="dialog"]')) return
+    dismissPlaylistManager()
+  }
+  function dismissOnEscape(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && expandedCollection && !optionsTarget && !showCreateModal && !editTarget && !groupTarget && !deleteTarget && !unsubscribeTarget) dismissPlaylistManager()
+  }
+  function refreshGroups(): void {
+    if (!auth.user?.userId) { customGroups = []; groupLoadError = ''; return }
+    try { customGroups = readPlaylistGroups(auth.user.userId); groupLoadError = '' }
+    catch (error) { customGroups = []; groupLoadError = error instanceof Error ? error.message : '读取分组失败' }
+  }
+  $effect(() => {
+    auth.user?.userId
+    refreshGroups()
+    window.addEventListener(PLAYLIST_GROUPS_CHANGE, refreshGroups)
+    return () => window.removeEventListener(PLAYLIST_GROUPS_CHANGE, refreshGroups)
+  })
 
   // 创建歌单
   let showCreateModal = $state(false)
@@ -68,6 +146,7 @@
 
   // 自建歌单：编辑 / 删除
   let editTarget = $state<NormalizedPlaylist | null>(null)
+  let groupTarget = $state<NormalizedPlaylist | null>(null)
   let deleteTarget = $state<NormalizedPlaylist | null>(null)
   let deleting = $state(false)
   type PlaylistKind = 'liked' | 'owned' | 'saved'
@@ -80,6 +159,11 @@
     optionsOrigin = origin
     pendingAction = null
     optionsTarget = { pl, kind }
+  }
+  function groupLongPress(node: HTMLElement, item: { pl: NormalizedPlaylist; kind: 'owned' | 'saved' }) {
+    let current = item
+    const action = mobileLongPress(node, { enabled: () => isTouchDevice(), open: () => openOptions(current.pl, current.kind, node) })
+    return { update(next: typeof item) { current = next }, destroy() { action.destroy() } }
   }
   function closeOptions(action: (() => void) | null = null) { pendingAction = action; if (optionsTarget) optionsClosing = true }
   function finishOptions() {
@@ -94,11 +178,11 @@
   let notice = $state('')
 
   const emptyLibrary: LibraryData = {
-    stats: { follow: 0, fans: 0, playlist: 0 },
+    stats: { follow: null, fans: null, playlist: null },
     createdPlaylists: [],
     savedPlaylists: [],
     likedPlaylist: null,
-    profile: { nickname: '', avatarUrl: '', signature: '', level: 0, listenSongs: 0 },
+    profile: { nickname: '', avatarUrl: '', signature: '', level: null, listenSongs: null },
   }
 
   let data = $derived(library || emptyLibrary)
@@ -109,6 +193,13 @@
   let otherSavedPlaylists = $derived(
     likedPlaylist ? savedPlaylists.filter(p => p.id !== likedPlaylist.id) : savedPlaylists,
   )
+  const allGroupPlaylists = $derived([...createdPlaylists.map(pl => ({ pl, kind: 'owned' as const })), ...otherSavedPlaylists.map(pl => ({ pl, kind: 'saved' as const }))])
+  const collectionGroups = $derived([
+    { id: 'owned', title: '我创建的', items: allGroupPlaylists.filter(item => item.kind === 'owned') },
+    { id: 'saved', title: '我收藏的', items: allGroupPlaylists.filter(item => item.kind === 'saved') },
+    ...customGroups.map(group => ({ id: `custom:${group.id}`, title: group.name, items: allGroupPlaylists.filter(item => group.playlistIds.includes(String(item.pl.id))) })),
+  ])
+  const displayGroups = $derived([...collectionGroups].sort((a, b) => Number(b.id === expandedCollection) - Number(a.id === expandedCollection)))
 
   // 我喜欢的音乐：直接拉取歌单曲目播放
   let playingLiked = $state(false)
@@ -119,57 +210,22 @@
     librarySnapshot = { userId: auth.user?.userId, library, likedCovers: [...likedCovers] }
   }
 
-  // 资料概览里的「本地听歌统计 / 最近播放」读的是本机数据，不走网络
-  let quickStats = $state({ statsError: false, plays: 0, milliseconds: 0, recentCount: 0 })
-
-  async function loadQuickStats(): Promise<void> {
-    const [stats, recent] = await Promise.allSettled([loadListeningReport(), loadLocalRecentTracks(8)])
-    const summary = stats.status === 'fulfilled' ? summarizeReport(stats.value.records) : null
-    quickStats = {
-      statsError: stats.status === 'rejected',
-      plays: summary?.plays ?? 0,
-      milliseconds: summary?.milliseconds ?? 0,
-      recentCount: recent.status === 'fulfilled' ? recent.value.length : 0,
-    }
+  async function loadWeekly(): Promise<void> {
+    const uid = auth.user?.userId
+    const rid = ++weeklyRequestId
+    if (!auth.isLoggedIn || !uid) { weeklyTracks = []; weeklyLoading = false; weeklyFailed = false; return }
+    weeklyLoading = true
+    weeklyFailed = false
+    try {
+      const response = rec(await ncm.userRecordWeek(uid))
+      if (rid !== weeklyRequestId || auth.user?.userId !== uid) return
+      const nested = rec(response?.data)
+      const items = response?.weekData ?? response?.list ?? nested?.weekData ?? nested?.list
+      weeklyTracks = (Array.isArray(items) ? items : []).map(normalizeRecordSong).filter((song): song is NormalizedRecordSong => song !== null).slice(0, 10)
+    } catch {
+      if (rid === weeklyRequestId && auth.user?.userId === uid) { weeklyTracks = []; weeklyFailed = true }
+    } finally { if (rid === weeklyRequestId) weeklyLoading = false }
   }
-
-  // 资料概览：复用 UserProfileHero，只喂身份与四个统计，不渲染完整主页
-  const overviewProfile = $derived<UserProfileData | null>(auth.user ? {
-    userId: auth.user.userId,
-    nickname: data.profile.nickname || String(auth.user.nickname ?? ''),
-    avatarUrl: data.profile.avatarUrl || String(auth.user.avatarUrl ?? ''),
-    backgroundUrl: '',
-    signature: data.profile.signature,
-    level: data.profile.level,
-    listenSongs: data.profile.listenSongs,
-    follows: data.stats.follow,
-    followeds: data.stats.fans,
-    playlistCount: data.stats.playlist,
-    followed: false,
-    artistId: null,
-    artistName: '',
-    identityLabel: '',
-    createdPlaylists: [],
-    likedPlaylist: null,
-    weeklyTracks: [],
-    // 资料库概览不展示周榜，这里不是「请求失败」
-    weeklyTracksFailed: false,
-    followsPreview: [],
-    followersPreview: [],
-  } : null)
-
-  const overviewEntries = $derived(buildProfileQuickEntries({
-    likedCount: data.likedPlaylist?.trackCount ?? 0,
-    statsText: quickStats.milliseconds ? `${quickStats.plays} 次 · ${listeningTime(quickStats.milliseconds)}` : '',
-    statsError: quickStats.statsError,
-    recentCount: quickStats.recentCount,
-    onOpenFavorites: () => data.likedPlaylist
-      ? onOpenPlaylist?.(data.likedPlaylist.id as SongId, true, data.likedPlaylist)
-      : onNavigate?.('liked'),
-    onOpenStats: () => onNavigate?.('listeningStats'),
-    onOpenRecent: () => onNavigate?.('recent'),
-    onOpenDaily: () => onNavigate?.('dailyHistory'),
-  }))
 
   async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
     const id = liked?.id
@@ -210,9 +266,19 @@
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
   }
 
+  function count(v: unknown): number | null {
+    if (v === null || v === undefined || v === '') return null
+    const n = Number(v)
+    return Number.isFinite(n) && n >= 0 ? n : null
+  }
+
+  function displayCount(value: number | null | undefined): string {
+    return value == null ? '—' : formatPlayCount(value) || '0'
+  }
+
   function isOwnPlaylist(p: unknown, uid: SongId): boolean {
     const r = rec(p) as RawPlaylist | null
-    return r?.creator?.userId === uid && r.specialType !== 5
+    return String(r?.creator?.userId ?? '') === String(uid) && r?.specialType !== 5
   }
 
   async function load(): Promise<void> {
@@ -222,22 +288,19 @@
       const rawUid: unknown = auth.user?.userId || auth.user?.id
       const uid: SongId = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : 0
       const owner: unknown = rawUid
-      const [plRes, subRes, detailRes] = await Promise.all([
-        ncm.userPlaylist(uid).catch(() => ({ playlist: [] })),
+      const [all, subRes, detailRes] = await Promise.all([
+        loadLibraryPlaylists(ncm.userPlaylist, uid, () => rid === _requestId && (auth.user?.userId || auth.user?.id) === owner),
         ncm.userSubcount().catch(() => ({})),
         ncm.userDetail(uid).catch(() => ({})),
       ])
       // 请求期间换号时，过期结果不得写进新账号的状态与快照
       if (rid !== _requestId || (auth.user?.userId || auth.user?.id) !== owner) return
 
-      const rawList = rec(plRes)?.playlist
-      const all: unknown[] = Array.isArray(rawList) ? rawList.slice(0, 100) : []
-      const normalized = all.map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
       const saved = all.filter(p => !isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
       const created = all.filter(p => isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
       const liked = normalizePlaylist(all.find(p => {
         const r = rec(p) as RawPlaylist | null
-        return r?.creator?.userId === uid && r.specialType === 5
+        return String(r?.creator?.userId ?? '') === String(uid) && r?.specialType === 5
       }))
 
       const subR = rec(subRes)
@@ -245,12 +308,14 @@
       const detailR = rec(detailRes)
       const detail = rec(detailR?.data) || detailR || {}
       const profile = rec(detail.profile) || {}
+      const createdCount = count(sub.createdPlaylistCount)
+      const savedCount = count(sub.subPlaylistCount)
 
       library = {
         stats: {
-          follow: (sub.artistCount || sub.followCount || 0) as number,
-          fans: (profile.followeds || detail.followeds || 0) as number,
-          playlist: ((sub.createdPlaylistCount || 0) as number) + ((sub.subPlaylistCount || 0) as number) || normalized.length,
+          follow: count(profile.follows ?? detail.follows ?? sub.followCount),
+          fans: count(profile.followeds ?? detail.followeds ?? sub.followedCount),
+          playlist: createdCount !== null && savedCount !== null ? createdCount + savedCount : count(profile.playlistCount ?? detail.playlistCount),
         },
         createdPlaylists: created,
         savedPlaylists: saved,
@@ -259,8 +324,8 @@
           nickname: String(profile.nickname ?? auth.user?.nickname ?? ''),
           avatarUrl: String(profile.avatarUrl ?? auth.user?.avatarUrl ?? ''),
           signature: String(profile.signature ?? ''),
-          level: Number(profile.level) || 0,
-          listenSongs: Number(profile.listenSongs) || 0,
+          level: count(detail.level ?? profile.level),
+          listenSongs: count(detail.listenSongs ?? profile.listenSongs),
         },
       }
       save()
@@ -334,26 +399,24 @@
   }
 
   $effect(() => {
-    if (auth.isLoggedIn && auth.user) load()
-    if (auth.isLoggedIn) void loadQuickStats()
+    const uid = auth.user?.userId ?? null
+    if (!auth.isLoggedIn || uid !== ownerId) {
+      _requestId++; weeklyRequestId++; library = null; likedCovers = []; weeklyTracks = []; ownerId = uid
+      dismissPlaylistManager(); closeOptions(); showCreateModal = false; editTarget = null; groupTarget = null; deleteTarget = null; unsubscribeTarget = null
+    }
+    if (auth.isLoggedIn && uid) { void load(); void loadWeekly() }
     // 歌单在别处被改名 / 删除 / 取消收藏时跟着刷新。不监听的话这份列表会一直拿着旧名字
     const reload = () => { void load() }
     window.addEventListener(PLAYLIST_CHANGE, reload)
     return () => {
+      _requestId++; weeklyRequestId++
       window.removeEventListener(PLAYLIST_CHANGE, reload)
       timers.forEach(id => clearTimeout(id))
     }
   })
 </script>
 
-{#snippet playlistCard(pl: NormalizedPlaylist, kind: PlaylistKind, index: number)}
-  <LibraryPlaylistCard {pl} {index} liked={kind === 'liked'} owned={libraryPlaylistActions(kind).some(action => action.id === 'edit')} managed={libraryPlaylistActions(kind).some(action => action.id === 'unsubscribe')}
-    covers={kind === 'liked' ? likedCovers : []} busy={kind === 'liked' && playingLiked}
-    onOpen={(p) => onOpenPlaylist?.(p.id as SongId, true, p)}
-    onPlay={kind === 'liked' ? () => playLiked() : undefined}
-    onEdit={(p) => editTarget = p} onDelete={confirmDelete} onUnsubscribe={confirmUnsubscribe}
-    onOptions={(p, origin) => openOptions(p, kind, origin)} />
-{/snippet}
+<svelte:window onpointerdown={dismissOnOutside} onkeydown={dismissOnEscape} />
 
 <div class="library-page fade-in">
   {#if !auth.isLoggedIn}
@@ -368,90 +431,92 @@
   {:else}
     {#if notice}<div class="library-notice" role="status">{notice}</div>{/if}
 
-    {#if $responsive.isMobile}
-      {#if overviewProfile}
-        <UserProfileHero profile={overviewProfile} isOwn />
-        <button class="library-home-link" type="button" onclick={() => onNavigate?.('home')}>
-          查看完整个人主页
-          <Icon name="chevron-right" size={16} />
-        </button>
-        <ProfileQuickEntries entries={overviewEntries} loading={!library} />
-        <RecentTracksModule onOpenAll={() => onNavigate?.('recent')} />
-        <SocialPreviewSection follows={data.stats.follow} followeds={data.stats.fans} loadFor={auth.user?.userId} />
-      {/if}
-      <div class="library-mobile-tools"><span>点按打开，长按管理</span><button type="button" onclick={() => showCreateModal = true}><Icon name="add" size={20} />创建歌单</button></div>
-    {:else}
-    <div class="library-header">
-      <h1 class="library-title">我的播放列表</h1>
-      <div class="library-stats">
-        <div class="library-stat">
-          <span class="library-stat-value">{data.stats.follow}</span>
-          <span class="library-stat-label">关注</span>
+    <div class="library-unified">
+      <header class="library-identity">
+        <div class="library-identity__person">
+          {#if data.profile.avatarUrl || auth.user?.avatarUrl}
+            <img src={coverUrl(data.profile.avatarUrl || String(auth.user?.avatarUrl), 160)} alt="" referrerpolicy="no-referrer" />
+          {:else}<span class="library-identity__avatar"><Icon name="user" size={28} /></span>{/if}
+          <div><span class="library-identity__eyebrow">MY LIBRARY <span aria-hidden="true">/</span> 我的音乐</span><div class="library-identity__name"><h1>{data.profile.nickname || auth.user?.nickname || '我的资料库'}</h1>{#if data.profile.level && data.profile.level > 0}<span>Lv.{data.profile.level}</span>{/if}</div><p>{data.profile.signature || '你的音乐，都在这里'}</p></div>
         </div>
-        <div class="library-stat">
-          <span class="library-stat-value">{data.stats.fans}</span>
-          <span class="library-stat-label">粉丝</span>
+        <div class="library-identity__stats" aria-label="账号数据">
+          <div><strong>{displayCount(data.profile.listenSongs)}</strong><span>累计听歌</span></div>
+          <div><strong>{displayCount(data.stats.playlist)}</strong><span>歌单</span></div>
+          <div><strong>{displayCount(data.stats.follow)}</strong><span>关注</span></div>
+          <div><strong>{displayCount(data.stats.fans)}</strong><span>粉丝</span></div>
         </div>
-        <div class="library-stat">
-          <span class="library-stat-value">{data.stats.playlist}</span>
-          <span class="library-stat-label">歌单</span>
+      </header>
+
+      <div class="library-highlights">
+        <div class="library-favorite">
+          <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} /></div>
+          <button class="library-favorite__open" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
+            <span>YOUR FAVORITES</span><strong>我喜欢的音乐</strong><em>{likedPlaylist?.trackCount ?? 0} 首歌曲</em>
+          </button>
+          <button class="library-favorite__play" type="button" aria-label="播放我喜欢的音乐" disabled={!likedPlaylist || playingLiked} onclick={playLiked}><Icon name="play" size={20} fill="currentColor" /></button>
         </div>
-      </div>
-      {#if $responsive.isMobile}<p class="library-manage-hint">点按打开，长按管理</p>{/if}
-    </div>
-
-    <!-- 快速入口：弱化的胶囊行，不抢封面网格的视觉 -->
-    <div class="library-quick-row">
-      <button class="library-quick-chip" type="button" onclick={() => onNavigate?.('recent')}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        最近播放
-      </button>
-      <button class="library-quick-chip" type="button" onclick={() => onNavigate?.('dailyHistory')}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        历史日推
-      </button>
-      <button class="library-quick-chip" type="button" onclick={() => showCreateModal = true}>
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        创建歌单
-      </button>
-    </div>
-
-    {/if}
-
-    {#if error && !library}
-      <ErrorBlock message={error} onRetry={load} />
-    {:else if loading && !library}
-      <div class="library-grid" aria-label="加载收藏歌单">
-        {#each Array(10) as _, i}
-          <div class="library-card library-card-skeleton" style={`--card-i:${i}`}>
-            <div class="library-card-cover skeleton-block"></div>
-            <div class="library-card-info">
-              <div class="library-card-name skeleton-line"></div>
-              <div class="library-card-meta skeleton-line narrow"></div>
-            </div>
+        <div class="library-activity">
+          <RecentTracksModule limit={$responsive.isMobile ? 3 : 4} onOpenAll={() => onNavigate?.('recent')} />
+          <div class="library-shortcuts" aria-label="音乐记录">
+            <button class="library-shortcut library-shortcut--daily" type="button" onclick={() => onNavigate?.('dailyHistory')}>
+              <span class="library-shortcut__art library-shortcut__art--daily" aria-hidden="true"><span></span><Icon name="calendar" size={23} fill="none" strokeWidth={1.5} /></span>
+              <span class="library-shortcut__copy"><small>DAILY ARCHIVE</small><strong>历史日推</strong><em>重遇过去的好歌</em></span>
+              <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
+            </button>
+            <button class="library-shortcut library-shortcut--stats" type="button" onclick={() => onNavigate?.('listeningStats')}>
+              <span class="library-shortcut__art library-shortcut__art--stats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="library-shortcut__copy"><small>LISTENING</small><strong>听歌统计</strong><em>留住聆听的时光</em></span>
+              <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
+            </button>
           </div>
-        {/each}
-      </div>
-    {:else if likedPlaylist || createdPlaylists.length || savedPlaylists.length}
-      {#if $responsive.isMobile}
-        {#each [{ title: '我创建的歌单', kind: 'owned' as const, playlists: createdPlaylists }, { title: '我收藏的歌单', kind: 'saved' as const, playlists: otherSavedPlaylists }] as section}
-          <PlaylistSection variant="group" title={section.title} count={section.playlists.length}>
-            {#if section.playlists.length}
-              <div class="library-grid">{#each section.playlists as pl, i (pl.id as SongId)}{@render playlistCard(pl, section.kind, i)}{/each}</div>
-            {:else}<div class="library-section-empty">{section.kind === 'owned' ? '创建一张歌单，收好喜欢的音乐' : '还没有收藏的歌单'}</div>{/if}
-          </PlaylistSection>
-        {/each}
-      {:else}
-        <div class="library-grid">
-          {#if likedPlaylist}{@render playlistCard(likedPlaylist, 'liked', 0)}{/if}
-          {#each createdPlaylists as pl, i (pl.id as SongId)}{@render playlistCard(pl, 'owned', i + (likedPlaylist ? 1 : 0))}{/each}
-          {#each otherSavedPlaylists as pl, i (pl.id as SongId)}{@render playlistCard(pl, 'saved', i + createdPlaylists.length + (likedPlaylist ? 1 : 0))}{/each}
         </div>
-      {/if}
-    {:else}
-      <div class="library-section-empty">还没有收藏的歌单</div>
-    {/if}
+      </div>
+
+      <section class="library-playlists" aria-label="我的歌单">
+        <div class="library-playlists__heading"><div><span class="library-eyebrow">YOUR COLLECTION</span><h2>我的歌单</h2></div><button type="button" class="library-create" onclick={() => showCreateModal = true}><Icon name="add" size={18} />创建歌单</button></div>
+        {#if error && !library}<ErrorBlock message={error} onRetry={load} />
+        {:else if loading && !library}<p class="library-section-empty">正在整理歌单…</p>
+        {:else}
+          {#if error}<div class="collection-error" role="alert">歌单更新失败，仍显示上次的数据：{error} <button type="button" onclick={() => void load()}>重试</button></div>{/if}
+          {#if groupLoadError}<p class="collection-error" role="alert">{groupLoadError}</p>{/if}
+          <div class="collection-groups" bind:this={collectionRoot}>
+            {#each displayGroups as group (group.id)}
+              {@const expanded = expandedCollection === group.id}
+              <section class="collection-group" class:expanded data-group-id={group.id} aria-label={group.title}>
+                {#if expanded}
+                  <header class="collection-group__header"><div><strong>{group.title}</strong><span>{group.items.length} 张歌单</span></div><button type="button" aria-label={`收起${group.title}分组`} aria-expanded="true" onclick={() => openCollection(group.id)}>收起 <Icon name="chevron-right" size={16} /></button></header>
+                {/if}
+                <div class="collection-group__grid">
+                  {#each (expanded ? group.items : group.items.slice(0, 3)) as item, i (item.pl.id as SongId)}
+                    <div class="collection-item" data-index={i} data-playlist-id={String(item.pl.id)} inert={!expanded} style={`--cover-offset:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 30}px; --cover-offset-mobile:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 12}px; --cover-angle:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 8}deg`}>
+                      <div class="collection-item__open" data-motion="card" role="button" tabindex="0" aria-label={`打开歌单 ${item.pl.name}`} aria-haspopup="dialog" use:groupLongPress={item}
+                        onclick={() => { dismissPlaylistManager(); onOpenPlaylist?.(item.pl.id as SongId, true, item.pl) }}
+                        oncontextmenu={(event) => { event.preventDefault(); openOptions(item.pl, item.kind, event.currentTarget) }}
+                        onkeydown={(event) => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); openOptions(item.pl, item.kind, event.currentTarget) } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); dismissPlaylistManager(); onOpenPlaylist?.(item.pl.id as SongId, true, item.pl) } }}>
+                        <span class="collection-item__cover">{#if item.pl.picUrl}<img src={coverUrl(item.pl.picUrl, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />{:else}<Icon name="music" size={28} />{/if}</span>
+                        <span class="collection-item__info"><strong>{item.pl.name}</strong><small>{item.pl.trackCount ?? 0} 首</small></span>
+                      </div>
+                      <button class="collection-item__menu" type="button" title="歌单管理" aria-label={`更多操作 ${item.pl.name}`} onclick={(event) => openOptions(item.pl, item.kind, event.currentTarget)}>⋯</button>
+                    </div>
+                  {:else}<p class="collection-group__message">{expanded ? '还没有歌单，可以在歌单操作中选择本地分组。' : '暂无歌单'}</p>{/each}
+                </div>
+                {#if !expanded}
+                  <button type="button" class="collection-group__trigger" aria-expanded="false" aria-label={`展开${group.title}分组`} onclick={() => openCollection(group.id)}>
+                    <span class="collection-group__copy"><strong>{group.title}</strong><small>{group.items.length} 张歌单</small></span>
+                    <span class="collection-group__arrow" aria-hidden="true"><Icon name="chevron-right" size={18} /></span>
+                  </button>
+                {/if}
+              </section>
+            {/each}
+          </div>
+        {/if}
+      </section>
+      <div class="library-lower"><WeeklyListenModule tracks={weeklyTracks} failed={weeklyFailed} loading={weeklyLoading} limit={5} onRetry={loadWeekly} onPlay={(index) => player.playQueue(weeklyTracks as unknown as CompactTrackInput[], index)} /></div>
+    </div>
   {/if}
+</div>
+
+<div class="library-management-portal" use:playlistPortal>
 
   <!-- 创建歌单弹窗 -->
   {#if showCreateModal}
@@ -465,6 +530,9 @@
   <!-- 编辑歌单（改名 / 改简介） -->
   {#if editTarget}
     <PlaylistEditModal pl={editTarget} onClose={() => editTarget = null} onNotice={showNotice} />
+  {/if}
+  {#if groupTarget}
+    <PlaylistGroupPicker playlist={groupTarget} onClose={() => groupTarget = null} onNotice={showNotice} />
   {/if}
 
   <!-- 取消收藏确认 -->
@@ -493,10 +561,11 @@
 {#if optionsTarget}
   {@const selected = optionsTarget}
   {@const actions: PlaylistAction[] = [
-    { label: '打开歌单', icon: 'folder', onSelect: () => closeOptions(() => onOpenPlaylist?.(selected.pl.id as SongId, true, selected.pl)) },
+    { label: '打开歌单', icon: 'folder', onSelect: () => closeOptions(() => { dismissPlaylistManager(); onOpenPlaylist?.(selected.pl.id as SongId, true, selected.pl) }) },
     { label: '加入播放队列', icon: 'add', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'append')) },
     { label: '下一首插播', icon: 'queue', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'next')) },
     { label: '分享歌单', icon: 'share', onSelect: () => closeOptions(() => void sharePlaylist(selected.pl.id, String(selected.pl.name))) },
+    { label: '整理分组', icon: 'folder', onSelect: () => closeOptions(() => { groupTarget = selected.pl }) },
     // 管理项由策略模块决定：非本人歌单不会出现编辑/删除
     ...libraryPlaylistActions(selected.kind).map(action => ({
       label: action.label,
@@ -510,7 +579,123 @@
     })),
   ]}
   <div class="library-options-portal" use:playlistPortal>
-  <PlaylistActionSheet show={!optionsClosing} title={String(selected.pl.name)} cover={selected.pl.picUrl || ''} {actions}
+  <PlaylistActionSheet show={!optionsClosing} title={String(selected.pl.name)} cover={selected.pl.picUrl || ''} {actions} bottomOnDesktop
     onPlay={() => closeOptions(() => void queuePlaylist(selected.pl.id, 'play'))} onClose={() => closeOptions()} onClosed={finishOptions} />
   </div>
 {/if}
+
+<style>
+  .library-unified { display: grid; gap: 28px; }
+  .library-identity { position: relative; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(340px, 1.15fr); align-items: center; gap: 24px; padding: 24px 26px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: linear-gradient(120deg, var(--bg-surface), color-mix(in srgb, var(--accent) 8%, var(--bg-surface))); }
+  .library-identity__person { display: flex; align-items: center; min-width: 0; gap: 18px; }
+  .library-identity__person img, .library-identity__avatar { flex: none; width: 72px; height: 72px; border: 2px solid color-mix(in srgb, var(--accent) 38%, var(--bg-surface)); border-radius: 50%; object-fit: cover; background: var(--bg-elevated); }
+  .library-identity__avatar { display: grid; place-items: center; color: var(--text-secondary); }
+  .library-identity__person > div { min-width: 0; }
+  .library-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+  .library-identity__eyebrow { display: block; margin-bottom: 6px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+  .library-identity__eyebrow span { padding: 0 4px; color: var(--accent); }
+  .library-identity h1 { overflow: hidden; font-size: 23px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__name { display: flex; min-width: 0; align-items: center; gap: 8px; }
+  .library-identity__name > span { flex: none; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); border-radius: 999px; color: var(--accent); background: var(--accent-bg); font-size: 11px; font-weight: 700; }
+  .library-identity p { overflow: hidden; margin-top: 4px; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .library-identity__stats > div { min-width: 0; display: flex; flex-direction: column-reverse; gap: 7px; padding: 3px 10px 3px 15px; border-left: 1px solid var(--border); }
+  .library-identity__stats strong { overflow: hidden; font-size: 19px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__stats span { overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .library-highlights { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; }
+  .library-favorite { position: relative; isolation: isolate; overflow: hidden; min-height: 220px; border-radius: var(--radius-xl); background: var(--bg-layer); color: white; }
+  .library-favorite__art { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+  .library-favorite__art::after { position: absolute; inset: 0; content: ''; background: linear-gradient(0deg, rgba(9, 9, 12, .94), rgba(9, 9, 12, .23) 90%); }
+  .library-favorite__art :global(.liked-falls-badge) { display: none; }
+  .library-favorite__open { width: 100%; height: 100%; min-height: 220px; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px 72px 24px 24px; text-align: left; color: white; }
+  .library-favorite__open span { font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+  .library-favorite__open strong { font-size: 23px; line-height: 1.2; }
+  .library-favorite__open em { color: rgba(255,255,255,.8); font-size: 13px; font-style: normal; }
+  .library-favorite__open:focus-visible { outline-offset: -4px; }
+  .library-favorite__play { position: absolute; right: 22px; bottom: 22px; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: white; color: #1b1b1d; }
+  .library-favorite__play:disabled { opacity: .45; }
+  .library-activity { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .library-activity :global(.profile-home__panel) { flex: 1; }
+  .library-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .library-shortcut { position: relative; isolation: isolate; overflow: hidden; min-width: 0; min-height: 118px; display: flex; align-items: end; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text); text-align: left; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+  .library-shortcut--daily { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--bg-surface)), var(--bg-surface) 74%); }
+  .library-shortcut--stats { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, var(--bg-surface)), var(--bg-surface) 72%); }
+  .library-shortcut:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .library-shortcut__copy { position: relative; z-index: 1; min-width: 0; display: grid; gap: 2px; padding-right: 8px; }
+  .library-shortcut__copy small { overflow: hidden; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
+  .library-shortcut__copy strong { overflow: hidden; font-size: 16px; line-height: 1.35; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .library-shortcut__copy em { overflow: hidden; color: var(--text-secondary); font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .library-shortcut__arrow { position: absolute; right: 12px; bottom: 14px; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-surface); color: var(--text-secondary); transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .library-shortcut:hover .library-shortcut__arrow { transform: translateX(3px); color: var(--accent); }
+  .library-shortcut__art { position: absolute; top: 12px; right: 16px; color: color-mix(in srgb, var(--accent) 65%, var(--text-secondary)); pointer-events: none; }
+  .library-shortcut__art--daily { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface)); transform: rotate(8deg); }
+  .library-shortcut__art--daily > span { position: absolute; inset: 3px; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: var(--radius-xs); transform: translate(-8px, 7px) rotate(-16deg); z-index: -1; }
+  .library-shortcut__art--stats { height: 42px; display: flex; align-items: end; gap: 3px; opacity: .8; }
+  .library-shortcut__art--stats i { width: 5px; border-radius: 999px; background: currentColor; }
+  .library-shortcut__art--stats i:nth-child(1) { height: 14px; opacity: .45; }
+  .library-shortcut__art--stats i:nth-child(2) { height: 26px; opacity: .65; }
+  .library-shortcut__art--stats i:nth-child(3) { height: 38px; }
+  .library-shortcut__art--stats i:nth-child(4) { height: 23px; opacity: .7; }
+  .library-shortcut__art--stats i:nth-child(5) { height: 31px; opacity: .5; }
+  .library-playlists { min-width: 0; }
+  .library-playlists__heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .library-playlists__heading h2 { margin-top: 4px; font-size: 21px; }
+  .library-create { min-height: 42px; display: flex; align-items: center; gap: 5px; padding: 0 14px; border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .collection-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 220px)); gap: 22px; align-items: start; }
+  .collection-group { position: relative; min-width: 0; padding-bottom: 52px; }
+  .collection-group.expanded { grid-column: 1 / -1; }
+  .collection-group.expanded { padding-bottom: 0; }
+  .collection-group__trigger { position: absolute; z-index: 4; inset: 0; width: 100%; min-width: 0; display: flex; align-items: end; gap: 8px; padding: 0; border: 0; background: transparent; text-align: left; }
+  .collection-group__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: var(--radius-md); }
+  .collection-item__cover img { width: 100%; height: 100%; object-fit: cover; }
+  .collection-item__cover :global(img[hidden]) { display: none; }
+  .collection-group__copy { flex: 1; min-width: 0; display: grid; gap: 6px; }
+  .collection-group__copy strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+  .collection-group__copy small, .collection-group__header span { color: var(--text-secondary); font-size: 12px; }
+  .collection-group__arrow { display: grid; place-items: center; color: var(--text-tertiary); }
+  .collection-group__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+  .collection-group__header > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
+  .collection-group__header strong { font-size: 18px; line-height: 1.35; }
+  .collection-group__header button { min-height: 40px; display: flex; align-items: center; gap: 3px; padding: 0 10px; border-radius: var(--radius-md); color: var(--accent); }
+  .collection-group__header button :global(svg) { transform: rotate(-90deg); }
+  .collection-group__grid { display: grid; grid-template-columns: minmax(0, 1fr); height: 168px; }
+  .collection-group.expanded .collection-group__grid { height: auto; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px 16px; }
+  .collection-item { position: relative; min-width: 0; }
+  .collection-group:not(.expanded) .collection-item { grid-area: 1 / 1; justify-self: center; align-self: start; width: min(52%, 140px); margin-top: 10px; transform: translateX(var(--cover-offset)); }
+  .collection-group:not(.expanded) .collection-item__cover { border: 2px solid var(--bg-surface); box-shadow: 0 8px 18px rgb(0 0 0 / .22); transform: rotate(var(--cover-angle)); }
+  .collection-group:not(.expanded) .collection-item__info, .collection-group:not(.expanded) .collection-item__menu { display: none; }
+  .collection-item__open { width: 100%; min-width: 0; display: grid; gap: 9px; text-align: left; }
+  .collection-item__cover { width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-tertiary); }
+  .collection-item__info { min-width: 0; display: grid; gap: 4px; }
+  .collection-item__info strong { overflow: hidden; min-height: 2.7em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+  .collection-item__info small { color: var(--text-secondary); font-size: 12px; }
+  .collection-item__menu { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: rgb(0 0 0 / .58); color: white; font-size: 22px; transition: background-color 160ms ease; }
+  .collection-item__menu:hover { background: rgb(0 0 0 / .8); }
+  .collection-group__message { padding: 20px 0; color: var(--text-secondary); font-size: 13px; }
+  .collection-error { margin-bottom: 12px; color: var(--danger); font-size: 13px; }
+  .collection-error button { padding: 4px 8px; color: var(--accent); }
+  @media (max-width: 700px) { .library-highlights { grid-template-columns: minmax(0, 1fr); } .collection-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; } .collection-group__grid { height: 130px; } .collection-group:not(.expanded) .collection-item { width: min(55%, 108px); transform: translateX(var(--cover-offset-mobile)); } .collection-group__copy strong { font-size: 14px; } .collection-group.expanded .collection-group__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } }
+  .library-management-portal { display: contents; }
+  .library-lower { display: grid; gap: 24px; }
+  :global(html.mobile-runtime) .library-unified { gap: 24px; }
+  @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity__stats > div:first-child { padding-left: 0; border-left: 0; } }
+  :global(html.mobile-runtime) .library-identity { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px; }
+  :global(html.mobile-runtime) .library-identity__person { gap: 12px; }
+  :global(html.mobile-runtime) .library-identity__person img, :global(html.mobile-runtime) .library-identity__avatar { width: 58px; height: 58px; }
+  :global(html.mobile-runtime) .library-identity h1 { font-size: 19px; }
+  :global(html.mobile-runtime) .library-identity__stats { gap: 0; padding-top: 14px; border-top: 1px solid var(--border); }
+  :global(html.mobile-runtime) .library-identity__stats > div { gap: 6px; padding: 2px 6px 2px 10px; }
+  :global(html.mobile-runtime) .library-identity__stats > div:first-child { padding-left: 0; border-left: 0; }
+  :global(html.mobile-runtime) .library-identity__stats strong { font-size: 15px; }
+  :global(html.mobile-runtime) .library-identity__stats span { font-size: 11px; }
+  :global(html.mobile-runtime) .library-highlights { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  :global(html.mobile-runtime) .library-favorite, :global(html.mobile-runtime) .library-favorite__open { min-height: 160px; }
+  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; }
+  :global(html.mobile-runtime) .library-activity { gap: 16px; }
+  :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 0; }
+  :global(html.mobile-runtime) .library-shortcuts { gap: 10px; }
+  :global(html.mobile-runtime) .library-shortcut { min-height: 112px; padding: 14px; }
+  @media (max-width: 360px) { .library-shortcut__arrow { display: none; } .library-shortcut__art { right: 10px; } }
+  @media (prefers-reduced-motion: reduce) { .library-shortcut__arrow { transition: none; } .library-shortcut:hover .library-shortcut__arrow { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .collection-item__menu { transition: none; } }
+</style>

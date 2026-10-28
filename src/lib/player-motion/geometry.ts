@@ -15,13 +15,15 @@ export function surfaceFrame(progress: number, source: SurfaceRect, viewport: { 
   }
 }
 
-export function coverFrame(progress: number, source: SurfaceRect, target: SurfaceRect) {
+export function coverFrame(progress: number, source: SurfaceRect, target: SurfaceRect, sourceRadius = 0, targetRadius = 0) {
   const p = clampProgress(progress)
   const side = lerp(source.width, target.width, p)
+  const scale = target.width > 0 ? side / target.width : 1
   return {
     left: lerp(source.left, target.left, p),
     top: lerp(source.top, target.top, p),
     side,
-    scale: target.width > 0 ? side / target.width : 1,
+    scale,
+    radius: scale > 0 ? lerp(sourceRadius, targetRadius, p) / scale : 0,
   }
 }

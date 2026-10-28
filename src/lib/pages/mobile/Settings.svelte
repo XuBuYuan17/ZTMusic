@@ -13,6 +13,7 @@
   import SettingSelect from '../../components/SettingSelect.svelte'
   import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
   import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
+  import PlaylistGroupsSettings from '../../components/PlaylistGroupsSettings.svelte'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate }: {
     category?: SettingsCategory | null
@@ -208,7 +209,7 @@
           <strong>{t('settings.defaultPage', '启动默认页面')}</strong>
           <span>{t('settings.defaultPageDesc', '启动时自动打开的页面')}</span>
         </div>
-        <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage === 'home' ? 'explore' : settings.defaultPage} options={defaultPageOptions} onChange={settings.handleDefaultPage} />
+        <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage === 'home' ? 'library' : settings.defaultPage} options={defaultPageOptions} onChange={settings.handleDefaultPage} />
       </div>
 
       <div class="m-settings-row">
@@ -224,6 +225,7 @@
   {/if}
 
   {#if category === 'data'}
+  <PlaylistGroupsSettings />
   <section class="m-settings-section" aria-labelledby="data-settings">
     <h2 id="data-settings">数据与账号</h2>
     <div class="m-settings-list">

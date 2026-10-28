@@ -79,12 +79,12 @@
   <nav class="sidebar-nav">
     <div class="nav-group-label">资料库</div>
 
-    <button class="nav-item" class:active={activeView === 'home'} aria-current={activeView === 'home' ? 'page' : undefined} title="主页" onclick={() => nav('home')}>
+    <button class="nav-item" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} title="资料库" onclick={() => nav('library')}>
       <span class="nav-icon">
         <Icon name="home" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">
-        <span class="nav-title">主页</span>
+        <span class="nav-title">资料库</span>
       </span>
     </button>
 
@@ -100,13 +100,6 @@
         <Icon name="search" size={22} strokeWidth={1.5}/>
       </span>
       <span class="nav-label">搜索</span>
-    </button>
-
-    <button class="nav-item" class:active={activeView === 'library'} aria-current={activeView === 'library' ? 'page' : undefined} title="我的收藏" onclick={() => nav('library')}>
-      <span class="nav-icon">
-        <Icon name="liked" size={22} strokeWidth={1.5}/>
-      </span>
-      <span class="nav-label">我的收藏</span>
     </button>
 
     <button class="nav-item" class:active={activeView === 'recent'} aria-current={activeView === 'recent' ? 'page' : undefined} title="最近播放" onclick={() => nav('recent')}>

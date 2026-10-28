@@ -9,6 +9,7 @@
   import SettingSelect from '../../components/SettingSelect.svelte'
   import AndroidPlayerSettings from '../../components/AndroidPlayerSettings.svelte'
   import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
+  import PlaylistGroupsSettings from '../../components/PlaylistGroupsSettings.svelte'
   import { responsive } from '../../utils/responsive.ts'
   import { engine } from '../../player/engine.ts'
 
@@ -47,6 +48,7 @@
 
   <div class="settings-panel">
     {#if engine.native}<AndroidPlayerSettings />{/if}
+    <PlaylistGroupsSettings />
 
     <!-- 主题 -->
     {#if $responsive.isMobile}<div class="settings-group-label">外观</div>{/if}
@@ -151,7 +153,7 @@
         <div class="settings-label">{t('settings.defaultPage', '启动默认页面')}</div>
         <div class="settings-desc">{t('settings.defaultPageDesc', '启动时自动打开的页面')}</div>
       </div>
-      <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={$responsive.isMobile && settings.defaultPage === 'home' ? 'explore' : settings.defaultPage} options={($responsive.isMobile ? ['explore', 'library'] : ['home', 'explore', 'library']).map(value => ({ value, label: t(`page.${value}`, value === 'library' ? '资料库' : value === 'home' ? '主页' : '发现') }))} onChange={settings.handleDefaultPage} />
+      <SettingSelect label={t('settings.defaultPage', '启动默认页面')} value={settings.defaultPage === 'home' ? 'library' : settings.defaultPage} options={['explore', 'library'].map(value => ({ value, label: t(`page.${value}`, value === 'library' ? '资料库' : '发现') }))} onChange={settings.handleDefaultPage} />
     </div>
 
     <!-- 布局模式 -->

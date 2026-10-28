@@ -9,6 +9,7 @@
   import type { CompactTrackInput } from '../player/queue.ts'
   import { auth } from '../stores/auth.svelte.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { router } from '../stores/router.svelte.ts'
   import { toast } from '../stores/toast.svelte.ts'
   import { ncm } from '../api/client.ts'
   import { loadUserProfileData, withFollowState } from '../services/user-profile.ts'
@@ -92,7 +93,13 @@
     if (profile?.weeklyTracks.length) player.playQueue(profile.weeklyTracks as unknown as CompactTrackInput[], index)
   }
 
-  $effect(() => { if (userId) untrack(load) })
+  $effect(() => {
+    if (isOwn && router.activeView === 'user' && String(router.selectedId) === String(userId)) {
+      router.handleNav('library')
+      return
+    }
+    if (userId && !isOwn) untrack(load)
+  })
 </script>
 
 <div class="user-page fade-in">

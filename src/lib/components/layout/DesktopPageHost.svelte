@@ -9,7 +9,6 @@
   import { createPageChromeHost, setPageChromeHost } from '../../app/page-chrome.svelte.ts'
   import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from '../../app/nav-refs.ts'
   import Icon from '../ui/Icon.svelte'
-  import HomePage from '../../pages/pc/Home.svelte'
 
   let {
     theme,
@@ -86,16 +85,7 @@ let scrollEl = $state<HTMLElement | null>(null)
       </div>
     {/if}
     <div class="page-enter" class:desktop-page={true} use:pageMotion={{ identity: `${router.activeView}:${router.selectedId}`, direction: router.routeTransition }}>
-      {#if router.activeView === 'home'}
-        <HomePage
-          onNavigate={router.handleNav}
-          onOpenLogin={onOpenLogin}
-          onOpenPlaylist={openPlaylistRef}
-          onOpenArtist={openArtistRef}
-          onOpenAlbum={openAlbumRef}
-          onOpenUser={openUserRef}
-        />
-      {:else if router.activeView === 'playlist' || router.activeView === 'album' || router.activeView === 'recommendation'}
+      {#if router.activeView === 'playlist' || router.activeView === 'album' || router.activeView === 'recommendation'}
         {#await loadPlaylistPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             recommendation={router.activeView === 'recommendation'}

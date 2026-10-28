@@ -332,8 +332,9 @@ export const ncm = {
   playlistSubscribe(id: SongId, subscribe = true) {
     return request('/playlist/subscribe', { id, t: subscribe ? 1 : 2, timestamp: Date.now() }, 'GET', null, { cache: false, refresh: true, allowErrorBody: true })
   },
-  userPlaylist(uid: SongId, options: ApiRequestOptions = {}) {
-    return request('/user/playlist', { uid }, 'GET', null, options)
+  userPlaylist(uid: SongId, options: ApiRequestOptions & { limit?: number; offset?: number } = {}) {
+    const { limit, offset, ...requestOptions } = options
+    return request('/user/playlist', { uid, limit, offset }, 'GET', null, requestOptions)
   },
   userDetail(uid: SongId) {
     return request('/user/detail', { uid })
