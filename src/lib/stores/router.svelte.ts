@@ -42,6 +42,7 @@ interface PlaylistDetail {
   coverImgUrl: string
   picUrl: string
   creator?: unknown
+  subscribed?: boolean
   trackCount: number
   description: string
   tracks: DetailTrack[]
@@ -242,6 +243,14 @@ function invalidatePlaylist(id: SongId): void {
   detailCache.clear('playlist:' + id)
   if (Number.isFinite(numericId)) removeQueuedPlaylistPrefetch(numericId)
   if (_playlistDetail && String(_playlistDetail.id) === String(id)) _playlistDetail = null
+}
+
+function setPlaylistSubscribed(id: SongId, subscribed: boolean): void {
+  detailCache.clear('playlist:' + id)
+  if (_activeView === 'playlist' && _playlistDetail && String(_playlistDetail.id) === String(id)) {
+    _playlistDetail = { ..._playlistDetail, subscribed }
+  }
+  window.dispatchEvent(new CustomEvent(PLAYLIST_CHANGE, { detail: { id } }))
 }
 
 function createPlaylistPreview(p: PlaylistPreviewInput | null, id: number): PlaylistDetail | null {
@@ -710,7 +719,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, retryDetail, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, retryDetail, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist, setPlaylistSubscribed,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

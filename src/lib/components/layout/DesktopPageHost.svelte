@@ -1,7 +1,7 @@
 <script lang="ts">
   import { settingsCategory } from '../../pages/mobile/settings-navigation.ts'
   import { router } from '../../stores/router.svelte.ts'
-  import { pageMotion } from '../../app/desktop-motion.ts'
+  import { pageMotion, captureReturnCover } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
   import { lazyModule } from '../../app/lazy-module.ts'
   import { setScrollViewport } from '../../app/scroll-viewport.ts'
@@ -59,6 +59,12 @@ let scrollEl = $state<HTMLElement | null>(null)
   const loadPlaylistPage = lazyModule(() => import('../../pages/PlaylistPage.svelte'))
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
   const loadUserProfilePage = lazyModule(() => import('../../pages/UserProfilePage.svelte'))
+
+  $effect.pre(() => {
+    if (router.activeView === 'library' && router.previousView === 'playlist' && router.routeTransition === 'back') {
+      captureReturnCover(scrollEl?.querySelector<HTMLImageElement>('.playlist-cover') ?? null)
+    }
+  })
 
   // 空闲时预取常用页面 chunk，首次进入不再闪骨架
   $effect(() => {

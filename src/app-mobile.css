@@ -548,11 +548,11 @@ html.mobile-runtime .mini-player-progress { position: absolute; bottom: 0; left:
 html.mobile-runtime .mini-player-progress span { display: block; height: 100%; background: var(--md-primary); }
 
 html.mobile-runtime :is(button, a, summary, [role="button"], [role="radio"], [role="switch"]) {
-  transition-property: background-color, color, box-shadow, scale;
+  transition-property: background-color, color, box-shadow, scale, opacity;
   transition-duration: 180ms;
   transition-timing-function: var(--ease-out);
 }
-html.mobile-runtime [data-mobile-pressed] { box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 10%, transparent); transition-duration: var(--motion-press); }
+html.mobile-runtime [data-mobile-pressed] { transition-duration: var(--motion-press); }
 html.mobile-runtime [data-mobile-pressed="control"] { scale: .97; }
 html.mobile-runtime [data-mobile-pressed="row"] { scale: 1; }
 html.mobile-runtime :is(.mobile-tab, .mobile-page-bar__button, .ctrl-btn, .action-btn, .home-song-card, .home-playlist-card, .library-card, .song-card, .ranking-card, .artist-album-card, .profile-home__quick > button, .music-cover-card, .library-quick-chip, .login-btn, .confirm-btn):active { transform: none; }
@@ -736,7 +736,7 @@ html.mobile-runtime .settings-page .segmented-control button { min-height: 40px;
 html.mobile-runtime .search-page .search-input-wrap { background: var(--bg-surface); border-radius: var(--radius-sm); }
 html.mobile-runtime :is(.mobile-tab, .mobile-page-bar__button, .library-card, .mobile-cover-item, .mobile-feature-item) { transition: transform 180ms var(--ease-out), color 160ms ease; }
 html.mobile-runtime [data-mobile-pressed="control"] { scale: .97; transition-duration: 100ms; }
-html.mobile-runtime [data-mobile-pressed="row"] { background-color: var(--bg-hover); }
+html.mobile-runtime [data-mobile-pressed="row"]:not(.am-flying-cover) { opacity: .8; }
 @media (prefers-reduced-motion: reduce) { html.mobile-runtime [data-mobile-pressed="control"] { scale: 1; } }
 
 html.mobile-runtime .library-page :is(.user-profile-hero__level, .user-profile-hero__identity-label) { color: var(--accent); background: var(--accent-bg); border: 0; }

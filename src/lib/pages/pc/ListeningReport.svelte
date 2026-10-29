@@ -23,8 +23,9 @@
   const levelOf = (value: number, max: number) => value > 0 ? Math.min(5, Math.ceil(value / max * 5)) : 0
   const hourMax = $derived(Math.max(1, ...report.hours))
   const weekdayMax = $derived(Math.max(1, ...report.weekdays))
-  const dayMax = $derived(Math.max(1, ...report.chart.map(day => day.milliseconds)))
-  const dayCells = $derived<WallCell[]>(report.chart.map(day => ({ key: day.day, label: day.day.slice(8), caption: day.day, value: day.milliseconds, level: levelOf(day.milliseconds, dayMax) })))
+  const yearDays = $derived(report.chart.filter(day => day.day.startsWith(`${new Date(now).getFullYear()}-`)))
+  const dayMax = $derived(Math.max(1, ...yearDays.map(day => day.milliseconds)))
+  const dayCells = $derived<WallCell[]>(yearDays.map(day => ({ key: day.day, label: day.day.slice(8), caption: day.day, value: day.milliseconds, level: levelOf(day.milliseconds, dayMax) })))
   // 列是一周，所以首列前面要补上这段区间开始时还没到的几天，格子才对得上星期
   const dayLead = $derived(dayCells.length ? (new Date(`${dayCells[0]!.key}T12:00:00`).getDay() + 6) % 7 : 0)
   const dayCols = $derived(Math.ceil((dayCells.length + dayLead) / 7))
@@ -45,7 +46,7 @@
   const hourCells = $derived<WallCell[]>(report.hours.map((value, hour) => ({ key: String(hour), label: String(hour), caption: `${String(hour).padStart(2, '0')}:00`, value, level: levelOf(value, hourMax) })))
   const weekdayNames = ['一', '二', '三', '四', '五', '六', '日']
   const weekdayCells = $derived<WallCell[]>(report.weekdays.map((value, index) => ({ key: weekdayNames[index]!, label: weekdayNames[index]!, caption: `周${weekdayNames[index]}`, value, level: levelOf(value, weekdayMax) })))
-  const wallLabel = $derived(`${periodLabel}聆听分布，${dayCells[0]?.key || '—'} 至 ${dayCells.at(-1)?.key || '—'}，${report.activeDays} 天有聆听记录`)
+  const wallLabel = $derived(`${periodLabel}聆听分布，${dayCells[0]?.key || '—'} 至 ${dayCells.at(-1)?.key || '—'}，${dayCells.filter(day => day.value > 0).length} 天有聆听记录`)
 
   function revealLatestDays(node: HTMLElement) {
     const observer = new ResizeObserver(() => {
@@ -103,7 +104,7 @@
     <div class="wall-figure wall-week-figure" role="img" aria-label={label}>
       <div class="wall-week-strip">
         {#each weekdayNames as weekday, i}
-          {@const cell = cells[i]}
+          {@const cell = cells.find(day => (new Date(`${day.key}T12:00:00`).getDay() + 6) % 7 === i)}
           <div class="wall-week-day">
             <span class="wall-cell" class:wall-cell-future={!cell} style={`--fill:${(cell?.level ?? 0) * 18}%`} title={cell ? `${cell.caption}：${listeningTime(cell.value)}` : undefined}>{cell?.label ?? ''}</span>
             <span class="wall-week-label">{weekday}</span>
@@ -127,9 +128,8 @@
     </div>
   {/snippet}
 
-  <div class="report-masthead"><span>哲听 · 个人聆听档案</span><strong>聆听时报</strong><span>{new Date(now).toLocaleDateString('zh-CN')}</span></div>
   <header class="report-header">
-    <div><span class="eyebrow">THE LISTENING JOURNAL</span><h1>音乐，留下了足迹。</h1><p>本地听歌统计{#if archive} · 从 {new Date(archive.startedAt).toLocaleDateString('zh-CN')} 开始记录{/if}</p></div>
+    <div><h1>听歌报告</h1><p>本地听歌统计{#if archive} · 从 {new Date(archive.startedAt).toLocaleDateString('zh-CN')} 开始记录{/if}</p></div>
     <nav aria-label="统计周期">{#each periods as item}<button class:active={period === item.id} aria-pressed={period === item.id} onclick={() => { period = item.id; now = Date.now() }}>{item.label}</button>{/each}</nav>
   </header>
 
@@ -138,27 +138,27 @@
   {#if loading}<div class="report-empty" role="status">正在整理你的聆听足迹…</div>
   {:else if !error || archive}
     <section class="report-hero" aria-label="聆听概览">
-      <div class="hero-copy"><span class="eyebrow">{periodLabel} · 与音乐相伴</span><h2>{listeningTime(report.milliseconds)}</h2><p>{report.trackCount ? `在 ${report.activeDays} 个日子里，与 ${report.trackCount} 首歌相遇。` : '从下一首歌开始，记录每一段真实的聆听。'}</p>
+      <div class="hero-copy"><span class="eyebrow">{periodLabel}聆听时长</span><h2>{listeningTime(report.milliseconds)}</h2><p>{report.trackCount ? `在 ${report.activeDays} 个日子里，与 ${report.trackCount} 首歌相遇。` : '从下一首歌开始，记录每一段真实的聆听。'}</p>
         <div class="report-numbers"><div><strong>{report.plays}</strong><span>有效播放</span></div><div><strong>{report.trackCount}</strong><span>听过歌曲</span></div><div><strong>{report.activeDays}</strong><span>活跃天数</span></div></div>
       </div>
       <div class="report-covers" aria-hidden="true">{#each covers as row, i}<img src={coverUrl(row.track.cover, 400)} alt="" referrerpolicy="no-referrer" style={`--i:${i}`} />{/each}{#if !covers.length}<div class="cover-placeholder"><Icon name="music" size={70} strokeWidth={1} /><span>下一首，新的足迹</span></div>{/if}</div>
     </section>
 
-    <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">01 / DAILY RHYTHM</span><h2>聆听的日常</h2></div><span>{period === 'all' ? '最近 53 周' : periodLabel} · 一格一天</span></div>
+    <section class="report-rhythm"><div class="section-heading"><div><h2>聆听的日常</h2></div><span>{period === 'all' ? `${new Date(now).getFullYear()} 年` : periodLabel} · 一格一天</span></div>
       {#if period === 'week'}{@render week(dayCells, wallLabel)}{:else}{@render heat(daySlots, dayCols, wallLabel)}{/if}
     </section>
 
     <div class="report-clocks">
-      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">02 / HOUR BY HOUR</span><h2>聆听的时钟</h2></div><span>{periodLabel} · 一格一小时</span></div>
+      <section class="report-rhythm"><div class="section-heading"><div><h2>聆听的时钟</h2></div><span>{periodLabel} · 一格一小时</span></div>
         {@render strip(hourCells, 3, `每小时聆听时长，${periodLabel}`)}
       </section>
-      <section class="report-rhythm"><div class="section-heading"><div><span class="eyebrow">03 / WEEK BY WEEK</span><h2>一周的分布</h2></div><span>{periodLabel} · 一格一天</span></div>
+      <section class="report-rhythm"><div class="section-heading"><div><h2>一周的分布</h2></div><span>{periodLabel} · 一格一天</span></div>
         {@render strip(weekdayCells, 1, `每星期聆听时长，${periodLabel}`)}
       </section>
     </div>
 
     <div class="report-rankings report-facts">
-      <section><div class="section-heading"><div><span class="eyebrow">04 / HABITS</span><h2>习惯</h2></div><span>{periodLabel}</span></div>
+      <section><div class="section-heading"><div><h2>习惯</h2></div><span>{periodLabel}</span></div>
         {#if report.activeDays}<dl class="fact-list">
           <div><dt>当前连续<small>最长 {report.streak.longest} 天</small></dt><dd>{report.streak.current} 天</dd></div>
           <div><dt>日均聆听<small>按有聆听的日子算</small></dt><dd>{listeningTime(report.averagePerDay)}</dd></div>
@@ -166,7 +166,7 @@
           <div><dt>单曲循环最多<small>{report.topTrack ? `${report.topTrack.plays} 次有效播放` : '—'}</small></dt><dd title={report.topTrack?.track.name || ''}>{report.topTrack?.track.name || '—'}</dd></div>
         </dl>{:else}<p class="ranking-empty">听上几天，这里会出现你的习惯。</p>{/if}
       </section>
-      <section><div class="section-heading"><div><span class="eyebrow">05 / DISCOVERY</span><h2>发现</h2></div><span>{periodLabel}</span></div>
+      <section><div class="section-heading"><div><h2>发现</h2></div><span>{periodLabel}</span></div>
         {#if report.activeDays}<dl class="fact-list">
           <div><dt>新遇见的歌<small>第一次听</small></dt><dd>{report.discovered.tracks} 首</dd></div>
           <div><dt>新遇见的歌手<small>第一次听</small></dt><dd>{report.discovered.artists} 位</dd></div>
@@ -177,10 +177,10 @@
     </div>
 
     <div class="report-rankings">
-      <section><div class="section-heading"><div><span class="eyebrow">06 / ON REPEAT</span><h2>反复相遇的歌</h2></div><span>TOP 10</span></div>
+      <section><div class="section-heading"><div><h2>反复相遇的歌</h2></div><span>TOP 10</span></div>
         {#if !report.tracks.length}<p class="ranking-empty">这个周期还没有聆听记录。</p>{:else}<ol class="track-ranking">{#each report.tracks as row, i}<li><span class="rank-number">{String(i + 1).padStart(2, '0')}</span>{#if row.track.cover}<img src={coverUrl(row.track.cover, 120)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="rank-placeholder"><Icon name="music" size={22} /></span>{/if}<div class="rank-copy"><strong title={row.track.name}>{row.track.name}</strong><small>{row.track.artists.join(' / ') || '未知歌手'}</small></div><div class="rank-time"><span>{listeningTime(row.milliseconds)}</span><small>{row.plays} 次有效播放</small></div></li>{/each}</ol>{/if}
       </section>
-      <section><div class="section-heading"><div><span class="eyebrow">07 / FAMILIAR VOICES</span><h2>熟悉的声音</h2></div><span>TOP 5</span></div>
+      <section><div class="section-heading"><div><h2>熟悉的声音</h2></div><span>TOP 5</span></div>
         {#if !report.artists.length}<p class="ranking-empty">听过的声音，会慢慢汇集在这里。</p>{:else}<ol class="artist-ranking">{#each report.artists as artist, i}<li><span class="artist-initial" aria-hidden="true">{artist.name.slice(0, 1)}</span><div><strong>{artist.name}</strong><small>{listeningTime(artist.milliseconds)} · {artist.plays} 次有效播放</small><span class="artist-meter"><i style={`width:${artist.milliseconds / (report.artists[0]?.milliseconds || 1) * 100}%`}></i></span></div><span class="rank-number">{i + 1}</span></li>{/each}</ol>{/if}
       </section>
     </div>
@@ -190,33 +190,29 @@
 </div>
 
 <style>
-  .listening-report { max-width: 1360px; margin: 0 auto; padding: clamp(24px, 3.5vw, 56px); color: var(--text); background: color-mix(in srgb, var(--bg-surface) 96%, var(--text)); }
-  .report-masthead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 12px; padding: 4px 0 18px; border-bottom: 3px double var(--text-secondary); }
-  .report-masthead strong { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(28px, 4vw, 44px); line-height: 1; white-space: nowrap; }
-  .report-masthead > span { color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
-  .report-masthead > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-  .report-header { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding: 20px 0 24px; margin-bottom: 0; border-bottom: 1px solid var(--text-secondary); }
+  .listening-report { max-width: 1180px; margin: 0 auto; color: var(--text); }
+  .report-header { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding: 0 0 20px; }
   .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--accent); }
-  h1 { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(26px, 2.5vw, 38px); margin: 10px 0; }
+  h1 { font-size: clamp(24px, 2.5vw, 32px); margin: 0 0 8px; }
   p { color: var(--text-tertiary); font-size: 12px; line-height: 1.8; }
-  nav { display: flex; flex-shrink: 0; padding: 0; border-bottom: 1px solid var(--border); }
+  nav { display: flex; flex-shrink: 0; padding: 4px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface); }
   button { font: inherit; cursor: pointer; }
-  nav button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-secondary); padding: 8px 15px; font-size: 12px; }
-  nav button.active { border-bottom-color: var(--accent); color: var(--text); font-weight: 700; }
+  nav button { border: 0; border-radius: 999px; background: transparent; color: var(--text-secondary); padding: 8px 15px; font-size: 12px; }
+  nav button.active { background: var(--accent-bg); color: var(--accent); font-weight: 700; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .report-hero { position: relative; display: grid; grid-template-columns: 1.15fr 1fr; min-height: 250px; gap: 30px; padding: 30px 0; border-bottom: 3px double var(--text-secondary); }
+  .report-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); align-items: center; gap: 28px; padding: 28px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
   .hero-copy { z-index: 1; min-width: 0; }
-  .hero-copy h2 { font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: clamp(30px, 3.8vw, 56px); line-height: 1.2; font-weight: 700; margin: 14px 0 10px; }
-  .report-numbers { display: flex; gap: clamp(25px, 4vw, 70px); margin-top: 30px; }
+  .hero-copy h2 { font-size: clamp(30px, 3.8vw, 48px); line-height: 1.2; font-weight: 700; margin: 10px 0 8px; }
+  .report-numbers { display: flex; gap: clamp(25px, 4vw, 70px); margin-top: 24px; }
   .report-numbers strong { display: block; font-size: 23px; font-variant-numeric: tabular-nums; font-weight: 500; }
   .report-numbers span { display: block; color: var(--text-tertiary); font-size: 11px; margin-top: 6px; }
-  .report-covers { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 6px; align-self: center; padding-left: 24px; border-left: 1px solid var(--border); }
-  .report-covers img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 0; }
+  .report-covers { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 8px; align-self: center; }
+  .report-covers img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); }
   .cover-placeholder { grid-column: 1 / -1; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: color-mix(in srgb, var(--accent) 40%, var(--text-tertiary)); }
   .cover-placeholder span { font-size: 12px; letter-spacing: .1em; }
-  .report-rhythm { margin: 28px 0; padding: 20px 0; border-top: 1px solid var(--text-secondary); border-bottom: 1px solid var(--border); }
+  .report-rhythm { margin: 20px 0; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
   .section-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
-  .section-heading h2 { margin: 7px 0 0; font-family: Georgia, 'Songti SC', 'SimSun', serif; font-size: 20px; font-weight: 700; }
+  .section-heading h2 { margin: 0; font-size: 18px; font-weight: 700; }
   .section-heading > span { color: var(--text-tertiary); font-size: 10px; flex-shrink: 0; }
   /* 热力图：颜色深浅代替柱高。0 级格子的底色必须比卡片背景深一档 ——
      --bg-layer(#eee) 和页面 --bg(#e8e8ed) 只差 6 个色阶，直接拿它当空格子会看不见，整块糊成散点 */
@@ -245,15 +241,15 @@
   .wall-legend i { width: 10px; height: 10px; flex: none; }
   .wall-scroll-hint { display: none; margin-right: auto; }
   .wall-figure-compact + .wall-legend .wall-scroll-hint { display: none; }
-  .report-clocks { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; margin: 32px 0; }
+  .report-clocks { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px; margin: 20px 0; }
   .report-clocks > .report-rhythm { margin: 0; min-width: 0; }
-  .report-facts { margin: 32px 0; }
+  .report-facts { margin: 20px 0; }
   .fact-list { margin: 0; padding: 0; }
   .fact-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .fact-list > div:last-child { border-bottom: 0; padding-bottom: 0; }
   .fact-list dt { color: var(--text-tertiary); font-size: 11px; flex-shrink: 0; }
   .fact-list dd { margin: 0; min-width: 0; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .report-rankings { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 30px; padding: 22px 0; border-top: 1px solid var(--text-secondary); }
+  .report-rankings { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 20px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
   .report-rankings > section { min-width: 0; }
   .report-rankings > section + section { padding-left: 24px; border-left: 1px solid var(--border); }
   ol { padding: 0; margin: 0; list-style: none; }
@@ -282,5 +278,5 @@
   .ranking-empty, .report-empty { padding: 35px 0; color: var(--text-tertiary); }
   .report-notice { display: flex; gap: 16px; align-items: center; margin: 16px 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 12px; }
   .report-notice button { flex-shrink: 0; border: 0; background: var(--bg-layer); padding: 8px 12px; border-radius: var(--radius-xs); color: var(--text); }
-  @media (max-width: 1100px) { .report-hero { padding: 24px 0; } .report-rankings { gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .legacy-report { flex-wrap: wrap; } .legacy-report > div:first-child { flex-basis: 100%; } }
+  @media (max-width: 1100px) { .report-hero { padding: 24px; } .report-rankings { gap: 24px; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); } .legacy-report { flex-wrap: wrap; } .legacy-report > div:first-child { flex-basis: 100%; } }
 </style>

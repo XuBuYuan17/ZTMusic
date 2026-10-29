@@ -15,6 +15,7 @@
   import { ncm } from '../../api/client.ts'
   import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
   import { formatDuration } from '../../format.ts'
+  import PlaylistHero from '../../components/PlaylistHero.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
   import SongList from '../../components/SongList.svelte'
   import { toSongRows } from '../../components/song-row.ts'
@@ -100,28 +101,13 @@
     return parts.length === 3 ? `${parts[1]}.${parts[2]}` : String(date)
   }
 
-  const selectedDateMeta = $derived(dailyHistoryDates.find(item => (item.date || item) === selectedDailyDate) || null)
+  const dailyDetail = $derived({ name: '每日推荐', picUrl: rows.find(row => row.cover)?.cover || '', creator: selectedDailyDate || '历史日推' })
 </script>
 
 <div class="daily-page fade-in">
-  <div class="daily-masthead"><span>哲听 · 推荐档案</span><strong>每日推荐</strong><span>往期精选</span></div>
-  <section class="daily-hero">
-    <div class="daily-hero-copy">
-      <div class="daily-kicker">THE DAILY ARCHIVE</div>
-      <h1>历史日推</h1>
-      <p>回看每天为你推送过的歌曲，把错过的那一首重新捡回来。</p>
-      <div class="daily-hero-stats" data-date={selectedDailyDate}>
-        <span>{formatDateLabel(selectedDailyDate)}</span>
-        <span>{dailyHistorySongs.length} 首歌曲</span>
-        {#if selectedDateMeta?.weekday}<span>{selectedDateMeta.weekday}</span>{/if}
-      </div>
-    </div>
-    {#if dailyHistorySongs.length > 0}
-    <button class="daily-hero-play" onclick={playAll}><Icon name="play" size={18} />播放全部</button>
-    {/if}
-  </section>
+  <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading} totalCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} visibleCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} onPlayAll={playAll} />
 
-    {#if dailyHistoryDates.length > 0}<div class="daily-date-heading"><strong>往期档案</strong><span>选择日期回看推荐</span></div>{/if}
+    {#if dailyHistoryDates.length > 0}<div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>{/if}
     {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
       <div class="daily-date-scroll" aria-label="加载历史日期">
         {#each Array(7) as _}
@@ -147,8 +133,7 @@
       <section class="daily-song-panel" aria-label="加载歌曲">
         <div class="daily-section-header">
           <div>
-            <div class="daily-section-eyebrow">Songs</div>
-            <h2>{selectedDailyDate || '每日推荐'}</h2>
+            <h2>{selectedDailyDate || '每日推荐'} 的歌曲</h2>
           </div>
         </div>
         <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
@@ -157,10 +142,8 @@
       <section class="daily-song-panel">
         <div class="daily-section-header">
           <div>
-            <div class="daily-section-eyebrow">Songs</div>
-            <h2>{selectedDailyDate || '每日推荐'}</h2>
+            <h2>{selectedDailyDate || '每日推荐'} 的歌曲</h2>
           </div>
-          <button onclick={playAll}>播放全部</button>
         </div>
         <SongList
           {rows}
@@ -186,33 +169,29 @@
 </div>
 
 <style>
-  .daily-page { display: grid; gap: 26px; max-width: 1180px; margin: 0 auto; }
-  .daily-hero { position: relative; overflow: hidden; min-height: 230px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 30px; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: var(--radius-xl); background: linear-gradient(135deg, color-mix(in srgb, var(--bg-layer) 92%, transparent), color-mix(in srgb, var(--bg-surface) 88%, transparent)); box-shadow: var(--shadow-xl); }
-  .daily-hero-bg { position: absolute; inset: 0; background: radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--accent) 36%, transparent), transparent 34%), linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)); background-size: cover; background-position: center; filter: blur(18px) saturate(1.18); transform: scale(1.08); opacity: 0.52; }
-  .daily-hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.62), rgba(0,0,0,0.18)), linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.56)); }
-  .daily-hero-copy, .daily-hero-play { position: relative; z-index: 1; }
-  .daily-kicker { color: rgba(255, 255, 255, 0.72); font-size: 12px; font-weight: 700; letter-spacing: 0; margin-bottom: 10px; }
-  .daily-hero h1 { color: white; font-size: clamp(38px, 4.6vw, 64px); line-height: 1.02; letter-spacing: 0; margin: 0; }
-  .daily-hero p { max-width: 520px; margin-top: 14px; color: rgba(255,255,255,0.72); font-size: 15px; line-height: 1.7; }
-  .daily-hero-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
-  .daily-hero-stats span { min-height: 32px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.86); font-size: 12px; font-weight: 700; }
-  .daily-hero-play { flex-shrink: 0; min-width: 112px; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 20px; border: none; border-radius: 999px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 24%, transparent); }
-  .daily-hero-play:hover { background: var(--accent-hover); }
-  .daily-date-scroll { display: flex; gap: 10px; overflow-x: auto; padding: 2px 0 8px; }
-  .daily-date-chip { flex: 0 0 auto; min-width: 92px; display: grid; gap: 2px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--bg-layer) 80%, transparent); color: var(--text); text-align: left; cursor: pointer; transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out); }
+  .daily-page { display: grid; gap: 20px; max-width: 1180px; margin: 0 auto; color: var(--text); }
+  .daily-date-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 -12px; }
+  .daily-date-heading strong { font-size: 16px; }
+  .daily-date-heading span { color: var(--text-tertiary); font-size: 11px; }
+  .daily-date-scroll { min-width: 0; display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px; }
+  .daily-date-chip { flex: 0 0 auto; min-width: 84px; min-height: 52px; display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text); text-align: left; cursor: pointer; transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out); }
   .daily-date-chip:hover { background: var(--bg-hover); }
   .daily-date-chip span { font-size: 14px; font-weight: 700; }
   .daily-date-chip small { color: var(--text-tertiary); font-size: 11px; }
-  .daily-date-chip.active { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 16%, var(--bg-layer)); box-shadow: 0 10px 26px color-mix(in srgb, var(--accent) 12%, transparent); }
-  .daily-song-panel { border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--bg-layer) 82%, transparent); padding: 16px; box-shadow: var(--shadow-md); }
+  .daily-date-chip.active { border-color: var(--accent); background: var(--accent-bg); }
+  .daily-song-panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
   .daily-section-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-  .daily-section-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
-  .daily-section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: 0; margin: 0; }
-  .daily-section-header button { border: none; background: transparent; color: var(--accent); font-size: 12px; font-weight: 700; cursor: pointer; }
+  .daily-section-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
   .daily-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-secondary); text-align: center; }
   .daily-empty p { margin: 0; }
   .daily-empty-hint { color: var(--text-tertiary); font-size: 13px; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-detail-hero) { gap: 14px; padding: 4px 0 10px; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-cover), :global(html.mobile-runtime) .daily-page :global(.playlist-cover-open) { width: min(58vw, 292px); }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy) { gap: 5px; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy h1) { font-size: 22px; font-weight: 700; line-height: 1.22; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-mobile-creator) { font-size: 14px; line-height: 20px; color: var(--text-secondary); }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-actions) { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; margin-top: 8px; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-play-btn) { min-height: 48px; font-size: 16px; }
   @media (prefers-reduced-motion: reduce) { .daily-date-chip { transition: none; } }
-  @media (max-width: 900px) { .daily-hero { align-items: flex-start; flex-direction: column; justify-content: flex-end; } }
-  @media (max-width: 560px) { .daily-hero { min-height: 240px; padding: 22px; } .daily-hero h1 { font-size: 42px; } .daily-date-chip { min-width: 78px; } }
+  @media (max-width: 560px) { .daily-date-chip { min-width: 72px; } }
 </style>

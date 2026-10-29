@@ -40,6 +40,10 @@
     onMore,
     onShare,
     onTools,
+    favorite = false,
+    favoriteDisabled = false,
+    favoriteLabel = '收藏歌单',
+    onFavorite,
   }: {
     detail?: HeroDetail | null
     loading?: boolean
@@ -61,6 +65,10 @@
     /** 由页面统一提供的分享入口 */
     onShare?: () => void
     onTools?: () => void
+    favorite?: boolean
+    favoriteDisabled?: boolean
+    favoriteLabel?: string
+    onFavorite?: () => void
   } = $props()
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
@@ -129,10 +137,10 @@
     <div class="playlist-cover skeleton-block"></div>
     <div class="playlist-hero-copy">
       <div class="playlist-hero-topline">
-        <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
+        {#if onBack}<button class="playlist-back-btn" onclick={onBack} aria-label="返回">
           <Icon name="chevron-left" size={18} strokeWidth={2.2} />
           <span>返回</span>
-        </button>
+        </button>{/if}
         <div class="skeleton-line short"></div>
       </div>
       <div class="skeleton-line medium" style="height:52px;margin-bottom:12px"></div>
@@ -157,10 +165,10 @@
     {/if}
     <div class="playlist-hero-copy">
       <div class="playlist-hero-topline">
-        <button class="playlist-back-btn" onclick={onBack} aria-label="返回">
+        {#if onBack}<button class="playlist-back-btn" onclick={onBack} aria-label="返回">
           <Icon name="chevron-left" size={18} strokeWidth={2.2} />
           <span>返回</span>
-        </button>
+        </button>{/if}
         <div class="playlist-kicker">{detailType}</div>
       </div>
       <h1>{detail.name}</h1>
@@ -187,7 +195,8 @@
             <span>随机播放</span>
           </button>
         {/if}
-        <button class="playlist-more-btn" type="button" aria-label={`${detailType}操作`} aria-haspopup="dialog" aria-expanded={showMenu} onclick={() => onMore?.()}><Icon name="more" size={24} /></button>
+        {#if onFavorite}<button class="playlist-favorite-btn" type="button" aria-label={favoriteLabel} title={favoriteLabel} aria-pressed={favorite} disabled={favoriteDisabled} onclick={onFavorite}><Icon name={favorite ? 'heart-filled' : 'heart'} size={21} fill={favorite ? 'currentColor' : 'none'} /></button>{/if}
+        {#if onMore}<button class="playlist-more-btn" type="button" aria-label={`${detailType}操作`} aria-haspopup="dialog" aria-expanded={showMenu} onclick={() => onMore?.()}><Icon name="more" size={24} /></button>{/if}
       </div>
     </div>
   </div>
@@ -197,7 +206,7 @@
 
 {#if showMenu && detail}
   <div class="library-options-portal" use:playlistPortal>
-  <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} {coverIsBundled} actions={menuActions} label={`${detailType}操作`}
+  <PlaylistActionSheet show={!menuClosing} title={detail.name} cover={cover} {coverIsBundled} actions={menuActions} label={`${detailType}操作`} bottomOnDesktop
     onPlay={visibleCount || containsCurrentTrack ? () => closeMenu(toggleHeroPlayback) : undefined} onClose={() => closeMenu()} onClosed={finishMenu} />
   </div>
 {/if}
@@ -205,6 +214,7 @@
 <style>
   /* 操作入口常驻声明，显隐交给布局：窄布局（下一段 :global 规则）把它显示出来 */
   .playlist-more-btn { display: none; }
+  .playlist-favorite-btn { display: none; }
   .playlist-mobile-creator { display: none; }
   .playlist-detail-hero {
     position: relative;
@@ -459,17 +469,17 @@
     display: none;
   }
 
-  /* 桌面：沉浸式模糊封面背景；--hero-p（0→1）由 PlaylistPage 按滚动写入，驱动视差与收缩 */
+  /* 桌面保留宽屏并排布局，控件与移动端使用同一层级。 */
   :global(html:not(.mobile-runtime)) .playlist-detail-hero {
     grid-template-columns: 208px minmax(0, 1fr);
     gap: 32px;
     min-height: 272px;
     margin: 0;
     padding: 32px;
-    border: 0;
+    border: 1px solid var(--border);
     border-radius: var(--radius-xl);
-    color: white;
-    background: var(--playlist-hero-color, #141414);
+    color: var(--text);
+    background: var(--bg-surface);
     isolation: isolate;
     animation: playlistHeroFade var(--motion-panel) var(--ease-out) backwards;
   }
@@ -485,14 +495,13 @@
 
   :global(html:not(.mobile-runtime)) .playlist-hero-backdrop {
     position: absolute;
-    inset: -40px;
+    inset: -24px;
     z-index: -2;
     display: block;
     background-position: center;
     background-size: cover;
-    filter: blur(40px) saturate(1.2);
-    transform: translateY(calc(var(--hero-p, 0) * 48px)) scale(1.2);
-    will-change: transform;
+    filter: blur(18px) saturate(.9);
+    opacity: .35;
   }
 
   :global(html:not(.mobile-runtime)) .playlist-hero-wash {
@@ -500,26 +509,23 @@
     inset: 0;
     z-index: -1;
     display: block;
-    background:
-      linear-gradient(90deg, color-mix(in srgb, var(--playlist-hero-color, #141414) 78%, rgba(0, 0, 0, .3)) 0%, color-mix(in srgb, var(--playlist-hero-color, #141414) 36%, transparent) 100%),
-      linear-gradient(0deg, rgba(0, 0, 0, .32), transparent 64%);
+    background: color-mix(in srgb, var(--bg-surface) 72%, transparent);
   }
 
   :global(html:not(.mobile-runtime)) .playlist-cover {
     width: 208px;
     height: 208px;
     border-radius: var(--radius-lg);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, .32);
-    transform-origin: 0 100%;
-    transform: scale(calc(1 - var(--hero-p, 0) * .12));
-    opacity: calc(1 - var(--hero-p, 0) * .6);
+    box-shadow: var(--shadow-md);
+    transform: none;
+    opacity: 1;
     animation: none;
   }
 
   :global(html:not(.mobile-runtime)) .playlist-hero-copy {
     gap: 8px;
     padding-right: 0;
-    opacity: calc(1 - var(--hero-p, 0) * .7);
+    opacity: 1;
     animation: playlistHeroFade var(--motion-panel) var(--ease-out) 60ms backwards;
   }
 
@@ -540,7 +546,7 @@
   }
 
   :global(html:not(.mobile-runtime)) .playlist-hero-copy h1 {
-    font-size: clamp(32px, 4vw, 52px);
+    font-size: clamp(24px, 3vw, 36px);
     font-weight: 700;
     line-height: 1.08;
   }
@@ -550,7 +556,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    color: color-mix(in srgb, currentColor 80%, transparent);
+    color: var(--text-secondary);
   }
 
   :global(html:not(.mobile-runtime)) .playlist-meta-avatar {
@@ -562,7 +568,7 @@
   }
 
   :global(html:not(.mobile-runtime)) .playlist-desc {
-    color: color-mix(in srgb, currentColor 62%, transparent);
+    color: var(--text-secondary);
     line-clamp: 1;
     -webkit-line-clamp: 1;
   }
@@ -577,7 +583,7 @@
 
   :global(html:not(.mobile-runtime)) .playlist-play-btn,
   :global(html:not(.mobile-runtime)) .playlist-shuffle-btn {
-    min-height: 40px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -590,14 +596,18 @@
   }
 
   :global(html:not(.mobile-runtime)) .playlist-shuffle-btn {
-    color: inherit;
-    background: rgba(255, 255, 255, .16);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    color: var(--text);
+    background: var(--bg-layer);
   }
 
+  :global(html:not(.mobile-runtime)) .playlist-more-btn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--text); background: var(--bg-layer); }
+  :global(html:not(.mobile-runtime)) .playlist-favorite-btn { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--text); background: var(--bg-layer); }
+  :global(html:not(.mobile-runtime)) .playlist-favorite-btn[aria-pressed="true"] { color: var(--accent); }
+  :global(html:not(.mobile-runtime)) .playlist-favorite-btn:disabled { opacity: .4; cursor: not-allowed; }
+  :global(html:not(.mobile-runtime)) .playlist-more-btn :global(svg) { rotate: 90deg; }
+
   :global(html:not(.mobile-runtime)) .playlist-play-btn:hover:not(:disabled) { filter: brightness(1.08); }
-  :global(html:not(.mobile-runtime)) .playlist-shuffle-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .24); }
+  :global(html:not(.mobile-runtime)) .playlist-shuffle-btn:hover:not(:disabled), :global(html:not(.mobile-runtime)) .playlist-more-btn:hover, :global(html:not(.mobile-runtime)) .playlist-favorite-btn:hover:not(:disabled) { background: var(--bg-hover); }
   :global(html:not(.mobile-runtime)) .playlist-shuffle-btn:disabled { opacity: .48; cursor: default; }
 
   @media (max-width: 860px) {

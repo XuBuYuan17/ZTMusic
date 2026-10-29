@@ -53,6 +53,11 @@ delete node.dataset.sheetDismissed
 assert.equal(mobileSheet(node, { duration: 360 }).duration, 360, '出场时长可覆盖')
 globalThis.document.documentElement.classList.contains = () => false
 assert.equal(mobileSheet(node).duration, 0, '桌面端不播下落动画')
+const desktopSheetMotion = mobileSheet(node, { desktopCentered: true })
+assert.equal(desktopSheetMotion.duration, 420, '指定的桌面底部面板使用移动端入场时序')
+assert.equal(desktopSheetMotion.css(0), 'translate: -50% 100%', '桌面面板保持水平居中并从底部进入')
+assert.equal(desktopSheetMotion.css(1), 'translate: -50% 0%')
+assert.equal(mobileSheet(node, { desktopCentered: true }, { direction: 'out' }).duration, 300)
 globalThis.document.documentElement.classList.contains = () => true
 globalThis.window.matchMedia = () => ({ matches: true })
 assert.equal(mobileSheet(node).duration, 0, 'reduced-motion 下退化为瞬切')

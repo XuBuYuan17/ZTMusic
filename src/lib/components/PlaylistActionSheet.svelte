@@ -47,7 +47,14 @@
     show?: boolean; title: string; cover?: string; coverIsBundled?: boolean; actions: PlaylistAction[]; onPlay?: () => void; onClose: () => void; onClosed?: () => void; label?: string; bottomOnDesktop?: boolean
   } = $props()
   let coverFailed = $state(false)
+  let presented = $state(false)
   $effect(() => { cover; coverFailed = false })
+  $effect(() => {
+    if (!show) { presented = false; return }
+    let active = true
+    queueMicrotask(() => { if (active) presented = true })
+    return () => { active = false }
+  })
   let closed = false
   $effect(() => { if (show) closed = false })
   function finishClose(event: Event) {
@@ -64,9 +71,9 @@
   }
 </script>
 
-{#if show}
+{#if presented}
   <button class="mobile-choice-backdrop" type="button" aria-label={`关闭${label}`} onclick={onClose} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
-  <div class="mobile-choice-sheet library-options-sheet playlist-action-sheet" class:sheet-bottom-desktop={bottomOnDesktop} data-bottom-panel role="dialog" aria-modal="true" aria-label={label} tabindex="-1" use:dialogFocus={onClose} in:mobileSheet out:mobileSheet onoutroend={finishClose}>
+  <div class="mobile-choice-sheet library-options-sheet playlist-action-sheet" class:sheet-bottom-desktop={bottomOnDesktop} data-bottom-panel role="dialog" aria-modal="true" aria-label={label} tabindex="-1" use:dialogFocus={onClose} in:mobileSheet={{ desktopCentered: bottomOnDesktop }} out:mobileSheet={{ desktopCentered: bottomOnDesktop }} onoutroend={finishClose}>
     <button class="m-sheet-handle" type="button" aria-label={`关闭${label}`} onclick={onClose} use:mobileDrag={{ close: onClose, panel: true }}></button>
     <header class="library-options-header">
       <button class="library-options-cover" type="button" aria-label={`播放歌单 ${title}`} onclick={onPlay} disabled={!onPlay}>
@@ -88,12 +95,24 @@
 {/if}
 
 <style>
+  @keyframes desktopSheetEnter { from { opacity: 0; transform: translate3d(0, 28px, 0) scale(.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
   :global(html:not(.mobile-runtime)) .mobile-choice-backdrop { position: fixed; inset: var(--titlebar-h, 0px) 0 0; z-index: 340; width: 100%; border: 0; background: rgb(0 0 0 / .4); }
   :global(html:not(.mobile-runtime)) .playlist-action-sheet { position: fixed; z-index: 350; top: calc(50% + var(--titlebar-h, 0px) / 2); left: 50%; translate: -50% -50%; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - var(--titlebar-h, 0px) - 32px); overflow: auto; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg); box-shadow: var(--shadow-lg); }
   :global(html:not(.mobile-runtime)) .m-sheet-handle { display: none; }
-  :global(html:not(.mobile-runtime)) .playlist-action-sheet.sheet-bottom-desktop { top: auto; bottom: 14px; translate: -50% 0; padding: 0 12px 8px; max-height: min(62dvh, 520px); background: var(--md-container, var(--bg)); }
+  :global(html:not(.mobile-runtime)) .playlist-action-sheet.sheet-bottom-desktop { top: auto; bottom: 14px; translate: -50% 0; padding: 0 12px 8px; max-height: min(62dvh, 520px); background: var(--md-container, var(--bg)); animation: desktopSheetEnter 320ms cubic-bezier(.2, 0, 0, 1) both; transform-origin: 50% 100%; }
+  @media (prefers-reduced-motion: reduce) { :global(html:not(.mobile-runtime)) .playlist-action-sheet.sheet-bottom-desktop { animation: none; } }
   :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .m-sheet-handle { position: relative; display: block; width: 52px; height: 20px; margin: 2px auto 0; background: transparent; }
   :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .m-sheet-handle::before { position: absolute; top: 7px; left: 9px; width: 34px; height: 4px; border-radius: var(--radius-xl); background: color-mix(in srgb, var(--text-secondary) 42%, transparent); content: ''; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .library-options-header { grid-template-columns: 46px minmax(0, 1fr) 36px; min-height: 60px; gap: 10px; padding: 5px 8px 8px 10px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .library-options-cover { width: 46px; height: 46px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop h2 { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 15px; line-height: 20px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .mobile-choice-done { width: 36px; height: 36px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .playlist-sheet-play { left: calc(50% - 15px); top: calc(50% - 15px); width: 30px; height: 30px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .playlist-sheet-play :global(svg) { width: 20px; height: 20px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .mobile-choice-body { gap: 2px; padding: 5px 8px 8px; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .library-option { min-height: 44px; gap: 10px; padding: 7px 10px; font-size: 14px; font-weight: 500; }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .library-option :global(svg) { width: 30px; height: 30px; padding: 5px; border-radius: var(--radius-md); background: var(--accent-bg); color: var(--accent); }
+  :global(html:not(.mobile-runtime)) .sheet-bottom-desktop .library-option--danger :global(svg) { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
   .library-options-header { display: grid; grid-template-columns: 64px minmax(0, 1fr) 40px; align-items: center; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .library-options-cover { position: relative; width: 64px; height: 64px; overflow: hidden; padding: 0; border: 0; border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text-secondary); }
   h2 { margin: 0; font-size: 18px; line-height: 24px; overflow-wrap: anywhere; }

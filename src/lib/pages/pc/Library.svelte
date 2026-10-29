@@ -1,5 +1,6 @@
 <script module lang="ts">
   let librarySnapshot: { userId: unknown; library: unknown; likedCovers: string[] } | null = null
+  let libraryReturn: { userId: unknown; group: string; playlistId: string; scrollTop: number } | null = null
 </script>
 
 <script lang="ts">
@@ -10,24 +11,24 @@
   import { musicService } from '../../music/service.ts'
   import { player } from '../../stores/player.svelte.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
-  import { normalizePlaylist, normalizeRecordSong, type NormalizedRecordSong } from '../../utils/normalize.ts'
+  import { normalizePlaylist } from '../../utils/normalize.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
   import CreatePlaylistModal from '../../components/CreatePlaylistModal.svelte'
   import PlaylistEditModal from '../../components/PlaylistEditModal.svelte'
   import PlaylistGroupPicker from '../../components/PlaylistGroupPicker.svelte'
-  import { PLAYLIST_CHANGE, notifyPlaylistChange } from '../../stores/router.svelte.ts'
-  import { onDestroy, tick } from 'svelte'
+  import { PLAYLIST_CHANGE, notifyPlaylistChange, router } from '../../stores/router.svelte.ts'
+  import { onDestroy, onMount, tick } from 'svelte'
+  import { getScrollViewport } from '../../app/scroll-viewport.ts'
   import { isTouchDevice, responsive } from '../../utils/responsive.ts'
   import Icon from '../../components/ui/Icon.svelte'
   import PlaylistActionSheet, { queuePlaylist, sharePlaylist, playlistPortal, type PlaylistAction } from '../../components/PlaylistActionSheet.svelte'
   import LikedCoverFalls from '../../components/LikedCoverFalls.svelte'
   import RecentTracksModule from '../../components/RecentTracksModule.svelte'
-  import WeeklyListenModule from '../../components/WeeklyListenModule.svelte'
   import { libraryPlaylistActions, runLibraryPlaylistAction } from '../../components/library-playlist-actions.ts'
   import { coverUrl } from '../../utils/image.ts'
   import { formatPlayCount } from '../../format.ts'
-  import { reducedMotion } from '../../app/desktop-motion.ts'
+  import { reducedMotion, flyReturnCover } from '../../app/desktop-motion.ts'
   import { mobileLongPress } from '../../app/mobile-interaction.ts'
   import { readPlaylistGroups, PLAYLIST_GROUPS_CHANGE, type PlaylistGroup } from '../../services/playlist-groups.ts'
   import { loadLibraryPlaylists } from '../../services/library-playlists.ts'
@@ -38,7 +39,7 @@
     savedPlaylists: NormalizedPlaylist[]
     likedPlaylist: NormalizedPlaylist | null
     /** 资料概览用的最小身份信息；预告/周排行为空，由主页负责 */
-    profile: { nickname: string; avatarUrl: string; signature: string; level: number | null; listenSongs: number | null }
+    profile: { nickname: string; avatarUrl: string; backgroundUrl: string; identityLabel: string; signature: string; level: number | null; listenSongs: number | null }
   }
   interface RawPlaylist {
     specialType?: number
@@ -58,11 +59,18 @@
   let error = $state('')
   let _requestId = 0
   let ownerId = initial?.userId ?? null
-  let weeklyTracks = $state<NormalizedRecordSong[]>([])
-  let weeklyLoading = $state(false)
-  let weeklyFailed = $state(false)
-  let weeklyRequestId = 0
-  let expandedCollection = $state<string | null>(null)
+  const returning = router.routeTransition === 'back' && router.previousView === 'playlist' && libraryReturn?.userId === auth.user?.userId ? libraryReturn : null
+  let expandedCollection = $state<string | null>(returning?.group ?? null)
+  const scrollViewport = getScrollViewport()
+  onMount(() => {
+    if (!returning || scrollViewport?.restoresScroll) return
+    const frame = requestAnimationFrame(() => {
+      const viewport = scrollViewport?.element()
+      if (viewport) viewport.scrollTop = returning.scrollTop
+      flyReturnCover(collectionRoot?.querySelector<HTMLImageElement>('img[data-shared-cover-return="true"]') ?? null)
+    })
+    return () => cancelAnimationFrame(frame)
+  })
   let customGroups = $state<PlaylistGroup[]>([])
   let groupLoadError = $state('')
   let collectionRoot = $state<HTMLElement | null>(null)
@@ -116,14 +124,18 @@
   }
   function dismissPlaylistManager(): void { void setExpandedCollection(null) }
   function openCollection(id: string): void { void setExpandedCollection(expandedCollection === id ? null : id) }
+  function openGroupPlaylist(pl: NormalizedPlaylist): void {
+    if (expandedCollection) libraryReturn = { userId: auth.user?.userId, group: expandedCollection, playlistId: String(pl.id), scrollTop: scrollViewport?.element()?.scrollTop ?? 0 }
+    onOpenPlaylist?.(pl.id as SongId, true, pl)
+  }
   onDestroy(cancelCollectionMotion)
   function dismissOnOutside(event: PointerEvent): void {
-    if (!expandedCollection || !(event.target instanceof Element)) return
+    if (router.activeView !== 'library' || !expandedCollection || !(event.target instanceof Element)) return
     if (event.target.closest('.collection-groups, .library-options-portal, .library-management-portal, [role="dialog"]')) return
     dismissPlaylistManager()
   }
   function dismissOnEscape(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && expandedCollection && !optionsTarget && !showCreateModal && !editTarget && !groupTarget && !deleteTarget && !unsubscribeTarget) dismissPlaylistManager()
+    if (router.activeView === 'library' && event.key === 'Escape' && expandedCollection && !optionsTarget && !showCreateModal && !editTarget && !groupTarget && !deleteTarget && !unsubscribeTarget) dismissPlaylistManager()
   }
   function refreshGroups(): void {
     if (!auth.user?.userId) { customGroups = []; groupLoadError = ''; return }
@@ -182,7 +194,7 @@
     createdPlaylists: [],
     savedPlaylists: [],
     likedPlaylist: null,
-    profile: { nickname: '', avatarUrl: '', signature: '', level: null, listenSongs: null },
+    profile: { nickname: '', avatarUrl: '', backgroundUrl: '', identityLabel: '', signature: '', level: null, listenSongs: null },
   }
 
   let data = $derived(library || emptyLibrary)
@@ -208,23 +220,6 @@
 
   function save(): void {
     librarySnapshot = { userId: auth.user?.userId, library, likedCovers: [...likedCovers] }
-  }
-
-  async function loadWeekly(): Promise<void> {
-    const uid = auth.user?.userId
-    const rid = ++weeklyRequestId
-    if (!auth.isLoggedIn || !uid) { weeklyTracks = []; weeklyLoading = false; weeklyFailed = false; return }
-    weeklyLoading = true
-    weeklyFailed = false
-    try {
-      const response = rec(await ncm.userRecordWeek(uid))
-      if (rid !== weeklyRequestId || auth.user?.userId !== uid) return
-      const nested = rec(response?.data)
-      const items = response?.weekData ?? response?.list ?? nested?.weekData ?? nested?.list
-      weeklyTracks = (Array.isArray(items) ? items : []).map(normalizeRecordSong).filter((song): song is NormalizedRecordSong => song !== null).slice(0, 10)
-    } catch {
-      if (rid === weeklyRequestId && auth.user?.userId === uid) { weeklyTracks = []; weeklyFailed = true }
-    } finally { if (rid === weeklyRequestId) weeklyLoading = false }
   }
 
   async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
@@ -308,6 +303,8 @@
       const detailR = rec(detailRes)
       const detail = rec(detailR?.data) || detailR || {}
       const profile = rec(detail.profile) || {}
+      const identify = rec(detailR?.identify) || rec(detail.identify) || {}
+      const mainAuth = rec(profile.mainAuthType) || {}
       const createdCount = count(sub.createdPlaylistCount)
       const savedCount = count(sub.subPlaylistCount)
 
@@ -323,6 +320,8 @@
         profile: {
           nickname: String(profile.nickname ?? auth.user?.nickname ?? ''),
           avatarUrl: String(profile.avatarUrl ?? auth.user?.avatarUrl ?? ''),
+          backgroundUrl: String(profile.backgroundUrl ?? profile.backgroundImageUrl ?? ''),
+          identityLabel: String(mainAuth.desc ?? identify.imageDesc ?? profile.detailDescription ?? ''),
           signature: String(profile.signature ?? ''),
           level: count(detail.level ?? profile.level),
           listenSongs: count(detail.listenSongs ?? profile.listenSongs),
@@ -401,15 +400,16 @@
   $effect(() => {
     const uid = auth.user?.userId ?? null
     if (!auth.isLoggedIn || uid !== ownerId) {
-      _requestId++; weeklyRequestId++; library = null; likedCovers = []; weeklyTracks = []; ownerId = uid
+      _requestId++; library = null; likedCovers = []; ownerId = uid
+      libraryReturn = null
       dismissPlaylistManager(); closeOptions(); showCreateModal = false; editTarget = null; groupTarget = null; deleteTarget = null; unsubscribeTarget = null
     }
-    if (auth.isLoggedIn && uid) { void load(); void loadWeekly() }
+    if (auth.isLoggedIn && uid) { void load() }
     // 歌单在别处被改名 / 删除 / 取消收藏时跟着刷新。不监听的话这份列表会一直拿着旧名字
     const reload = () => { void load() }
     window.addEventListener(PLAYLIST_CHANGE, reload)
     return () => {
-      _requestId++; weeklyRequestId++
+      _requestId++
       window.removeEventListener(PLAYLIST_CHANGE, reload)
       timers.forEach(id => clearTimeout(id))
     }
@@ -433,17 +433,18 @@
 
     <div class="library-unified">
       <header class="library-identity">
+        {#if data.profile.backgroundUrl}<div class="library-identity__background" aria-hidden="true" style={`background-image: url(${JSON.stringify(coverUrl(data.profile.backgroundUrl, 800))})`}></div>{/if}
         <div class="library-identity__person">
           {#if data.profile.avatarUrl || auth.user?.avatarUrl}
             <img src={coverUrl(data.profile.avatarUrl || String(auth.user?.avatarUrl), 160)} alt="" referrerpolicy="no-referrer" />
           {:else}<span class="library-identity__avatar"><Icon name="user" size={28} /></span>{/if}
-          <div><span class="library-identity__eyebrow">MY LIBRARY <span aria-hidden="true">/</span> 我的音乐</span><div class="library-identity__name"><h1>{data.profile.nickname || auth.user?.nickname || '我的资料库'}</h1>{#if data.profile.level && data.profile.level > 0}<span>Lv.{data.profile.level}</span>{/if}</div><p>{data.profile.signature || '你的音乐，都在这里'}</p></div>
+          <div><div class="library-identity__name"><h1>{data.profile.nickname || auth.user?.nickname || '我的资料库'}</h1>{#if data.profile.level && data.profile.level > 0}<span>Lv.{data.profile.level}</span>{/if}{#if data.profile.identityLabel}<span class="library-identity__role">{data.profile.identityLabel}</span>{/if}</div><p>{data.profile.signature || '你的音乐，都在这里'}</p><div class="library-identity__social"><span>关注 <strong>{displayCount(data.stats.follow)}</strong></span><span>粉丝 <strong>{displayCount(data.stats.fans)}</strong></span></div></div>
         </div>
         <div class="library-identity__stats" aria-label="账号数据">
           <div><strong>{displayCount(data.profile.listenSongs)}</strong><span>累计听歌</span></div>
-          <div><strong>{displayCount(data.stats.playlist)}</strong><span>歌单</span></div>
-          <div><strong>{displayCount(data.stats.follow)}</strong><span>关注</span></div>
-          <div><strong>{displayCount(data.stats.fans)}</strong><span>粉丝</span></div>
+          <div><strong>{likedPlaylist ? displayCount(likedPlaylist.trackCount) : '—'}</strong><span>喜欢歌曲</span></div>
+          <div><strong>{library ? displayCount(createdPlaylists.length) : '—'}</strong><span>创建歌单</span></div>
+          <div><strong>{library ? displayCount(otherSavedPlaylists.length) : '—'}</strong><span>收藏歌单</span></div>
         </div>
       </header>
 
@@ -457,18 +458,18 @@
         </div>
         <div class="library-activity">
           <RecentTracksModule limit={$responsive.isMobile ? 3 : 4} onOpenAll={() => onNavigate?.('recent')} />
-          <div class="library-shortcuts" aria-label="音乐记录">
+        </div>
+        <div class="library-shortcuts" aria-label="音乐记录">
             <button class="library-shortcut library-shortcut--daily" type="button" onclick={() => onNavigate?.('dailyHistory')}>
-              <span class="library-shortcut__art library-shortcut__art--daily" aria-hidden="true"><span></span><Icon name="calendar" size={23} fill="none" strokeWidth={1.5} /></span>
-              <span class="library-shortcut__copy"><small>DAILY ARCHIVE</small><strong>历史日推</strong><em>重遇过去的好歌</em></span>
+              <span class="library-shortcut__icon" aria-hidden="true"><Icon name="calendar" size={20} fill="none" strokeWidth={1.5} /></span>
+              <span class="library-shortcut__copy"><strong>历史日推</strong><em>回看每日推荐</em></span>
               <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
             </button>
             <button class="library-shortcut library-shortcut--stats" type="button" onclick={() => onNavigate?.('listeningStats')}>
-              <span class="library-shortcut__art library-shortcut__art--stats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-              <span class="library-shortcut__copy"><small>LISTENING</small><strong>听歌统计</strong><em>留住聆听的时光</em></span>
+              <span class="library-shortcut__icon" aria-hidden="true"><Icon name="music" size={20} fill="none" strokeWidth={1.5} /></span>
+              <span class="library-shortcut__copy"><strong>听歌统计</strong><em>查看聆听报告</em></span>
               <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
             </button>
-          </div>
         </div>
       </div>
 
@@ -490,10 +491,10 @@
                   {#each (expanded ? group.items : group.items.slice(0, 3)) as item, i (item.pl.id as SongId)}
                     <div class="collection-item" data-index={i} data-playlist-id={String(item.pl.id)} inert={!expanded} style={`--cover-offset:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 30}px; --cover-offset-mobile:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 12}px; --cover-angle:${(i - (Math.min(group.items.length, 3) - 1) / 2) * 8}deg`}>
                       <div class="collection-item__open" data-motion="card" role="button" tabindex="0" aria-label={`打开歌单 ${item.pl.name}`} aria-haspopup="dialog" use:groupLongPress={item}
-                        onclick={() => { dismissPlaylistManager(); onOpenPlaylist?.(item.pl.id as SongId, true, item.pl) }}
+                        onclick={() => openGroupPlaylist(item.pl)}
                         oncontextmenu={(event) => { event.preventDefault(); openOptions(item.pl, item.kind, event.currentTarget) }}
-                        onkeydown={(event) => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); openOptions(item.pl, item.kind, event.currentTarget) } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); dismissPlaylistManager(); onOpenPlaylist?.(item.pl.id as SongId, true, item.pl) } }}>
-                        <span class="collection-item__cover">{#if item.pl.picUrl}<img src={coverUrl(item.pl.picUrl, 300)} alt="" loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />{:else}<Icon name="music" size={28} />{/if}</span>
+                        onkeydown={(event) => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { event.preventDefault(); openOptions(item.pl, item.kind, event.currentTarget) } else if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openGroupPlaylist(item.pl) } }}>
+                        <span class="collection-item__cover">{#if item.pl.picUrl}<img src={coverUrl(item.pl.picUrl, 300)} alt="" data-shared-cover-return={returning?.group === group.id && returning?.playlistId === String(item.pl.id) ? 'true' : undefined} loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />{:else}<Icon name="music" size={28} />{/if}</span>
                         <span class="collection-item__info"><strong>{item.pl.name}</strong><small>{item.pl.trackCount ?? 0} 首</small></span>
                       </div>
                       <button class="collection-item__menu" type="button" title="歌单管理" aria-label={`更多操作 ${item.pl.name}`} onclick={(event) => openOptions(item.pl, item.kind, event.currentTarget)}>⋯</button>
@@ -511,7 +512,6 @@
           </div>
         {/if}
       </section>
-      <div class="library-lower"><WeeklyListenModule tracks={weeklyTracks} failed={weeklyFailed} loading={weeklyLoading} limit={5} onRetry={loadWeekly} onPlay={(index) => player.playQueue(weeklyTracks as unknown as CompactTrackInput[], index)} /></div>
     </div>
   {/if}
 </div>
@@ -561,7 +561,7 @@
 {#if optionsTarget}
   {@const selected = optionsTarget}
   {@const actions: PlaylistAction[] = [
-    { label: '打开歌单', icon: 'folder', onSelect: () => closeOptions(() => { dismissPlaylistManager(); onOpenPlaylist?.(selected.pl.id as SongId, true, selected.pl) }) },
+    { label: '打开歌单', icon: 'folder', onSelect: () => closeOptions(() => openGroupPlaylist(selected.pl)) },
     { label: '加入播放队列', icon: 'add', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'append')) },
     { label: '下一首插播', icon: 'queue', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'next')) },
     { label: '分享歌单', icon: 'share', onSelect: () => closeOptions(() => void sharePlaylist(selected.pl.id, String(selected.pl.name))) },
@@ -586,62 +586,58 @@
 
 <style>
   .library-unified { display: grid; gap: 28px; }
-  .library-identity { position: relative; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(340px, 1.15fr); align-items: center; gap: 24px; padding: 24px 26px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-xl); background: linear-gradient(120deg, var(--bg-surface), color-mix(in srgb, var(--accent) 8%, var(--bg-surface))); }
+  .library-identity { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: 20px; padding: 26px 30px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--text) 12%, var(--border)); border-radius: var(--radius-xl); background: var(--bg-surface); }
+  .library-identity__background { position: absolute; inset: 0; z-index: -1; background-position: center; background-size: cover; opacity: .05; }
+  .library-identity::after { content: ''; position: absolute; z-index: -1; right: -38px; top: 50%; width: 220px; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 20px, color-mix(in srgb, var(--accent) 10%, transparent) 21px 22px, transparent 23px 34px); transform: translateY(-50%); pointer-events: none; }
   .library-identity__person { display: flex; align-items: center; min-width: 0; gap: 18px; }
-  .library-identity__person img, .library-identity__avatar { flex: none; width: 72px; height: 72px; border: 2px solid color-mix(in srgb, var(--accent) 38%, var(--bg-surface)); border-radius: 50%; object-fit: cover; background: var(--bg-elevated); }
+  .library-identity__person img, .library-identity__avatar { flex: none; width: 84px; height: 84px; border: 2px solid color-mix(in srgb, var(--accent) 38%, var(--bg-surface)); border-radius: 50%; object-fit: cover; background: var(--bg-elevated); }
   .library-identity__avatar { display: grid; place-items: center; color: var(--text-secondary); }
   .library-identity__person > div { min-width: 0; }
   .library-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
-  .library-identity__eyebrow { display: block; margin-bottom: 6px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
-  .library-identity__eyebrow span { padding: 0 4px; color: var(--accent); }
-  .library-identity h1 { overflow: hidden; font-size: 23px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
-  .library-identity__name { display: flex; min-width: 0; align-items: center; gap: 8px; }
+  .library-identity h1 { overflow: hidden; margin: 0; font-size: 24px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__name { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px; }
   .library-identity__name > span { flex: none; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); border-radius: 999px; color: var(--accent); background: var(--accent-bg); font-size: 11px; font-weight: 700; }
-  .library-identity p { overflow: hidden; margin-top: 4px; color: var(--text-secondary); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-  .library-identity__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
-  .library-identity__stats > div { min-width: 0; display: flex; flex-direction: column-reverse; gap: 7px; padding: 3px 10px 3px 15px; border-left: 1px solid var(--border); }
-  .library-identity__stats strong { overflow: hidden; font-size: 19px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__name > .library-identity__role { padding: 0; border: 0; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 500; }
+  .library-identity p { overflow: hidden; margin: 8px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+  .library-identity__stats { width: min(100%, 520px); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .library-identity__stats > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .library-identity__stats strong { overflow: hidden; font-size: 20px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .library-identity__stats span { overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-  .library-highlights { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 16px; }
-  .library-favorite { position: relative; isolation: isolate; overflow: hidden; min-height: 220px; border-radius: var(--radius-xl); background: var(--bg-layer); color: white; }
+  .library-identity__social { display: flex; gap: 20px; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
+  .library-identity__social strong { margin-left: 4px; color: var(--text); font-weight: 500; }
+  .library-highlights { display: grid; grid-template-columns: minmax(0, min(50%, 280px)) minmax(0, 1fr); align-items: start; gap: 12px 16px; }
+  .library-favorite { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1; border-radius: var(--radius-xl); background: var(--bg-layer); color: white; }
   .library-favorite__art { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
   .library-favorite__art::after { position: absolute; inset: 0; content: ''; background: linear-gradient(0deg, rgba(9, 9, 12, .94), rgba(9, 9, 12, .23) 90%); }
   .library-favorite__art :global(.liked-falls-badge) { display: none; }
-  .library-favorite__open { width: 100%; height: 100%; min-height: 220px; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px 72px 24px 24px; text-align: left; color: white; }
+  .library-favorite__open { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px 72px 24px 24px; text-align: left; color: white; }
   .library-favorite__open span { font-size: 11px; font-weight: 700; letter-spacing: .1em; }
   .library-favorite__open strong { font-size: 23px; line-height: 1.2; }
   .library-favorite__open em { color: rgba(255,255,255,.8); font-size: 13px; font-style: normal; }
   .library-favorite__open:focus-visible { outline-offset: -4px; }
   .library-favorite__play { position: absolute; right: 22px; bottom: 22px; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: white; color: #1b1b1d; }
   .library-favorite__play:disabled { opacity: .45; }
-  .library-activity { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-  .library-activity :global(.profile-home__panel) { flex: 1; }
-  .library-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .library-shortcut { position: relative; isolation: isolate; overflow: hidden; min-width: 0; min-height: 118px; display: flex; align-items: end; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text); text-align: left; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
-  .library-shortcut--daily { background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 15%, var(--bg-surface)), var(--bg-surface) 74%); }
-  .library-shortcut--stats { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, var(--bg-surface)), var(--bg-surface) 72%); }
-  .library-shortcut:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
-  .library-shortcut__copy { position: relative; z-index: 1; min-width: 0; display: grid; gap: 2px; padding-right: 8px; }
-  .library-shortcut__copy small { overflow: hidden; color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
-  .library-shortcut__copy strong { overflow: hidden; font-size: 16px; line-height: 1.35; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .library-shortcut__copy em { overflow: hidden; color: var(--text-secondary); font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-  .library-shortcut__arrow { position: absolute; right: 12px; bottom: 14px; display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg-surface); color: var(--text-secondary); transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+  .library-activity { min-width: 0; display: grid; gap: 12px; }
+  .library-activity :global(.profile-home__panel) { border-color: color-mix(in srgb, var(--text) 18%, var(--border)); }
+  :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__panel) { padding: 16px; }
+  :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__panel > header) { margin-bottom: 8px; }
+  :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-list) { gap: 0; }
+  :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-list > button) { min-height: 48px; grid-template-columns: 36px minmax(0, 1fr) 20px; padding: 5px 6px; }
+  :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-list img), :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-empty) { width: 36px; height: 36px; }
+  .library-shortcuts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .library-shortcut { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text); text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
+  .library-shortcut:hover { background: var(--bg-hover); }
+  .library-shortcut__icon { flex: none; display: grid; place-items: center; color: var(--text-secondary); }
+  .library-shortcut__copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
+  .library-shortcut__copy strong { overflow: hidden; font-size: 14px; line-height: 1.35; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .library-shortcut__copy em { overflow: hidden; color: var(--text-secondary); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .library-shortcut__arrow { flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
   .library-shortcut:hover .library-shortcut__arrow { transform: translateX(3px); color: var(--accent); }
-  .library-shortcut__art { position: absolute; top: 12px; right: 16px; color: color-mix(in srgb, var(--accent) 65%, var(--text-secondary)); pointer-events: none; }
-  .library-shortcut__art--daily { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface)); transform: rotate(8deg); }
-  .library-shortcut__art--daily > span { position: absolute; inset: 3px; border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: var(--radius-xs); transform: translate(-8px, 7px) rotate(-16deg); z-index: -1; }
-  .library-shortcut__art--stats { height: 42px; display: flex; align-items: end; gap: 3px; opacity: .8; }
-  .library-shortcut__art--stats i { width: 5px; border-radius: 999px; background: currentColor; }
-  .library-shortcut__art--stats i:nth-child(1) { height: 14px; opacity: .45; }
-  .library-shortcut__art--stats i:nth-child(2) { height: 26px; opacity: .65; }
-  .library-shortcut__art--stats i:nth-child(3) { height: 38px; }
-  .library-shortcut__art--stats i:nth-child(4) { height: 23px; opacity: .7; }
-  .library-shortcut__art--stats i:nth-child(5) { height: 31px; opacity: .5; }
   .library-playlists { min-width: 0; }
   .library-playlists__heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
   .library-playlists__heading h2 { margin-top: 4px; font-size: 21px; }
   .library-create { min-height: 42px; display: flex; align-items: center; gap: 5px; padding: 0 14px; border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-weight: 500; white-space: nowrap; }
-  .collection-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 220px)); gap: 22px; align-items: start; }
+  .collection-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 260px)); gap: 24px; align-items: start; }
   .collection-group { position: relative; min-width: 0; padding-bottom: 52px; }
   .collection-group.expanded { grid-column: 1 / -1; }
   .collection-group.expanded { padding-bottom: 0; }
@@ -658,10 +654,10 @@
   .collection-group__header strong { font-size: 18px; line-height: 1.35; }
   .collection-group__header button { min-height: 40px; display: flex; align-items: center; gap: 3px; padding: 0 10px; border-radius: var(--radius-md); color: var(--accent); }
   .collection-group__header button :global(svg) { transform: rotate(-90deg); }
-  .collection-group__grid { display: grid; grid-template-columns: minmax(0, 1fr); height: 168px; }
-  .collection-group.expanded .collection-group__grid { height: auto; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px 16px; }
+  .collection-group__grid { display: grid; grid-template-columns: minmax(0, 1fr); height: 192px; }
+  .collection-group.expanded .collection-group__grid { height: auto; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 18px; }
   .collection-item { position: relative; min-width: 0; }
-  .collection-group:not(.expanded) .collection-item { grid-area: 1 / 1; justify-self: center; align-self: start; width: min(52%, 140px); margin-top: 10px; transform: translateX(var(--cover-offset)); }
+  .collection-group:not(.expanded) .collection-item { grid-area: 1 / 1; justify-self: center; align-self: start; width: min(60%, 165px); margin-top: 10px; transform: translateX(var(--cover-offset)); }
   .collection-group:not(.expanded) .collection-item__cover { border: 2px solid var(--bg-surface); box-shadow: 0 8px 18px rgb(0 0 0 / .22); transform: rotate(var(--cover-angle)); }
   .collection-group:not(.expanded) .collection-item__info, .collection-group:not(.expanded) .collection-item__menu { display: none; }
   .collection-item__open { width: 100%; min-width: 0; display: grid; gap: 9px; text-align: left; }
@@ -676,26 +672,24 @@
   .collection-error button { padding: 4px 8px; color: var(--accent); }
   @media (max-width: 700px) { .library-highlights { grid-template-columns: minmax(0, 1fr); } .collection-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; } .collection-group__grid { height: 130px; } .collection-group:not(.expanded) .collection-item { width: min(55%, 108px); transform: translateX(var(--cover-offset-mobile)); } .collection-group__copy strong { font-size: 14px; } .collection-group.expanded .collection-group__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } }
   .library-management-portal { display: contents; }
-  .library-lower { display: grid; gap: 24px; }
   :global(html.mobile-runtime) .library-unified { gap: 24px; }
-  @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity__stats > div:first-child { padding-left: 0; border-left: 0; } }
+  @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity::after { width: 150px; right: -60px; opacity: .45; } }
   :global(html.mobile-runtime) .library-identity { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px; }
   :global(html.mobile-runtime) .library-identity__person { gap: 12px; }
   :global(html.mobile-runtime) .library-identity__person img, :global(html.mobile-runtime) .library-identity__avatar { width: 58px; height: 58px; }
   :global(html.mobile-runtime) .library-identity h1 { font-size: 19px; }
-  :global(html.mobile-runtime) .library-identity__stats { gap: 0; padding-top: 14px; border-top: 1px solid var(--border); }
-  :global(html.mobile-runtime) .library-identity__stats > div { gap: 6px; padding: 2px 6px 2px 10px; }
-  :global(html.mobile-runtime) .library-identity__stats > div:first-child { padding-left: 0; border-left: 0; }
+  :global(html.mobile-runtime) .library-identity__stats { gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+  :global(html.mobile-runtime) .library-identity__stats > div { gap: 6px; }
   :global(html.mobile-runtime) .library-identity__stats strong { font-size: 15px; }
   :global(html.mobile-runtime) .library-identity__stats span { font-size: 11px; }
   :global(html.mobile-runtime) .library-highlights { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   :global(html.mobile-runtime) .library-favorite, :global(html.mobile-runtime) .library-favorite__open { min-height: 160px; }
   :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; }
   :global(html.mobile-runtime) .library-activity { gap: 16px; }
-  :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 0; }
+  :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 16px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); }
   :global(html.mobile-runtime) .library-shortcuts { gap: 10px; }
-  :global(html.mobile-runtime) .library-shortcut { min-height: 112px; padding: 14px; }
-  @media (max-width: 360px) { .library-shortcut__arrow { display: none; } .library-shortcut__art { right: 10px; } }
+  :global(html.mobile-runtime) .library-shortcut { min-height: 72px; padding: 12px; }
+  @media (max-width: 360px) { .library-shortcut__arrow { display: none; } }
   @media (prefers-reduced-motion: reduce) { .library-shortcut__arrow { transition: none; } .library-shortcut:hover .library-shortcut__arrow { transform: none; } }
   @media (prefers-reduced-motion: reduce) { .collection-item__menu { transition: none; } }
 </style>

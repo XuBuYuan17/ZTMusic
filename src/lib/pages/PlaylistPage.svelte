@@ -2,6 +2,10 @@
   import { untrack } from 'svelte'
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { auth } from '../stores/auth.svelte.ts'
+  import { router } from '../stores/router.svelte.ts'
+  import { toast } from '../stores/toast.svelte.ts'
+  import { ncm } from '../api/client.ts'
   import { coverUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
   import { queuePlaylist, sharePlaylist } from '../components/PlaylistActionSheet.svelte'
@@ -43,6 +47,7 @@
     coverImgUrl: string
     picUrl: string
     creator?: unknown
+    subscribed?: boolean
     trackCount: number
     description: string
     tracks: DetailTrackLike[]
@@ -102,6 +107,10 @@
   let trackSortDir = $state<PlaylistSortDir>(initialView?.dir ?? 'desc')
   let showSortSheet = $state(false)
   let heroMenuOpen = $state(false)
+  let favoriteBusy = $state(false)
+  const creatorId = $derived(playlistDetail?.creator && typeof playlistDetail.creator === 'object' ? (playlistDetail.creator as { userId?: SongId }).userId : undefined)
+  const ownPlaylist = $derived(creatorId != null && auth.user?.userId != null && String(creatorId) === String(auth.user.userId))
+  const favoriteKnown = $derived(typeof playlistDetail?.subscribed === 'boolean')
   let toolbar = $state<{ open: () => void } | null>(null)
   let lastViewKey = $state(initialViewKey)
   const viewKey = $derived(playlistViewKey(viewKind(), selectedId))
@@ -155,6 +164,22 @@
     void sharePlaylist(detail.id, detail.name, detailType)
   }
   function openMoreMenu(): void { heroMenuOpen = true }
+  async function togglePlaylistFavorite(): Promise<void> {
+    const detail = playlistDetail
+    const userId = auth.user?.userId
+    if (!detail || !userId || !auth.isLoggedIn || ownPlaylist || !favoriteKnown || favoriteBusy) return
+    const next = !detail.subscribed
+    favoriteBusy = true
+    try {
+      const result = await ncm.playlistSubscribe(detail.id, next)
+      const body = result && typeof result === 'object' ? result as { code?: unknown; msg?: unknown; message?: unknown } : null
+      if (body?.code !== 200) throw new Error(String(body?.message || body?.msg || '操作失败'))
+      if (auth.user?.userId !== userId) return
+      router.setPlaylistSubscribed(detail.id, next)
+      toast.success(next ? '已收藏歌单' : '已取消收藏')
+    } catch (error) { toast.error(error instanceof Error ? error.message : '操作失败') }
+    finally { favoriteBusy = false }
+  }
   // 展开与聚焦都交给工具栏自己（它持有搜索框的本地引用），页面只负责转发一次调用
   function focusTools(): void { toolbar?.open() }
   function pageActions(): PageAction[] {
@@ -249,6 +274,10 @@
         onQueue={() => void queuePlaylist(playlistDetail!.id, 'append', visibleTracks as unknown as CompactTrackInput[])}
         onNext={() => void queuePlaylist(playlistDetail!.id, 'next', visibleTracks as unknown as CompactTrackInput[])}
         onMore={openMoreMenu}
+        favorite={playlistDetail.subscribed === true}
+        favoriteDisabled={!auth.isLoggedIn || ownPlaylist || !favoriteKnown || favoriteBusy}
+        favoriteLabel={!auth.isLoggedIn ? '登录后收藏歌单' : ownPlaylist ? '自己创建的歌单' : !favoriteKnown ? '收藏状态不可用' : playlistDetail.subscribed ? '取消收藏歌单' : '收藏歌单'}
+        onFavorite={!recommendation && detailType === '歌单' ? togglePlaylistFavorite : undefined}
         onShare={recommendation ? undefined : shareCurrent}
         onTools={focusTools}
       />
@@ -327,7 +356,7 @@
     overflow: hidden;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+    background: var(--bg-surface);
     animation: playlistSurfaceIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
   }
 

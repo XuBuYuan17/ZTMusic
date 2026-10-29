@@ -244,12 +244,10 @@
 
   :global(.playlist-track-table tbody tr:hover) {
     background: color-mix(in srgb, var(--bg-hover) 82%, transparent);
-    box-shadow: inset 3px 0 color-mix(in srgb, var(--accent) 38%, transparent);
   }
 
-  :global(.playlist-track-table tbody tr.active) {
-    box-shadow: inset 3px 0 var(--accent);
-  }
+  :global(html:not(.mobile-runtime) .playlist-track-table tbody tr.active) { background: color-mix(in srgb, var(--text) 7%, var(--bg-surface)); box-shadow: none; }
+  :global(html:not(.mobile-runtime) .playlist-track-table tbody tr.active .col-title) { color: var(--accent); }
 
   :global(.playlist-track-table tbody td) {
     height: 54px;
