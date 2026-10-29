@@ -42,6 +42,10 @@ export function announceAndroidFrame(_node?: HTMLElement): void {
   if (!android() || frameAnnounced) return
   frameAnnounced = true
   performance.mark('ztmusic:first-shell-frame')
+  // index.html 在模块之前打上的启动期 class 只对首帧有效：它关掉 html/body/.app-shell 的过渡
+  // 并隐藏壁纸。首帧画完再解除（两帧后），否则解除的瞬间会反过来触发一次过渡/壁纸淡入。
+  const root = document.documentElement
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('android-startup-pending')))
   const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
   void invoke('plugin:zt-player|execute', { payload: { action: 'startupReady', data: { theme } } }).catch(() => {})
 }
