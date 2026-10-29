@@ -166,6 +166,7 @@
       <input
         class="search-input"
         type="search"
+        enterkeyhint="search"
         placeholder="歌曲、歌手、歌单"
         bind:value={keyword}
         oninput={(event) => { if (!(event.currentTarget as HTMLInputElement).value.trim()) clearSearch() }}
@@ -214,7 +215,6 @@
             <button class="search-hot-row" class:top={i < 3} onclick={() => chooseHot(item)}>
               <span>{String(i + 1).padStart(2, '0')}</span>
               <strong>{item.keyword}</strong>
-              <em>{i < 3 ? '热门' : '趋势'}</em>
             </button>
           {/each}
           {/if}

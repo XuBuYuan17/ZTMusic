@@ -746,6 +746,25 @@ html.mobile-runtime .search-page .search-section-header h2 { font-size: 22px; }
 html.mobile-runtime .search-page .search-input { background: transparent; }
 html.mobile-runtime .mobile-page-bar.primary .mobile-page-bar__button svg, html.mobile-runtime .mobile-song-more svg { rotate: 90deg; }
 html.mobile-runtime .mobile-tab.active .mobile-tab__icon { color: var(--accent); }
+html.mobile-runtime .mobile-tab__icon {
+  transform: scale(1);
+  transition: transform 260ms cubic-bezier(.2, 1.35, .35, 1), color 160ms ease;
+}
+html.mobile-runtime .mobile-tab.active .mobile-tab__icon { transform: scale(1.1); }
+html.mobile-runtime .mobile-tab[data-mobile-pressed] .mobile-tab__icon {
+  transform: scale(.91);
+  transition-duration: 90ms;
+  transition-timing-function: ease-out;
+}
+html.mobile-runtime :is(button, a, summary, [role="button"], [role="radio"], [role="switch"]) {
+  transition-timing-function: cubic-bezier(.2, 1.2, .35, 1);
+}
+html.mobile-runtime [data-mobile-pressed] { transition-timing-function: ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .mobile-tab__icon { transition: none; }
+  html.mobile-runtime .mobile-tab.active .mobile-tab__icon,
+  html.mobile-runtime .mobile-tab[data-mobile-pressed] .mobile-tab__icon { transform: none; }
+}
 
 html.mobile-runtime .library-page .library-card .library-card-info { display: block; min-height: 0; margin-top: 8px; }
 html.mobile-runtime .library-card .library-card-name { font-size: 16px; line-height: 22px; font-weight: 400; }

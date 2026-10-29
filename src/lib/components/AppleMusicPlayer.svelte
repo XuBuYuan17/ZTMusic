@@ -324,8 +324,13 @@
   />
 
   {#snippet coverArtwork()}
-    <StartupArtwork />
+    {#if !displayCover}<StartupArtwork />{/if}
     {#if displayCover}
+      {#if $responsive.isMobile && playerTheme === 'vinyl'}
+        {#key displayTrack?.id ?? displayCover}
+          <div class="am-record-change" aria-hidden="true"><div class="am-record"><img src={coverUrl(displayCover, 300)} alt="" draggable="false" referrerpolicy="no-referrer" /></div></div>
+        {/key}
+      {/if}
       <img draggable="false" class="am-vinyl-label" src={coverUrl(displayCover, 300)} alt="" referrerpolicy="no-referrer" onerror={(event) => event.currentTarget.setAttribute('hidden', '')} onload={(event) => event.currentTarget.removeAttribute('hidden')} />
       <img draggable="false" class="am-flying-cover-img" use:progressiveCover={{ source: displayCover, size: 400 }} alt="" referrerpolicy="no-referrer" onerror={(event) => event.currentTarget.setAttribute('hidden', '')} onload={(event) => event.currentTarget.removeAttribute('hidden')} />
     {/if}

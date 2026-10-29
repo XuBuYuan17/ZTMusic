@@ -176,7 +176,7 @@ class PlayerMorphState {
     if (this.phase !== 'animating') { this.rafId = null; return }
     const dt = (now - this.lastT) / 1000
     this.lastT = now
-    const next = stepSpring({ x: this.p, v: this.springV }, dt, this.springTarget)
+    const next = stepSpring({ x: this.p, v: this.springV }, dt, this.springTarget, { stiffness: 420, damping: 38 })
     this.p = Math.max(0, Math.min(1, next.x))
     this.springV = next.v
     if (next.x === this.springTarget && next.v === 0) {

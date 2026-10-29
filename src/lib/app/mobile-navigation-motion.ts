@@ -47,16 +47,20 @@ export function mobilePageFrames(
   sharedCover = false,
   surface = false,
   surfaceClip?: string | null,
+  bottomEntrance = false,
 ): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
+    if (kind === 'push' && bottomEntrance) return entering
+      ? [{ opacity: 1, transform: 'translate3d(0,100%,0)', clipPath: fullSurface.clipPath }, fullSurface]
+      : [fullSurface, fullSurface]
     if (kind === 'pop') {
       return entering
         ? [fullSurface, fullSurface]
-        : [fullSurface, { opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }]
+        : [fullSurface, surfaceClip ? { opacity: 1, transform: 'none', clipPath: surfaceClip } : { opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }]
     }
     return entering
-      ? [{ opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }, fullSurface]
+      ? [surfaceClip ? { opacity: 1, transform: 'none', clipPath: surfaceClip } : { opacity: 0, transform: 'translate3d(0,12px,0)', clipPath: fullSurface.clipPath }, fullSurface]
       : [fullSurface, { opacity: .96, transform: 'none', clipPath: fullSurface.clipPath }]
   }
 
@@ -319,7 +323,8 @@ export function createMobileNavigationMotion() {
         : null
 
       const sharedPending: Promise<unknown>[] = []
-      if (surface && (kind === 'push' || kind === 'pop')) {
+      const bottomEntrance = kind === 'push' && Boolean(incoming.querySelector('.playlist-detail-page'))
+      if (surface && (kind === 'push' || kind === 'pop') && !bottomEntrance) {
         const hero = kind === 'push'
           ? incoming.querySelector<HTMLImageElement>('.playlist-cover')
           : snapshot?.hero ?? outgoing?.querySelector<HTMLImageElement>('.playlist-cover')
@@ -368,7 +373,7 @@ export function createMobileNavigationMotion() {
       const pending = [incoming, outgoing].filter((node): node is HTMLElement => !!node).map((node, index) => {
         const entering = index === 0
         const clip = entering ? incomingClip : outgoingClip
-        const animation = node.animate(mobilePageFrames(kind, entering, sharedCover, surface, clip), {
+        const animation = node.animate(mobilePageFrames(kind, entering, sharedCover, surface, clip, bottomEntrance), {
           duration,
           easing,
         })

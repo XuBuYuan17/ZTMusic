@@ -15,7 +15,7 @@ assert.match(settings, /onNavigate\?\.\(`settings-/, 'entries navigate through t
 assert.match(settings, /min-height: 52px/, 'rows allow accessible touch targets')
 assert.match(settings, /font-size: 1\.0625rem/, 'main text respects font enlargement')
 assert.match(settings, /prefers-reduced-motion/, 'switches respect reduced motion')
-assert.match(settings, /<SourcePluginSettings mobile/, 'source list explicitly selects the mobile variant')
+assert.match(settings, /<SourcePluginSettings mobile=\{!desktop\}/, 'source list uses the appropriate layout')
 assert.match(settings, /<AndroidPlayerSettings mobile/, 'Android controls explicitly select the mobile variant')
 assert.match(mobileApp, /category=\{settingsCategory\(page.view\)\}/, 'route selects the secondary page')
 assert.match(mobileApp, /const position = scrollPositions.get\(key\)/, 'return restores route scroll position')

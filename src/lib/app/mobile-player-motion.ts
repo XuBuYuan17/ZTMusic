@@ -2,13 +2,13 @@ import { tick } from 'svelte'
 import { reducedMotion, replaceAnimation } from './desktop-motion.ts'
 
 export const mobilePlayerTiming = {
-  duration: 300,
-  enterDuration: 280,
-  exitDuration: 320,
-  chromeDuration: 180,
-  contentDuration: 220,
-  contentDelay: 36,
-  easing: 'cubic-bezier(.2,.78,.15,1)',
+  duration: 540,
+  enterDuration: 560,
+  exitDuration: 620,
+  chromeDuration: 260,
+  contentDuration: 380,
+  contentDelay: 70,
+  easing: 'cubic-bezier(.22,1,.36,1)',
   contentEasing: 'cubic-bezier(.2,0,0,1)',
 } as const
 
@@ -39,6 +39,7 @@ export function createMobilePlayerMotion() {
   let generation = 0
   let suspended = false
   let pendingLayout = false
+  let intendedLyrics: boolean | null = null
   const animations = new Set<Animation>()
   const restores = new Map<HTMLElement, string>()
 
@@ -76,7 +77,8 @@ export function createMobilePlayerMotion() {
   return {
     async change(node: HTMLElement, update: () => void) {
       if (suspended) return
-      const entering = !node.classList.contains('lyrics-mode')
+      const entering = intendedLyrics === null ? !node.classList.contains('lyrics-mode') : !intendedLyrics
+      intendedLyrics = entering
       const cover = node.querySelector<HTMLElement>('.am-flying-cover')
       const title = node.querySelector<HTMLElement>(entering ? '.am-track-info' : '.am-corner-info')
       const from = cover?.getBoundingClientRect()
@@ -130,17 +132,8 @@ export function createMobilePlayerMotion() {
       if (nextTitle && titleFrom && titleTo && from && to) {
         const nextSize = nextTitle.firstElementChild && getComputedStyle(nextTitle.firstElementChild).fontSize
         const scale = titleSize && nextSize ? parseFloat(titleSize) * titleScale / parseFloat(nextSize) : 1
-        const gap = entering ? titleFrom.top - from.top - from.height : titleTo.top - to.top - to.height
-        const sideGap = entering ? titleTo.left - to.left - to.width : titleFrom.left - from.left - from.width
         titlePath = [
           { left: titleFrom.left, top: titleFrom.top, offset: 0, scale },
-          ...[.38, .7].map(offset => {
-            const left = from.left + (to.left - from.left) * offset
-            const top = from.top + (to.top - from.top) * offset
-            const width = from.width + (to.width - from.width) * offset
-            const height = from.height + (to.height - from.height) * offset
-            return { left: (entering ? offset === .7 : offset === .38) ? left + width + sideGap : entering ? titleFrom.left : titleTo.left, top: top + height + gap * (entering ? 1 - offset : offset), offset, scale: entering ? 1 + (scale - 1) * Math.max(0, 1 - offset / .7) : scale + (1 - scale) * offset }
-          }),
           { left: titleTo.left, top: titleTo.top, offset: 1, scale: 1 },
         ]
         pending.push(animate(nextTitle, titlePath.map(point => ({ offset: point.offset, transformOrigin: '0 0', transform: `translate(${point.left - titleTo.left}px,${point.top - titleTo.top}px) scale(${point.scale})` })), { duration: coverDuration }))
@@ -192,6 +185,6 @@ export function createMobilePlayerMotion() {
       suspended = false
       animations.forEach(animation => animation.play())
     },
-    destroy() { suspended = false; cancel() },
+    destroy() { suspended = false; intendedLyrics = null; cancel() },
   }
 }

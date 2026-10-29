@@ -15,7 +15,8 @@
   import SourcePluginSettings from '../../components/SourcePluginSettings.svelte'
   import PlaylistGroupsSettings from '../../components/PlaylistGroupsSettings.svelte'
 
-  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate }: {
+  let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate, desktop = false }: {
+    desktop?: boolean
     category?: SettingsCategory | null
     onNavigate?: (view: string) => void
     theme?: string
@@ -177,7 +178,7 @@
   <section class="m-settings-section" aria-labelledby="source-plugin-settings">
     <h2 id="source-plugin-settings">播放音源</h2>
     <div class="m-settings-list">
-      <SourcePluginSettings mobile />
+      <SourcePluginSettings mobile={!desktop} />
     </div>
   </section>
 

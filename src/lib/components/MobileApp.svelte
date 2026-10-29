@@ -197,14 +197,10 @@
 </script>
 
 <div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
+  {#if !isPrimaryView}
   <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
-    {#if isPrimaryView}
-      <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
-    {:else}
       <button class="mobile-page-bar__button" onclick={() => (activeChrome?.back ?? onBack)?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
-    {/if}
-    {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
-    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>{/if}
+    <h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>
     {#if pageBarActions.length}
       <div class="mobile-detail-actions">
         {#each pageBarActions as action (action.id)}
@@ -213,10 +209,13 @@
       </div>
     {/if}
   </header>
+  {/if}
 
   <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }}>
-    <div class="mobile-page-content__inner">
-      {#if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
+    <div class="mobile-page-content__inner" class:primary-content={isPrimaryView}>
+      {#if activeView === 'settings'}
+        <div class="settings-title-row"><h1 class="mobile-large-title">{titles[activeView]}</h1><button class="settings-menu-button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button></div>
+      {:else if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
           <ExplorePage mobile active={activeView === 'explore'} onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
@@ -305,6 +304,11 @@
   .settings-view.secondary :global(.mobile-page-bar) { grid-template-columns: 80px minmax(0, 1fr) 80px; }
   .settings-view.secondary :global(.mobile-page-bar__button) { display: flex; gap: 0; width: 80px; }
   .settings-back-label { font-size: 1.0625rem; }
+  :global(html.mobile-runtime) .primary-content { padding-top: calc(16px + env(safe-area-inset-top)); }
+  .settings-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+  .settings-title-row :global(.mobile-large-title) { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
+  .settings-menu-button { display: grid; place-items: center; flex: none; width: 48px; height: 48px; color: var(--accent); background: transparent; }
+  .settings-menu-button :global(svg) { rotate: 90deg; }
   .settings-view :global(.mobile-page-content) { background: var(--settings-page); }
 
   .mobile-route-page { min-height: 100%; }

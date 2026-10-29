@@ -2,6 +2,7 @@
   import { playerMorph, elementRect } from '../stores/player-morph.svelte.ts'
   import { dialogFocus } from '../app/desktop-motion.ts'
   import { lerp } from '../app/morph-geometry.ts'
+  import { coverFrame } from '../player-motion/geometry.ts'
   import { coverUrl } from '../utils/image.ts'
   import { player } from '../stores/player.svelte.ts'
   import PCPlayer from './PCPlayer.svelte'
@@ -98,7 +99,9 @@
 <div class="player-morph" class:active={playerMorph.active} class:is-open={playerMorph.isOpen} class:has-shared-title={!!playerMorph.sourceTitle} class:ly-no-text-blur={!textBlur} style="--p:{playerMorph.p}">
   {#if playerMorph.active}
     {@const r = playerMorph.surfaceRect}
-    {@const c = playerMorph.coverRect}
+    {@const sourceCover = playerMorph.sourceCover}
+    {@const targetCover = playerMorph.targetCover ?? sourceCover}
+    {@const c = sourceCover && targetCover ? coverFrame(playerMorph.p, sourceCover, targetCover, sourceCover.radius, targetCover.radius) : null}
     {@const t = playerMorph.titleRect}
     <div class="pm-focus" role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1" use:dialogFocus={() => playerMorph.close()}>
       <button class="pm-close" type="button" use:closeDrag={true} onclick={() => playerMorph.close()} aria-label="收起歌词页" title="点击或向下拖动收起">
@@ -121,8 +124,8 @@
             {showLocalQueue} {toggleLocalQueue}
           />
         </div>
-        {#if c}
-          <div class="pm-fcover" style="left:{c.left}px;top:{c.top}px;width:{c.width}px;height:{c.height}px;clip-path: inset(0 round {c.radius}px)">
+        {#if c && targetCover}
+          <div class="pm-fcover" style="left:0;top:0;width:{targetCover.width}px;height:{targetCover.height}px;transform:translate({c.left}px, {c.top}px) scale({c.scale});border-radius:{c.radius}px">
             {#if fcoverSrc}<img src={fcoverSrc} alt="" referrerpolicy="no-referrer">{/if}
           </div>
         {/if}

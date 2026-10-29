@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { settingsCategory } from '../../pages/mobile/settings-navigation.ts'
+  import { settingsCategory, SETTINGS_CATEGORIES } from '../../pages/mobile/settings-navigation.ts'
   import { router } from '../../stores/router.svelte.ts'
   import { pageMotion, captureReturnCover } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
@@ -54,7 +54,7 @@ let scrollEl = $state<HTMLElement | null>(null)
   const loadRecentPage = lazyModule(() => import('../../pages/pc/Recent.svelte'))
   const loadLocalMusicPage = lazyModule(() => import('../../pages/LocalMusicPage.svelte'))
   const loadListeningStatsPage = lazyModule(() => import('../../pages/pc/ListeningReport.svelte'))
-  const loadSettingsPage = lazyModule(() => import('../../pages/pc/Settings.svelte'))
+  const loadSettingsPage = lazyModule(() => import('../../pages/mobile/Settings.svelte'))
   const loadLikedPage = lazyModule(() => import('../../pages/pc/Liked.svelte'))
   const loadPlaylistPage = lazyModule(() => import('../../pages/PlaylistPage.svelte'))
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
@@ -181,7 +181,12 @@ let scrollEl = $state<HTMLElement | null>(null)
           />
         {/await}
       {:else if router.activeView === 'settings' || settingsCategory(router.activeView)}
-        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} />{/await}
+        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
+          <div class="desktop-settings">
+            <h1>{SETTINGS_CATEGORIES.find(item => item.id === settingsCategory(router.activeView))?.title || '设置'}</h1>
+            <module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(router.activeView)} onNavigate={router.handleNav} desktop />
+          </div>
+        {/await}
       {:else if router.activeView === 'about'}
         {#await loadAboutPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default />
@@ -190,3 +195,11 @@ let scrollEl = $state<HTMLElement | null>(null)
     </div>
   </div>
 </div>
+
+<style>
+  .desktop-settings { --md-primary: var(--accent); --settings-group: var(--bg-surface); max-width: 760px; margin: 0 auto; }
+  .desktop-settings h1 { margin: 0 0 24px; font-size: 28px; }
+  .desktop-settings :global(.m-settings-list) { border: 1px solid var(--border); }
+  .desktop-settings :global(.m-settings-entry:hover), .desktop-settings :global(.m-settings-row--button:hover) { background: var(--bg-hover); }
+  .desktop-settings :global(select.settings-select) { max-width: 45%; min-height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-layer); color: var(--text); font: inherit; }
+</style>

@@ -253,7 +253,7 @@
 
 </script>
 {#key selectedId}
-  <div class="playlist-detail-page" class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)} class:rows-intro={rowsIntro} use:heroScroll={(stuck) => toolbarStuck = stuck}>
+  <div class="playlist-detail-page" style:--playlist-atmosphere={heroColor || '#141414'} class:is-loading={loading} class:is-ready={!loading && Boolean(playlistDetail)} class:rows-intro={rowsIntro} use:heroScroll={(stuck) => toolbarStuck = stuck}>
     {#if !playlistDetail && displayState !== 'failed'}
       <PlaylistHero {onBack} />
     {:else if playlistDetail}

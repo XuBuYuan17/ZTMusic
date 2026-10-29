@@ -101,10 +101,10 @@
     </span>
   </button>
   <button class="mini-player-play" class:playing={player.playing} type="button" disabled={!player.id && !initialTrack} aria-label={player.playing ? '暂停' : '播放'} onclick={play}>
-    <span class="mini-player-play-icon" aria-hidden="true"><Icon name="play" size={24} fill="currentColor" /></span>
-    <span class="mini-player-pause-icon" aria-hidden="true"><Icon name="pause" size={24} fill="currentColor" /></span>
+    <span class="mini-player-play-icon" aria-hidden="true"><Icon name="play" size={28} fill="currentColor" /></span>
+    <span class="mini-player-pause-icon" aria-hidden="true"><Icon name="pause" size={28} fill="currentColor" /></span>
   </button>
-  <button class="mini-player-queue" class:active={showQueuePanel} type="button" disabled={!player.id} aria-label="播放列表" aria-expanded={showQueuePanel} onclick={onToggleQueue}><Icon name="queue" size={26} aria-hidden="true" /></button>
+  <button class="mini-player-queue" class:active={showQueuePanel} type="button" disabled={!player.id} aria-label="播放列表" aria-expanded={showQueuePanel} onclick={onToggleQueue}><Icon name="queue" size={30} aria-hidden="true" /></button>
 </div>
 
 <style>
@@ -122,5 +122,8 @@
   .mini-player-preview__copy small { color: var(--accent); font-size: 10px; }
   .mini-player-preview__copy strong { font-size: 13px; line-height: 1.2; }
   .mini-player-preview__copy span { color: var(--text-secondary); font-size: 11px; }
+  :global(html.mobile-runtime) :is(.mini-player-play, .mini-player-queue) { border-radius: 50%; transition: scale 180ms ease-out, background-color 180ms ease-out; }
+  :global(html.mobile-runtime) :is(.mini-player-play, .mini-player-queue):global([data-mobile-pressed="control"]) { scale: .92; background: color-mix(in srgb, var(--text) 10%, transparent); transition-duration: 80ms; }
+  @media (prefers-reduced-motion: reduce) { :global(html.mobile-runtime) :is(.mini-player-play, .mini-player-queue):global([data-mobile-pressed="control"]) { scale: 1; } }
   @media (prefers-reduced-motion: reduce) { .mini-player-current { transition: none; } }
 </style>

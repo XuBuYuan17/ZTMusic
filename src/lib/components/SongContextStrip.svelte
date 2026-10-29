@@ -47,7 +47,10 @@
     onClose?: () => void
   } = $props()
 
-  let loading = $state(false)
+  let loading = $state(Boolean(player.id))
+  let commentsLoading = $state(Boolean(player.id))
+  let playlistsLoading = $state(Boolean(player.id))
+  let extrasRequest = 0
   let songComments = $state<SongComment[]>([])
   let similarSongs = $state<NormalizedTrack[]>([])
   let similarPlaylists = $state<SimilarPlaylist[]>([])
@@ -64,7 +67,7 @@
   let selectedPlaylistTracks = $state<NormalizedTrack[]>([])
   let selectedPlaylistLoading = $state(false)
 
-  const hasExtras = $derived(loading || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)
+  const hasExtras = $derived(loading || !!activePanel || !!contextPanel || similarSongs.length > 0 || similarPlaylists.length > 0 || songComments.length > 0)
 
   function rec(value: unknown): Record<string, unknown> | null {
     return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -101,30 +104,34 @@
   }
 
   async function fetchExtras(): Promise<void> {
-    if (!player.id) return
-    loading = true
-    try {
-      const [cr, sr, pr] = await Promise.all([
-        ncm.commentMusic(player.id, 8).catch(() => ({ hotComments: [] as unknown[], comments: [] as unknown[] })),
-        ncm.simiSong(player.id).catch(() => ({ songs: [] as unknown[] })),
-        ncm.simiPlaylist(player.id).catch(() => ({ playlists: [] as unknown[] })),
-      ])
+    const id = player.id
+    if (!id) return
+    const request = ++extrasRequest
+    loading = true; commentsLoading = true; playlistsLoading = true
+    songComments = []; similarSongs = []; similarPlaylists = []
+    const current = () => request === extrasRequest && player.id === id
+    await Promise.all([
+      ncm.commentMusic(id, 8).then(cr => {
+        if (!current()) return
       const crRec = rec(cr)
       const hotComments = crRec?.hotComments
       songComments = ((Array.isArray(hotComments) && hotComments.length
         ? hotComments
         : crRec?.comments || []) as unknown[]).slice(0, 6) as unknown as SongComment[]
+      }).catch(() => {}).finally(() => { if (current()) commentsLoading = false }),
+      ncm.simiSong(id).then(sr => {
+        if (!current()) return
       similarSongs = arr(rec(sr)?.songs)
         .map(normalizeTrack)
         .filter((t): t is NormalizedTrack => t !== null)
         .slice(0, 6)
+      }).catch(() => {}),
+      ncm.simiPlaylist(id).then(pr => {
+        if (!current()) return
       similarPlaylists = arr(rec(pr)?.playlists).slice(0, 6) as unknown as SimilarPlaylist[]
-    } catch {
-      songComments = []
-      similarSongs = []
-      similarPlaylists = []
-    }
-    loading = false
+      }).catch(() => {}).finally(() => { if (current()) playlistsLoading = false }),
+    ])
+    if (current()) loading = false
   }
 
   function playSimilarSong(track: NormalizedTrack): void {
@@ -250,13 +257,15 @@
   $effect(() => {
     const id = player.id
     if (!id) {
+      extrasRequest++; loading = false; commentsLoading = false; playlistsLoading = false
       songComments = []
       similarSongs = []
       similarPlaylists = []
       closeContextPanel()
       return
     }
-    fetchExtras()
+    void fetchExtras()
+    return () => { extrasRequest++ }
   })
 
   $effect(() => {
@@ -358,6 +367,7 @@
                 {/each}
               </div>
               {:else}<div class="ly-context-empty">这个歌单暂时没有可预览的歌曲</div>{/if}
+            {:else if playlistsLoading}<div class="ly-context-empty" role="status">正在加载相似歌单…</div>
             {:else if similarPlaylists.length > 0}<div class="ly-context-detail-grid">
               {#each similarPlaylists as pl (pl.id)}
                 <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
@@ -373,7 +383,8 @@
             {:else}<div class="ly-context-empty">暂时没有找到相似歌单</div>{/if}
           {:else if contextPanel === 'comments'}
             <div class="ly-context-comments">
-              {#if songComments.length > 0}<div class="ly-context-comment-list">
+              {#if commentsLoading}<div class="ly-context-empty" role="status">正在加载热评…</div>
+              {:else if songComments.length > 0}<div class="ly-context-comment-list">
                 {#each songComments as c, i (c.commentId || i)}
                   <article class="ly-context-comment-row">
                     <div class="ly-context-comment-avatar">

@@ -64,7 +64,7 @@ export function createPlayerSurfaceController(options: ControllerOptions = {}) {
     }
     publish('animating')
     animation = spring(sheetProgress, next, {
-      type: 'spring', stiffness: 420, damping: 38, mass: 1,
+      type: 'spring', stiffness: 180, damping: 25, mass: 1,
       velocity: Math.max(-10, Math.min(10, velocity)),
       onComplete: () => {
         if (disposed || version !== generation) return

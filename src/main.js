@@ -31,11 +31,9 @@ import { isMobileDevice } from './lib/utils/responsive.ts'
 import { announceAndroidFrame, prepareAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
-import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
 installNativeShell()
 installMobileResumeGuard()
-installPlaylistDiscMotion()
 prepareAndroidStartup()
 
 const viewport = document.querySelector('meta[name="viewport"]')

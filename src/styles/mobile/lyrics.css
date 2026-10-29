@@ -19,9 +19,16 @@ html.mobile-runtime .ly-container .am-flying-cover { box-shadow: 0 12px 24px rgb
   width: min(100%, max(0px, calc(100dvh - 440px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 380px); height: auto; aspect-ratio: 1;
   border-radius: var(--radius-sm); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
 }
-html.mobile-runtime .ly-container .am-flying-cover-img { transform: translateX(var(--cover-drag-x, 0px)); width: 100%; height: 100%; object-fit: cover; }
-html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] .am-flying-cover-img { scale: .98; transition-duration: 100ms; }
-html.mobile-runtime .ly-container .am-flying-cover-img { transition: scale 160ms var(--ease-out); }
+html.mobile-runtime .ly-container .am-flying-cover-img { transform: translateX(var(--cover-drag-x, 0px)); width: 100%; height: 100%; object-fit: cover; transition: filter 150ms ease-out; }
+html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] .am-flying-cover-img { filter: brightness(1.09); }
+html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover {
+  transform-origin: center;
+  transition: scale 150ms ease-out;
+}
+html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] {
+  scale: .99;
+  transition-duration: 120ms;
+}
 html.mobile-runtime .ly-container .am-track-info {
   position: relative; inset: auto; grid-row: 2; grid-column: 1; width: 100%; min-width: 0; max-width: none; margin: 0; padding-right: 100px; opacity: 1; transform: none; text-align: left;
 }
@@ -65,13 +72,39 @@ html.mobile-runtime .ly-container .am-more-shell { position: relative; inset: au
 html.mobile-runtime .ly-container .am-more-btn { width: 44px; height: 44px; background: rgba(255,255,255,.14); border-radius: 50%; box-shadow: none; backdrop-filter: none; }
 html.mobile-runtime .m-player-dismiss { position: absolute; top: calc(var(--player-titlebar-offset, 0px) + env(safe-area-inset-top)); left: calc(50% - 48px); width: 96px; height: 48px; z-index: 1001; display: grid; place-items: center; background: none; touch-action: none; }
 html.mobile-runtime .m-player-dismiss span { width: 36px; height: 4px; border-radius: 999px; background: rgba(255,255,255,.7); }
-html.mobile-runtime .ly-container .vinyl-theme .am-flying-cover::before { width: 90%; height: 90%; right: -12%; top: 5%; }
-html.mobile-runtime .ly-container .vinyl-theme .am-vinyl-label { width: 36%; height: 36%; right: 15%; top: 32%; }
+html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cover {
+  width: min(78%, max(0px, calc(100dvh - 440px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 320px);
+  justify-self: start; margin-left: 2%;
+}
+html.mobile-runtime .ly-container .vinyl-theme .am-flying-cover::before,
+html.mobile-runtime .ly-container .vinyl-theme .am-vinyl-label { display: none; }
+html.mobile-runtime .ly-container .vinyl-theme .am-record-change {
+  position: absolute; top: 3%; left: 25%; width: 94%; height: 94%; z-index: 0;
+  pointer-events: none; transform: translateX(0); transition: transform 600ms cubic-bezier(.2,0,.2,1);
+  animation: mobile-record-change 650ms cubic-bezier(.2,0,.2,1) both;
+}
+html.mobile-runtime .ly-container .vinyl-theme.playing .am-record-change { transform: translateX(10%); }
+html.mobile-runtime .ly-container .vinyl-theme .am-record {
+  position: relative; width: 100%; height: 100%; border-radius: 50%;
+  background: conic-gradient(from 20deg, rgb(255 255 255 / .17), transparent 12%, transparent 42%, rgb(255 255 255 / .1) 52%, transparent 65%, rgb(255 255 255 / .14)), repeating-radial-gradient(circle, #242528 0 1px, #111214 2px 4px, #080809 5px 6px);
+  box-shadow: 0 10px 24px rgb(0 0 0 / .38), inset 0 0 0 2px rgb(255 255 255 / .08), inset 0 0 24px rgb(0 0 0 / .65);
+  animation: mobile-record-spin 14s linear infinite paused;
+}
+@keyframes mobile-record-spin { to { transform: rotate(360deg); } }
+html.mobile-runtime .ly-container .vinyl-theme.playing .am-record { animation-play-state: running; }
+html.mobile-runtime .ly-container .vinyl-theme .am-record img {
+  position: absolute; inset: 15%; width: 70%; height: 70%; border-radius: 50%; object-fit: cover;
+  filter: saturate(.8) contrast(.9); box-shadow: 0 0 0 4px rgb(255 255 255 / .07), 0 0 0 1px rgb(0 0 0 / .6);
+}
+html.mobile-runtime .ly-container .vinyl-theme .am-record::after { content: ''; position: absolute; inset: 49%; border-radius: 50%; background: #18191b; box-shadow: 0 0 0 1px rgb(255 255 255 / .4); }
+@keyframes mobile-record-change { 0% { opacity: 0; translate: -25% 0; } 45% { opacity: .8; translate: -16% 0; } 100% { opacity: 1; translate: 0 0; } }
+html.mobile-runtime .ly-container .lyrics-mode.vinyl-theme .am-record-change { display: none; }
 html.mobile-runtime .ly-container .lyrics-mode.vinyl-theme .am-flying-cover::before { display: none; }
 @media (max-height: 700px) and (orientation: portrait) {
   html.mobile-runtime .ly-container .apple-music-player { gap: 12px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
   html.mobile-runtime .ly-container .am-flying-cover { width: min(100%, max(0px, calc(100dvh - 400px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 380px); }
   html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { width: 48px; }
+  html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cover { width: min(78%, max(0px, calc(100dvh - 400px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 320px); }
   html.mobile-runtime .ly-container .am-track-title { font-size: 21px; }
 }
 
@@ -101,6 +134,9 @@ html.mobile-runtime .ly-fullscreen.closing { transform: none; scale: 1; }
 html.mobile-runtime .ly-fullscreen.closing .ly-container { transform: none; scale: 1; opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .ly-container .vinyl-theme :is(.am-record-change, .am-record) { animation: none; transition: none; }
+  html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover,
+  html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] { transition: none; scale: 1; }
   html.mobile-runtime .ly-fullscreen .am-flying-cover-img,
   html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] .am-flying-cover-img { transition: none; scale: 1; }
 }

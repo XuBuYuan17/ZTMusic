@@ -178,6 +178,8 @@
   <ToplistsModule {mobile} toplists={toplists} loading={toplistsLoading} error={toplistsError} onOpenPlaylist={(chart) => onOpenPlaylist?.(chart.id, true, chart)} onRetry={loadToplists} />
 </div>
 
+<SongListActions onBindRow={(bind) => { bindSongRow = bind }} onOpenArtist={(id) => { if (typeof id === 'string' || typeof id === 'number') onOpenArtist?.(id) }} onOpenAlbum={onOpenAlbum} />
+
 <style>
   /* 有内容但刷新失败：只提示，不盖住已有内容 */
   .explore-stale { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text-secondary); font-size: 12px; }

@@ -8,9 +8,6 @@
   import type { NormalizedPlaylist } from '../../utils/normalize.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
-  import { musicService } from '../../music/service.ts'
-  import { player } from '../../stores/player.svelte.ts'
-  import type { CompactTrackInput } from '../../player/queue.ts'
   import { normalizePlaylist } from '../../utils/normalize.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
@@ -129,9 +126,9 @@
     onOpenPlaylist?.(pl.id as SongId, true, pl)
   }
   onDestroy(cancelCollectionMotion)
-  function dismissOnOutside(event: PointerEvent): void {
+  function dismissOnOutside(event: MouseEvent): void {
     if (router.activeView !== 'library' || !expandedCollection || !(event.target instanceof Element)) return
-    if (event.target.closest('.collection-groups, .library-options-portal, .library-management-portal, [role="dialog"]')) return
+    if (event.target.closest('.collection-item, .library-options-portal, .library-management-portal, [role="dialog"], button, a, input, select, textarea, [role="button"]')) return
     dismissPlaylistManager()
   }
   function dismissOnEscape(event: KeyboardEvent): void {
@@ -213,8 +210,6 @@
   ])
   const displayGroups = $derived([...collectionGroups].sort((a, b) => Number(b.id === expandedCollection) - Number(a.id === expandedCollection)))
 
-  // 我喜欢的音乐：直接拉取歌单曲目播放
-  let playingLiked = $state(false)
   // 喜爱歌曲卡封面瀑布流：只取前 8 首的封面
   let likedCovers = $state<string[]>(initial?.likedCovers ?? [])
 
@@ -241,21 +236,6 @@
     }
   }
 
-
-  async function playLiked(): Promise<void> {
-    if (!likedPlaylist?.id || playingLiked) return
-    playingLiked = true
-    try {
-      const detail = await musicService.getPlaylist(likedPlaylist.id as SongId)
-      const tracks = detail?.tracks ?? []
-      if (!tracks.length) { showNotice('歌单为空'); return }
-      player.playQueue(tracks as unknown as CompactTrackInput[], 0)
-    } catch (e) {
-      showNotice(((e as { message?: unknown } | null | undefined)?.message || '播放失败') as string)
-    } finally {
-      playingLiked = false
-    }
-  }
 
   function rec(v: unknown): Record<string, unknown> | null {
     return typeof v === 'object' && v !== null && !Array.isArray(v) ? v as Record<string, unknown> : null
@@ -416,7 +396,7 @@
   })
 </script>
 
-<svelte:window onpointerdown={dismissOnOutside} onkeydown={dismissOnEscape} />
+<svelte:window onclick={dismissOnOutside} onkeydown={dismissOnEscape} />
 
 <div class="library-page fade-in">
   {#if !auth.isLoggedIn}
@@ -450,11 +430,10 @@
 
       <div class="library-highlights">
         <div class="library-favorite">
-          <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} /></div>
+          <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} threeColumns /></div>
           <button class="library-favorite__open" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
             <span>YOUR FAVORITES</span><strong>我喜欢的音乐</strong><em>{likedPlaylist?.trackCount ?? 0} 首歌曲</em>
           </button>
-          <button class="library-favorite__play" type="button" aria-label="播放我喜欢的音乐" disabled={!likedPlaylist || playingLiked} onclick={playLiked}><Icon name="play" size={20} fill="currentColor" /></button>
         </div>
         <div class="library-activity">
           <RecentTracksModule limit={$responsive.isMobile ? 3 : 4} onOpenAll={() => onNavigate?.('recent')} />
@@ -485,7 +464,7 @@
               {@const expanded = expandedCollection === group.id}
               <section class="collection-group" class:expanded data-group-id={group.id} aria-label={group.title}>
                 {#if expanded}
-                  <header class="collection-group__header"><div><strong>{group.title}</strong><span>{group.items.length} 张歌单</span></div><button type="button" aria-label={`收起${group.title}分组`} aria-expanded="true" onclick={() => openCollection(group.id)}>收起 <Icon name="chevron-right" size={16} /></button></header>
+                  <header class="collection-group__header"><div><strong>{group.title}</strong><span>{group.items.length} 张歌单</span></div><button type="button" aria-label={`收起${group.title}分组`} aria-expanded="true" onclick={() => openCollection(group.id)}><Icon name="chevron-right" size={16} />收起歌单</button></header>
                 {/if}
                 <div class="collection-group__grid">
                   {#each (expanded ? group.items : group.items.slice(0, 3)) as item, i (item.pl.id as SongId)}
@@ -497,7 +476,7 @@
                         <span class="collection-item__cover">{#if item.pl.picUrl}<img src={coverUrl(item.pl.picUrl, 300)} alt="" data-shared-cover-return={returning?.group === group.id && returning?.playlistId === String(item.pl.id) ? 'true' : undefined} loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />{:else}<Icon name="music" size={28} />{/if}</span>
                         <span class="collection-item__info"><strong>{item.pl.name}</strong><small>{item.pl.trackCount ?? 0} 首</small></span>
                       </div>
-                      <button class="collection-item__menu" type="button" title="歌单管理" aria-label={`更多操作 ${item.pl.name}`} onclick={(event) => openOptions(item.pl, item.kind, event.currentTarget)}>⋯</button>
+                      <button class="collection-item__menu" type="button" title="歌单管理" aria-label={`更多操作 ${item.pl.name}`} onclick={(event) => openOptions(item.pl, item.kind, event.currentTarget)}><Icon name="more" size={18} aria-hidden="true" /></button>
                     </div>
                   {:else}<p class="collection-group__message">{expanded ? '还没有歌单，可以在歌单操作中选择本地分组。' : '暂无歌单'}</p>{/each}
                 </div>
@@ -606,17 +585,17 @@
   .library-identity__social { display: flex; gap: 20px; margin-top: 10px; color: var(--text-secondary); font-size: 12px; }
   .library-identity__social strong { margin-left: 4px; color: var(--text); font-weight: 500; }
   .library-highlights { display: grid; grid-template-columns: minmax(0, min(50%, 280px)) minmax(0, 1fr); align-items: start; gap: 12px 16px; }
-  .library-favorite { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1; border-radius: var(--radius-xl); background: var(--bg-layer); color: white; }
+  .library-favorite { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1; border: 2px solid color-mix(in srgb, var(--text) 35%, var(--border)); border-radius: var(--radius-xl); background: var(--bg-layer); color: white; }
   .library-favorite__art { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
-  .library-favorite__art::after { position: absolute; inset: 0; content: ''; background: linear-gradient(0deg, rgba(9, 9, 12, .94), rgba(9, 9, 12, .23) 90%); }
+  .library-favorite__art::after { position: absolute; inset: 0; content: ''; pointer-events: none; background: linear-gradient(to top, rgb(235 235 237 / .96), rgb(235 235 237 / .75) 24%, transparent 65%); }
   .library-favorite__art :global(.liked-falls-badge) { display: none; }
-  .library-favorite__open { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px 72px 24px 24px; text-align: left; color: white; }
+  .library-favorite__art :global(.liked-falls-three) { grid-template-columns: repeat(3, 1fr); }
+  .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation: likedFallsScroll 23s linear infinite; animation-delay: -7s; }
+  .library-favorite__open { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px; text-align: left; color: #202124; }
   .library-favorite__open span { font-size: 11px; font-weight: 700; letter-spacing: .1em; }
   .library-favorite__open strong { font-size: 23px; line-height: 1.2; }
-  .library-favorite__open em { color: rgba(255,255,255,.8); font-size: 13px; font-style: normal; }
+  .library-favorite__open em { color: #505156; font-size: 13px; font-style: normal; }
   .library-favorite__open:focus-visible { outline-offset: -4px; }
-  .library-favorite__play { position: absolute; right: 22px; bottom: 22px; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%; background: white; color: #1b1b1d; }
-  .library-favorite__play:disabled { opacity: .45; }
   .library-activity { min-width: 0; display: grid; gap: 12px; }
   .library-activity :global(.profile-home__panel) { border-color: color-mix(in srgb, var(--text) 18%, var(--border)); }
   :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__panel) { padding: 16px; }
@@ -652,7 +631,8 @@
   .collection-group__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
   .collection-group__header > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
   .collection-group__header strong { font-size: 18px; line-height: 1.35; }
-  .collection-group__header button { min-height: 40px; display: flex; align-items: center; gap: 3px; padding: 0 10px; border-radius: var(--radius-md); color: var(--accent); }
+  .collection-group__header button { min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 500; transition: background-color 160ms ease; }
+  .collection-group__header button:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-surface)); }
   .collection-group__header button :global(svg) { transform: rotate(-90deg); }
   .collection-group__grid { display: grid; grid-template-columns: minmax(0, 1fr); height: 192px; }
   .collection-group.expanded .collection-group__grid { height: auto; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 18px; }
@@ -661,12 +641,15 @@
   .collection-group:not(.expanded) .collection-item__cover { border: 2px solid var(--bg-surface); box-shadow: 0 8px 18px rgb(0 0 0 / .22); transform: rotate(var(--cover-angle)); }
   .collection-group:not(.expanded) .collection-item__info, .collection-group:not(.expanded) .collection-item__menu { display: none; }
   .collection-item__open { width: 100%; min-width: 0; display: grid; gap: 9px; text-align: left; }
-  .collection-item__cover { width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-tertiary); }
+  .collection-item__cover { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text-tertiary); }
+  .collection-group.expanded .collection-item__cover::after { position: absolute; inset: 0; content: ''; border: 1px solid color-mix(in srgb, var(--text) 22%, transparent); border-radius: inherit; pointer-events: none; }
   .collection-item__info { min-width: 0; display: grid; gap: 4px; }
   .collection-item__info strong { overflow: hidden; min-height: 2.7em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
   .collection-item__info small { color: var(--text-secondary); font-size: 12px; }
-  .collection-item__menu { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: rgb(0 0 0 / .58); color: white; font-size: 22px; transition: background-color 160ms ease; }
-  .collection-item__menu:hover { background: rgb(0 0 0 / .8); }
+  .collection-item__menu { position: absolute; top: 2px; right: 2px; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: white; }
+  .collection-item__menu::before { position: absolute; inset: 5px; content: ''; border: 1px solid rgb(255 255 255 / .2); border-radius: 50%; background: rgb(20 20 24 / .66); transition: background-color 160ms ease, border-color 160ms ease; }
+  .collection-item__menu :global(svg) { position: relative; }
+  .collection-item__menu:hover::before, .collection-item__menu:focus-visible::before { background: rgb(20 20 24 / .88); border-color: rgb(255 255 255 / .45); }
   .collection-group__message { padding: 20px 0; color: var(--text-secondary); font-size: 13px; }
   .collection-error { margin-bottom: 12px; color: var(--danger); font-size: 13px; }
   .collection-error button { padding: 4px 8px; color: var(--accent); }
@@ -682,14 +665,24 @@
   :global(html.mobile-runtime) .library-identity__stats > div { gap: 6px; }
   :global(html.mobile-runtime) .library-identity__stats strong { font-size: 15px; }
   :global(html.mobile-runtime) .library-identity__stats span { font-size: 11px; }
-  :global(html.mobile-runtime) .library-highlights { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  :global(html.mobile-runtime) .library-favorite, :global(html.mobile-runtime) .library-favorite__open { min-height: 160px; }
-  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; }
+  :global(html.mobile-runtime) .library-highlights { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; gap: 12px; }
+  :global(html.mobile-runtime) .library-favorite { aspect-ratio: 1; min-width: 0; background: var(--bg-surface); color: white; }
+  :global(html.mobile-runtime) .library-favorite__art { position: relative; height: auto; aspect-ratio: 1; z-index: 0; }
+  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-three) { grid-template-columns: repeat(3, 1fr); }
+  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: likedFallsScroll 20s linear infinite; }
+  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(2) .liked-falls-track) { animation-duration: 26s; animation-delay: -13s; }
+  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation-duration: 23s; animation-delay: -7s; }
+  :global(html.mobile-runtime) .library-favorite__open { position: absolute; inset: 0; height: 100%; padding: 12px; color: #202124; gap: 3px; }
+  :global(html.mobile-runtime) .library-favorite__open span { font-size: 9px; }
+  :global(html.mobile-runtime) .library-favorite__open strong { font-size: 14px; }
+  :global(html.mobile-runtime) .library-favorite__open em { font-size: 12px; }
+  :global(html.mobile-runtime) .library-activity { grid-column: 1 / -1; grid-row: 2; }
   :global(html.mobile-runtime) .library-activity { gap: 16px; }
   :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 16px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); }
-  :global(html.mobile-runtime) .library-shortcuts { gap: 10px; }
+  :global(html.mobile-runtime) .library-shortcuts { grid-column: 2; grid-row: 1; grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr); gap: 10px; }
   :global(html.mobile-runtime) .library-shortcut { min-height: 72px; padding: 12px; }
   @media (max-width: 360px) { .library-shortcut__arrow { display: none; } }
   @media (prefers-reduced-motion: reduce) { .library-shortcut__arrow { transition: none; } .library-shortcut:hover .library-shortcut__arrow { transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .collection-item__menu { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .library-favorite__art :global(.liked-falls-track), :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .collection-item__menu::before { transition: none; } }
 </style>

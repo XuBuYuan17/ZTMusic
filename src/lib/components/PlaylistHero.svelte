@@ -3,7 +3,6 @@
   import { flyCover } from '../app/desktop-motion.ts'
   import { responsive } from '../utils/responsive.ts'
   import { player } from '../stores/player.svelte.ts'
-  import CoverPreview from './CoverPreview.svelte'
   import { tick } from 'svelte'
   import type { SongId } from '../types/music.ts'
   import PlaylistActionSheet, { playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
@@ -114,11 +113,9 @@
     ...(detail?.description ? [{ label: `${detailType}简介`, icon: 'info', onSelect: () => closeMenu(() => descriptionExpanded = true) }] : []),
   ])
   const creatorName = $derived(heroCreatorName(detail?.creator))
-  let previewOpen = $state(false)
   let descriptionExpanded = $state(false)
   let coverFailed = $state(false)
-  $effect(() => { detail; previewOpen = false; descriptionExpanded = false; coverFailed = false })
-  $effect(() => { if (!$responsive.isMobile) previewOpen = false })
+  $effect(() => { detail; descriptionExpanded = false; coverFailed = false })
 
   function trackIdOf(value: unknown): SongId | null {
     if (typeof value === 'string' || typeof value === 'number') return value
@@ -153,14 +150,21 @@
     {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover(320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
     {#if cover && $responsive.isMobile}
-      <button class="playlist-cover-open" type="button" aria-label={`查看${detail.name}的封面`} aria-haspopup="dialog" aria-expanded={previewOpen} onclick={event => { event.currentTarget.focus({ preventScroll: true }); previewOpen = true }}>
+      <div class="playlist-cover-open">
         {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" use:loadCover={{ source: cover, size: 640, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
-      </button>
+      </div>
     {:else if cover}
       <img class="playlist-cover" use:loadCover={{ source: cover, size: 320, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
     {:else}
       <div class="playlist-cover playlist-cover--empty">
         <Icon name="music" size={42} strokeWidth={1.3} />
+      </div>
+    {/if}
+    {#if $responsive.isMobile}
+      <div class="playlist-playing-record" class:visible={containsCurrentTrack && player.playing} aria-hidden="true">
+        <div class="playlist-playing-record__disc">
+          {#if player.cover}<img src={coverUrl(player.cover, 200)} alt="" referrerpolicy="no-referrer" />{/if}
+        </div>
       </div>
     {/if}
     <div class="playlist-hero-copy">
@@ -201,8 +205,6 @@
     </div>
   </div>
 {/if}
-
-{#if previewOpen && detail}<CoverPreview src={resolvedCover(1200)} title={detail.name} onClose={() => previewOpen = false} />{/if}
 
 {#if showMenu && detail}
   <div class="library-options-portal" use:playlistPortal>
@@ -471,11 +473,11 @@
 
   /* 桌面保留宽屏并排布局，控件与移动端使用同一层级。 */
   :global(html:not(.mobile-runtime)) .playlist-detail-hero {
-    grid-template-columns: 208px minmax(0, 1fr);
-    gap: 32px;
-    min-height: 272px;
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 24px;
+    min-height: 0;
     margin: 0;
-    padding: 32px;
+    padding: 24px;
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     color: var(--text);
@@ -501,7 +503,7 @@
     background-position: center;
     background-size: cover;
     filter: blur(18px) saturate(.9);
-    opacity: .35;
+    opacity: .12;
   }
 
   :global(html:not(.mobile-runtime)) .playlist-hero-wash {
@@ -513,8 +515,8 @@
   }
 
   :global(html:not(.mobile-runtime)) .playlist-cover {
-    width: 208px;
-    height: 208px;
+    width: 160px;
+    height: 160px;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
     transform: none;
