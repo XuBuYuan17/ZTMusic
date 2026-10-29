@@ -164,8 +164,9 @@ assert.ok(weeklyModule.includes('CompactTrackList'), '本周常听复用同一�
 assert.ok(!homePage.includes('profile-home__track-list'), '列表样式不得再留在页面里')
 assert.ok(recentModule.includes('player.playQueue(sources as unknown as CompactTrackInput[], index)'), '预览播放必须用原始队列 + 列表索引')
 assert.ok(recentModule.includes('local-listening-history-change') && recentModule.includes('LISTENING_CHANGE'), '播放历史变化后模块要刷新')
-// D04：本周常听模块
-assert.ok(librarySource.includes('WeeklyListenModule'), '资料库必须复用本周常听模块')
+// D04：本周常听模块（主页独占，资料库不再重复；资料库改用收听统计与历史日推入口）
+assert.ok(homePage.includes('WeeklyListenModule'), '主页必须复用本周常听模块')
+assert.ok(!librarySource.includes('WeeklyListenModule'), '资料库不再重复渲染本周常听')
 assert.ok(weeklyModule.includes('weeklyListenState(') && weeklyModule.includes('weeklyListenCanExpand('), '数据状态与展开能力由可测逻辑决定')
 assert.ok(weeklyModule.includes('本周常听加载失败') && weeklyModule.includes('onRetry'), '失败必须显示失败文案并可重试，不能当成没有听歌')
 assert.ok(lyricsCss.includes('html.desktop-titlebar:not(.mobile-runtime) .ly-container'), 'fullscreen lyrics top buttons must clear the titlebar')

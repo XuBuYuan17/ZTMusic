@@ -32,7 +32,8 @@ for (const module of [
 assert.ok(!library.includes("import HomePage"), 'library must not embed the whole home page')
 assert.ok(!library.includes('<HomePage'), 'library must not render the whole home page')
 assert.ok(!library.includes('class="library-home-link"'), 'library does not link to an obsolete home view')
-assert.ok(library.includes('RecentTracksModule') && library.includes('WeeklyListenModule'), 'library keeps the listening modules')
+assert.ok(library.includes('RecentTracksModule'), 'library keeps the recent listening module')
+assert.ok(!library.includes('WeeklyListenModule'), '本周常听只留在主页，资料库不再重复一份')
 assert.ok(!library.includes('SocialPreviewSection'), 'social previews live on the profile page')
 
 // ── 5) 入口没有新增第五个底部标签 ──
