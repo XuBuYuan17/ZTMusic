@@ -11,6 +11,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   'lyrics_text_blur_effect': 'true',
   'wallpaper_video_play': 'true',
   'accent_theme': 'red',
+  'loudness_normalization': 'false',
   [STORAGE_KEYS.RESTORE_SESSION]: 'true',
   [STORAGE_KEYS.VOLUME]: '0.8',
   [STORAGE_KEYS.MODE]: 'list',
@@ -21,6 +22,7 @@ const BOOLEAN_KEYS = new Set<string>([
   'lyrics_blur_effect',
   'lyrics_text_blur_effect',
   'wallpaper_video_play',
+  'loudness_normalization',
   STORAGE_KEYS.RESTORE_SESSION,
 ])
 

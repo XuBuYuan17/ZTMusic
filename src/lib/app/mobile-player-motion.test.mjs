@@ -5,16 +5,18 @@ import { rememberCardOrigin, hasCoverOrigin, flyCover, takeCoverOrigin } from '.
 let reduce = false
 globalThis.window = { matchMedia: () => ({ matches: reduce }) }
 const calls = []
+const operations = []
 const element = (rect) => {
   const node = {
     style: { cssText: '' }, isConnected: true, rect,
-    getBoundingClientRect() { return this.rect },
+    getBoundingClientRect() { operations.push('measure'); return this.rect },
     getAnimations() { return [] },
     removeAttribute() {},
     setAttribute() {},
     remove() { this.removed = true },
     cloneNode() { return element({ ...this.rect }) },
     animate(frames, options) {
+      operations.push('animate')
       let finish
       const animation = { finished: new Promise(resolve => { finish = resolve }), cancel() { this.cancelled = true }, pause() { this.paused = true }, play() { this.paused = false } }
       calls.push({ node: this, frames, options, animation, finish })
@@ -50,10 +52,11 @@ assert.equal(sheetCoverTransform({ ...large, width: 0 }, mini), 'none', 'unmeasu
 const cover = element(large), title = element({ left: 24, top: 470, width: 300, height: 56 }), lyrics = element()
 let mode = false
 const root = { isConnected: true, classList: { contains: () => mode }, querySelector: selector => selector.includes('cover') ? cover : selector.includes('info') ? title : lyrics }
-globalThis.getComputedStyle = () => ({ borderRadius: '12px' })
+globalThis.getComputedStyle = () => { operations.push('measure'); return { borderRadius: '12px' } }
 const controller = createMobilePlayerMotion()
 const change = () => { mode = !mode; cover.rect = mode ? small : large }
 calls.length = 0
+operations.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
 assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
@@ -64,6 +67,7 @@ assert.equal(calls[2].options.duration, mobilePlayerTiming.contentDuration, 'lyr
 assert.equal(calls[2].options.delay, mobilePlayerTiming.contentDelay, 'lyrics takeover follows the initial cover response')
 assert.equal(calls[0].options.easing, mobilePlayerTiming.easing)
 assert.equal(calls[2].options.easing, mobilePlayerTiming.contentEasing)
+assert.equal(operations.slice(operations.indexOf('animate') + 1).includes('measure'), false, 'all layout measurements precede animation writes')
 assert.ok(calls[2].frames.every(frame => !('clipPath' in frame)), 'lyrics entrance avoids animating a large clip path')
 assert.equal(cover.style.transition, 'none', 'CSS layout transitions are frozen while FLIP owns the cover motion')
 controller.suspend()

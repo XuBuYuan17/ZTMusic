@@ -736,6 +736,7 @@ html.mobile-runtime .settings-page .segmented-control button { min-height: 40px;
 html.mobile-runtime .search-page .search-input-wrap { background: var(--bg-surface); border-radius: var(--radius-sm); }
 html.mobile-runtime :is(.mobile-tab, .mobile-page-bar__button, .library-card, .mobile-cover-item, .mobile-feature-item) { transition: transform 180ms var(--ease-out), color 160ms ease; }
 html.mobile-runtime [data-mobile-pressed="control"] { scale: .97; transition-duration: 100ms; }
+html.mobile-runtime .mobile-cover-item[data-mobile-pressed="control"] { scale: 1; filter: brightness(.94); }
 html.mobile-runtime [data-mobile-pressed="row"]:not(.am-flying-cover) { opacity: .8; }
 @media (prefers-reduced-motion: reduce) { html.mobile-runtime [data-mobile-pressed="control"] { scale: 1; } }
 

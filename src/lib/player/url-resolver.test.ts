@@ -71,13 +71,14 @@ await runTest(async () => {
   dbCache.urlSetEntry = async () => null
   ncm.songUrl = async (id, level, unblock) => {
     calls.push({ id, level, unblock })
-    return { data: [{ url: level === 'standard' ? 'http://m10.music.126.net/song.mp3' : '' }] }
+    return { data: [{ url: level === 'standard' ? 'http://m10.music.126.net/song.mp3' : '', gain: -9, peak: 1 }] }
   }
 
   const result = await getPlayableUrls(42, 'lossless', new Map(), 1)
 
   assertDeepEqual(result.urls, ['https://m10.music.126.net/song.mp3'], 'normalizes first official playable URL to https')
   assertEqual(result.firstUrlLevel, 'standard', 'records first successful fast level')
+  assertEqual(result.loudnessAttenuationDb, -9, 'network result keeps gain for the selected URL')
   assertEqual(calls.length, 1, 'stops fast tier loop after first non-trial URL')
 })
 
@@ -99,7 +100,7 @@ await runTest(async () => {
   const prefetchCache = new Map([[91, ['https://cdn.example/prefetched-91.mp3']]])
   const context = await getUrlCacheContext()
   attachUrlCacheMetadata(prefetchCache.get(91)!, {
-    namespace: context.namespace, urls: prefetchCache.get(91)!, candidates: [{ url: prefetchCache.get(91)![0]!, level: 'standard' }], expiresAt: Date.now() + 10000,
+    namespace: context.namespace, urls: prefetchCache.get(91)!, candidates: [{ url: prefetchCache.get(91)![0]!, level: 'standard', loudnessAttenuationDb: -7 }], expiresAt: Date.now() + 10000,
   })
   dbCache.urlGetEntry = async () => { throw new Error('prefetch hit should not read persistent cache') }
   dbCache.urlSetEntry = async () => null
@@ -108,6 +109,7 @@ await runTest(async () => {
   const result = await getPlayableUrls(91, 'standard', prefetchCache, 1)
 
   assertDeepEqual(result.urls, ['https://cdn.example/prefetched-91.mp3'], 'uses and removes same-id prefetch cache only')
+  assertEqual(result.loudnessAttenuationDb, -7, 'prefetched source retains its matching gain')
   assertEqual(prefetchCache.has(91), false, 'removes consumed prefetch cache entry')
   assertEqual(networkCalls, 0, 'does not fetch network when prefetch cache matches id')
 })

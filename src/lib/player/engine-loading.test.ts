@@ -30,6 +30,24 @@ const { AudioEngine } = await import('./engine.ts')
 
 const engine = new AudioEngine()
 const audio = engine.audio as unknown as FakeAudio
+engine.setVolume(.8)
+engine.setLoudnessAdjustment(true, -6)
+assert.ok(Math.abs(audio.volume - .8 * 10 ** (-6 / 20)) < 1e-8, 'normalization attenuates without changing user volume')
+assert.equal(engine.volume, .8)
+engine.setLoudnessAdjustment(true, null)
+assert.equal(audio.volume, .8, 'unknown sources restore the user volume')
+engine.setLoudnessAdjustment(true, 8)
+assert.equal(audio.volume, .8, 'positive or invalid gain cannot amplify')
+engine.setLoudnessAdjustment(false, -6)
+assert.equal(audio.volume, .8, 'turning the setting off restores the user volume')
+engine.setLoudnessEnabled(true)
+assert.ok(Math.abs(audio.volume - .8 * 10 ** (-6 / 20)) < 1e-8, 'enabling uses the current source adjustment')
+engine.setVolume(.5)
+assert.equal(engine.volume, .5, 'manual volume remains separate while normalization is active')
+assert.ok(Math.abs(audio.volume - .5 * 10 ** (-6 / 20)) < 1e-8)
+engine.setLoudnessEnabled(false)
+assert.equal(audio.volume, .5)
+engine.setVolume(.8)
 let loadSignals = 0
 let readySignals = 0
 let playSignals = 0
@@ -74,6 +92,16 @@ audio.error = { code: 2, message: 'Temporary network failure' } as MediaError
 engine.load('https://audio.test/retry')
 assert.ok(mediaLoads > firstLoads, 'an explicit retry must reload an errored element even for the same URL')
 assert.equal(audio.error, null)
+
+engine.setLoudnessAdjustment(true, -6)
+engine.preload('https://audio.test/next')
+const nextAudio = engine.preloadAudio as unknown as FakeAudio
+nextAudio.readyState = 1
+engine.load('https://audio.test/next', -9)
+assert.equal(engine.audio, nextAudio as unknown as HTMLAudioElement)
+assert.ok(Math.abs(nextAudio.volume - .8 * 10 ** (-9 / 20)) < 1e-8, 'preloaded audio uses the newly selected source gain')
+engine.load('https://audio.test/fallback')
+assert.equal(nextAudio.volume, .8, 'fallback without metadata must not inherit the previous gain')
 
 engine.destroy()
 console.log('audio engine loading semantics: play, waiting and playing transitions passed')

@@ -1,4 +1,5 @@
 import { takeCoverOrigin } from './desktop-motion.ts'
+import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export const mobileMotion = {
@@ -11,6 +12,9 @@ export const mobileMotion = {
   // Gentle acceleration avoids finishing almost the whole flight in its first frames.
   shared: 'cubic-bezier(.3,0,.2,1)',
   standard: 'cubic-bezier(.2,0,0,1)',
+  playlistEnter: mobileSheetTiming.enter,
+  playlistExit: mobileSheetTiming.exit,
+  playlistEasing: 'linear',
 } as const
 
 interface RectLike {
@@ -41,6 +45,14 @@ export function mobileNavigationKind(direction: string, primary: boolean): Mobil
   return direction === 'back' ? 'pop' : primary || direction === 'soft' ? 'tab' : 'push'
 }
 
+export function playlistSheetFrames(entering: boolean): Keyframe[] {
+  return Array.from({ length: 21 }, (_, i) => {
+    const t = i / 20
+    const progress = entering ? 1 - dampedOut(t) : t ** 3
+    return { offset: t, transform: `translate3d(0,${progress * 100}vh,0)` }
+  })
+}
+
 export function mobilePageFrames(
   kind: MobileNavigationKind,
   entering: boolean,
@@ -51,9 +63,12 @@ export function mobilePageFrames(
 ): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
+    if (bottomEntrance && kind === 'pop') return entering
+      ? [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'none' }]
+      : [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'translate3d(0,100vh,0)' }]
     if (kind === 'push' && bottomEntrance) return entering
-      ? [{ opacity: 1, transform: 'translate3d(0,100%,0)', clipPath: fullSurface.clipPath }, fullSurface]
-      : [fullSurface, fullSurface]
+      ? [{ opacity: 1, transform: 'translate3d(0,100vh,0)' }, { opacity: 1, transform: 'none' }]
+      : [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'none' }]
     if (kind === 'pop') {
       return entering
         ? [fullSurface, fullSurface]
@@ -119,6 +134,7 @@ function attachPlaylistDismiss(
   page: HTMLElement,
   geometry: SharedReturnGeometry,
   commit: () => Promise<void>,
+  sheet = false,
 ): (preserve?: boolean) => void {
   const maybeScroller = page.closest<HTMLElement>('.mobile-page-content')
   if (!maybeScroller) return () => {}
@@ -140,6 +156,7 @@ function attachPlaylistDismiss(
   const reset = () => {
     if (committing) return
     page.style.removeProperty('clip-path')
+    page.style.removeProperty('transform')
     page.style.removeProperty('will-change')
   }
 
@@ -171,12 +188,13 @@ function attachPlaylistDismiss(
       suppressClick = true
       box = copyRect(page.getBoundingClientRect())
       travel = Math.max(240, Math.min(box.height * .68, window.innerHeight * .62))
-      page.style.willChange = 'clip-path'
+      page.style.willChange = sheet ? 'transform' : 'clip-path'
       try { page.setPointerCapture(event.pointerId) } catch {}
     }
     if (!box) return
     const progress = playlistDismissProgress(dy, travel)
-    page.style.clipPath = interpolatedClip(box, geometry.rect, geometry.radius, progress)
+    if (sheet) page.style.transform = `translate3d(0,${Math.max(0, dy)}px,0)`
+    else page.style.clipPath = interpolatedClip(box, geometry.rect, geometry.radius, progress)
     event.preventDefault()
     event.stopPropagation()
   }
@@ -195,21 +213,24 @@ function attachPlaylistDismiss(
 
     if (!active || !box) { active = false; return }
     active = false
-    const from = page.style.clipPath || interpolatedClip(box, geometry.rect, geometry.radius, progress)
+    const from = sheet ? page.style.transform || 'translate3d(0,0,0)' : page.style.clipPath || interpolatedClip(box, geometry.rect, geometry.radius, progress)
+    const frames = (start: string, end: string): Keyframe[] => sheet ? [{ transform: start }, { transform: end }] : [{ clipPath: start }, { clipPath: end }]
+    const full = sheet ? 'translate3d(0,0,0)' : fullClip
     if (complete) {
       committing = true
-      const target = interpolatedClip(box, geometry.rect, geometry.radius, 1)
-      animation = page.animate([{ clipPath: from }, { clipPath: target }], {
-        duration: Math.max(120, Math.round(mobileMotion.dismiss * (1 - progress))),
-        easing: mobileMotion.shared,
+      const target = sheet ? `translate3d(0,${Math.max(0, window.innerHeight - box.top)}px,0)` : interpolatedClip(box, geometry.rect, geometry.radius, 1)
+      animation = page.animate(frames(from, target), {
+        duration: Math.max(120, Math.round((sheet ? mobileSheetTiming.exit : mobileMotion.dismiss) * (1 - progress))),
+        easing: sheet ? 'cubic-bezier(.55,.055,.675,.19)' : mobileMotion.shared,
         fill: 'forwards',
       })
       animation.finished.then(() => {
-        page.style.clipPath = target
+        if (sheet) page.style.transform = target
+        else page.style.clipPath = target
         void commit().catch(() => {
           committing = false
           page.style.removeProperty('will-change')
-          animation = page.animate([{ clipPath: target }, { clipPath: fullClip }], {
+          animation = page.animate(frames(target, full), {
             duration: 220,
             easing: 'cubic-bezier(.22,.8,.2,1)',
           })
@@ -219,7 +240,7 @@ function attachPlaylistDismiss(
       return
     }
 
-    animation = page.animate([{ clipPath: from }, { clipPath: fullClip }], {
+    animation = page.animate(frames(from, full), {
       duration: 300,
       easing: 'cubic-bezier(.22,.8,.2,1)',
     })
@@ -262,6 +283,7 @@ export function createMobileNavigationMotion() {
   const animations = new Set<Animation>()
   let dismissCleanup: ((preserve?: boolean) => void) | null = null
   let sharedCleanup: (() => void) | null = null
+  let backdrop: HTMLElement | null = null
   let skipNextInteractivePop = false
 
   function cancel() {
@@ -272,6 +294,8 @@ export function createMobileNavigationMotion() {
     dismissCleanup = null
     sharedCleanup?.()
     sharedCleanup = null
+    backdrop?.remove()
+    backdrop = null
   }
 
   return {
@@ -301,6 +325,7 @@ export function createMobileNavigationMotion() {
         done()
         if (outgoing) queueMicrotask(() => {
           outgoing.style.removeProperty('clip-path')
+          outgoing.style.removeProperty('transform')
           outgoing.style.removeProperty('will-change')
         })
         return
@@ -313,17 +338,38 @@ export function createMobileNavigationMotion() {
       const sourceRadius = source ? (getComputedStyle(source).borderRadius || getComputedStyle(source.parentElement!).borderRadius || '22px') : '22px'
       const incomingClip = sourceRect ? clipToRect(incoming, sourceRect, sourceRadius) : null
       const outgoingClip = outgoing && sourceRect ? clipToRect(outgoing, sourceRect, sourceRadius) : null
+      const playlistView = (kind === 'pop' ? outgoing : incoming)?.dataset?.routeKey?.split(':', 1)[0]
+      const playlistTransition = playlistView === 'playlist' || playlistView === 'recommendation'
       const duration = surface
-        ? kind === 'pop' ? mobileMotion.dismiss : mobileMotion.expand
+        ? playlistTransition ? kind === 'pop' ? mobileMotion.playlistExit : mobileMotion.playlistEnter
+          : kind === 'pop' ? mobileMotion.dismiss : mobileMotion.expand
         : kind === 'tab' ? mobileMotion.tab : mobileMotion.page
       const hasSharedGeometry = Boolean(sourceRect && (kind === 'pop' ? outgoingClip : incomingClip))
-      const easing = surface && hasSharedGeometry ? mobileMotion.shared : surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
+      const easing = surface && playlistTransition ? mobileMotion.playlistEasing : surface && hasSharedGeometry ? mobileMotion.shared : surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
       const returnGeometry: SharedReturnGeometry | null = surface && kind === 'push' && sourceRect && incoming.querySelector('.playlist-detail-page')
         ? { rect: copyRect(sourceRect), radius: sourceRadius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
         : null
 
       const sharedPending: Promise<unknown>[] = []
-      const bottomEntrance = kind === 'push' && Boolean(incoming.querySelector('.playlist-detail-page'))
+      const bottomEntrance = playlistTransition || (kind === 'push' && Boolean(incoming.querySelector('.playlist-detail-page')))
+      const scroller = playlistTransition ? incoming.closest?.<HTMLElement>('.mobile-page-content') : null
+      const parent = incoming.parentElement
+      if (scroller && parent) {
+        const bounds = scroller.getBoundingClientRect()
+        backdrop = document.createElement('div')
+        backdrop.setAttribute('aria-hidden', 'true')
+        Object.assign(backdrop.style, {
+          position: 'fixed', left: `${bounds.left}px`, top: `${bounds.top}px`, width: `${bounds.width}px`, height: `${bounds.height}px`,
+          background: '#000', opacity: '0', pointerEvents: 'none', zIndex: '1',
+        })
+        parent.insertBefore(backdrop, incoming)
+        const overlay = backdrop.animate(kind === 'pop' ? [{ opacity: .22 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: .22 }], {
+          duration: kind === 'pop' ? mobileSheetTiming.backdrop : 220,
+          easing: 'ease-out', fill: 'both',
+        })
+        animations.add(overlay)
+        sharedPending.push(overlay.finished.catch(() => {}))
+      }
       if (surface && (kind === 'push' || kind === 'pop') && !bottomEntrance) {
         const hero = kind === 'push'
           ? incoming.querySelector<HTMLImageElement>('.playlist-cover')
@@ -372,8 +418,10 @@ export function createMobileNavigationMotion() {
 
       const pending = [incoming, outgoing].filter((node): node is HTMLElement => !!node).map((node, index) => {
         const entering = index === 0
+        if (surface && playlistTransition && ((kind === 'pop' && entering) || (kind === 'push' && bottomEntrance && !entering))) return Promise.resolve()
         const clip = entering ? incomingClip : outgoingClip
-        const animation = node.animate(mobilePageFrames(kind, entering, sharedCover, surface, clip, bottomEntrance), {
+        const frames = playlistTransition && surface ? playlistSheetFrames(kind !== 'pop') : mobilePageFrames(kind, entering, sharedCover, surface, clip, bottomEntrance)
+        const animation = node.animate(frames, {
           duration,
           easing,
         })
@@ -387,6 +435,8 @@ export function createMobileNavigationMotion() {
         animations.clear()
         sharedCleanup?.()
         sharedCleanup = null
+        backdrop?.remove()
+        backdrop = null
         if (surface && kind === 'pop') clearSharedCoverReturn()
         if (returnGeometry) {
           dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, async () => {
@@ -398,7 +448,7 @@ export function createMobileNavigationMotion() {
               skipNextInteractivePop = false
               throw error
             }
-          })
+          }, playlistTransition)
         }
         done()
       })

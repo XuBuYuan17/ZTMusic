@@ -168,6 +168,15 @@
     <!-- 记住播放 -->
     <div class="settings-row">
       <div>
+        <div class="settings-label">音量均衡（试验）</div>
+        <div class="settings-desc">按可用响度数据降低较响歌曲；其他音源不调整</div>
+        {#if settings.loudnessError}<div class="settings-desc" role="alert">{settings.loudnessError}</div>{/if}
+      </div>
+      <button class="switch-control" class:on={settings.loudnessNormalization} aria-label="音量均衡" aria-pressed={settings.loudnessNormalization} disabled={settings.loudnessBusy} onclick={() => settings.handleLoudnessNormalization(!settings.loudnessNormalization)}><span>{settings.loudnessNormalization ? '开' : '关'}</span></button>
+    </div>
+
+    <div class="settings-row">
+      <div>
         <div class="settings-label">{t('settings.restoreSession', '记住上次播放')}</div>
         <div class="settings-desc">{t('settings.restoreSessionDesc', '启动时恢复上次的播放进度')}</div>
       </div>

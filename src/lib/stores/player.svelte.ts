@@ -225,7 +225,10 @@ class PlayerState {
       restoredQueue.queueIndex,
     )
 
-    if (!engine.native) engine.setVolume(this.volume)
+    if (!engine.native) {
+      engine.setVolume(this.volume)
+      void engine.setLoudnessEnabled?.(getBooleanSetting('loudness_normalization', 'false'))
+    }
   }
 
   _setupEngineListeners(): void {
@@ -680,7 +683,7 @@ class PlayerState {
     // 获取可播放 URL，传入 auth 状态供 url-resolver 使用（而非 url-resolver 直接 import auth）
     const authOpts = { isLoggedIn: this._authProvider.isLoggedIn(), checkLoginStatus: () => this._authProvider.checkLoginStatus() }
     getPlayableUrls(playableTrack.id, this.preferredLevel, this._prefetchCache, requestId, authOpts, signal)
-      .then(({ urls, firstUrlLevel, isTrial }) => {
+      .then(({ urls, firstUrlLevel, isTrial, loudnessAttenuationDb }) => {
         if (requestId !== this._playRequestId) return
         this._firstUrlLevel = firstUrlLevel
         this._fallback.updateUrls(urls)
@@ -697,7 +700,7 @@ class PlayerState {
 
           const first = this._fallback.next()
           if (first.status === 'playing') {
-            engine.load(first.url)
+            engine.load(first.url, loudnessAttenuationDb)
             if (this._shouldAutoPlay) engine.play()
               .then(() => {
                 if (requestId === this._playRequestId && this._shouldAutoPlay) this.playing = !engine.paused
@@ -1067,7 +1070,7 @@ class PlayerState {
     const signal = this._abortController.signal
 
     try {
-      const { urls } = await getPlayableUrls(
+      const { urls, loudnessAttenuationDb } = await getPlayableUrls(
         id,
         this.preferredLevel,
         this._prefetchCache,
@@ -1085,6 +1088,7 @@ class PlayerState {
       if (first.status !== 'playing') return
       // 新档位拿到的还是同一个 URL（该档位不可用，解析回落了）→ 不打断当前播放
       if (first.url === engine.src) {
+        engine.setSourceAttenuation?.(loudnessAttenuationDb ?? null)
         this._prefetchNextTrack(requestId)
         void this._fillFallbackInBackground(id, requestId, signal)
         return
@@ -1096,7 +1100,7 @@ class PlayerState {
       this._clearError()
       // 切 URL 会丢掉进度，交给 onCanPlay 里的 seek 恢复（与 _fallbackNext 同一套机制）
       if (position > 0) this._restoreSeeking = true
-      engine.load(first.url)
+      engine.load(first.url, loudnessAttenuationDb)
       if (wasPlaying) {
         engine.play().catch((err) => {
           if (requestId !== this._playRequestId || engine.src !== first.url || !this._shouldAutoPlay) return
@@ -1281,14 +1285,14 @@ class PlayerState {
       isLoggedIn: this._authProvider.isLoggedIn(),
       checkLoginStatus: () => this._authProvider.checkLoginStatus(),
     }, signal, forceRefresh)
-      .then(({ urls, firstUrlLevel }) => {
+      .then(({ urls, firstUrlLevel, loudnessAttenuationDb }) => {
         if (requestId !== this._playRequestId) return
         this._firstUrlLevel = firstUrlLevel
         this._fallback.updateUrls(urls)
         if (urls.length > 0) {
           const first = this._fallback.next()
           if (first.status === 'playing') {
-            engine.load(first.url)
+            engine.load(first.url, loudnessAttenuationDb)
             if (this._shouldAutoPlay) {
               void engine.play().then(() => {
                 if (requestId === this._playRequestId && this._shouldAutoPlay) this.playing = !engine.paused

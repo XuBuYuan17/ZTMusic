@@ -9,14 +9,22 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicLong
 
-class StreamResolver(private val context: Context) : ResolvingDataSource.Resolver {
+class StreamResolver(private val context: Context, private val onResolved: (String, Double?, Long) -> Unit = { _, _, _ -> }) : ResolvingDataSource.Resolver {
     @Volatile var base = "https://music.xubuyuan.top"
     @Volatile var cookie = ""
     @Volatile var quality = "standard"
-    private val cache = LinkedHashMap<String, Pair<Uri, Long>>()
+    private data class CachedSource(val uri: Uri, val timestamp: Long, val attenuationDb: Double?)
+    private val cache = LinkedHashMap<String, CachedSource>()
     private val attemptsUsed = mutableMapOf<String, Int>()
+    private val generation = AtomicLong()
+    fun isCurrent(version: Long): Boolean = generation.get() == version
+    fun cachedAttenuation(id: String): Double? = synchronized(cache) {
+        cache[id]?.takeIf { System.currentTimeMillis() - it.timestamp < 60000 }?.attenuationDb
+    }
     fun rejectCurrent(id: String): Boolean = synchronized(cache) {
+        generation.incrementAndGet()
         cache.remove(id)
         val next = (attemptsUsed[id] ?: 0) + 1
         attemptsUsed[id] = next
@@ -24,6 +32,7 @@ class StreamResolver(private val context: Context) : ResolvingDataSource.Resolve
     }
 
     fun configure(data: JSONObject) {
+        generation.incrementAndGet()
         val uri = Uri.parse(data.optString("base", base))
         require(uri.scheme == "https" && uri.userInfo == null && uri.port == -1)
         require(uri.host in setOf("music.xubuyuan.top", "music.163.com", "interface.music.163.com", "interface3.music.163.com"))
@@ -56,6 +65,7 @@ class StreamResolver(private val context: Context) : ResolvingDataSource.Resolve
         val uri = dataSpec.uri
         if (uri.scheme != "ztmusic") return dataSpec
         val id = uri.lastPathSegment ?: throw IOException("Missing track")
+        val version = generation.get()
         if (uri.host == "local") {
             require(id.matches(Regex("[a-f0-9]{64}")))
             val file = File(context.filesDir, "native-audio/$id")
@@ -63,7 +73,7 @@ class StreamResolver(private val context: Context) : ResolvingDataSource.Resolve
             return dataSpec.withUri(Uri.fromFile(file))
         }
         if (!id.matches(Regex("[1-9][0-9]{0,18}"))) throw IOException("Invalid online track")
-        synchronized(cache) { cache[id]?.takeIf { System.currentTimeMillis() - it.second < 60000 }?.let { return dataSpec.withUri(it.first) } }
+        synchronized(cache) { cache[id]?.takeIf { System.currentTimeMillis() - it.timestamp < 60000 }?.let { onResolved(id, it.attenuationDb, version); return dataSpec.withUri(it.uri) } }
         val attempts = listOf(
             "/song/url/v1" to JSONObject().put("id", id).put("level", quality),
             "/song/url/v1" to JSONObject().put("id", id).put("level", "standard"),
@@ -81,7 +91,11 @@ class StreamResolver(private val context: Context) : ResolvingDataSource.Resolve
                 if (raw.isEmpty() || item.optJSONObject("freeTrialInfo") != null) continue
                 val resolved = Uri.parse(if (raw.startsWith("http://")) "https://" + raw.substring(7) else raw)
                 if (resolved.scheme != "https" || resolved.host.isNullOrEmpty() || resolved.userInfo != null) continue
-                synchronized(cache) { attemptsUsed[id] = index; cache[id] = resolved to System.currentTimeMillis(); while (cache.size > 24) { val oldest = cache.keys.first(); cache.remove(oldest); attemptsUsed.remove(oldest) } }
+                val gain = item.opt("gain") as? Number
+                val peak = item.opt("peak") as? Number
+                val attenuation = if (index < 2) Loudness.attenuationDb(gain?.toDouble(), peak?.toDouble()) else null
+                synchronized(cache) { if (isCurrent(version)) { attemptsUsed[id] = index; cache[id] = CachedSource(resolved, System.currentTimeMillis(), attenuation); while (cache.size > 24) { val oldest = cache.keys.first(); cache.remove(oldest); attemptsUsed.remove(oldest) } } }
+                onResolved(id, attenuation, version)
                 return dataSpec.withUri(resolved)
             } catch (_: IOException) { /* Try the next supported source without logging URLs or cookies. */ }
         }

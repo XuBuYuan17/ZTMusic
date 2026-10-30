@@ -14,13 +14,13 @@
   import ProgressBar from './ProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
+  import PlayerMoreMenu from './PlayerMoreMenu.svelte';
   import SongContextStrip from './SongContextStrip.svelte';
   import SongPlaylistPanel from './SongPlaylistPanel.svelte';
   import Icon from './ui/Icon.svelte';
-  import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts';
+  import { reducedMotion } from '../app/desktop-motion.ts';
   import { closeDrag } from '../app/close-drag.ts';
   import { playerMorph } from '../stores/player-morph.svelte.ts';
-  import { lyricMenu, lyricMenuTransition } from '../app/lyric-menu.ts';
   import { QUALITY_ORDER } from '../utils/constants.ts';
 
   type ContextPanel = 'songs' | 'playlists' | 'comments';
@@ -191,6 +191,21 @@
     showMenuMessage(`音质：${qualityLabels[level] || '标准'}`);
   }
 
+  let moreMenuItems = $derived([
+    { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
+    { label: '播放队列', icon: 'list', action: toggleLocalQueue, disabled: !player.id },
+    { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share', keepOpen: true },
+    { label: '添加到歌单', icon: 'add', action: () => openMenuView('add'), disabled: !player.id, keepOpen: true },
+    { label: '从歌单移除', icon: 'trash', action: () => openMenuView('remove'), disabled: !player.id, keepOpen: true },
+    { label: '专辑', icon: 'music', action: openAlbum, disabled: !album?.id },
+    { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
+    { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'settings', action: () => openMenuView('quality'), disabled: !player.id, keepOpen: true },
+    ...(lyricState.lyrics.some(line => line.translation) ? [{ label: '显示译文', icon: 'lyrics', action: () => { showTranslation = !showTranslation }, keepOpen: true, checked: showTranslation }] : []),
+    { label: '热评', icon: 'messages', action: () => openContextPanel('comments'), disabled: !player.id },
+    { label: '相似歌曲', icon: 'music', action: () => openContextPanel('songs'), disabled: !player.id },
+    { label: '相似歌单', icon: 'list', action: () => openContextPanel('playlists'), disabled: !player.id },
+  ]);
+
 </script>
 
 <!-- PC Layout: Two Columns -->
@@ -246,6 +261,22 @@
             <button class="ly-star-btn" class:active={showLyricTools} type="button" bind:this={menuAnchor} onclick={toggleLyricTools} aria-label="更多" aria-haspopup="menu" aria-controls={showLyricTools ? "pc-lyric-menu" : undefined} aria-expanded={showLyricTools}>
               <Icon name="more" size={16} strokeWidth={2} />
             </button>
+            <PlayerMoreMenu open={showLyricTools} desktopAnchor={menuAnchor} {menuWidth} bind:menuElement={menuEl}
+              onClose={closeLyricTools} onDismiss={dismissMenu} items={moreMenuItems} showItems={menuView === 'main'} message={menuMessage}
+              cover={player.cover ? coverUrl(player.cover, 96) : ''} title={player.title || ''} artist={player.artist || ''}>
+              <div class="pc-more-quality" hidden={menuView !== 'quality'}>
+                <button class="ly-song-menu-back" type="button" onclick={() => menuView = 'main'}><Icon name="chevron-left" size={16} /><span>音质</span></button>
+                {#each QUALITY_ORDER as level}
+                  <button type="button" role="menuitemradio" aria-checked={player.preferredLevel === level} onclick={() => pickQuality(level)}>
+                    <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={16} /><span>{qualityLabels[level] || level}</span>
+                  </button>
+                {/each}
+              </div>
+              <div hidden={menuView !== 'add' && menuView !== 'remove'}>
+                <SongPlaylistPanel active={menuView === 'add' || menuView === 'remove'} mode={menuView === 'remove' ? 'remove' : 'add'}
+                  trackId={player.id ?? null} trackName={player.title} onBack={() => menuView = 'main'} onToast={showMenuMessage} />
+              </div>
+            </PlayerMoreMenu>
           </div>
         </div>
       </div>
@@ -302,49 +333,6 @@
   </div>
 
 
-  {#if showLyricTools && menuAnchor}
-    <div id="pc-lyric-menu" class="ly-song-menu" role="menu" aria-label="歌曲更多操作" tabindex="-1" bind:this={menuEl}
-      use:lyricMenu={{ anchor: menuAnchor, close: closeLyricTools, width: menuWidth }} use:dialogFocus={dismissMenu} transition:lyricMenuTransition>
-      <!-- 子面板是「次级菜单」：进子面板时主菜单整段撤掉，而不是追加在它下面 -->
-      {#if menuView === 'main'}
-      <button type="button" role="menuitem" onclick={shareTrack} disabled={!showLyricTools || !player.id || actionBusy === 'share'}><Icon name="share" size={16} /><span>分享</span></button>
-      <button type="button" role="menuitem" onclick={() => openMenuView('add')} disabled={!showLyricTools || !player.id}><Icon name="add" size={16} /><span>添加到歌单</span></button>
-      <button type="button" role="menuitem" onclick={() => openMenuView('remove')} disabled={!showLyricTools || !player.id}><Icon name="trash" size={16} /><span>从歌单移除</span></button>
-      <button type="button" role="menuitem" onclick={openAlbum} disabled={!showLyricTools || !album?.id}><Icon name="music" size={16} /><span>查看专辑</span></button>
-      <button type="button" role="menuitem" onclick={openArtist} disabled={!showLyricTools || !firstArtist?.id}><Icon name="user" size={16} /><span>查看歌手</span></button>
-      <div class="ly-song-menu-divider" role="separator"></div>
-      <button type="button" role="menuitem" onclick={() => openMenuView('quality')} disabled={!showLyricTools || !player.id}><Icon name="settings" size={16} /><span>音质</span><span class="ly-song-menu-value">{qualityLabels[player.preferredLevel] || '标准'}</span></button>
-      {#if lyricState.lyrics.some(line => line.translation)}
-        <button type="button" role="menuitemcheckbox" aria-checked={showTranslation} disabled={!showLyricTools} onclick={() => { showTranslation = !showTranslation }}><span class="ly-song-menu-icon">译</span><span>显示译文</span><span class="ly-song-menu-value">{showTranslation ? '开' : '关'}</span></button>
-      {/if}
-      <div class="ly-song-menu-divider" role="separator"></div>
-      <button type="button" role="menuitem" onclick={() => openContextPanel('comments')} disabled={!showLyricTools || !player.id}><Icon name="messages" size={16} /><span>歌曲评论</span></button>
-      <button type="button" role="menuitem" onclick={() => openContextPanel('songs')} disabled={!showLyricTools || !player.id}><Icon name="music" size={16} /><span>相似歌曲</span></button>
-      <button type="button" role="menuitem" onclick={() => openContextPanel('playlists')} disabled={!showLyricTools || !player.id}><Icon name="list" size={16} /><span>相似歌单</span></button>
-      {/if}
-      <!-- 两个面板都用 hidden 常驻：SongPlaylistPanel 内部缓存用户歌单，切走再切回来不该重拉一次 -->
-      <div hidden={menuView !== 'quality'}>
-        <button class="ly-song-menu-back" type="button" onclick={() => menuView = 'main'}><Icon name="chevron-left" size={16} /><span>音质</span></button>
-        {#each QUALITY_ORDER as level}
-          <button type="button" role="menuitemradio" aria-checked={player.preferredLevel === level} onclick={() => pickQuality(level)}>
-            <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={16} /><span>{qualityLabels[level] || level}</span>
-          </button>
-        {/each}
-      </div>
-      <div hidden={menuView !== 'add' && menuView !== 'remove'}>
-        <SongPlaylistPanel
-          active={menuView === 'add' || menuView === 'remove'}
-          mode={menuView === 'remove' ? 'remove' : 'add'}
-          trackId={player.id ?? null}
-          trackName={player.title}
-          onBack={() => menuView = 'main'}
-          onToast={showMenuMessage}
-        />
-      </div>
-      {#if menuMessage}<div class="ly-song-menu-message" role="status">{menuMessage}</div>{/if}
-    </div>
-  {/if}
-
   <!-- PC Queue Panel -->
   {#if showLocalQueue}
     <div class="ly-local-queue" role="presentation" onclick={(e) => e.stopPropagation()}>
@@ -352,3 +340,10 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .pc-more-quality:not([hidden]) { display: flex; flex-direction: column; }
+  .pc-more-quality button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 20px; color: inherit; text-align: left; background: transparent; }
+  .pc-more-quality button:hover, .pc-more-quality button:focus-visible { background: var(--bg-hover); }
+  .pc-more-quality button :global(svg) { flex: 0 0 20px; color: var(--text-secondary); }
+</style>

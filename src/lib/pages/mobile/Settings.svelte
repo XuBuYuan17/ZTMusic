@@ -157,6 +157,15 @@
 
       <div class="m-settings-row">
         <div class="m-settings-copy">
+          <strong>音量均衡（试验）</strong>
+          <span>按可用响度数据降低较响歌曲；其他音源不调整</span>
+          {#if settings.loudnessError}<span role="alert">{settings.loudnessError}</span>{/if}
+        </div>
+        <button class="m-switch" type="button" class:on={settings.loudnessNormalization} aria-label="音量均衡" aria-pressed={settings.loudnessNormalization} disabled={settings.loudnessBusy} onclick={() => settings.handleLoudnessNormalization(!settings.loudnessNormalization)}><span>{settings.loudnessNormalization ? '开' : '关'}</span></button>
+      </div>
+
+      <div class="m-settings-row">
+        <div class="m-settings-copy">
           <strong>歌词背景模糊</strong>
         </div>
         <button class="m-switch" type="button" class:on={settings.lyricsBlur} aria-label="歌词背景模糊" aria-pressed={settings.lyricsBlur} onclick={() => settings.handleLyricsBlur(!settings.lyricsBlur)}><span>{settings.lyricsBlur ? '开' : '关'}</span></button>

@@ -62,6 +62,7 @@
   let scrollTop = $state(0)
   $effect(() => { if (primaryViews.includes(activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
+  const coverHeaderless = $derived(activeView === 'playlist' || activeView === 'recommendation')
   const titles: Record<string, string> = {
     home: '我的主页', explore: '发现', library: '资料库', search: '搜索', settings: '设置',
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
@@ -133,6 +134,11 @@
       const oldPage = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === oldKey) ?? null
       // Capture viewport geometry before the outgoing page changes positioning or scroll.
       const oldBox = oldPage?.getBoundingClientRect()
+      if (oldPage && oldBox) {
+        oldPage.style.setProperty('--route-outgoing-top', `${oldBox.top}px`)
+        oldPage.style.setProperty('--route-outgoing-left', `${oldBox.left}px`)
+        oldPage.style.setProperty('--route-outgoing-width', `${oldBox.width}px`)
+      }
       const coverSnapshot = navigationMotion.capture(oldPage)
       navigationMotion.cancel()
       const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
@@ -154,11 +160,6 @@
         scrollTop = position
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
         if (page) observer.observe(page)
-        if (oldPage && oldBox) {
-          oldPage.style.setProperty('--route-outgoing-top', `${oldBox.top}px`)
-          oldPage.style.setProperty('--route-outgoing-left', `${oldBox.left}px`)
-          oldPage.style.setProperty('--route-outgoing-width', `${oldBox.width}px`)
-        }
         if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null }, coverSnapshot)
         else leavingKey = null
       })
@@ -197,7 +198,7 @@
 </script>
 
 <div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
-  {#if !isPrimaryView}
+  {#if !isPrimaryView && !coverHeaderless}
   <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
       <button class="mobile-page-bar__button" onclick={() => (activeChrome?.back ?? onBack)?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">设置</span>{/if}</button>
     <h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>
@@ -212,12 +213,10 @@
   {/if}
 
   <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }}>
-    <div class="mobile-page-content__inner" class:primary-content={isPrimaryView}>
-      {#if activeView === 'settings'}
-        <div class="settings-title-row"><h1 class="mobile-large-title">{titles[activeView]}</h1><button class="settings-menu-button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button></div>
-      {:else if isPrimaryView}<h1 class="mobile-large-title">{titles[activeView]}</h1>{/if}
+    <div class="mobile-page-content__inner" class:primary-content={isPrimaryView || coverHeaderless}>
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
+          <h1 class="mobile-large-title">{titles.explore}</h1>
           <ExplorePage mobile active={activeView === 'explore'} onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
             onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)} onPlaySong={router.playExploreSong as (track: unknown) => void}
@@ -227,6 +226,7 @@
 
       {#if activeView === 'library' || mountedViews.includes('library')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
+          <h1 class="mobile-large-title">{titles.library}</h1>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
         </div>
@@ -234,6 +234,7 @@
 
       {#if activeView === 'search' || mountedViews.includes('search')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="search" class:mobile-route-outgoing={leavingKey === 'search'} style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
+          <h1 class="mobile-large-title">{titles.search}</h1>
           <SearchPage active={activeView === 'search'} onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} />
         </div>
@@ -241,13 +242,19 @@
 
       {#if activeView === 'settings'}
         <div class="mobile-shared-page mobile-route-page" data-route-key="settings" class:mobile-route-outgoing={leavingKey === 'settings'} style:display={activeView === 'settings' ? 'block' : 'none'} inert={activeView !== 'settings'} aria-hidden={activeView !== 'settings'}>
+          <div class="settings-title-row"><h1 class="mobile-large-title">{titles.settings}</h1><button class="settings-menu-button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button></div>
           <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} onNavigate={handleNav} />
         </div>
       {/if}
 
       {#each detailPages as page (page.key)}
-      <div class="mobile-route-page mobile-detail-page" data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
+      <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={page.view === 'playlist' || page.view === 'recommendation'} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
+      {#if page.view === 'playlist' || page.view === 'recommendation'}
+        <div class="cover-page-controls">
+          <button type="button" aria-label="返回上一页" onclick={() => (activeChrome?.back ?? onBack)?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
+        </div>
+      {/if}
       {#if settingsCategory(page.view) && viewKey === page.key}
         <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} />
       {:else if page.view === 'about'}
@@ -309,9 +316,14 @@
   .settings-title-row :global(.mobile-large-title) { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
   .settings-menu-button { display: grid; place-items: center; flex: none; width: 48px; height: 48px; color: var(--accent); background: transparent; }
   .settings-menu-button :global(svg) { rotate: 90deg; }
+  .cover-page-controls { position: absolute; z-index: 20; top: 16px; left: max(var(--mobile-content-gutter), env(safe-area-inset-left)); pointer-events: none; }
+  .cover-page-controls button { display: grid; place-items: center; width: 48px; height: 48px; border: 0; border-radius: 50%; background: rgb(0 0 0 / .35); color: white; pointer-events: auto; }
   .settings-view :global(.mobile-page-content) { background: var(--settings-page); }
 
   .mobile-route-page { min-height: 100%; }
+  .playlist-sheet-page { position: relative; box-sizing: border-box; width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right))); margin: -16px calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-right))) 0 calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left))); padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left)); border-radius: var(--radius-xl) var(--radius-xl) 0 0; overflow: clip; background: var(--bg); }
+  .playlist-sheet-page.mobile-route-outgoing { margin: 0; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
+  :global(html.mobile-runtime) .mobile-shared-page.mobile-route-outgoing { width: var(--route-outgoing-width, 100%); }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 </style>

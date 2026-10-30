@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
-import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, playlistDismissProgress } from './mobile-navigation-motion.ts'
+import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, playlistDismissProgress, playlistSheetFrames } from './mobile-navigation-motion.ts'
+import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
@@ -24,8 +25,13 @@ assert.equal(mobilePageFrames('push', true, true, true)[0].opacity, 0, 'missing 
 assert.equal(mobilePageFrames('push', true, true, true)[0].transform, 'translate3d(0,12px,0)')
 assert.equal(mobilePageFrames('push', true, true, true, 'inset(10px 20px 30px 40px round 16px)')[0].clipPath, 'inset(10px 20px 30px 40px round 16px)')
 assert.equal(mobilePageFrames('push', false, true, true)[1].transform, 'none', 'source page remains still below the detail reveal')
-assert.equal(mobilePageFrames('push', true, true, true, null, true)[0].transform, 'translate3d(0,100%,0)', 'playlist surface enters from the bottom')
+assert.equal(mobilePageFrames('push', true, true, true, null, true)[0].transform, 'translate3d(0,100vh,0)', 'playlist surface enters from the bottom')
 assert.equal(mobilePageFrames('push', false, true, true, null, true)[1].transform, 'none', 'source stays in place during bottom entrance')
+assert.equal(mobilePageFrames('pop', false, true, true, null, true)[1].transform, 'translate3d(0,100vh,0)', 'playlist returns down without scaling the cover')
+assert.equal(mobileMotion.playlistEnter, mobileSheetTiming.enter)
+assert.equal(mobileMotion.playlistExit, mobileSheetTiming.exit)
+assert.equal(playlistSheetFrames(true)[10]?.transform, `translate3d(0,${(1 - dampedOut(.5)) * 100}vh,0)`, 'entrance follows the queue sheet curve')
+assert.equal(playlistSheetFrames(false)[10]?.transform, 'translate3d(0,12.5vh,0)', 'exit follows the queue sheet cubic curve')
 
 const sourceClip = 'inset(40px 180px 460px 20px round 16px)'
 const returnIncoming = mobilePageFrames('pop', true, false, true, sourceClip)
@@ -85,17 +91,37 @@ Object.defineProperty(globalThis, 'getComputedStyle', { configurable: true, valu
 let dismissCompleted = 0
 motion.play(node, node, 'pop', false, true, false, () => { dismissCompleted++ })
 assert.equal(pending[4]!.duration, mobileMotion.dismiss, 'destination page uses the shared return duration')
-assert.equal(pending[5]!.duration, mobileMotion.dismiss, 'detail page uses the same shared return duration')
+assert.equal(pending[5]!.duration, mobileMotion.dismiss, 'detail page uses the shared return duration')
 assert.equal(pending[4]!.easing, mobileMotion.shared)
 assert.equal(pending[5]!.easing, mobileMotion.shared)
-assert.equal(pending[4]!.frames.at(-1)?.clipPath, 'inset(0 0 0 0 round 0px)', 'destination remains a stable full page')
 assert.equal(pending[5]!.frames.at(-1)?.opacity, 1, 'detail contracts behind the returning shared cover')
 pending[4]!.resolve()
 pending[5]!.resolve()
 await setImmediate()
 assert.equal(dismissCompleted, 1)
 assert.equal(markerRemoved, true, 'return marker is cleared only after the detail lands on the card')
-assert.equal(pending.length, 6, 'playlist back uses the two page layers without a separate floating-cover phase')
+assert.equal(pending.length, 6, 'other detail pages retain their existing animations')
+
+const playlistNode = { ...node, dataset: { routeKey: 'playlist:42:1' }, querySelector(selector: string) { return selector === '.playlist-detail-page' ? {} : null } } as unknown as HTMLElement
+Object.defineProperty(globalThis, 'document', { configurable: true, value: { querySelector: () => null } })
+let playlistCompleted = 0
+motion.play(playlistNode, node, 'push', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending.length, 7, 'bottom entrance animates the detail but not the stationary source')
+assert.equal(pending[6]!.duration, mobileMotion.playlistEnter)
+assert.equal(pending[6]!.easing, mobileMotion.playlistEasing)
+pending[6]!.resolve()
+await setImmediate()
+assert.equal(playlistCompleted, 1)
+Object.defineProperty(globalThis, 'document', { configurable: true, value: { querySelector: () => source } })
+motion.play(node, playlistNode, 'pop', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending.length, 8, 'return only animates the departing playlist')
+assert.equal(pending[7]!.duration, mobileMotion.playlistExit)
+assert.equal(pending[7]!.easing, mobileMotion.playlistEasing)
+assert.equal(pending[7]!.frames.at(-1)?.transform, 'translate3d(0,100vh,0)', 'playlist closes down without a cover flight')
+assert.equal(pending[7]!.frames.at(-1)?.clipPath, undefined, 'rounded covers are not clipped into a different shape')
+pending[7]!.resolve()
+await setImmediate()
+assert.equal(playlistCompleted, 2)
 
 motion.cancel()
 console.log('Mobile navigation: reversible playlist surface, swipe dismissal thresholds/recovery, interruption and reduced motion passed')

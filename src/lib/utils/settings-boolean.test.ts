@@ -37,6 +37,12 @@ check(getBooleanSetting('lyrics_blur_effect') === false, 'getBooleanSetting retu
 setBooleanSetting('lyrics_blur_effect', true)
 check(getBooleanSetting('lyrics_blur_effect') === true, 'round-trips true')
 
+check(getBooleanSetting('loudness_normalization') === false, 'loudness normalization defaults to off')
+setBooleanSetting('loudness_normalization', true)
+check(getBooleanSetting('loudness_normalization') === true, 'loudness preference survives a read')
+setSetting('loudness_normalization', 'invalid')
+check(getBooleanSetting('loudness_normalization') === false, 'invalid loudness preference fails closed')
+
 assert.equal(setSetting('accent_theme', 'violet'), 'violet')
 assert.equal(getSetting('accent_theme'), 'violet')
 assert.equal(setSetting('accent_theme', 'invalid'), 'red')

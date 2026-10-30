@@ -60,7 +60,7 @@ export interface UrlCacheContext {
 export interface SongUrlCacheEntry {
   namespace: string
   urls: string[]
-  candidates: { url: string; level?: string; source?: string }[]
+  candidates: { url: string; level?: string; source?: string; loudnessAttenuationDb?: number }[]
   expiresAt: number
 }
 
@@ -118,6 +118,7 @@ function readUrlCacheEntry(value: unknown, namespace: string): SongUrlCacheEntry
       url: candidate.url,
       level: typeof candidate.level === 'string' ? candidate.level : undefined,
       source: typeof candidate.source === 'string' ? candidate.source : undefined,
+      loudnessAttenuationDb: typeof candidate.loudnessAttenuationDb === 'number' && Number.isFinite(candidate.loudnessAttenuationDb) && candidate.loudnessAttenuationDb >= -24 && candidate.loudnessAttenuationDb <= 0 ? candidate.loudnessAttenuationDb : undefined,
     }))
   if (candidates.length === 0) return null
   return { namespace, candidates, urls: candidates.map(candidate => candidate.url), expiresAt: record.expiresAt }
@@ -302,7 +303,7 @@ export const dbCache = {
     const currentContext = options.context ?? await getUrlCacheContext()
     const canWrite = () => Boolean(currentContext.namespace) && currentContext.isCurrent() && options.isActive?.() !== false
     const collectCandidates = () => streams.filter(stream => stream?.url && !stream.isTrial && stream.cacheable !== false && !options.isUrlFailed?.(stream.url))
-      .map(stream => ({ url: stream.url, level: stream.level, source: stream.source }))
+      .map(stream => ({ url: stream.url, level: stream.level, source: stream.source, loudnessAttenuationDb: typeof stream.loudnessAttenuationDb === 'number' && Number.isFinite(stream.loudnessAttenuationDb) && stream.loudnessAttenuationDb >= -24 && stream.loudnessAttenuationDb <= 0 ? stream.loudnessAttenuationDb : undefined }))
       .filter((candidate, index, all) => all.findIndex(item => item.url === candidate.url) === index)
     // 同首歌的质量检查和回写串行执行，避免并发刷新用低档位覆盖新写入的高档位。
     return withUrlWriteLock(songId, async () => {

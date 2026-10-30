@@ -10,6 +10,7 @@ import type {
 
 import { AndroidEngine } from './android-engine.ts'
 import { isAndroidRuntime } from '../utils/runtime.ts'
+import { attenuationFactor } from './loudness.ts'
 
 function createAudioElement(): HTMLAudioElement {
   const audio = new Audio()
@@ -32,6 +33,9 @@ export class AudioEngine implements PlayerEngine {
   // 隐藏预加载器：用于后台加载下一首歌的音频
   preloadAudio: HTMLAudioElement
   preloadedUrl = ''
+  private _userVolume = 1
+  private _loudnessEnabled = false
+  private _attenuationDb: number | null = null
   private _onTimeUpdate: EngineTimeListener | null = null
   private _onEnded: EngineStateListener | null = null
   private _onLoadStart: EngineStateListener | null = null
@@ -142,6 +146,7 @@ export class AudioEngine implements PlayerEngine {
     this.preloadAudio = oldAudio
     this.preloadedUrl = ''
     this._bindActiveAudio(this.audio)
+    this._applyVolume()
 
     // 清理旧主播放器，让它成为新的隐藏预加载器
     this._resetAudio(this.preloadAudio)
@@ -175,12 +180,13 @@ export class AudioEngine implements PlayerEngine {
     }
   }
 
-  load(url: string): void {
+  load(url: string, attenuationDb: number | null = null): void {
     if (!url) return
     const nextUrl = String(url).trim()
     if (!nextUrl) return
+    this._attenuationDb = typeof attenuationDb === 'number' && Number.isFinite(attenuationDb) && attenuationDb >= -24 && attenuationDb <= 0 ? attenuationDb : null
     // 重复下发同一 URL：直接返回，避免打断当前播放
-    if (nextUrl === this.currentUrl && !this.audio.error) { this._onListening?.('source', this.getState()); return }
+    if (nextUrl === this.currentUrl && !this.audio.error) { this._applyVolume(); this._onListening?.('source', this.getState()); return }
     this._onListening?.('reset', this.getState())
     // 如果是预加载命中，直接 swap（swap 前会检查健康状态）
     if (this.preloadedUrl && this.preloadedUrl === nextUrl) {
@@ -199,6 +205,7 @@ export class AudioEngine implements PlayerEngine {
       this.cancelPreload()
     }
     this.currentUrl = nextUrl
+    this._applyVolume()
     this.audio.src = nextUrl
     this.audio.load()
     this._onListening?.('source', this.getState())
@@ -230,10 +237,32 @@ export class AudioEngine implements PlayerEngine {
   }
 
   setVolume(v: number): void {
-    this.audio.volume = Math.max(0, Math.min(1, v))
+    if (!Number.isFinite(v)) return
+    this._userVolume = Math.max(0, Math.min(1, v))
+    this._applyVolume()
   }
 
-  get volume(): number { return this.audio.volume }
+  setLoudnessAdjustment(enabled: boolean, attenuationDb: number | null): void {
+    this._loudnessEnabled = enabled
+    this._attenuationDb = typeof attenuationDb === 'number' && Number.isFinite(attenuationDb) && attenuationDb >= -24 && attenuationDb <= 0 ? attenuationDb : null
+    this._applyVolume()
+  }
+
+  setLoudnessEnabled(enabled: boolean): void {
+    this._loudnessEnabled = enabled
+    this._applyVolume()
+  }
+
+  setSourceAttenuation(attenuationDb: number | null): void {
+    this._attenuationDb = typeof attenuationDb === 'number' && Number.isFinite(attenuationDb) && attenuationDb >= -24 && attenuationDb <= 0 ? attenuationDb : null
+    this._applyVolume()
+  }
+
+  private _applyVolume(): void {
+    this.audio.volume = this._userVolume * (this._loudnessEnabled && this._attenuationDb !== null ? attenuationFactor(this._attenuationDb) : 1)
+  }
+
+  get volume(): number { return this._userVolume }
   get currentTime(): number { return this.audio.currentTime }
   get duration(): number { return this.audio.duration || 0 }
   get paused(): boolean { return this.audio.paused }

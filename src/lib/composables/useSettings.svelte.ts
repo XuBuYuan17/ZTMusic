@@ -16,6 +16,7 @@ import { i18n, setLocale } from '../i18n/index.svelte.ts'
 import { getBooleanSetting, getSetting, setBooleanSetting, setSetting } from '../utils/settings.ts'
 import { getLayoutMode, setLayoutMode } from '../utils/layout-mode.ts'
 import { dbCache } from '../db/cache.ts'
+import { engine } from '../player/engine.ts'
 
 export const QUALITY_LABELS = {
   lossless: '无损',
@@ -44,6 +45,9 @@ export function useSettings() {
   let defaultPage = $state(getSetting('default_page', 'home'))
   let layoutMode = $state(getLayoutMode())
   let restoreSession = $state(getBooleanSetting('restore_session', 'true'))
+  let loudnessNormalization = $state(getBooleanSetting('loudness_normalization', 'false'))
+  let loudnessBusy = $state(false)
+  let loudnessError = $state('')
   let lyricsBlur = $state(getBooleanSetting('lyrics_blur_effect', 'true'))
   let lyricsTextBlur = $state(getBooleanSetting('lyrics_text_blur_effect', 'true'))
   let currentLocale = $state<string>(i18n.locale)
@@ -132,6 +136,19 @@ export function useSettings() {
     restoreSession = setBooleanSetting('restore_session', val) === 'true'
   }
 
+  async function handleLoudnessNormalization(val: boolean): Promise<void> {
+    if (loudnessBusy) return
+    loudnessBusy = true
+    loudnessError = ''
+    try {
+      if (!engine.setLoudnessEnabled) throw new Error('当前播放器不支持音量均衡')
+      await engine.setLoudnessEnabled(val)
+      loudnessNormalization = setBooleanSetting('loudness_normalization', val) === 'true'
+    } catch {
+      loudnessError = '音量均衡设置失败，请重试'
+    } finally { loudnessBusy = false }
+  }
+
   function handleLyricsBlur(val: boolean): void {
     lyricsBlur = setBooleanSetting('lyrics_blur_effect', val) === 'true'
     window.dispatchEvent(new CustomEvent('lyrics-blur-change', { detail: lyricsBlur }))
@@ -195,6 +212,9 @@ export function useSettings() {
     get defaultPage() { return defaultPage },
     get layoutMode() { return layoutMode },
     get restoreSession() { return restoreSession },
+    get loudnessNormalization() { return loudnessNormalization },
+    get loudnessBusy() { return loudnessBusy },
+    get loudnessError() { return loudnessError },
     get lyricsBlur() { return lyricsBlur },
     get lyricsTextBlur() { return lyricsTextBlur },
     get currentLocale() { return currentLocale },
@@ -212,6 +232,7 @@ export function useSettings() {
     handleDefaultPage,
     handleLayoutMode,
     handleRestoreSession,
+    handleLoudnessNormalization,
     handleLyricsBlur,
     handleLyricsTextBlur,
     handleLocale,

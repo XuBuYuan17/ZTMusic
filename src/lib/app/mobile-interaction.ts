@@ -6,7 +6,7 @@ export type SwipeDirection = 'horizontal' | 'vertical' | null
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 export const mobileSheetTiming = { enter: 420, exit: 300, backdrop: 240 } as const
 
-function dampedOut(t: number): number {
+export function dampedOut(t: number): number {
   const c = 0.55
   return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2)
 }

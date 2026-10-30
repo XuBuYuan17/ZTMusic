@@ -483,7 +483,6 @@
                 {#if !expanded}
                   <button type="button" class="collection-group__trigger" aria-expanded="false" aria-label={`展开${group.title}分组`} onclick={() => openCollection(group.id)}>
                     <span class="collection-group__copy"><strong>{group.title}</strong><small>{group.items.length} 张歌单</small></span>
-                    <span class="collection-group__arrow" aria-hidden="true"><Icon name="chevron-right" size={18} /></span>
                   </button>
                 {/if}
               </section>
@@ -624,10 +623,9 @@
   .collection-group__trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: var(--radius-md); }
   .collection-item__cover img { width: 100%; height: 100%; object-fit: cover; }
   .collection-item__cover :global(img[hidden]) { display: none; }
-  .collection-group__copy { flex: 1; min-width: 0; display: grid; gap: 6px; }
-  .collection-group__copy strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-  .collection-group__copy small, .collection-group__header span { color: var(--text-secondary); font-size: 12px; }
-  .collection-group__arrow { display: grid; place-items: center; color: var(--text-tertiary); }
+  .collection-group__copy { flex: 1; min-width: 0; display: grid; justify-items: start; gap: 4px; }
+  .collection-group__copy strong { max-width: 100%; overflow: hidden; font-size: 15px; line-height: 20px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .collection-group__copy small, .collection-group__header span { color: var(--text-secondary); font-size: 12px; line-height: 18px; }
   .collection-group__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
   .collection-group__header > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; }
   .collection-group__header strong { font-size: 18px; line-height: 1.35; }
@@ -653,7 +651,7 @@
   .collection-group__message { padding: 20px 0; color: var(--text-secondary); font-size: 13px; }
   .collection-error { margin-bottom: 12px; color: var(--danger); font-size: 13px; }
   .collection-error button { padding: 4px 8px; color: var(--accent); }
-  @media (max-width: 700px) { .library-highlights { grid-template-columns: minmax(0, 1fr); } .collection-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; } .collection-group__grid { height: 130px; } .collection-group:not(.expanded) .collection-item { width: min(55%, 108px); transform: translateX(var(--cover-offset-mobile)); } .collection-group__copy strong { font-size: 14px; } .collection-group.expanded .collection-group__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } }
+  @media (max-width: 700px) { .library-highlights { grid-template-columns: minmax(0, 1fr); } .collection-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; } .collection-group__grid { height: 130px; } .collection-group:not(.expanded) .collection-item { width: min(55%, 108px); transform: translateX(var(--cover-offset-mobile)); } .collection-group.expanded .collection-group__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } }
   .library-management-portal { display: contents; }
   :global(html.mobile-runtime) .library-unified { gap: 24px; }
   @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity::after { width: 150px; right: -60px; opacity: .45; } }
