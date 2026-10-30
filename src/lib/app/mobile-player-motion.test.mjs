@@ -64,6 +64,7 @@ assert.equal(calls[2].options.duration, mobilePlayerTiming.contentDuration, 'lyr
 assert.equal(calls[2].options.delay, mobilePlayerTiming.contentDelay, 'lyrics takeover follows the initial cover response')
 assert.equal(calls[0].options.easing, mobilePlayerTiming.easing)
 assert.equal(calls[2].options.easing, mobilePlayerTiming.contentEasing)
+assert.ok(calls[2].frames.every(frame => !('clipPath' in frame)), 'lyrics entrance avoids animating a large clip path')
 assert.equal(cover.style.transition, 'none', 'CSS layout transitions are frozen while FLIP owns the cover motion')
 controller.suspend()
 assert.ok(calls.every(call => call.animation.paused), 'sheet takeover freezes the current mode animations')

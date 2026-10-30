@@ -161,11 +161,10 @@ export function createMobilePlayerMotion() {
       for (const selector of entering ? ['.am-lyrics-area'] : ['.am-bottom-controls', '.am-mobile-footer']) {
         const incoming = node.querySelector<HTMLElement>(selector)
         if (!incoming) continue
-        const rect = incoming.getBoundingClientRect()
         const distance = entering ? 18 : 22
         pending.push(animate(incoming, [
-          { opacity: 0, transform: `translateY(${distance}px)`, ...(entering && from && rect ? { clipPath: `inset(${Math.max(0, from.top + from.height - rect.top)}px 0px 0px 0px)` } : {}) },
-          { opacity: 1, transform: 'none', ...(entering ? { clipPath: 'inset(0px 0px 0px 0px)' } : {}) },
+          { opacity: 0, transform: `translateY(${distance}px)` },
+          { opacity: 1, transform: 'none' },
         ], {
           duration: mobilePlayerTiming.contentDuration,
           delay: entering ? mobilePlayerTiming.contentDelay : 0,
