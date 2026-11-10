@@ -2,17 +2,27 @@
   import type { DisplayLyricLine } from '../services/lyrics-loader.ts';
   import { player } from '../stores/player.svelte.ts';
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
-  import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
+  import { cancelLyricScroll, scrollLyricIntoView } from '../utils/scroll-lyric.ts';
 
   let { active = false }: { active?: boolean } = $props();
 
   let lyricsEl = $state<HTMLElement | null>(null);
   const lyricState = useLyrics();
+  let hasPositionedActiveLyrics = false;
 
-  // ---- Auto-scroll lyrics ----
+  // The cover-to-lyrics FLIP already animates for ~300ms. Snap the first
+  // lyric position instead of running a competing 320ms scroll tween.
   $effect(() => {
-    if (!active || !lyricsEl) return;
-    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.am-lyric-line', 0.25);
+    if (!active || !lyricsEl) {
+      hasPositionedActiveLyrics = false;
+      if (lyricsEl) cancelLyricScroll(lyricsEl);
+      return;
+    }
+    const index = lyricState.highlightIndex;
+    if (index < 0) return;
+    scrollLyricIntoView(lyricsEl, index, '.am-lyric-line', 0.25,
+      hasPositionedActiveLyrics ? 'smooth' : 'instant');
+    hasPositionedActiveLyrics = true;
   });
 </script>
 
