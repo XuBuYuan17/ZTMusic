@@ -125,7 +125,8 @@ export function createMobilePlayerMotion() {
       const movingTargets = moving.map(({ element, from }) => ({
         element, from, to: element?.getBoundingClientRect(),
       }))
-      const parent = node.getBoundingClientRect()
+      const hasOutgoing = outgoing.some(({ element, rect }) => element && rect?.height)
+      const parent = hasOutgoing ? node.getBoundingClientRect() : null
       const incomingTargets = (entering ? ['.am-lyrics-area'] : ['.am-bottom-controls', '.am-mobile-footer'])
         .map(selector => {
           const element = node.querySelector<HTMLElement>(selector)
@@ -165,7 +166,7 @@ export function createMobilePlayerMotion() {
       }
 
       for (const { element, rect, opacity, display, clipPath } of outgoing) {
-        if (!element || !rect?.height) continue
+        if (!element || !rect?.height || !parent) continue
         rememberStyle(element)
         Object.assign(element.style, { display: display || 'block', position: 'absolute', inset: 'auto', left: `${rect.left - parent.left}px`, top: `${rect.top - parent.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, margin: '0', pointerEvents: 'none', clipPath: clipPath || 'none', transition: 'none' })
         const distance = entering ? 24 : 18
