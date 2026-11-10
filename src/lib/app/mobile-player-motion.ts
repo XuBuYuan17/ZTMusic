@@ -115,7 +115,22 @@ export function createMobilePlayerMotion() {
 
       const pending: Promise<unknown>[] = []
       const coverDuration = entering ? mobilePlayerTiming.enterDuration : mobilePlayerTiming.exitDuration
+      // Read the new geometry together, before modifying animated styles.
+      // In particular, moving the outgoing controls out of flow must not
+      // force another layout while we're measuring the incoming lyrics.
       const to = cover?.getBoundingClientRect()
+      const nextTitle = node.querySelector<HTMLElement>(entering ? '.am-corner-info' : '.am-track-info')
+      const titleTo = nextTitle?.getBoundingClientRect()
+      const nextSize = nextTitle?.firstElementChild && getComputedStyle(nextTitle.firstElementChild).fontSize
+      const movingTargets = moving.map(({ element, from }) => ({
+        element, from, to: element?.getBoundingClientRect(),
+      }))
+      const parent = node.getBoundingClientRect()
+      const incomingTargets = (entering ? ['.am-lyrics-area'] : ['.am-bottom-controls', '.am-mobile-footer'])
+        .map(selector => {
+          const element = node.querySelector<HTMLElement>(selector)
+          return { element, rect: element?.getBoundingClientRect() }
+        })
       if (cover && from?.width && from.height && to?.width && to.height) {
         const sx = from.width / to.width, sy = from.height / to.height
         pending.push(animate(cover, [
@@ -124,11 +139,8 @@ export function createMobilePlayerMotion() {
         ], { duration: coverDuration }))
       }
 
-      const nextTitle = node.querySelector<HTMLElement>(entering ? '.am-corner-info' : '.am-track-info')
       let titlePath: Array<{ left: number; top: number; offset: number; scale: number }> = []
-      const titleTo = nextTitle?.getBoundingClientRect()
       if (nextTitle && titleFrom && titleTo && from && to) {
-        const nextSize = nextTitle.firstElementChild && getComputedStyle(nextTitle.firstElementChild).fontSize
         const scale = titleSize && nextSize ? parseFloat(titleSize) * titleScale / parseFloat(nextSize) : 1
         const gap = entering ? titleFrom.top - from.top - from.height : titleTo.top - to.top - to.height
         const sideGap = entering ? titleTo.left - to.left - to.width : titleFrom.left - from.left - from.width
@@ -146,16 +158,14 @@ export function createMobilePlayerMotion() {
         pending.push(animate(nextTitle, titlePath.map(point => ({ offset: point.offset, transformOrigin: '0 0', transform: `translate(${point.left - titleTo.left}px,${point.top - titleTo.top}px) scale(${point.scale})` })), { duration: coverDuration }))
       }
 
-      for (const { element, from } of moving) {
-        if (!element || !from?.width) continue
-        const to = element.getBoundingClientRect()
+      for (const { element, from, to } of movingTargets) {
+        if (!element || !from?.width || !to) continue
         const frames = titlePath.length && titleFrom && titleTo ? titlePath.map(point => ({ offset: point.offset, transform: `translate(${(from.left - to.left) * (1 - point.offset)}px,${point.top + (from.top - titleFrom.top) * (1 - point.offset) + (to.top - titleTo.top) * point.offset - to.top}px)` })) : [{ transform: `translate(${from.left - to.left}px,${from.top - to.top}px)` }, { transform: 'none' }]
         pending.push(animate(element, frames, { duration: coverDuration }))
       }
 
       for (const { element, rect, opacity, display, clipPath } of outgoing) {
         if (!element || !rect?.height) continue
-        const parent = node.getBoundingClientRect()
         rememberStyle(element)
         Object.assign(element.style, { display: display || 'block', position: 'absolute', inset: 'auto', left: `${rect.left - parent.left}px`, top: `${rect.top - parent.top}px`, width: `${rect.width}px`, height: `${rect.height}px`, margin: '0', pointerEvents: 'none', clipPath: clipPath || 'none', transition: 'none' })
         const distance = entering ? 24 : 18
@@ -165,14 +175,12 @@ export function createMobilePlayerMotion() {
         ], { duration: mobilePlayerTiming.chromeDuration, easing: mobilePlayerTiming.contentEasing }))
       }
 
-      for (const selector of entering ? ['.am-lyrics-area'] : ['.am-bottom-controls', '.am-mobile-footer']) {
-        const incoming = node.querySelector<HTMLElement>(selector)
+      for (const { element: incoming } of incomingTargets) {
         if (!incoming) continue
-        const rect = incoming.getBoundingClientRect()
         const distance = entering ? 18 : 22
         pending.push(animate(incoming, [
-          { opacity: 0, transform: `translateY(${distance}px)`, ...(entering && from && rect ? { clipPath: `inset(${Math.max(0, from.top + from.height - rect.top)}px 0px 0px 0px)` } : {}) },
-          { opacity: 1, transform: 'none', ...(entering ? { clipPath: 'inset(0px 0px 0px 0px)' } : {}) },
+          { opacity: 0, transform: `translateY(${distance}px)` },
+          { opacity: 1, transform: 'none' },
         ], {
           duration: mobilePlayerTiming.contentDuration,
           delay: entering ? mobilePlayerTiming.contentDelay : 0,
