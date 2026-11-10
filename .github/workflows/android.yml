@@ -1,8 +1,6 @@
 name: Android APK
 
 on:
-  pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       build_type:
@@ -31,8 +29,6 @@ env:
   CARGO_HTTP_TIMEOUT: 120
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   PNPM_CONFIG_FETCH_RETRIES: 5
-  # For temporary PR-triggered APK tests, workflow_dispatch inputs are absent.
-  BUILD_TYPE: ${{ inputs.build_type || 'debug' }}
 
 jobs:
   apk:
@@ -95,7 +91,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
-          key: android-aarch64-${{ env.BUILD_TYPE }}
+          key: android-aarch64-${{ inputs.build_type }}
 
       - name: Reuse test signing key
         uses: actions/cache@v4
@@ -113,7 +109,7 @@ jobs:
         run: node scripts/configure-android-startup.mjs
 
       - name: Configure optimized test signing
-        if: env.BUILD_TYPE == 'release'
+        if: inputs.build_type == 'release'
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync } from 'node:fs';
@@ -126,11 +122,11 @@ jobs:
 
       - name: Build test APK
         env:
-          VITE_APP_CHANNEL: ${{ env.BUILD_TYPE == 'release' && 'stable' || 'dev' }}
+          VITE_APP_CHANNEL: ${{ inputs.build_type == 'release' && 'stable' || 'dev' }}
           VITE_BUILD_SHA: ${{ github.sha }}
         run: |
           args=(--ci --apk --target aarch64 --config "$ANDROID_CONFIG")
-          if [[ "${{ env.BUILD_TYPE }}" == "debug" ]]; then args+=(--debug); fi
+          if [[ "${{ inputs.build_type }}" == "debug" ]]; then args+=(--debug); fi
           pnpm tauri android build "${args[@]}"
 
       - name: Test Android native plugin
@@ -153,7 +149,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v5
         with:
-          name: zheting-android-arm64-${{ env.BUILD_TYPE }}-${{ github.run_number }}-${{ github.sha }}
+          name: zheting-android-arm64-${{ inputs.build_type }}-${{ github.run_number }}-${{ github.sha }}
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
