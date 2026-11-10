@@ -1,6 +1,8 @@
 name: Android APK
 
 on:
+  push:
+    branches: [fix/mobile-cover-lyrics-jank-20261110]
   workflow_dispatch:
     inputs:
       build_type:
