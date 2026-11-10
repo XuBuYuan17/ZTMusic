@@ -48,7 +48,7 @@ assert.equal(sheetCoverTransform(large, mini, 700), 'translate(-4px, -142px) sca
 assert.equal(sheetCoverTransform({ ...large, top: 270 }, mini, 580), sheetCoverTransform(large, mini, 700), 'a dragged sheet still closes to the same artwork position')
 assert.equal(sheetCoverTransform({ ...large, width: 0 }, mini), 'none', 'unmeasurable artwork never generates an infinite transform')
 assert.equal(lyricRevealDistance(large, 170), 160, 'the reveal rises from beneath the old artwork with a safe cap')
-assert.equal(lyricRevealDistance(small, 64), 28, 'the reveal has a minimum travel distance')
+assert.equal(lyricRevealDistance(small, 120), 28, 'the reveal has a minimum travel distance')
 assert.equal(lyricRevealDistance(large, undefined), 96, 'a missing lyric rect keeps a stable fallback')
 assert.match(mobilePlayerTiming.easing, /^cubic-bezier\(/, 'artwork and title share a compositor easing curve')
 const cover = element(large), title = element({ left: 24, top: 470, width: 300, height: 56 }), lyrics = element()
