@@ -2,7 +2,7 @@
  * scrollLyricIntoView self-check.
  * Run: node --experimental-strip-types src/lib/utils/scroll-lyric.test.ts
  */
-import { scrollLyricIntoView, type ScrollContainer } from './scroll-lyric.ts'
+import { cancelLyricScroll, scrollLyricIntoView, type ScrollContainer } from './scroll-lyric.ts'
 
 let passed = 0
 let failed = 0
@@ -43,8 +43,9 @@ function makeContainer(lines: FakeLine[], clientHeight: number): ScrollContainer
 // 手动 rAF 驱动器：测试环境无浏览器，用同步循环走完所有补间帧
 let rafQueue: FrameRequestCallback[] = []
 let rafTime = 0
+const cancelledFrames: number[] = []
 ;(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = (cb: FrameRequestCallback) => { rafQueue.push(cb); return rafQueue.length }
-;(globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => {}
+;(globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = (id: number) => { cancelledFrames.push(id) }
 ;(globalThis as { performance?: unknown }).performance = { now: () => rafTime }
 
 function runRaf(): void {
@@ -93,6 +94,16 @@ function runRaf(): void {
   scrollLyricIntoView(c, 0, '.x', 0.5, 'instant')
   check(c.scrolledTo?.top, 115, 'instant centering keeps the same geometry')
   check(c.scrolledTo?.behavior, 'instant', 'resize and reduced-motion centering is immediate')
+}
+
+// Hiding lyrics cancels the in-flight scroll instead of leaving rAF work
+// competing with the reverse cover animation.
+{
+  const c = makeContainer([{ offsetTop: 300, clientHeight: 30 }], 400)
+  scrollLyricIntoView(c, 0, '.x', 0.25)
+  const before = cancelledFrames.length
+  cancelLyricScroll(c)
+  check(cancelledFrames.length, before + 1, 'hiding lyrics cancels scheduled frame')
 }
 
 console.log(`\nscrollLyricIntoView: ${passed} passed, ${failed} failed`)

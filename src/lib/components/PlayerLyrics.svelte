@@ -2,17 +2,33 @@
   import type { DisplayLyricLine } from '../services/lyrics-loader.ts';
   import { player } from '../stores/player.svelte.ts';
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
-  import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
+  import { cancelLyricScroll, scrollLyricIntoView } from '../utils/scroll-lyric.ts';
+  import { mobilePlayerTiming } from '../app/mobile-player-motion.ts';
 
   let { active = false }: { active?: boolean } = $props();
 
   let lyricsEl = $state<HTMLElement | null>(null);
   const lyricState = useLyrics();
+  let hasPositionedActiveLyrics = false;
+  let introSettlesAt = 0;
 
-  // ---- Auto-scroll lyrics ----
+  // The cover/lyrics transition is composed of GPU transforms. During its
+  // damped tail, keep scrollTop stationary so the visual rise stays smooth.
+  // Once the artwork settles, subsequent lyric changes scroll naturally.
   $effect(() => {
-    if (!active || !lyricsEl) return;
-    scrollLyricIntoView(lyricsEl, lyricState.highlightIndex, '.am-lyric-line', 0.25);
+    if (!active || !lyricsEl) {
+      hasPositionedActiveLyrics = false;
+      introSettlesAt = 0;
+      if (lyricsEl) cancelLyricScroll(lyricsEl);
+      return;
+    }
+    const index = lyricState.highlightIndex;
+    if (index < 0) return;
+    const firstPosition = !hasPositionedActiveLyrics;
+    if (firstPosition) introSettlesAt = performance.now() + mobilePlayerTiming.enterDuration;
+    const behavior = firstPosition || performance.now() < introSettlesAt ? 'instant' : 'smooth';
+    scrollLyricIntoView(lyricsEl, index, '.am-lyric-line', 0.25, behavior);
+    hasPositionedActiveLyrics = true;
   });
 </script>
 
