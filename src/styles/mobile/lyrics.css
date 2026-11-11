@@ -8,6 +8,7 @@ html.mobile-runtime .ly-fullscreen::before, html.mobile-runtime .ly-fullscreen::
 html.desktop-titlebar.mobile-runtime .ly-fullscreen { --player-titlebar-offset: var(--titlebar-h); }
 html.mobile-runtime .ly-fullscreen .ly-container { position: relative; display: block; width: 100%; height: 100%; padding: 0; margin: 0; max-width: none; transform: none; scale: 1; transition: none; opacity: 1; overflow: hidden; background: var(--bg); }
 html.mobile-runtime .ly-container .apple-music-player {
+  --radius-artwork: 8%;
   display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto 176px 48px; align-content: stretch;
   gap: 24px; padding: calc(56px + var(--player-titlebar-offset, 0px) + env(safe-area-inset-top)) max(24px, calc((100vw - 480px) / 2)) calc(20px + env(safe-area-inset-bottom));
   font-family: var(--font); overflow: hidden; transform: none; opacity: 1;
@@ -17,7 +18,7 @@ html.mobile-runtime .ly-container .am-bg-cover { width: 50%; height: 50%; opacit
 html.mobile-runtime .ly-container .am-flying-cover { box-shadow: 0 12px 24px rgb(0 0 0 / .16);
   position: relative; inset: auto; grid-row: 1; grid-column: 1; align-self: end; justify-self: center;
   width: min(100%, max(0px, calc(100dvh - 440px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 380px); height: auto; aspect-ratio: 1;
-  border-radius: var(--radius-sm); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
+  border-radius: var(--radius-artwork); transform: none; transform-origin: top left; touch-action: none; transition: none; z-index: 10;
 }
 html.mobile-runtime .ly-container .am-flying-cover-img { transform: translateX(var(--cover-drag-x, 0px)); width: 100%; height: 100%; object-fit: cover; transition: filter 150ms ease-out; }
 html.mobile-runtime .ly-fullscreen:not(.surface-transitioning) .am-flying-cover[data-mobile-pressed] .am-flying-cover-img { filter: brightness(1.09); }
@@ -55,7 +56,8 @@ html.mobile-runtime .ly-container .am-progress-track { height: 6px; background: 
 html.mobile-runtime .ly-container .am-progress-fill { background: color-mix(in srgb, var(--accent) 25%, #ffffff); }
 html.mobile-runtime .ly-container .am-corner-info, html.mobile-runtime .ly-container .am-lyrics-area { display: none; }
 html.mobile-runtime .ly-container .lyrics-mode { align-content: stretch; grid-template-rows: 56px minmax(0, 1fr); }
-html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { align-self: center; justify-self: start; width: 48px; height: 48px; border-radius: var(--radius-sm); }
+html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover,
+html.mobile-runtime .ly-container .lyrics-mode.vinyl-theme .am-flying-cover { align-self: center; justify-self: start; width: 48px; height: 48px; border-radius: var(--radius-artwork); }
 html.mobile-runtime .ly-container .lyrics-mode .am-track-info { display: none; }
 html.mobile-runtime .ly-container .lyrics-mode .am-corner-info { position: relative; inset: auto; grid-row: 1; grid-column: 1; align-self: center; display: block; min-width: 0; margin-left: 64px; padding-right: 96px; opacity: 1; transform: none; }
 html.mobile-runtime .ly-container .lyrics-mode .am-lyrics-area {
@@ -76,6 +78,7 @@ html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cove
   width: min(78%, max(0px, calc(100dvh - 440px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 320px);
   justify-self: start; margin-left: 2%;
 }
+html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cover-img { border-radius: var(--radius-artwork); }
 html.mobile-runtime .ly-container .vinyl-theme .am-flying-cover::before,
 html.mobile-runtime .ly-container .vinyl-theme .am-vinyl-label { display: none; }
 html.mobile-runtime .ly-container .vinyl-theme .am-record-change {

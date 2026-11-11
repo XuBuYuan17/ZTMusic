@@ -2,16 +2,16 @@ import { tick } from 'svelte'
 import { reducedMotion, replaceAnimation } from './desktop-motion.ts'
 
 export const mobilePlayerTiming = {
-  duration: 340,
-  enterDuration: 340,
-  exitDuration: 380,
-  chromeDuration: 210,
-  contentDuration: 290,
-  contentDelay: 54,
+  duration: 520,
+  enterDuration: 520,
+  exitDuration: 540,
+  chromeDuration: 300,
+  contentDuration: 420,
+  contentDelay: 45,
   // Subtle overshoot gives the artwork/title a damped finish without a JS
   // spring loop: the compositor can interpolate transform keyframes itself.
-  easing: 'cubic-bezier(.19,1.2,.27,1)',
-  contentEasing: 'cubic-bezier(.22,.98,.25,1)',
+  easing: 'cubic-bezier(.22,.82,.28,1.04)',
+  contentEasing: 'cubic-bezier(.22,.82,.28,1)',
 } as const
 
 /**
