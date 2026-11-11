@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { NormalizedPlaylist } from '../utils/normalize.ts'
-  import { coverUrl, progressiveCover } from '../utils/image.ts'
+  import { progressiveCover } from '../utils/image.ts'
+  import LikedCoverFalls from './LikedCoverFalls.svelte'
   import Spinner from './Spinner.svelte'
   import { isTouchDevice, responsive } from '../utils/responsive.ts'
   import { mobileLongPress } from '../app/mobile-interaction.ts'
@@ -50,27 +51,6 @@
     router.prefetchPlaylist(Number(pl.id))
   }
 
-  // 双列瀑布流：左列取偶数位封面、右列奇数位；不足 4 张循环补足以保证无缝滚动
-  function padColumn(list: string[]): string[] {
-    if (!list.length) return []
-    if (list.length >= 4) return list
-    return Array.from({ length: 4 }, (_, i) => list[i % list.length] ?? list[0] ?? '')
-  }
-  let coverColumns = $derived.by(() => {
-    if (!liked || !covers.length) return { l: [] as string[], r: [] as string[] }
-    if (covers.length === 1) return { l: padColumn(covers), r: [] as string[] }
-    if (covers.length < 4) {
-      // 封面少：两列共用循环流并错位一格，避免整列重复同一张
-      const take = (start: number): string[] =>
-        Array.from({ length: 4 }, (_, i) => covers[(start + i) % covers.length] ?? '')
-      return { l: take(0), r: take(1) }
-    }
-    return {
-      l: covers.filter((_, i) => i % 2 === 0),
-      r: covers.filter((_, i) => i % 2 === 1),
-    }
-  })
-
   function handleKeydown(e: KeyboardEvent): void {
     if (e.target !== e.currentTarget) return
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); openOptions(); return }
@@ -80,12 +60,10 @@
     }
   }
 
-  // “喜爱歌曲”没有真实封面：灰色底 + 红色五角星，对齐 Apple Music
-  const starPath = 'M12 2.6l2.95 6.01 6.62.94-4.8 4.65 1.15 6.57L12 17.68l-5.92 3.09 1.15-6.57-4.8-4.65 6.62-.94z'
 </script>
 
 <div
-  class="library-card" data-motion="card"
+  class="library-card" data-motion="card" data-playlist-id={String(pl.id)}
   class:library-card-managed={managed}
   class:library-card-owned={owned}
   style={`--card-i:${index}`}
@@ -104,43 +82,8 @@
   onkeydown={handleKeydown}
 >
   <div class="library-card-cover">
-    {#if liked && covers.length === 1}
-      <img class="liked-falls-single" src={coverUrl(covers[0], 400)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-      <span class="liked-falls-badge">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d={starPath}/></svg>
-      </span>
-    {:else if liked && coverColumns.l.length}
-      <div class="liked-falls" aria-hidden="true">
-        <div class="liked-falls-col">
-          <div class="liked-falls-track liked-falls-track-l">
-            {#each coverColumns.l as src}
-              <img src={coverUrl(src, 200)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-            {/each}
-            {#each coverColumns.l as src}
-              <img src={coverUrl(src, 200)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-            {/each}
-          </div>
-        </div>
-        {#if coverColumns.r.length}
-          <div class="liked-falls-col">
-            <div class="liked-falls-track liked-falls-track-r">
-              {#each coverColumns.r as src}
-                <img src={coverUrl(src, 200)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-              {/each}
-              {#each coverColumns.r as src}
-                <img src={coverUrl(src, 200)} alt="" loading="lazy" referrerpolicy="no-referrer" />
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </div>
-      <span class="liked-falls-badge">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d={starPath}/></svg>
-      </span>
-    {:else if liked}
-      <div class="library-card-liked-art" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="46%" height="46%" fill="currentColor"><path d={starPath}/></svg>
-      </div>
+    {#if liked}
+      <LikedCoverFalls {covers} />
     {:else if pl.picUrl && !coverFailed}
       <img use:progressiveCover={{ source: pl.picUrl, size: 400 }} alt={pl.name as string} loading="lazy" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
     {:else}
@@ -176,6 +119,9 @@
     {/if}
 
   </div>
+  {#if $responsive.isMobile && onOptions}
+    <button class="library-card-menu" type="button" aria-label={`更多操作 ${pl.name}`} onclick={(e) => { e.stopPropagation(); openOptions() }}><span aria-hidden="true">⋮</span></button>
+  {/if}
   {#if managed && !$responsive.isMobile}
     <button class="library-card-action library-card-action-danger" type="button" onclick={(e) => { e.stopPropagation(); onUnsubscribe?.(pl) }} aria-label={`取消收藏 ${pl.name}`}>
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

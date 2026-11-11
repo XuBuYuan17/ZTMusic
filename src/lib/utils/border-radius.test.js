@@ -28,6 +28,8 @@ for (const file of files) {
   declarations += [...source.matchAll(/border-radius\s*:/g)].length
   if (changes) offenders.push(`${file}: ${changes} 处未使用统一圆角令牌`)
   for (const match of source.matchAll(/border-radius\s*:\s*([^;}\r\n"']+)/g)) {
+    // 内联样式里的 Svelte 插值（border-radius:{c.radius}px）是运行时值，静态令牌无从判定
+    if (match[1].includes('{')) continue
     if (!isAllowedRadius(match[1])) {
       const line = source.slice(0, match.index).split('\n').length
       offenders.push(`${file}:${line} radius value ${match[1].trim()}`)

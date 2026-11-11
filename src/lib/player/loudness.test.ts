@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict'
+import { attenuationFactor, loudnessAttenuationDb, neteaseAttenuationDb } from './loudness.ts'
+
+assert.equal(loudnessAttenuationDb({ integratedLufs: -8, truePeakDbfs: -2 }), -6)
+assert.equal(loudnessAttenuationDb({ integratedLufs: -20, truePeakDbfs: -3 }), 0)
+assert.equal(loudnessAttenuationDb({ integratedLufs: -14, truePeakDbfs: 2 }), -3)
+assert.equal(loudnessAttenuationDb({ integratedLufs: -1, truePeakDbfs: 20 }), -21)
+assert.equal(loudnessAttenuationDb({ integratedLufs: NaN, truePeakDbfs: -1 }), null)
+assert.equal(loudnessAttenuationDb({ integratedLufs: -80, truePeakDbfs: -1 }), null)
+assert.equal(loudnessAttenuationDb(null), null)
+assert.equal(attenuationFactor(8), 1)
+assert.equal(attenuationFactor(NaN), 1)
+assert.ok(Math.abs(attenuationFactor(-6) - 0.501187) < 0.00001)
+assert.ok(attenuationFactor(-100) > 0)
+assert.equal(neteaseAttenuationDb(-9.82, 1), -9.82)
+assert.equal(neteaseAttenuationDb(1.5, 0), null)
+assert.equal(neteaseAttenuationDb(-8, 1, true), null)
+assert.equal(neteaseAttenuationDb(-8, undefined), null)
+assert.equal(neteaseAttenuationDb(-8, NaN), null)
+assert.equal(neteaseAttenuationDb(5, .5), 0)
+assert.ok(Math.abs(neteaseAttenuationDb(0, 1)! + 1) < 0.00001)
+console.log('loudness: bounded attenuation, peak headroom and invalid measurements passed')

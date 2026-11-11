@@ -38,7 +38,7 @@ export function lyricMenu(node: HTMLElement, { anchor, close, width = 240 }: Lyr
     if (event.target instanceof Node && !node.contains(event.target) && !anchor.contains(event.target)) close()
   }
   function key(event: KeyboardEvent) {
-    const items = [...node.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')]
+    const items = [...node.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')].filter(item => item.getClientRects().length > 0)
     const index = menuKeyIndex(event.key, items.indexOf(document.activeElement as HTMLButtonElement), items.length)
     if (index === null) return
     event.preventDefault()

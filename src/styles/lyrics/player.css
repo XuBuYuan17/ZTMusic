@@ -562,7 +562,7 @@ html:not(.mobile-runtime) .pm-ftitle {
   position: absolute; z-index: 1;
   pointer-events: none;
 }
-html:not(.mobile-runtime) .pm-fcover { background: #252529; }
+html:not(.mobile-runtime) .pm-fcover { overflow: hidden; transform-origin: 0 0; background: #252529; }
 html:not(.mobile-runtime) .pm-fcover img { width: 100%; height: 100%; object-fit: cover; }
 html:not(.mobile-runtime) .pm-ftitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html:not(.mobile-runtime) .player-morph.is-open .pm-fcover,

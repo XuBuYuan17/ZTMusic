@@ -13,6 +13,8 @@
   import { player } from '../../src/lib/stores/player.svelte.ts'
   import { discoveryPlayback } from '../../src/lib/stores/discovery-playback.svelte.ts'
   import { auth } from '../../src/lib/stores/auth.svelte.ts'
+  import { ncm } from '../../src/lib/api/client.ts'
+  import { openUserRef } from '../../src/lib/app/nav-refs.ts'
   let { user }: { user: { userId: number; nickname: string; avatarUrl: string } } = $props()
   let desktopLayout = $state(false)
   let showPlayer = $state(false)
@@ -43,12 +45,27 @@
       seekForSurfaceTest: () => { player.seek = time => { player.currentTime = time } },
       setSurfaceArtwork: (value: string) => { player.cover = value === 'normal' ? user.avatarUrl : value },
       back: () => router.goBack(),
+      openUser: (id: number) => router.goUser(id),
       login: () => auth.setUser(user, 'account'),
+      loginAs: (next: typeof user) => auth.setUser(next, 'account'),
+      setPlaylistLoader: (loader: typeof ncm.userPlaylist) => { ncm.userPlaylist = loader },
+      setDetailLoader: (loader: typeof ncm.userDetail) => { ncm.userDetail = loader },
+      setSubcountLoader: (loader: typeof ncm.userSubcount) => { ncm.userSubcount = loader },
       logout: () => auth.clear(),
-      navigate: (view: string) => router.handleNav(view),
-      snapshot: () => ({ view: router.activeView, selectedId: router.selectedId, queue: player.queue.map(t => t.id), index: player.queueIndex, id: player.id, mode: player.mode, kind: discoveryPlayback.kind, busy: discoveryPlayback.busy, error: discoveryPlayback.error }),
+      navigate: (view: string, preserveSource = false) => router.handleNav(view, undefined, preserveSource),
+      snapshot: () => ({ view: router.activeView, routeStack: router.routeStack.map(route => route.view), selectedId: router.selectedId, queue: player.queue.map(t => t.id), index: player.queueIndex, id: player.id, mode: player.mode, kind: discoveryPlayback.kind, busy: discoveryPlayback.busy, error: discoveryPlayback.error }),
       advance: () => { const index = player.queueIndex + 1; if (player.queue[index]) { player.queueIndex = index; player.id = player.queue[index].id } },
       normalPlayback: () => player.playQueue([{ id: 555, name: '普通歌曲' }]),
+      prepareMiniSwipe: () => {
+        player.replaceQueue([
+          { id: 701, name: '上一首测试', ar: [{ name: '歌手甲' }] },
+          { id: 702, name: '当前歌曲测试', ar: [{ name: '歌手乙' }] },
+          { id: 703, name: '下一首测试', ar: [{ name: '歌手丙' }] },
+        ], 1)
+        player.mode = 'list'
+        player.id = 702
+        player.title = '当前歌曲测试'
+      },
       enableSilentPlayback: () => {
         // 测试页面交互和队列，不请求真实歌曲音频；原生追加路径由 Android 构建验证。
         player.playTrack = async (track, index = 0) => {
@@ -65,7 +82,7 @@
     {#if desktopLayout}
       <DesktopPageHost theme="dark" accentTheme="red" onOpenLogin={() => {}} onSetTheme={() => {}} onSetAccentTheme={() => {}} />
     {:else}
-    <MobileApp activeView={router.activeView} theme="dark" accentTheme="red"
+    <MobileApp activeView={router.activeView} theme="dark" accentTheme="red" onOpenUser={openUserRef}
       onNavigate={router.handleNav} onBack={router.goBack}
       onOpenLogin={() => { (window as unknown as { loginRequests: number }).loginRequests = ((window as unknown as { loginRequests: number }).loginRequests || 0) + 1 }}
       onOpenPlaylist={(id, push, preview) => void router.goPlaylist(Number(id), push, preview as never)} />

@@ -42,6 +42,7 @@ interface PlaylistDetail {
   coverImgUrl: string
   picUrl: string
   creator?: unknown
+  subscribed?: boolean
   trackCount: number
   description: string
   tracks: DetailTrack[]
@@ -115,8 +116,8 @@ const PLAYLIST_PREFETCH_CONCURRENCY = 2
 const PLAYLIST_PREFETCH_BURST = 4
 
 // ── 导航状态 ──
-let _activeView = $state('home')
-let _previousView = $state('home')
+let _activeView = $state('library')
+let _previousView = $state('library')
 let _selectedId = $state<number | null>(null)
 let _routeStack = $state<RouteEntry[]>([])
 let _routeTransition = $state('soft')
@@ -242,6 +243,14 @@ function invalidatePlaylist(id: SongId): void {
   detailCache.clear('playlist:' + id)
   if (Number.isFinite(numericId)) removeQueuedPlaylistPrefetch(numericId)
   if (_playlistDetail && String(_playlistDetail.id) === String(id)) _playlistDetail = null
+}
+
+function setPlaylistSubscribed(id: SongId, subscribed: boolean): void {
+  detailCache.clear('playlist:' + id)
+  if (_activeView === 'playlist' && _playlistDetail && String(_playlistDetail.id) === String(id)) {
+    _playlistDetail = { ..._playlistDetail, subscribed }
+  }
+  window.dispatchEvent(new CustomEvent(PLAYLIST_CHANGE, { detail: { id } }))
 }
 
 function createPlaylistPreview(p: PlaylistPreviewInput | null, id: number): PlaylistDetail | null {
@@ -482,6 +491,10 @@ async function goArtist(id: number | null, shouldPushRoute = true): Promise<void
 
 function goUser(id: number | null, shouldPushRoute = true): void {
   if (!id || id <= 0) return
+  if (auth.isLoggedIn && auth.user?.userId && String(id) === String(auth.user.userId)) {
+    if (_activeView !== 'library') handleNav('library')
+    return
+  }
   if (shouldPushRoute) pushRoute()
   _routeTransition = shouldPushRoute ? 'forward' : 'back'
   _previousView = _activeView
@@ -636,7 +649,7 @@ function playExploreSong(t: DetailTrack | null | undefined): void { if (t) playe
 
 function handleNav(view: string, extra?: number | null, preserveSource = false): void {
   invalidateDetailRequests()
-  if (view === 'profile') view = 'home'
+  if (view === 'home' || view === 'profile') view = 'library'
   if (view === 'playlist' && extra) { goPlaylist(extra); return }
   if (view === 'album' && extra) { goAlbum(extra); return }
   if (view === 'artist' && extra) { goArtist(extra); return }
@@ -686,7 +699,7 @@ function goBack(): void {
   if (prev.view === 'album') { goAlbum(prev.id, false); return }
   if (prev.view === 'artist') { goArtist(prev.id, false); return }
   if (prev.view === 'user') { goUser(prev.id, false); return }
-  const bv = prev.view || 'home'; _routeTransition = 'back'; _previousView = _activeView; _activeView = bv
+  const bv = !prev.view || prev.view === 'home' || prev.view === 'profile' ? 'library' : prev.view; _routeTransition = 'back'; _previousView = _activeView; _activeView = bv
   _selectedId = null; _heroColor = '#141414'; _playlistDetail = null; _artistDetail = null; _artistSongs = []; _artistAlbums = []
 }
 
@@ -716,7 +729,7 @@ export const router = {
   get artistAlbums() { return _artistAlbums }, get artistLoading() { return _artistLoading }, get artistError() { return _artistError },
 
   // 导航
-  handleNav, goBack, retryDetail, goSettingsHome, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist,
+  handleNav, goBack, retryDetail, goSettingsHome, goRecommendation, syncRecommendationAccount, prefetchRecommendations, goPlaylist, goAlbum, goArtist, goUser, handleBannerClick, prefetchPlaylist, prefetchPlaylists, invalidatePlaylist, setPlaylistSubscribed,
 
   // 详情播放 wrapper
   playAll, playTrack, playArtistAll, playArtistTrack, playExploreSong, toggleArtistFollow,

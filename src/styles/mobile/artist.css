@@ -178,6 +178,13 @@ html.mobile-runtime .artist-page .artist-work-count {
   display: none;
 }
 
+html.mobile-runtime .artist-page .artist-hero { align-items: center; gap: 10px 14px; padding: 14px; border: 1px solid var(--border); background: var(--bg-surface); }
+html.mobile-runtime .artist-page .artist-hero-bg { opacity: .65; filter: blur(2px) saturate(.9); }
+html.mobile-runtime .artist-page .artist-hero-grain { display: none; }
+html.mobile-runtime .artist-page .artist-hero-mask { background: color-mix(in srgb, var(--bg-surface) 55%, transparent); }
+html.mobile-runtime .artist-page .artist-info h1 { font-size: 22px; white-space: normal; line-height: 1.2; }
+html.mobile-runtime .artist-page .artist-actions { position: relative; z-index: 1; margin-top: 4px; }
+
 html.mobile-runtime .artist-page .artist-section {
   margin: 0 0 32px;
   padding: 0;

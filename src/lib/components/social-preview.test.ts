@@ -37,13 +37,14 @@ const section = await readFile(new URL('./SocialPreviewSection.svelte', import.m
 const social = await readFile(new URL('./SocialPreview.svelte', import.meta.url), 'utf8')
 const home = await readFile(new URL('../pages/pc/Home.svelte', import.meta.url), 'utf8')
 const library = await readFile(new URL('../pages/pc/Library.svelte', import.meta.url), 'utf8')
+const user = await readFile(new URL('../pages/UserProfilePage.svelte', import.meta.url), 'utf8')
 
 assert.ok(section.includes("import SocialPreview from './SocialPreview.svelte'"), 'reuses the existing component')
 assert.equal((section.match(/<SocialPreview /g) ?? []).length, 2, 'exactly the two existing previews')
 assert.ok(section.includes('onOpenUser'), 'user navigation is preserved')
-assert.ok(home.includes('SocialPreviewSection') && library.includes('SocialPreviewSection'), 'both ends render it')
+assert.ok(home.includes('SocialPreviewSection') && user.includes('SocialPreviewSection'), 'profile views render social previews')
 assert.ok(home.includes('followsPreview={profile.followsPreview}'), 'home passes the data it already loaded')
-assert.ok(library.includes('loadFor={auth.user?.userId}'), 'library fills the preview it does not load itself')
+assert.ok(!library.includes('SocialPreviewSection') && !library.includes('library-profile-link'), 'own social profile is not linked from the library')
 
 // 只展示预览，不假装有完整列表
 for (const invented of ['查看全部', '加载更多', 'onMore', 'onSeeAll', 'loadMore']) {

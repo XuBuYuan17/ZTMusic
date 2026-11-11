@@ -86,6 +86,38 @@ export function desktopFeedback(node: HTMLElement) {
 // 移动端返回详情时会重新测它的当前位置，把封面反向飞回去。
 interface CoverOrigin { rect: DOMRect; src: string; radius: string; at: number; source: HTMLImageElement }
 let coverOrigin: CoverOrigin | null = null
+let returnCover: { rect: DOMRect; src: string; radius: string } | null = null
+
+export function captureReturnCover(hero: HTMLImageElement | null): void {
+  returnCover = null
+  if (!hero || reducedMotion() || !hero.complete || !hero.naturalWidth) return
+  const rect = hero.getBoundingClientRect()
+  if (rect.width && rect.height) returnCover = { rect, src: hero.currentSrc || hero.src, radius: getComputedStyle(hero).borderRadius }
+}
+
+export function flyReturnCover(target: HTMLImageElement | null): void {
+  const origin = returnCover
+  returnCover = null
+  if (!origin || !target || !target.isConnected || reducedMotion()) return
+  const to = target.getBoundingClientRect()
+  if (!to.width || !to.height) return
+  const clone = document.createElement('img')
+  clone.className = 'shared-cover-flight'
+  clone.src = origin.src
+  clone.alt = ''
+  clone.referrerPolicy = 'no-referrer'
+  clone.setAttribute('aria-hidden', 'true')
+  Object.assign(clone.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, objectFit: 'cover', zIndex: '1100', pointerEvents: 'none', transformOrigin: '0 0' })
+  const opacity = target.style.opacity
+  target.style.opacity = '0'
+  document.body.append(clone)
+  const sx = origin.rect.width / to.width, sy = origin.rect.height / to.height
+  const animation = clone.animate([
+    { transform: `translate(${origin.rect.left - to.left}px, ${origin.rect.top - to.top}px) scale(${sx}, ${sy})`, borderRadius: `calc(${origin.radius} / ${sx})` },
+    { transform: 'translate(0, 0) scale(1)', borderRadius: getComputedStyle(target.parentElement!).borderRadius },
+  ], { duration: motion.panel + 60, easing: 'cubic-bezier(.22,.7,.2,1)' })
+  animation.finished.catch(() => {}).finally(() => { target.style.opacity = opacity; clone.remove() })
+}
 
 function freshOrigin(): CoverOrigin | null {
   return coverOrigin && performance.now() - coverOrigin.at < 800 ? coverOrigin : null

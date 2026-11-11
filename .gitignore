@@ -48,6 +48,8 @@ AGENTS.md
 # Personal tools and scratch files
 /.codex/
 /.local/
+/.commandcode/
+/browser-artifacts/
 /scripts/_tmp-*
 
 # Environment files (only templates may be committed)

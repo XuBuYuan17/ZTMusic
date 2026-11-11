@@ -1,6 +1,7 @@
 import { ncm } from '../../api/client.ts'
 import { normalizeSong } from '../../utils/normalize.ts'
 import { parseLyricResponse } from '../../utils/lyrics.ts'
+import { neteaseAttenuationDb } from '../../player/loudness.ts'
 import { defineMusicProvider, type MusicProvider } from '../provider.ts'
 import type {
   AlbumDetail,
@@ -214,8 +215,10 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       const code = typeof item.code === 'number' ? item.code
         : typeof response.code === 'number' ? response.code
         : undefined
+      const attenuation = !unblock ? neteaseAttenuationDb(item.gain, item.peak, Boolean(item.freeTrialInfo)) : null
       return {
         url: asString(item.url),
+        ...(attenuation !== null && item.url ? { loudnessAttenuationDb: attenuation } : {}),
         code,
         message: asString(item.message) || asString(response.message) || asString(response.msg),
         isTrial: Boolean(item.freeTrialInfo),

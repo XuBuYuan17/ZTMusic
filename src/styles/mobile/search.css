@@ -524,3 +524,21 @@ html.mobile-runtime .search-spinner { display: none; }
 @media (prefers-reduced-motion: reduce) {
   html.mobile-runtime .search-loading::before { animation: none; }
 }
+
+html.mobile-runtime .search-page { gap: 22px; }
+html.mobile-runtime .search-page .search-toolbar { gap: 6px; margin: 0; padding: 0 0 8px; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html.mobile-runtime .search-page .search-input-wrap { height: 52px; padding-inline: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); }
+html.mobile-runtime .search-page .search-submit { height: 44px; min-width: 58px; border-radius: var(--radius-md); }
+html.mobile-runtime .search-page .search-empty-layout { gap: 24px; }
+html.mobile-runtime .search-page .search-chart-panel { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); }
+html.mobile-runtime .search-page .search-section-header { margin-bottom: 10px; }
+html.mobile-runtime .search-page .search-section-header h2 { font-size: 17px; }
+html.mobile-runtime .search-page .search-hot-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+html.mobile-runtime .search-page .search-hot-row { grid-template-columns: 24px minmax(0, 1fr); min-height: 44px; gap: 6px; padding: 0; box-shadow: none; }
+html.mobile-runtime .search-page .search-hot-row strong { font-size: 13px; }
+html.mobile-runtime .search-page .search-chart-song-row { grid-template-columns: 28px minmax(0, 1fr); min-height: 54px; gap: 8px; }
+html.mobile-runtime .search-page .search-chart-song-row:last-child { box-shadow: none; }
+html.mobile-runtime .search-page .search-category-tabs { gap: 4px; border: 0; }
+html.mobile-runtime .search-page .search-category-tabs button { min-height: 40px; padding: 0; border-radius: var(--radius-sm); }
+html.mobile-runtime .search-page .search-category-tabs button.active { color: var(--accent); background: var(--accent-bg); }
+html.mobile-runtime .search-page .search-category-tabs button::after { display: none; }

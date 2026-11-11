@@ -73,6 +73,8 @@ export interface LyricLine {
 
 export interface PlayStream {
   url: string
+  /** 官方音源返回的实验性响度衰减；未知或不可靠时省略。 */
+  loudnessAttenuationDb?: number
   /** 音质档位，如 standard / higher / exhigh / lossless */
   level?: string
   /** 来源标记：official / official-unblock / match / old-api */

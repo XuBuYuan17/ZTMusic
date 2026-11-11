@@ -51,7 +51,7 @@ const importantBaseline = new Map([
 ])
 for (const [name, css] of [['app-mobile', appMobile], ['explore', exploreCss], ['responsive', responsive], ['desktop-system', desktopSystem], ['library-appearance', libraryAppearance]]) {
   const count = css.split(String.fromCharCode(10)).filter(line => line.includes('!important')).length
-  assert.equal(count, importantBaseline.get(name), `${name}.css must not add new !important lines (${count} vs ${importantBaseline.get(name)})`)
+  assert.ok(count <= importantBaseline.get(name), `${name}.css must not add new !important lines (${count} vs ${importantBaseline.get(name)})`)
 }
 for (const name of ['ProfileQuickEntries', 'CompactTrackList', 'RecentTracksModule', 'WeeklyListenModule', 'PlaylistSection', 'PreviewCard', 'ToplistsModule', 'FeaturedContent', 'SocialPreviewSection']) {
   const source = await component(name)

@@ -14,9 +14,12 @@ const script = stripTypeScriptTypes(source.replace(/^import .*\r?\n/gm, '').repl
 for (const native of [false, true]) {
   for (const saved of [null, 'light', 'dark']) {
     const calls = []
-    const root = { dataset: {}, style: {} }
+    const removed = []
+    const root = { dataset: {}, style: {}, classList: { remove: (...names) => removed.push(...names) } }
     const body = { style: {} }
     const context = {
+      // 首帧标记用 rAF 链推迟解除启动期 class；测试里同步执行即可断言结果。
+      requestAnimationFrame: callback => callback(),
       isTauriRuntime: () => native,
       runtimePlatform: () => native ? 'Android' : 'Windows',
       // android-startup 现在复用 runtime.ts 的 isAndroidRuntime()（组合逻辑由 runtime.test.ts 覆盖）
@@ -42,6 +45,7 @@ for (const native of [false, true]) {
     context.announceAndroidFrame()
     context.announceAndroidFrame()
     assert.equal(calls.length, native ? 1 : 0, 'mounted shell notifies Android exactly once')
+    assert.deepEqual(removed, native ? ['android-startup-pending'] : [], '首帧后必须解除启动期 class，否则壁纸与过渡永久失效')
     if (native) {
       assert.equal(calls[0][1].payload.action, 'startupReady')
       context.syncAndroidTheme('light')

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { mobileDrag } from '../app/mobile-interaction.ts';
   import { dialogFocus, desktopPanel, reducedMotion } from '../app/desktop-motion.ts';
+  import { lyricMenu } from '../app/lyric-menu.ts';
   import Icon from './ui/Icon.svelte';
   import { fade } from 'svelte/transition';
   import { responsive } from '../utils/responsive.ts';
@@ -10,6 +12,8 @@
     icon: string;
     action?: () => void;
     disabled?: boolean;
+    keepOpen?: boolean;
+    checked?: boolean;
   }
 
   let {
@@ -21,6 +25,12 @@
     cover = '',
     title = '',
     artist = '',
+    desktopAnchor = null,
+    menuWidth = 240,
+    menuElement = $bindable(null),
+    onDismiss,
+    showItems = true,
+    children,
   }: {
     open?: boolean
     onToggle?: () => void
@@ -30,34 +40,61 @@
     cover?: string
     title?: string
     artist?: string
+    desktopAnchor?: HTMLElement | null
+    menuWidth?: number
+    menuElement?: HTMLDivElement | null
+    onDismiss?: () => void
+    showItems?: boolean
+    children?: Snippet
   } = $props();
 
   function handleItem(item: MoreMenuItem): void {
-    onClose?.();
+    if (!item.keepOpen) onClose?.();
     item.action?.();
+  }
+
+  function desktopPosition(node: HTMLElement, options: { anchor: HTMLElement | null; width: number; close: () => void }) {
+    if (!options.anchor) return { update() {}, destroy() {} };
+    const menu = lyricMenu(node, { anchor: options.anchor, width: options.width, close: options.close });
+    return {
+      update(next: typeof options) {
+        if (next.anchor) menu.update({ anchor: next.anchor, width: next.width, close: next.close });
+      },
+      destroy() {
+        menu.destroy();
+        node.remove();
+      },
+    };
   }
 </script>
 
-<div class="am-more-shell">
+<div class="am-more-shell" class:desktop-lyrics={!!desktopAnchor}>
+  {#if !desktopAnchor}
   <button class="am-more-btn" class:active={open} type="button" aria-label="更多操作" aria-expanded={open} onclick={() => onToggle?.()}>
     <span class="am-more-dots" aria-hidden="true"><Icon name="more" size={24} /></span>
   </button>
+  {/if}
   {#if open}
+    {#if !desktopAnchor}
     <div class="am-more-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
-    <div class="am-more-menu" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role={$responsive.isMobile ? 'dialog' : 'menu'} aria-modal={$responsive.isMobile ? true : undefined} aria-label="更多操作菜单">
+    {/if}
+    <div id={desktopAnchor ? 'pc-lyric-menu' : undefined} class="am-more-menu" class:desktop-lyrics={!!desktopAnchor} data-bottom-panel in:desktopPanel out:desktopPanel use:desktopPosition={{ anchor: desktopAnchor, width: menuWidth, close: () => onClose?.() }} use:dialogFocus={() => (onDismiss ?? onClose)?.()} bind:this={menuElement} tabindex="-1" role={$responsive.isMobile ? 'dialog' : 'menu'} aria-modal={$responsive.isMobile ? true : undefined} aria-label="更多操作菜单">
+    {#if !desktopAnchor}
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
+    {/if}
       <header class="mobile-more-header"><h2>更多操作</h2><button type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button></header>
       <div class="am-more-body">
       <div class="am-more-track" aria-hidden="true">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>
       </div>
-      {#each items as item}
-        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : 'menuitem'} onclick={() => handleItem(item)} disabled={item.disabled}>
+      {#if showItems}{#each items as item}
+        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-checked={item.checked} onclick={() => handleItem(item)} disabled={item.disabled}>
           <Icon name={item.icon} size={18} strokeWidth={1.8} />
           <span>{item.label}</span>
         </button>
-      {/each}
+      {/each}{/if}
+      {@render children?.()}
       {#if message}
         <div class="am-more-message" aria-live="polite">{message}</div>
       {/if}
@@ -75,6 +112,8 @@
     right: 14px;
     z-index: 40;
   }
+  .am-more-shell.desktop-lyrics { position: static; }
+  .am-more-menu.desktop-lyrics { right: auto; bottom: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); max-height: min(82dvh, 620px); padding: 10px 0; }
 
   .am-more-btn {
     position: relative;

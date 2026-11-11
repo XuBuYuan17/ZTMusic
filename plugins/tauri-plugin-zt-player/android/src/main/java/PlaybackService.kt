@@ -46,6 +46,10 @@ class PlaybackService : MediaSessionService() {
     private var overlay: LyricsOverlayConnection? = null
     private val overlayPrefs by lazy { getSharedPreferences("overlay-lyrics", MODE_PRIVATE) }
     private val bluetoothLyricsPrefs by lazy { getSharedPreferences("bluetooth-lyrics", MODE_PRIVATE) }
+    private val loudnessPrefs by lazy { getSharedPreferences("playback-loudness", MODE_PRIVATE) }
+    private var userVolume = 1f
+    private var attenuationDb: Double? = null
+    private var expectedVolume = 1f
     private var revision = 0L
     private var lastJournalTrackId = ""
     private val liveActivity = LiveActivityRouter()
@@ -59,7 +63,14 @@ class PlaybackService : MediaSessionService() {
         PlaybackDiagnostics.mark(this, "PlaybackService.onCreate")
         playbackStore = NativePlaybackStore(this)
         revision = playbackStore.silentSnapshot().optLong("revision", 0)
-        resolver = StreamResolver(this)
+        resolver = StreamResolver(this) { id, attenuation, version ->
+            handler.post {
+                if (active && resolver.isCurrent(version) && player.currentMediaItem?.mediaId == id) {
+                    attenuationDb = attenuation
+                    applyOutputVolume()
+                }
+            }
+        }
         val source = ResolvingDataSource.Factory(DefaultDataSource.Factory(this,
             DefaultHttpDataSource.Factory().setUserAgent("ZTMusic Android").setAllowCrossProtocolRedirects(false)), resolver)
         PlaybackDiagnostics.mark(this, "ExoPlayer.build.begin")
@@ -90,16 +101,24 @@ class PlaybackService : MediaSessionService() {
             }
             override fun onVolumeChanged(volume: Float) {
                 PlaybackDiagnostics.mark(this@PlaybackService, "playerVolume.changed")
+                if (kotlin.math.abs(volume - expectedVolume) > 0.0001f) {
+                    userVolume = volume.coerceIn(0f, 1f)
+                    applyOutputVolume()
+                }
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val id = mediaItem?.mediaId.orEmpty()
                 if (id == lastJournalTrackId) return
+                attenuationDb = resolver.cachedAttenuation(id)
+                applyOutputVolume()
                 lastJournalTrackId = id
                 try { journal.transition(player) }
                 catch (_: android.database.SQLException) { Log.w("ZTMusic", "[Listening] native storage unavailable") }
             }
             override fun onPlayerError(error: PlaybackException) {
                 Log.w("ZTMusic", "[Media3] playback error code=${error.errorCode}")
+                attenuationDb = null
+                applyOutputVolume()
                 if (resolver.rejectCurrent(player.currentMediaItem?.mediaId.orEmpty())) { player.prepare(); player.play() }
             }
         })
@@ -187,7 +206,8 @@ class PlaybackService : MediaSessionService() {
             "next" -> player.seekToNextMediaItem()
             "previous" -> player.seekToPreviousMediaItem()
             "seek" -> { val position = data.getDouble("position"); require(position.isFinite() && position >= 0); player.seekTo(position.toLong()) }
-            "volume" -> { val value = data.getDouble("volume"); require(value.isFinite()); player.volume = value.toFloat().coerceIn(0f, 1f) }
+            "volume" -> { val value = data.getDouble("volume"); require(value.isFinite()); userVolume = value.toFloat().coerceIn(0f, 1f); applyOutputVolume() }
+            "loudness" -> { require(data.has("enabled") && data.get("enabled") is Boolean); loudnessPrefs.edit().putBoolean("enabled", data.getBoolean("enabled")).apply(); applyOutputVolume() }
             "mode" -> applyMode(data.getString("mode"))
             "stop" -> {
                 bluetoothLyrics.playbackStopped()
@@ -220,6 +240,12 @@ class PlaybackService : MediaSessionService() {
         require(mode in setOf("list", "shuffle", "repeat"))
         player.shuffleModeEnabled = mode == "shuffle"
         player.repeatMode = if (mode == "repeat") Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL
+    }
+
+    private fun applyOutputVolume() {
+        val factor = if (loudnessPrefs.getBoolean("enabled", false)) Loudness.factor(attenuationDb) else 1f
+        expectedVolume = (userVolume * factor).coerceIn(0f, 1f)
+        if (kotlin.math.abs(player.volume - expectedVolume) > 0.0001f) player.volume = expectedVolume
     }
 
     private fun syncOverlayPermission() {
@@ -303,7 +329,7 @@ class PlaybackService : MediaSessionService() {
             put("loading", player.playbackState == Player.STATE_BUFFERING)
             put("ended", player.playbackState == Player.STATE_ENDED)
             put("index", if (player.mediaItemCount == 0) -1 else player.currentMediaItemIndex)
-            put("volume", player.volume)
+            put("volume", userVolume)
             put("mode", if (player.shuffleModeEnabled) "shuffle" else if (player.repeatMode == Player.REPEAT_MODE_ONE) "repeat" else "list")
             put("error", player.playerError?.errorCodeName ?: "")
             put("tracks", JSONArray().apply { for (i in 0 until player.mediaItemCount) put(JSONObject(player.getMediaItemAt(i).mediaMetadata.extras?.getString("track") ?: "{}")) })
@@ -319,6 +345,8 @@ class PlaybackService : MediaSessionService() {
 
     private fun restorePausedQueue() {
         val saved = playbackStore.silentSnapshot()
+        userVolume = saved.optDouble("volume", 1.0).toFloat().coerceIn(0f, 1f)
+        applyOutputVolume()
         val tracks = saved.getJSONArray("tracks")
         if (tracks.length() == 0) return
         try {
@@ -326,7 +354,8 @@ class PlaybackService : MediaSessionService() {
             val items = (0 until tracks.length()).map { mediaItem(tracks.getJSONObject(it)) }
             player.setMediaItems(items, saved.getInt("index"), saved.getLong("anchorPosition"))
             applyMode(saved.getString("mode"))
-            player.volume = saved.getDouble("volume").toFloat()
+            userVolume = saved.getDouble("volume").toFloat().coerceIn(0f, 1f)
+            applyOutputVolume()
             PlaybackDiagnostics.mark(this, "native.queue.restored paused=true prepared=false")
         } catch (_: Exception) {
             player.clearMediaItems()

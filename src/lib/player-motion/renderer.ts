@@ -15,6 +15,8 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   let source: SurfaceRect
   let coverSource: SurfaceRect | undefined
   let coverTarget: SurfaceRect | undefined
+  let coverSourceRadius = 0
+  let coverTargetRadius = 0
   let viewport = { width: innerWidth, height: innerHeight }
   let shared: HTMLElement | undefined
   let ghost: HTMLElement | undefined
@@ -64,6 +66,14 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     const to = cover?.getBoundingClientRect()
     coverSource = from?.width && from.height ? from : undefined
     coverTarget = to?.width && to.height ? to : undefined
+    const radius = (node: HTMLElement | null | undefined, width: number): number => {
+      if (!node) return 0
+      const value = getComputedStyle(node).borderTopLeftRadius
+      const parsed = parseFloat(value)
+      return Number.isFinite(parsed) ? Math.max(0, Math.min(width / 2, value.includes('%') ? width * parsed / 100 : parsed)) : 0
+    }
+    coverSourceRadius = radius(miniCover, from?.width ?? 0)
+    coverTargetRadius = radius(cover, to?.width ?? 0)
   }
 
   function measureContent() {
@@ -129,8 +139,9 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
       set(node, 'transform', `translateY(${24 * (1 - p)}px) ${transform}`)
     }
     if (shared && coverSource && coverTarget) {
-      const next = coverFrame(p, coverSource, coverTarget)
+      const next = coverFrame(p, coverSource, coverTarget, coverSourceRadius, coverTargetRadius)
       shared.style.transform = `translate(${next.left}px, ${next.top}px) scale(${next.scale})`
+      shared.style.borderRadius = `${next.radius}px`
     }
   }
 

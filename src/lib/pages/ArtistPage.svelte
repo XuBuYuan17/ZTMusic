@@ -206,6 +206,7 @@
           {#if artist.albumSize}<span>{artist.albumSize} 张专辑</span>{/if}
           {#if (artist.identities as unknown[] | undefined)?.length}<span>{(artist.identities as string[]).join(' · ')}</span>{/if}
         </div>
+      </div>
         <div class="artist-actions">
           <button class="artist-play-all" onclick={onPlayAll} disabled={!songs.length}>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -219,7 +220,6 @@
           {/if}
           {#if albums.length}<span class="artist-work-count">{albums.length} 张作品已收录</span>{/if}
         </div>
-      </div>
     </div>
 
     {#if artist.briefDesc}
@@ -340,4 +340,17 @@
     .artist-info h1 { font-size: 42px; letter-spacing: 0; }
     .artist-albums { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
   }
+  :global(html:not(.mobile-runtime)) .artist-hero { grid-template-columns: 160px minmax(0, 1fr); align-items: center; gap: 16px 24px; min-height: 0; padding: 24px; border: 1px solid var(--border); background: var(--bg-surface); box-shadow: none; }
+  :global(html:not(.mobile-runtime)) .artist-hero-bg { opacity: .65; filter: blur(2px) saturate(.9); }
+  :global(html:not(.mobile-runtime)) .artist-hero-grain { display: none; }
+  :global(html:not(.mobile-runtime)) .artist-hero-mask { background: color-mix(in srgb, var(--bg-surface) 55%, transparent); }
+  :global(html:not(.mobile-runtime)) .artist-avatar { width: 160px; height: 160px; box-shadow: var(--shadow-md); }
+  :global(html:not(.mobile-runtime)) .artist-info { color: var(--text); text-shadow: none; }
+  :global(html:not(.mobile-runtime)) .artist-info h1 { color: var(--text); font-size: clamp(24px, 3vw, 36px); line-height: 1.15; margin: 0 0 8px; }
+  :global(html:not(.mobile-runtime)) :is(.artist-label, .artist-alias, .artist-meta, .artist-work-count) { color: var(--text-secondary); }
+  :global(html:not(.mobile-runtime)) .artist-meta { margin-bottom: 0; }
+  :global(html:not(.mobile-runtime)) .artist-meta span { padding: 0; border: 0; background: transparent; backdrop-filter: none; }
+  :global(html:not(.mobile-runtime)) .artist-actions { position: relative; grid-column: 2; z-index: 1; }
+  :global(html:not(.mobile-runtime)) :is(.artist-follow-btn, .artist-profile-btn) { background: var(--bg-layer); color: var(--text); border: 1px solid var(--border); backdrop-filter: none; }
+  :global(html:not(.mobile-runtime)) .artist-follow-btn.active { color: var(--accent); background: var(--accent-bg); }
 </style>

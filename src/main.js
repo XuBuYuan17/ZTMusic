@@ -31,11 +31,9 @@ import { isMobileDevice } from './lib/utils/responsive.ts'
 import { announceAndroidFrame, prepareAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
-import { installPlaylistDiscMotion } from './lib/app/playlist-disc-motion.ts'
 
 installNativeShell()
 installMobileResumeGuard()
-installPlaylistDiscMotion()
 prepareAndroidStartup()
 
 const viewport = document.querySelector('meta[name="viewport"]')
@@ -108,9 +106,13 @@ document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 ;(async () => {
   try {
     const mobile = isMobileDevice()
+    // 移动壳（含全部共享页面）必须和 App.svelte 并行取。App.svelte 有 45 个静态 import，
+    // 等它整个模块图求值完才执行 App 里的 loadMobileApp()，移动壳就只能串行排在后面，
+    // Android 冷启动首帧会明显靠后。这里先起同一次 import，App 里的调用命中模块缓存。
     const [{ mount }, { default: App }] = await Promise.all([
       import('svelte'),
       import('./App.svelte'),
+      mobile ? import('./lib/components/MobileApp.svelte') : null,
     ])
     mount(App, { target: document.getElementById('app') })
     // MobileApp reports when its lazy mobile shell is mounted. Desktop/landscape layouts

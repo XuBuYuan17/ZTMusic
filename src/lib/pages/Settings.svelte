@@ -16,6 +16,8 @@
   import SettingSelect from '../components/SettingSelect.svelte'
   import AndroidPlayerSettings from '../components/AndroidPlayerSettings.svelte'
   import SourcePluginSettings from '../components/SourcePluginSettings.svelte'
+  import PlaylistGroupsSettings from '../components/PlaylistGroupsSettings.svelte'
+  import { getBooleanSetting, setBooleanSetting } from '../utils/settings.ts'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate, onBack }: {
     category?: SettingsCategory | null
@@ -28,6 +30,20 @@
   } = $props()
 
   const settings = useSettings()
+  let loudnessNormalization = $state(getBooleanSetting('loudness_normalization', 'false'))
+  let loudnessBusy = $state(false)
+  let loudnessError = $state('')
+  async function setLoudness(value: boolean): Promise<void> {
+    if (loudnessBusy) return
+    loudnessBusy = true
+    loudnessError = ''
+    try {
+      if (!engine.setLoudnessEnabled) throw new Error('当前播放器不支持音量均衡')
+      await engine.setLoudnessEnabled(value)
+      loudnessNormalization = setBooleanSetting('loudness_normalization', value) === 'true'
+    } catch { loudnessError = '音量均衡设置失败，请重试' }
+    finally { loudnessBusy = false }
+  }
   const summaries = $derived(settingsSummaries({
     theme,
     quality: t(QUALITY_OPTIONS.find(option => option.value === settings.preferredQuality)?.labelKey ?? settings.preferredQuality),
@@ -119,6 +135,12 @@
               {/if}
             </div>
           {/each}
+          {#if category === 'playback'}
+            <div class="m-settings-row">
+              <div class="m-settings-copy"><strong>音量均衡（实验）</strong><span>根据歌曲响度信息降低音量，不支持的音源保持原音量</span>{#if loudnessError}<span role="alert">{loudnessError}</span>{/if}</div>
+              <button class="m-switch" type="button" class:on={loudnessNormalization} aria-label="音量均衡" aria-pressed={loudnessNormalization} disabled={loudnessBusy} onclick={() => setLoudness(!loudnessNormalization)}><span>{loudnessNormalization ? '开' : '关'}</span></button>
+            </div>
+          {/if}
           {#if category === 'appearance'}
       <div class="m-settings-row m-settings-row--palette">
         <div class="m-settings-copy">
@@ -226,6 +248,7 @@
       {/if}
     </section>
   {/if}
+  {#if category === 'data'}<PlaylistGroupsSettings />{/if}
   {#if category === 'playback'}<p class="m-settings-note">{t('settings.playbackNote')}</p>{/if}
   {#if category === 'data' && auth.isLoggedIn}
     <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} />退出登录</button>

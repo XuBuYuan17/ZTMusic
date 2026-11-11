@@ -442,6 +442,9 @@ html.mobile-runtime body .am-secondary-context .ly-context-detail-playlist {
   gap: 10px;
   padding: 7px 10px;
 }
+html.mobile-runtime body .am-secondary-context .ly-context-detail-playlist .ly-context-playlist-art { grid-column: 1; grid-row: 1 / 3; width: 40px; height: 40px; }
+html.mobile-runtime body .am-secondary-context .ly-context-detail-playlist > strong { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.mobile-runtime body .am-secondary-context .ly-context-detail-playlist > em { grid-column: 2; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 html.mobile-runtime body .am-secondary-context :is(.ly-context-detail-playlist img, .ly-context-detail-playlist .ly-context-cover-ph) {
   width: 40px;

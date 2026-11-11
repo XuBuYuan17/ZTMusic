@@ -100,7 +100,7 @@ assert.ok(router.includes("view.startsWith('settings-')"), 'settings subpages st
 assert.ok(router.includes('if (prev.view ===') , 'goBack still restores the previous view from the stack')
 
 // ── 6) 根视图不订阅返回键：交给系统退出 ──
-assert.ok(app.includes("const atRoot = router.activeView === 'explore' || router.activeView === 'home'"), 'root is judged by navigation, not window width')
+assert.ok(app.includes("const atRoot = router.activeView === 'explore' || router.activeView === 'library'"), 'root is judged by navigation, not window width')
 assert.ok(app.includes('if (!hasBackTarget) return'), 'no subscription when there is nothing to go back to')
 
 console.log('back navigation: dialogs first, single step, four entries and settings rule passed')

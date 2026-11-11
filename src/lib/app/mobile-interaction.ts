@@ -6,7 +6,7 @@ export type SwipeDirection = 'horizontal' | 'vertical' | null
 const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 export const mobileSheetTiming = { enter: 420, exit: 300, backdrop: 240 } as const
 
-function dampedOut(t: number): number {
+export function dampedOut(t: number): number {
   const c = 0.55
   return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2)
 }
@@ -192,13 +192,14 @@ export function mobileViewport(_node: HTMLElement) {
  *
  * 行程为面板自身高度；拖动已完成退出时跳过补间，避免重复下落。
  */
-export function mobileSheet(node: HTMLElement, options: { duration?: number } = {}, context: { direction?: 'in' | 'out' | 'both' } = {}) {
-  if (reduced() || !document.documentElement.classList.contains('mobile-runtime')) return { duration: 0 }
+export function mobileSheet(node: HTMLElement, options: { duration?: number; desktopCentered?: boolean } = {}, context: { direction?: 'in' | 'out' | 'both' } = {}) {
+  const mobile = document.documentElement.classList.contains('mobile-runtime')
+  if (reduced() || (!mobile && !options.desktopCentered)) return { duration: 0 }
   if (node.dataset?.sheetDismissed === 'true') return { duration: 0 }
   return {
     duration: options.duration ?? (context.direction === 'out' ? mobileSheetTiming.exit : mobileSheetTiming.enter),
     easing: context.direction === 'out' ? cubicIn : dampedOut,
-    css: (t: number) => `translate: 0 ${(1 - t) * 100}%`,
+    css: (t: number) => `translate: ${!mobile && options.desktopCentered ? '-50%' : '0'} ${(1 - t) * 100}%`,
   }
 }
 

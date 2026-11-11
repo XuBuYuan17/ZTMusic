@@ -1,7 +1,7 @@
 <script lang="ts">
   import { settingsCategory } from '../../pages/settings-navigation.ts'
   import { router } from '../../stores/router.svelte.ts'
-  import { pageMotion } from '../../app/desktop-motion.ts'
+  import { pageMotion, captureReturnCover } from '../../app/desktop-motion.ts'
   import type { AccentThemeName } from '../../theme/accent.ts'
   import { lazyModule } from '../../app/lazy-module.ts'
   import { setScrollViewport } from '../../app/scroll-viewport.ts'
@@ -9,7 +9,6 @@
   import { createPageChromeHost, setPageChromeHost } from '../../app/page-chrome.svelte.ts'
   import { openAlbumRef, openArtistRef, openPlaylistRef, openUserRef } from '../../app/nav-refs.ts'
   import Icon from '../ui/Icon.svelte'
-  import HomePage from '../../pages/pc/Home.svelte'
 
   let {
     theme,
@@ -61,6 +60,12 @@ let scrollEl = $state<HTMLElement | null>(null)
   const loadAboutPage = lazyModule(() => import('../../pages/AboutPage.svelte'))
   const loadUserProfilePage = lazyModule(() => import('../../pages/UserProfilePage.svelte'))
 
+  $effect.pre(() => {
+    if (router.activeView === 'library' && router.previousView === 'playlist' && router.routeTransition === 'back') {
+      captureReturnCover(scrollEl?.querySelector<HTMLImageElement>('.playlist-cover') ?? null)
+    }
+  })
+
   // 空闲时预取常用页面 chunk，首次进入不再闪骨架
   $effect(() => {
     const idle = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1500))
@@ -86,16 +91,7 @@ let scrollEl = $state<HTMLElement | null>(null)
       </div>
     {/if}
     <div class="page-enter" class:desktop-page={true} use:pageMotion={{ identity: `${router.activeView}:${router.selectedId}`, direction: router.routeTransition }}>
-      {#if router.activeView === 'home'}
-        <HomePage
-          onNavigate={router.handleNav}
-          onOpenLogin={onOpenLogin}
-          onOpenPlaylist={openPlaylistRef}
-          onOpenArtist={openArtistRef}
-          onOpenAlbum={openAlbumRef}
-          onOpenUser={openUserRef}
-        />
-      {:else if router.activeView === 'playlist' || router.activeView === 'album' || router.activeView === 'recommendation'}
+      {#if router.activeView === 'playlist' || router.activeView === 'album' || router.activeView === 'recommendation'}
         {#await loadPlaylistPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default
             recommendation={router.activeView === 'recommendation'}

@@ -16,6 +16,7 @@ import { getSetting, setSetting, type SettingValue } from '../utils/settings.ts'
 import { setLayoutMode } from '../utils/layout-mode.ts'
 import { SETTING_DEFINITIONS, type SettingFieldKey } from '../settings/definitions.ts'
 import { dbCache } from '../db/cache.ts'
+import { engine } from '../player/engine.ts'
 
 export { QUALITY_LABELS } from '../player/quality.ts'
 

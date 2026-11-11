@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { OFFLINE_RETENTION_MS } from './cache.ts'
+import { dbCache, OFFLINE_RETENTION_MS } from './cache.ts'
 
 let passed = 0
 function check(name: string, fn: () => void) {
@@ -47,5 +47,17 @@ check('会话清扫只回收超过保留窗口的行', () => {
 check('新鲜读仍按 expires_at 过滤', () => {
   assert.ok(source.includes('WHERE key = ? AND expires_at > ?'), '新鲜读必须保持严格新鲜')
 })
+
+const storage = new Map<string, string>()
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+  getItem: (key: string) => storage.get(key) ?? null,
+  setItem: (key: string, value: string) => { storage.set(key, value) },
+  removeItem: (key: string) => { storage.delete(key) },
+} })
+const context = { namespace: 'loudness-test', isCurrent: () => true }
+await dbCache.urlSetEntry(42, [{ url: 'https://example.test/audio', loudnessAttenuationDb: -8 }], { context })
+assert.equal((await dbCache.urlGetEntry(42, context))?.candidates[0]?.loudnessAttenuationDb, -8, 'valid gain survives fallback cache round trip')
+await dbCache.urlSetEntry(43, [{ url: 'https://example.test/audio', loudnessAttenuationDb: 8 }], { context })
+assert.equal((await dbCache.urlGetEntry(43, context))?.candidates[0]?.loudnessAttenuationDb, undefined, 'amplifying or invalid metadata cannot survive cache')
 
 console.log(`cache retention: ${passed} passed${process.exitCode ? ', 有失败' : ', 0 failed'}`)

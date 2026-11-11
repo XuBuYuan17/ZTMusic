@@ -53,6 +53,7 @@ function addUrl(urls: string[], urlOrObj: string | { url?: string } | null | und
 
 interface UrlCandidate {
   url: string
+  loudnessAttenuationDb?: number
   isTrial?: boolean
   source: string
   level?: string
@@ -164,6 +165,7 @@ async function fetchSongUrl(
     }
     return {
       url: normalizePlayUrl(item.url),
+      loudnessAttenuationDb: item.loudnessAttenuationDb,
       isTrial: Boolean(item?.isTrial),
       source: item?.source || (unblock ? 'official-unblock' : 'official'),
       level: item?.level || level,
@@ -420,6 +422,7 @@ export interface PlayableUrlsResult {
   urls: string[]
   firstUrlLevel: string
   isTrial: boolean
+  loudnessAttenuationDb?: number
 }
 
 /**
@@ -447,7 +450,7 @@ export async function getPlayableUrls(
       const entry = getUrlCacheMetadata(cached)
       if (context.namespace && entry?.namespace === context.namespace && entry.expiresAt > Date.now()) {
         logPlayback('prefetch-hit', { id, urls: cached })
-        return { urls: cached, firstUrlLevel: entry.candidates[0]?.level || entry.candidates[0]?.source || 'prefetch', isTrial: false }
+        return { urls: cached, firstUrlLevel: entry.candidates[0]?.level || entry.candidates[0]?.source || 'prefetch', isTrial: false, loudnessAttenuationDb: entry.candidates[0]?.loudnessAttenuationDb }
       }
     }
 
@@ -457,7 +460,7 @@ export async function getPlayableUrls(
       if (!isActive()) return { urls: [], firstUrlLevel: '', isTrial: false }
       if (persisted?.urls.length) {
         logPlayback('url-cache-hit', { id })
-        return { urls: persisted.urls, firstUrlLevel: persisted.candidates[0]?.level || persisted.candidates[0]?.source || 'cache', isTrial: false }
+        return { urls: persisted.urls, firstUrlLevel: persisted.candidates[0]?.level || persisted.candidates[0]?.source || 'cache', isTrial: false, loudnessAttenuationDb: persisted.candidates[0]?.loudnessAttenuationDb }
       }
     } catch { /* swallow */ }
   }
@@ -562,5 +565,5 @@ export async function getPlayableUrls(
     dbCache.urlSetEntry(id, cacheableCandidates, { context, preserveHigherQuality: !forceRefresh, isActive }).catch((err) => swallowError('UrlResolver.cacheUrlSet', err))
   }
 
-  return { urls, firstUrlLevel, isTrial }
+  return { urls, firstUrlLevel, isTrial, loudnessAttenuationDb: candidates[0]?.loudnessAttenuationDb }
 }

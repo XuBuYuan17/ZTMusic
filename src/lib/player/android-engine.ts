@@ -175,6 +175,7 @@ export class AndroidEngine implements PlayerEngine {
   toggle(): Promise<void> { return this.command(this.paused ? 'play' : 'pause') }
   seek(position: number): void { if (Number.isFinite(position)) void this.command('seek', { position: Math.max(0, position) * 1000 }).catch(() => {}) }
   setVolume(volume: number): void { if (Number.isFinite(volume)) void this.command('volume', { volume }).catch(() => {}) }
+  setLoudnessEnabled(enabled: boolean): Promise<void> { return this.command('loudness', { enabled }) }
   setMode(mode: PlayMode): void { void this.command('mode', { mode }).catch(() => {}) }
   next(): void { void this.command('next').catch(() => {}) }
   previous(): void { void this.command('previous').catch(() => {}) }

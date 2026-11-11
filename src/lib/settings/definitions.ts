@@ -55,6 +55,7 @@ export const SETTING_DEFINITIONS = {
   ] },
   preferred_quality: { kind: 'select', defaultValue: 'standard', category: 'playback', labelKey: 'settings.quality', options: QUALITY_OPTIONS },
   restore_session: { kind: 'boolean', defaultValue: 'true', category: 'playback', labelKey: 'settings.restoreSession' },
+  loudness_normalization: { kind: 'boolean', defaultValue: 'false' },
   lyrics_blur_effect: { kind: 'boolean', defaultValue: 'true', category: 'playback', labelKey: 'settings.lyricsBlur', changeEvent: 'lyrics-blur-change' },
   lyrics_text_blur_effect: { kind: 'boolean', defaultValue: 'true', category: 'playback', labelKey: 'settings.lyricsTextBlur', changeEvent: 'lyrics-text-blur-change' },
   locale: { kind: 'select', category: 'general', labelKey: 'settings.language', descriptionKey: 'settings.languageDesc', options: [

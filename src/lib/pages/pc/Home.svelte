@@ -43,6 +43,7 @@
   const userId = auth.user?.userId
   const initial = homeSnapshot?.userId === userId ? homeSnapshot : null
   let profile = $state<UserProfileData | null>(initial?.profile ?? null)
+  let profileOwner = $state(initial?.userId ?? null)
   let recentTracks = $state<NormalizedLocalHistorySong[]>(initial?.recentTracks ?? [])
   let recommendPlaylists = $state<NormalizedPlaylist[]>(initial?.recommendPlaylists ?? [])
   let localStats = $state(initial?.localStats ?? { plays: 0, milliseconds: 0 })
@@ -51,6 +52,7 @@
   let error = $state('')
   let requestId = 0
   let statsRequestId = 0
+  let likedCovers = $state<string[]>([])
 
   function save(): void {
     if (!auth.user?.userId) return
@@ -74,6 +76,7 @@
       // 账号可能在请求期间切换：rid 没变也要按 owner 丢弃过期结果
       if (rid !== requestId || auth.user?.userId !== uid) return
       profile = profileData
+      profileOwner = uid
       save()
       homeData?.recommendPromise?.then((items) => { if (rid === requestId && auth.user?.userId === uid) { recommendPlaylists = items; save() } }).catch(() => {})
     } catch (e) {
@@ -107,13 +110,27 @@
 
   $effect(() => { if (auth.isLoggedIn) untrack(load) })
   $effect(() => {
+    const uid = auth.user?.userId
+    const playlistId = profile?.likedPlaylist?.id
+    let cancelled = false
+    likedCovers = []
+    if (auth.isLoggedIn && uid && profileOwner === uid && (typeof playlistId === 'string' || typeof playlistId === 'number') && playlistId) {
+      void ncm.playlistTracks(playlistId, 8, 0).then(result => {
+        if (cancelled || auth.user?.userId !== uid) return
+        const songs = (result as { songs?: Array<{ al?: { picUrl?: unknown }; album?: { picUrl?: unknown } }> })?.songs
+        likedCovers = (Array.isArray(songs) ? songs : []).map(song => song.al?.picUrl ?? song.album?.picUrl).filter((url): url is string => typeof url === 'string' && !!url)
+      }).catch(() => {})
+    }
+    return () => { cancelled = true }
+  })
+  $effect(() => {
     refreshLocal()
     const refresh = () => refreshLocal()
     window.addEventListener('local-listening-history-change', refresh)
     window.addEventListener(LISTENING_CHANGE, refresh)
     return () => { statsRequestId++; window.removeEventListener('local-listening-history-change', refresh); window.removeEventListener(LISTENING_CHANGE, refresh) }
   })
-  $effect(() => { if (!auth.isLoggedIn) { loading = false; profile = null; recentTracks = [] } })
+  $effect(() => { if (!auth.isLoggedIn) { loading = false; profile = null; profileOwner = null; recentTracks = [] } })
   onMount(() => document.querySelector<HTMLElement>('.content-scroll')?.scrollTo({ top: 0 }))
 </script>
 
@@ -128,7 +145,7 @@
   {:else if profile}
     <UserProfileHero {profile} isOwn />
 
-    <ProfileQuickEntries entries={quickEntries} />
+    <ProfileQuickEntries entries={quickEntries} {likedCovers} />
 
     <div class="profile-home__dashboard">
       <RecentTracksModule onOpenAll={() => onNavigate?.('recent')} />

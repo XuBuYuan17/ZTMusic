@@ -23,7 +23,7 @@ const provider = createNeteaseProvider({
     return { lrc: { lyric: '[00:01.00]Line' }, tlyric: { lyric: '[00:01.00]译文' } }
   },
   async songUrl(_id, level, unblock) {
-    return { data: [{ url: `http://stream/${level}/${unblock}`, freeTrialInfo: unblock ? { start: 0 } : null }] }
+    return { data: [{ url: `http://stream/${level}/${unblock}`, gain: -9, peak: 1, freeTrialInfo: unblock ? { start: 0 } : null }] }
   },
   async songUrlMatch() {
     return { data: [{ url: 'http://match' }] }
@@ -64,6 +64,8 @@ assert.equal((await provider.getTopSongs(1))[0]!.coverUrl, 'top')
 assert.deepEqual(await provider.search('  '), { songs: [], artists: [], playlists: [] })
 assert.deepEqual(await provider.getLyrics(1), [{ time: 1, text: 'Line', translation: '译文' }])
 assert.equal((await provider.getStream(1, { level: 'lossless', unblock: true })).isTrial, true)
+assert.equal((await provider.getStream(1, { level: 'standard' })).loudnessAttenuationDb, -9)
+assert.equal((await provider.getStream(1, { level: 'lossless', unblock: true })).loudnessAttenuationDb, undefined)
 assert.equal((await provider.getMatchedStream(1)).source, 'match')
 assert.equal((await provider.getLegacyStream(1)).cacheable, false)
 assert.equal((await provider.getTracks([6]))[0]!.coverUrl, 'detail')

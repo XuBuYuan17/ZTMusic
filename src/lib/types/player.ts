@@ -56,12 +56,15 @@ export interface PlayerEngine {
   setMode?(mode: PlayMode): void
   next?(): void
   previous?(): void
-  load(url: string): void
+  load(url: string, attenuationDb?: number | null): void
   play(): Promise<void>
   pause(): void
   toggle(): Promise<void> | void
   seek(time: number): void
   setVolume(volume: number): void
+  setLoudnessEnabled?(enabled: boolean): void | Promise<void>
+  setSourceAttenuation?(attenuationDb: number | null): void
+  setLoudnessAdjustment?(enabled: boolean, attenuationDb: number | null): void
 
   preload(url: string): void
   cancelPreload(): void
