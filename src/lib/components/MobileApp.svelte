@@ -201,15 +201,10 @@
 </script>
 
 <div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack && settingsCategory(activeView) === null, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
-  {#if !isPrimaryView && !coverHeaderless}
-  <header class="mobile-page-bar" class:primary={isPrimaryView} class:collapsed={scrollTop > 64}>
-    {#if isPrimaryView}
-      <button class="mobile-page-bar__button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button>
-    {:else}
-      <button class="mobile-page-bar__button" onclick={() => settingsCategory(activeView) ? router.goSettingsHome() : (activeChrome?.back ?? onBack)?.()} aria-label="返回上一页"><Icon name={settingsCategory(activeView) ? 'chevron-left' : 'arrow-left'} fill="none" size={24} />{#if settingsCategory(activeView)}<span class="settings-back-label">{t('settings.title')}</span>{/if}</button>
-    {/if}
-    {#if isPrimaryView}<span class="mobile-compact-title" aria-hidden="true">{titles[activeView]}</span>
-    {:else}<h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>{/if}
+  {#if !isPrimaryView && !coverHeaderless && !settingsCategory(activeView)}
+  <header class="mobile-page-bar" class:collapsed={scrollTop > 64}>
+    <button class="mobile-page-bar__button" onclick={() => (activeChrome?.back ?? onBack)?.()} aria-label="返回上一页"><Icon name="arrow-left" fill="none" size={24} /></button>
+    <h1 class:mobile-playlist-label={activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation'}>{activeChrome?.title || titles[activeView] || '哲听'}</h1>
     {#if pageBarActions.length}
       <div class="mobile-detail-actions">
         {#each pageBarActions as action (action.id)}
@@ -311,14 +306,8 @@
 <style>
   .settings-view { --settings-page: #f2f2f7; --settings-group: #fff; background: var(--settings-page); }
   :global(html[data-theme="dark"]) .settings-view { --settings-page: #000; --settings-group: #1c1c1e; }
-  .settings-view :global(.mobile-page-bar) { background: var(--settings-page); }
   .settings-view :global(.mobile-large-title) { border-bottom: 0; margin-bottom: 24px; font-size: 2.125rem; letter-spacing: 0; }
   .settings-view :global(.mobile-page-content__inner) { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
-  .settings-view :global(.mobile-page-bar h1) { font-size: 1.0625rem; }
-  .settings-view :global(.mobile-page-bar__button) { color: var(--md-primary); }
-  .settings-view.secondary :global(.mobile-page-bar) { grid-template-columns: 80px minmax(0, 1fr) 80px; }
-  .settings-view.secondary :global(.mobile-page-bar__button) { display: flex; gap: 0; width: 80px; }
-  .settings-back-label { font-size: 1.0625rem; }
   .settings-view.secondary :global(.mobile-page-content) { touch-action: pan-y; }
   :global(html.mobile-runtime) .primary-content { padding-top: calc(16px + env(safe-area-inset-top)); }
   .settings-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
