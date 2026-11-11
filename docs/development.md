@@ -108,6 +108,8 @@ GET 缓存的端点 TTL 定义在 [`src/lib/api/cache-ttl.ts`](../src/lib/api/ca
 
 ## 调试与验证
 
+Android 前端交互可通过 [真机实时预览](android-live-preview.md) 在现有测试 APK 上临时调试；预览与新 APK 验收需要分别报告。
+
 播放调试可在开发者工具中执行：
 
 ```js
