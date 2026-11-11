@@ -16,7 +16,7 @@ globalThis.localStorage = {
 
 assert.deepEqual(SETTING_DEFAULTS, {
   default_page: 'home', layout_mode: 'auto', lyrics_blur_effect: 'true', lyrics_text_blur_effect: 'true',
-  wallpaper_video_play: 'true', accent_theme: 'red', restore_session: 'true', volume: '0.8', mode: 'list', preferred_quality: 'standard',
+  wallpaper_video_play: 'true', accent_theme: 'red', restore_session: 'true', loudness_normalization: 'false', volume: '0.8', mode: 'list', preferred_quality: 'standard',
 }, 'existing persisted keys and defaults must remain unchanged')
 assert.equal(SETTINGS_SCHEMA_VERSION, 4, 'a metadata refactor requires no data migration version bump')
 assert.ok(!('theme' in SETTING_DEFAULTS) && !('locale' in SETTING_DEFAULTS), 'externally owned preferences must not be seeded by settings migration')

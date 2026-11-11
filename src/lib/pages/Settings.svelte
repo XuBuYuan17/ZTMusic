@@ -189,7 +189,7 @@
       {/if}
 
           {:else if category === 'sources'}
-            <SourcePluginSettings mobile />
+            <SourcePluginSettings mobile={$responsive.isMobile} />
           {:else if category === 'data'}
       <button class="m-settings-row m-settings-row--button" type="button" onclick={settings.handleClearHistory}>
         <div class="m-settings-copy">
