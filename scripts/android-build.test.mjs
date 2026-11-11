@@ -19,7 +19,7 @@ assert.ok(!/action-gh-release|gh release|pull_request_target|secrets\./.test(wor
 assert.match(workflow, /cancel-in-progress: false/, 'test signing-key initialization is serialized')
 
 const config = JSON.parse(workflow.match(/^  ANDROID_CONFIG: '(.+)'$/m)?.[1] ?? '{}')
-assert.equal(config.identifier, 'com.zheting.music.androidtest')
+assert.equal(config.identifier, 'com.zheting.music.devpreview')
 assert.notEqual(config.identifier, JSON.parse(stableText).identifier, 'test data must not overwrite a stable installation')
 assert.notEqual(config.identifier, JSON.parse(devText).identifier, 'Android tests use their own identity')
 assert.match(workflow, /android init[^\r\n]*--config "\$ANDROID_CONFIG"/, 'init must use the test package identity')

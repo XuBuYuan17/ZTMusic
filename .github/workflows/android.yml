@@ -24,7 +24,7 @@ env:
   ANDROID_API_LEVEL: '36'
   ANDROID_BUILD_TOOLS: '36.0.0'
   ANDROID_NDK_VERSION: '27.2.12479018'
-  ANDROID_CONFIG: '{"productName":"哲听测试版","identifier":"com.zheting.music.androidtest"}'
+  ANDROID_CONFIG: '{"productName":"哲听 DEV 预览","identifier":"com.zheting.music.devpreview"}'
   CARGO_NET_RETRY: 10
   CARGO_HTTP_TIMEOUT: 120
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
@@ -159,6 +159,6 @@ jobs:
           {
             echo 'Android arm64 测试 APK 已生成并通过签名校验。'
             echo '在本次运行的 Artifacts 下载 APK 压缩包，解压后安装到手机。'
-            echo '包名：com.zheting.music.androidtest；签名：Android debug key。'
+            echo '包名：com.zheting.music.devpreview；签名：Android debug key。'
             echo '测试包已编译 Media3 原生播放插件；后台播放、媒体控制和歌词仍需真机验收。'
           } >> "$GITHUB_STEP_SUMMARY"
