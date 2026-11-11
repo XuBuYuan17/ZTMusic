@@ -14,22 +14,24 @@ export function setLayoutMode(value: string): string {
   return mode
 }
 
-/** URL 带 ?mobile 时强制竖屏手持端布局（调试用），供各处统一判定 */
+/** URL 带 ?mobile 时强制手持端布局（调试用），供各处统一判定 */
 export function isForcedMobileParam(): boolean {
   const search = typeof window !== 'undefined' ? window.location?.search : ''
   return !!search && new URLSearchParams(search).has('mobile')
 }
 
 export function shouldUseMobileLayout(width: number, height: number, mode: string = getLayoutMode()): boolean {
-  // 横屏统一使用 PC 外壳；旋转回来后 store 会恢复竖屏对应的布局。
-  if (width > 0 && height > 0 && width > height) return false
-
-  // URL 调试参数在竖屏优先级最高，即使用户设置了 pc 也强制手持端布局
+  // URL 调试参数优先级最高，即使用户设置了 pc 也强制手持端布局
   if (isForcedMobileParam()) return true
 
   // 用户显式设置
   if (mode === 'mobile') return true
   if (mode === 'pc') return false
+
+  // 手机横屏仍保留移动外壳；桌面横向窗口沿用 PC 布局。
+  if (width > 0 && height > 0 && width > height) {
+    return typeof navigator !== 'undefined' && /Android|iPhone|iPod/i.test(navigator.userAgent) && height <= 720
+  }
 
   // auto 模式：优先判定触摸设备，再参考短边
   // 注意：PC 浏览器窗口较矮时，短边可能 <600，不应误判为移动端

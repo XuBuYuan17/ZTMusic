@@ -796,3 +796,20 @@ html.mobile-runtime.android-startup-pending .app-shell {
   transition: none;
 }
 html.mobile-runtime.android-startup-pending .wallpaper-layer { opacity: 0; }
+
+@media (orientation: landscape) and (max-height: 720px) {
+  html.mobile-runtime {
+    --mobile-landscape-rail: calc(72px + env(safe-area-inset-left));
+    --mobile-page-bar-h: 48px;
+    --mobile-tabs-space: 0px;
+  }
+  html.mobile-runtime .mobile-app { padding-left: var(--mobile-landscape-rail); }
+  html.mobile-runtime .mobile-tab-bar {
+    inset: 0 auto 0 0; width: var(--mobile-landscape-rail); height: auto;
+    grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(48px, 1fr));
+    padding: 0 0 var(--app-bottom-inset) env(safe-area-inset-left);
+    border-top: 0; border-right: 1px solid var(--border);
+  }
+  html.mobile-runtime .player-bar-wrap,
+  html.mobile-runtime .player-bar-wrap.sidebar-collapsed { left: var(--mobile-landscape-rail); }
+}

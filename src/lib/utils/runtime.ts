@@ -29,7 +29,7 @@ export function isTauriDesktop(): boolean {
 
 /**
  * Android 原生容器。**平台能力判定**，与窗口宽高、当前布局无关：
- * 横屏走 PC 外壳时，返回键、原生媒体控制等能力仍然存在。
+ * 返回键、原生媒体控制等能力不受屏幕方向影响。
  * 只复用上面的 isTauriRuntime / runtimePlatform，不引入新的识别规则。
  */
 export function isAndroidRuntime(): boolean {

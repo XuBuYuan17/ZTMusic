@@ -27,16 +27,21 @@ globalThis.window = {
 } as unknown as Window & typeof globalThis
 
 assertEqual(shouldUseMobileLayout(390, 844, 'auto'), true, 'auto uses mobile layout on phones')
-assertEqual(shouldUseMobileLayout(844, 390, 'auto'), false, 'landscape phones use pc layout')
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'Android', maxTouchPoints: 5 } })
+assertEqual(shouldUseMobileLayout(844, 390, 'auto'), true, 'landscape phones keep mobile layout')
+assertEqual(shouldUseMobileLayout(844, 390, 'pc'), false, 'pc override wins in landscape')
+assertEqual(shouldUseMobileLayout(1440, 900, 'auto'), false, 'large landscape devices keep pc layout')
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'desktop', maxTouchPoints: 0 } })
+assertEqual(shouldUseMobileLayout(844, 390, 'auto'), false, 'desktop landscape keeps pc layout')
 assertEqual(shouldUseMobileLayout(768, 1024, 'auto'), false, 'auto uses pc layout on tablets')
 assertEqual(shouldUseMobileLayout(390, 844, 'pc'), false, 'pc override wins on phones')
 assertEqual(shouldUseMobileLayout(768, 1024, 'mobile'), true, 'mobile override wins in portrait')
-assertEqual(shouldUseMobileLayout(1024, 768, 'mobile'), false, 'landscape wins over mobile override')
+assertEqual(shouldUseMobileLayout(1024, 768, 'mobile'), true, 'mobile override works in landscape')
 
-// ?mobile 在竖屏强制手持端布局，横屏仍切到 PC 外壳
+// ?mobile 在两种方向都强制手持端布局
 locationState.search = '?mobile'
 assertEqual(shouldUseMobileLayout(900, 1440, 'pc'), true, '?mobile forces portrait mobile layout even with pc override')
-assertEqual(shouldUseMobileLayout(1440, 900, 'mobile'), false, 'landscape wins over ?mobile')
+assertEqual(shouldUseMobileLayout(1440, 900, 'pc'), true, '?mobile forces landscape mobile layout')
 locationState.search = ''
 
 console.log(`\nlayout-mode: ${passed} passed, ${failed} failed`)

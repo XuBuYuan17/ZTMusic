@@ -127,6 +127,31 @@ html.mobile-runtime .ly-container .am-corner-artist { font-size: 15px; color: rg
 html.mobile-runtime .ly-container :is(.am-mobile-like, .am-mobile-footer button):focus-visible { outline: 2px solid white; outline-offset: 2px; }
 html.mobile-runtime .ly-container :is(.am-mobile-like, .am-mobile-footer button):disabled { opacity: .35; }
 
+@media (orientation: landscape) and (max-height: 720px) {
+  html.mobile-runtime .ly-container .apple-music-player {
+    grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto 48px;
+    column-gap: 24px; row-gap: 4px;
+    padding: calc(36px + var(--player-titlebar-offset, 0px) + env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  }
+  html.mobile-runtime .ly-container .am-flying-cover,
+  html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cover {
+    grid-column: 1; grid-row: 1 / 4; align-self: center; justify-self: center;
+    width: min(100%, max(0px, calc(100dvh - 90px - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 300px); margin: 0;
+  }
+  html.mobile-runtime .ly-container .am-track-info { grid-column: 2; grid-row: 1; align-self: end; }
+  html.mobile-runtime .ly-container .am-bottom-controls { grid-column: 2; grid-row: 2; }
+  html.mobile-runtime .ly-container .am-play-row { padding-top: 0; }
+  html.mobile-runtime .ly-container .am-mobile-footer { grid-column: 2; grid-row: 3; }
+  html.mobile-runtime .ly-container .am-mobile-like,
+  html.mobile-runtime .ly-container .am-more-shell { grid-column: 2; grid-row: 1; align-self: end; }
+  html.mobile-runtime .ly-container .lyrics-mode { grid-template-rows: minmax(0, 1fr) auto 48px; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-flying-cover { grid-column: 1; grid-row: 1; width: min(100%, max(0px, calc(100dvh - 170px - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 220px); height: auto; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-corner-info { grid-column: 1; grid-row: 2; margin: 0; padding: 0; }
+  html.mobile-runtime .ly-container .lyrics-mode .am-lyrics-area { grid-column: 2; grid-row: 1 / 4; }
+  html.mobile-runtime .ly-container .lyrics-mode :is(.am-mobile-like, .am-more-shell) { grid-column: 1; grid-row: 3; align-self: center; }
+}
+
 html.mobile-runtime.mobile-player-expanded .mobile-tab-bar { transform: translateY(100%); pointer-events: none; }
 html.mobile-runtime.mobile-player-expanded .player-bar-wrap { visibility: hidden; }
 
