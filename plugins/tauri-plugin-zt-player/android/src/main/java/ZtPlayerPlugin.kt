@@ -150,10 +150,12 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
             return
         }
         if (action == "startupReady" || action == "appTheme") {
-            val theme = args.optJSONObject("data")?.optString("theme").orEmpty()
+            val data = args.optJSONObject("data")
+            val theme = data?.optString("theme").orEmpty()
+            val lightStatusIcons = if (data?.has("lightStatusIcons") == true) data.optBoolean("lightStatusIcons") else null
             activity.runOnUiThread {
                 val host = activity as? ZtStartupHost
-                if (theme == "light" || theme == "dark") host?.onAppThemeChanged(theme)
+                if (theme == "light" || theme == "dark") host?.onAppThemeChanged(theme, lightStatusIcons)
                 if (action == "startupReady") host?.onStartupFrameReady(args.optJSONObject("data")?.optBoolean("reducedMotion", false) == true)
                 invoke.resolve()
             }

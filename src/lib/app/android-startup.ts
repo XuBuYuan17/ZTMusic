@@ -32,9 +32,13 @@ export function prepareAndroidStartup(): void {
   applyStartupTheme(theme)
 }
 
-export function syncAndroidTheme(theme: string): void {
+export function useLightStatusIcons(theme: string, mobile: boolean, playerOpen: boolean, view: string): boolean {
+  return theme === 'dark' || (mobile && (playerOpen || view === 'playlist' || view === 'recommendation'))
+}
+
+export function syncAndroidTheme(theme: string, lightStatusIcons = theme === 'dark'): void {
   if (!android()) return
-  void invoke('plugin:zt-player|execute', { payload: { action: 'appTheme', data: { theme } } }).catch(() => {})
+  void invoke('plugin:zt-player|execute', { payload: { action: 'appTheme', data: { theme, lightStatusIcons } } }).catch(() => {})
 }
 
 /** Called once the mounted mobile shell can draw; this immediately releases Android's system launch screen. */

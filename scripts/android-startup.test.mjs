@@ -36,6 +36,11 @@ for (const native of [false, true]) {
     }
     runInNewContext(script, context)
     context.prepareAndroidStartup()
+    assert.equal(context.useLightStatusIcons('dark', true, false, 'settings'), true, 'dark pages use light status icons')
+    assert.equal(context.useLightStatusIcons('light', true, false, 'settings'), false, 'light pages use dark status icons')
+    assert.equal(context.useLightStatusIcons('light', true, true, 'explore'), true, 'the fullscreen player uses light status icons')
+    assert.equal(context.useLightStatusIcons('light', true, false, 'playlist'), true, 'immersive covers use light status icons')
+    assert.equal(context.useLightStatusIcons('light', false, false, 'playlist'), false, 'desktop playlist layout does not force light icons')
     const expected = saved || 'dark'
     assert.equal(root.dataset.theme, expected)
     assert.equal(root.style.colorScheme, expected)
@@ -50,6 +55,8 @@ for (const native of [false, true]) {
       assert.equal(calls[0][1].payload.action, 'startupReady')
       context.syncAndroidTheme('light')
       assert.equal(calls.at(-1)[1].payload.action, 'appTheme')
+      context.syncAndroidTheme('light', true)
+      assert.equal(calls.at(-1)[1].payload.data.lightStatusIcons, true, 'immersive surfaces request light status icons')
     }
   }
 }
@@ -86,6 +93,7 @@ assert.match(app, /if \(isMobileRuntime\(\)\) void loadMobileApp\(\)/, 'mobile s
 
 const activity = await read('src-tauri/android/MainActivity.kt')
 assert.ok(activity.indexOf('installSplashScreen()') < activity.indexOf('super.onCreate(savedInstanceState)'))
+assert.match(activity, /isAppearanceLightStatusBars\s*=\s*!\(lightStatusIcons\s*\?:\s*\(currentTheme\s*==\s*"dark"\)\)/, 'status bar icons follow the requested appearance with a theme fallback')
 assert.match(activity, /setKeepOnScreenCondition \{ !uiFrameSubmitted \}/)
 assert.match(activity, /setOnExitAnimationListener \{ provider -> provider\.remove\(\) \}/)
 assert.ok(!/postVisualStateCallback|ViewTreeObserver|FastOutSlowInInterpolator|ValueAnimator/.test(activity), 'custom first-frame/exit animation machinery is removed')

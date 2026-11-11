@@ -813,3 +813,24 @@ html.mobile-runtime.android-startup-pending .wallpaper-layer { opacity: 0; }
   html.mobile-runtime .player-bar-wrap,
   html.mobile-runtime .player-bar-wrap.sidebar-collapsed { left: var(--mobile-landscape-rail); }
 }
+
+html.android-runtime.mobile-runtime .app-shell {
+  height: var(--mobile-viewport-height, 100dvh);
+  margin-top: 0;
+}
+html.android-runtime.mobile-runtime .mobile-app { padding-top: env(safe-area-inset-top, 0px); box-sizing: border-box; }
+html.android-runtime.mobile-runtime .primary-content { padding-top: 16px; }
+html.android-runtime.mobile-runtime .mobile-app:has(.playlist-sheet-page:not([inert])) { padding-top: 0; }
+html.android-runtime.mobile-runtime .primary-content:has(.playlist-sheet-page:not([inert])) { padding-top: 0; }
+html.android-runtime.mobile-runtime .playlist-sheet-page:not([inert]) { margin-top: 0; padding-top: 0; border-radius: 0; }
+html.android-runtime.mobile-runtime .playlist-sheet-page:not([inert]) .playlist-detail-hero {
+  margin-left: calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left)));
+  width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right)));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+html.android-runtime.mobile-runtime .playlist-sheet-page:not([inert]) .cover-page-controls { top: calc(env(safe-area-inset-top) + 8px); }
+html.android-runtime.mobile-runtime .mobile-app:has(.playlist-sheet-page:not([inert]))::before,
+html.android-runtime.mobile-runtime .ly-fullscreen .apple-music-player::after {
+  content: ''; position: fixed; inset: 0 0 auto; height: calc(env(safe-area-inset-top) + 24px);
+  z-index: 19; pointer-events: none; background: linear-gradient(to bottom, rgb(0 0 0 / .65), transparent);
+}

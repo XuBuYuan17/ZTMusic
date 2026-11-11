@@ -54,6 +54,12 @@ assert.ok(ctxPrevented, '空白右键菜单应被屏蔽')
 uninstall()
 assert.ok(!classes.has('native-shell'), '卸载后应移除 native-shell 类')
 
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { userAgent: 'Android', platform: 'Linux' } })
+const uninstallAndroid = installNativeShell()
+assert.ok(classes.has('android-runtime'), 'Android 原生壳启用状态栏适配')
+uninstallAndroid()
+assert.ok(!classes.has('android-runtime'), '卸载后应移除 Android 运行时类')
+
 // 非原生环境应空转
 const win = window as TauriWindow
 delete win.__TAURI_INTERNALS__
