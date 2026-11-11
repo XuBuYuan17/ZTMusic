@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, mobilePlayerTiming } from './mobile-player-motion.ts'
+import { miniLyricMotion, createMobilePlayerMotion, sheetCoverTransform, lyricRevealDistance, mobilePlayerTiming } from './mobile-player-motion.ts'
 import { rememberCardOrigin, hasCoverOrigin, flyCover, takeCoverOrigin } from './desktop-motion.ts'
 
 let reduce = false
@@ -49,6 +49,10 @@ const mini = { left: 20, top: 708, width: 44, height: 44 }
 assert.equal(sheetCoverTransform(large, mini, 700), 'translate(-4px, -142px) scale(0.14666666666666667, 0.14666666666666667)', 'opening compensates for the moving sheet so artwork starts at the mini player')
 assert.equal(sheetCoverTransform({ ...large, top: 270 }, mini, 580), sheetCoverTransform(large, mini, 700), 'a dragged sheet still closes to the same artwork position')
 assert.equal(sheetCoverTransform({ ...large, width: 0 }, mini), 'none', 'unmeasurable artwork never generates an infinite transform')
+assert.equal(lyricRevealDistance(large, 170), 160, 'the reveal rises from beneath the old artwork with a safe cap')
+assert.equal(lyricRevealDistance(small, 120), 28, 'the reveal has a minimum travel distance')
+assert.equal(lyricRevealDistance(large, undefined), 96, 'a missing lyric rect keeps a stable fallback')
+assert.match(mobilePlayerTiming.easing, /^cubic-bezier\(/, 'artwork and title share a compositor easing curve')
 const cover = element(large), title = element({ left: 24, top: 470, width: 300, height: 56 }), lyrics = element()
 let mode = false
 const root = { isConnected: true, classList: { contains: () => mode }, querySelector: selector => selector.includes('cover') ? cover : selector.includes('info') ? title : lyrics }
@@ -60,11 +64,14 @@ operations.length = 0
 await controller.change(root, change)
 assert.equal(mode, true)
 assert.match(calls[0].frames[0].transform, /translate\(0px,86px\) scale\(6.25,6.25\)/, 'cover starts at its previous size and position')
+assert.ok(calls[0].frames.every(frame => !('borderRadius' in frame)), 'cover motion avoids animating rounded clipping on Android WebView')
 assert.equal(calls.length, 3, 'cover, title and lyrics animate together')
 assert.equal(calls[0].options.duration, mobilePlayerTiming.enterDuration, 'cover uses the full lyrics transition duration')
 assert.equal(calls[1].options.duration, mobilePlayerTiming.enterDuration, 'title follows the cover timing')
 assert.equal(calls[2].options.duration, mobilePlayerTiming.contentDuration, 'lyrics content takes over faster than the cover morph')
 assert.equal(calls[2].options.delay, mobilePlayerTiming.contentDelay, 'lyrics takeover follows the initial cover response')
+assert.equal(calls[2].frames[0].transform, 'translateY(96px)', 'lyrics rise from below the artwork rather than just fading in')
+assert.equal('clipPath' in calls[2].frames[0], false, 'animated lyrics remain compositor-only without clipped scrolling layers')
 assert.equal(calls[0].options.easing, mobilePlayerTiming.easing)
 assert.equal(calls[2].options.easing, mobilePlayerTiming.contentEasing)
 assert.equal(operations.slice(operations.indexOf('animate') + 1).includes('measure'), false, 'all layout measurements precede animation writes')

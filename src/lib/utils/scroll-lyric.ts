@@ -17,6 +17,13 @@ export interface ScrollContainer {
 // 每容器一个 rAF 句柄：新调用先取消旧补间，避免多次 scrollTo 叠加追赶
 const rafByContainer = new WeakMap<ScrollContainer, number>()
 
+/** Stop a scheduled lyric scroll when the lyric surface is hidden. */
+export function cancelLyricScroll(container: ScrollContainer): void {
+  const pending = rafByContainer.get(container)
+  if (pending !== undefined) cancelAnimationFrame(pending)
+  rafByContainer.delete(container)
+}
+
 function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3
 }
@@ -33,15 +40,10 @@ export function scrollLyricIntoView(
   if (!target) return
   const top = Math.max(0, target.offsetTop - container.clientHeight * ratio + target.clientHeight / 2)
 
-  const cancelPending = (): void => {
-    const pending = rafByContainer.get(container)
-    if (pending !== undefined) cancelAnimationFrame(pending)
-    rafByContainer.delete(container)
-  }
 
   // rAF 补间：免浏览器内核差异（WebView / 旧 Chromium smooth 行为不一致）。
   if (behavior !== 'smooth') {
-    cancelPending()
+    cancelLyricScroll(container)
     container.scrollTo({ top, behavior: 'instant' })
     return
   }
@@ -51,7 +53,7 @@ export function scrollLyricIntoView(
   const delta = top - start
   const duration = 320
   const t0 = performance.now()
-  cancelPending()
+  cancelLyricScroll(container)
 
   // 位移极小：跳过补间，直接到位（避免 rAF 循环空转一帧）
   if (Math.abs(delta) < 1) {
