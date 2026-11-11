@@ -17,6 +17,7 @@ assert.deepEqual(
   [4, 5, 8, 11, 14, 19, 999, 1000].map(radiusToken),
   ['4px', 'var(--radius-xs)', 'var(--radius-sm)', 'var(--radius-md)', 'var(--radius-lg)', 'var(--radius-xl)', '999px', '999px']
 )
+assert.ok(isAllowedRadius('var(--radius-artwork)'), 'player artwork can use its proportional radius token')
 
 const files = ['index.html', ...await collect('src/')]
 const offenders = []

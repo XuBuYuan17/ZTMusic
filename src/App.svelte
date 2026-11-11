@@ -2,7 +2,7 @@
   import { flushSync, onDestroy, tick, untrack } from 'svelte'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { configureBackNavigation, registerBackLayers, requestBack } from './lib/app/back-navigation.ts'
-  import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame } from './lib/app/android-startup.ts'
+  import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame, useLightStatusIcons } from './lib/app/android-startup.ts'
   import { getStartupTrack } from './lib/app/startup-track.ts'
   import { loadCachedExploreData } from './lib/services/explore.ts'
   import { ncm } from './lib/api/client.ts'
@@ -146,7 +146,6 @@
   function syncSystemTheme(value: string): void {
     const nextTheme = normalizeTheme(value)
     const dark = nextTheme === 'dark'
-    syncAndroidTheme(nextTheme)
     if (isMobileRuntime()) document.body.style.backgroundColor = dark ? '#111113' : '#ffffff'
     document.documentElement.setAttribute('data-theme', nextTheme)
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
@@ -276,6 +275,10 @@
 
   $effect(() => { document.documentElement.style.backgroundColor = isMobile ? (normalizeTheme(theme) === 'dark' ? '#111113' : '#ffffff') : router.heroColor })
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
+  $effect(() => {
+    const nextTheme = normalizeTheme(theme)
+    syncAndroidTheme(nextTheme, useLightStatusIcons(nextTheme, isMobile, showSheet, router.activeView))
+  })
   $effect(() => {
     document.documentElement.classList.toggle('custom-wallpaper', wallpaper.active)
     return () => document.documentElement.classList.remove('custom-wallpaper')

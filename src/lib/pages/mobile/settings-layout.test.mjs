@@ -11,6 +11,7 @@ assert.doesNotMatch(settings, /m-settings-intro|<details/, 'secondary pages have
 assert.match(settings, /settingsCategoryGroups\(engine.native === true\)/, 'category grouping respects native capabilities')
 assert.match(settings, /onNavigate\?\.\(settingsView\(item.id\)\)/, 'entries use the common settings route mapping')
 assert.match(settings, /m-settings-back/, 'every child starts with an explicit category-index return row')
+assert.match(mobileApp, /!isPrimaryView && !coverHeaderless && !settingsCategory\(activeView\)/, 'settings categories do not duplicate the return row with a top bar')
 assert.match(settings, /min-height: 52px/, 'rows allow accessible touch targets')
 assert.match(settings, /font-size: 1\.0625rem/, 'main text respects font enlargement')
 assert.match(settings, /prefers-reduced-motion/, 'switches respect reduced motion')

@@ -10,12 +10,14 @@ import android.util.Log
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
 import com.zheting.player.ZtStartupHost
 
 class MainActivity : TauriActivity(), ZtStartupHost {
     private var uiFrameSubmitted = false
     private var webView: WebView? = null
     private var currentTheme = "light"
+    private var lightStatusIcons: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         currentTheme = if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) "dark" else "light"
@@ -51,17 +53,24 @@ class MainActivity : TauriActivity(), ZtStartupHost {
         window.setBackgroundDrawable(ColorDrawable(baseColor()))
         window.decorView.setBackgroundColor(baseColor())
         webView?.setBackgroundColor(baseColor())
+        applyStatusBarAppearance()
     }
 
-    override fun onAppThemeChanged(theme: String) {
+    private fun applyStatusBarAppearance() {
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = !(lightStatusIcons ?: (currentTheme == "dark"))
+    }
+
+    override fun onAppThemeChanged(theme: String, lightStatusIcons: Boolean?) {
         if (theme != "dark" && theme != "light") return
+        val themeChanged = currentTheme != theme
         currentTheme = theme
-        applyBaseBackground()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (lightStatusIcons != null) this.lightStatusIcons = lightStatusIcons
+        if (themeChanged && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             getSystemService(UiModeManager::class.java).setApplicationNightMode(
                 if (theme == "dark") UiModeManager.MODE_NIGHT_YES else UiModeManager.MODE_NIGHT_NO
             )
         }
+        if (themeChanged) applyBaseBackground() else applyStatusBarAppearance()
     }
 
     override fun onStartupFrameReady(reducedMotion: Boolean) {

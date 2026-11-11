@@ -8,6 +8,8 @@
  * 浏览器开发环境（无 __TAURI_INTERNALS__）下 install() 直接空转，不影响调试。
  */
 
+import { isAndroidRuntime } from '../utils/runtime.ts'
+
 const BLOCKED_CTRL_KEYS = new Set(['r', 'f', 'p', 'g', '+', '-', '='])
 
 type WindowWithTauriInternals = Window & { __TAURI_INTERNALS__?: unknown }
@@ -45,11 +47,13 @@ export function installNativeShell(): () => void {
   if (!isNativeShell()) return () => {}
 
   document.documentElement.classList.add('native-shell')
+  if (isAndroidRuntime()) document.documentElement.classList.add('android-runtime')
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('contextmenu', onContextMenu)
 
   return () => {
     document.documentElement.classList.remove('native-shell')
+    document.documentElement.classList.remove('android-runtime')
     window.removeEventListener('keydown', onKeyDown)
     window.removeEventListener('contextmenu', onContextMenu)
   }

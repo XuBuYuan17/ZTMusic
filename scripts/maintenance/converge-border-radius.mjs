@@ -39,7 +39,7 @@ export function radiusToken(px) {
 
 export function isAllowedRadius(value) {
   const normalized = value.replace(/\s*!important\s*$/, '').trim()
-  const allowed = /^(?:0|inherit|50%|999px|[1-4]px|var\(--radius-(?:xs|sm|md|lg|xl)\))$/
+  const allowed = /^(?:0|inherit|50%|999px|[1-4]px|var\(--radius-(?:xs|sm|md|lg|xl|artwork)\))$/
   return normalized.split(/\s+/).every((part) => allowed.test(part))
 }
 

@@ -4,5 +4,5 @@ package com.zheting.player
 interface ZtStartupHost {
     fun startupTheme(): String
     fun onStartupFrameReady(reducedMotion: Boolean = false)
-    fun onAppThemeChanged(theme: String)
+    fun onAppThemeChanged(theme: String, lightStatusIcons: Boolean? = null)
 }
