@@ -107,9 +107,10 @@
 <div class="daily-page fade-in">
   <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading} totalCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} visibleCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} onPlayAll={playAll} />
 
-    {#if dailyHistoryDates.length > 0}<div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>{/if}
-    {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
-      <div class="daily-date-scroll" aria-label="加载历史日期">
+  {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
+    <section class="daily-date-surface" aria-label="加载历史日期">
+      <div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>
+      <div class="daily-date-scroll">
         {#each Array(7) as _}
           <div class="daily-date-chip skeleton-row">
             <span class="skeleton-line short"></span>
@@ -117,50 +118,46 @@
           </div>
         {/each}
       </div>
-    {:else if dailyHistoryDates.length > 0}
-      <div class="daily-date-scroll" aria-label="历史日期">
+    </section>
+  {:else if dailyHistoryDates.length > 0}
+    <section class="daily-date-surface" aria-label="历史日期">
+      <div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>
+      <div class="daily-date-scroll">
         {#each dailyHistoryDates as item (item.date || item)}
           {@const date = item.date || item}
-            <button class="daily-date-chip" class:active={selectedDailyDate === date} aria-current={selectedDailyDate === date ? 'date' : undefined} onclick={() => loadDetail(date)}>
+          <button class="daily-date-chip" class:active={selectedDailyDate === date} aria-current={selectedDailyDate === date ? 'date' : undefined} onclick={() => loadDetail(date)}>
             <span>{formatDateLabel(date)}</span>
             {#if item.weekday}<small>{item.weekday}</small>{/if}
           </button>
         {/each}
       </div>
-    {/if}
+    </section>
+  {/if}
 
-    {#if dailyHistoryLoading}
-      <section class="daily-song-panel" aria-label="加载歌曲">
-        <div class="daily-section-header">
-          <div>
-            <h2>{selectedDailyDate || '每日推荐'} 的歌曲</h2>
-          </div>
-        </div>
-        <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
-      </section>
-    {:else if dailyHistorySongs.length > 0}
-      <section class="daily-song-panel">
-        <div class="daily-section-header">
-          <div>
-            <h2>{selectedDailyDate || '每日推荐'} 的歌曲</h2>
-          </div>
-        </div>
-        <SongList
-          {rows}
-          currentId={player.id}
-          rowActions={songActions?.bindRow ?? null}
-          onPlay={(row) => playTrack(row.source as NormalizedSong)}
-          {onOpenArtist}
-          {onOpenAlbum}
-        />
-      </section>
-    {:else}
-      <div class="daily-empty">
-        <Icon name="calendar" size={48} />
-        <p>暂无历史日推</p>
-        <p class="daily-empty-hint">需要登录后获取</p>
-      </div>
-    {/if}
+  {#if dailyHistoryLoading}
+    <div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>正在同步</span></div>
+    <div class="daily-track-surface">
+      <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
+    </div>
+  {:else if dailyHistorySongs.length > 0}
+    <div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>{dailyHistorySongs.length} 首</span></div>
+    <div class="daily-track-surface">
+      <SongList
+        {rows}
+        currentId={player.id}
+        rowActions={songActions?.bindRow ?? null}
+        onPlay={(row) => playTrack(row.source as NormalizedSong)}
+        {onOpenArtist}
+        {onOpenAlbum}
+      />
+    </div>
+  {:else}
+    <div class="daily-empty">
+      <Icon name="calendar" size={40} />
+      <p>暂无历史日推</p>
+      <p class="daily-empty-hint">需要登录后获取</p>
+    </div>
+  {/if}
   {#if error}
     <ErrorBlock message={error} onRetry={load} />
   {/if}
@@ -169,29 +166,51 @@
 </div>
 
 <style>
-  .daily-page { display: grid; gap: 20px; max-width: 1180px; margin: 0 auto; color: var(--text); }
-  .daily-date-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 4px 0 -12px; }
-  .daily-date-heading strong { font-size: 16px; }
+  /* 版式对齐歌单页：页面容器 → 工具条 → 曲目面板，都是同一套圆角/描边/入场节奏。 */
+  .daily-page { display: grid; gap: 18px; min-width: 0; max-width: 1180px; margin: 0 auto; color: var(--text); transform-origin: 50% 0; animation: dailyPageIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  :global(html.mobile-runtime) .daily-page { gap: 12px; }
+
+  .daily-date-surface { min-width: 0; display: grid; gap: 12px; padding: 14px 16px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); animation: dailySurfaceIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.06s both; }
+  .daily-date-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .daily-date-heading strong { font-size: 15px; font-weight: 500; }
   .daily-date-heading span { color: var(--text-tertiary); font-size: 11px; }
-  .daily-date-scroll { min-width: 0; display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 8px; }
-  .daily-date-chip { flex: 0 0 auto; min-width: 84px; min-height: 52px; display: grid; gap: 2px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text); text-align: left; cursor: pointer; transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out); }
+  .daily-date-scroll { min-width: 0; display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .daily-date-scroll::-webkit-scrollbar { display: none; }
+  .daily-date-chip { flex: 0 0 auto; min-width: 78px; min-height: 52px; display: grid; gap: 1px; align-content: center; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--radius-md); background: var(--bg-elevated); color: var(--text); text-align: left; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
   .daily-date-chip:hover { background: var(--bg-hover); }
-  .daily-date-chip span { font-size: 14px; font-weight: 700; }
+  .daily-date-chip span { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .daily-date-chip small { color: var(--text-tertiary); font-size: 11px; }
   .daily-date-chip.active { border-color: var(--accent); background: var(--accent-bg); }
-  .daily-song-panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
-  .daily-section-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-  .daily-section-header h2 { font-size: 18px; font-weight: 700; margin: 0; }
-  .daily-empty { display: grid; place-items: center; gap: 12px; padding: 80px 20px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-elevated); color: var(--text-secondary); text-align: center; }
-  .daily-empty p { margin: 0; }
-  .daily-empty-hint { color: var(--text-tertiary); font-size: 13px; }
+
+  .daily-toolbar { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); animation: dailySurfaceIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+  .daily-toolbar strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 500; }
+  .daily-toolbar span { flex: none; color: var(--text-tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .daily-track-surface { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); animation: dailySurfaceIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both; }
+
+  .daily-empty { display: grid; place-items: center; gap: 10px; padding: 64px 20px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text-secondary); text-align: center; }
+  .daily-empty :global(svg) { color: var(--text-tertiary); }
+  .daily-empty p { margin: 0; font-size: 14px; }
+  .daily-empty-hint { color: var(--text-tertiary); font-size: 12px; }
+
+  @keyframes dailyPageIn { from { opacity: 0; transform: translateY(12px) scale(0.992); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes dailySurfaceIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
   :global(html.mobile-runtime) .daily-page :global(.playlist-detail-hero) { gap: 14px; padding: 4px 0 10px; }
   :global(html.mobile-runtime) .daily-page :global(.playlist-cover), :global(html.mobile-runtime) .daily-page :global(.playlist-cover-open) { width: min(58vw, 292px); }
   :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy) { gap: 5px; }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy h1) { font-size: 22px; font-weight: 700; line-height: 1.22; }
+  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy h1) { font-size: 22px; font-weight: 500; line-height: 1.22; }
   :global(html.mobile-runtime) .daily-page :global(.playlist-mobile-creator) { font-size: 14px; line-height: 20px; color: var(--text-secondary); }
   :global(html.mobile-runtime) .daily-page :global(.playlist-hero-actions) { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; margin-top: 8px; }
   :global(html.mobile-runtime) .daily-page :global(.playlist-play-btn) { min-height: 48px; font-size: 16px; }
-  @media (prefers-reduced-motion: reduce) { .daily-date-chip { transition: none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .daily-page, .daily-date-surface, .daily-toolbar, .daily-track-surface { animation: none; opacity: 1; transform: none; }
+    .daily-date-chip { transition: none; }
+  }
   @media (max-width: 560px) { .daily-date-chip { min-width: 72px; } }
+  :global(html:not(.mobile-runtime)) .daily-page,
+  :global(html:not(.mobile-runtime)) .daily-date-surface,
+  :global(html:not(.mobile-runtime)) .daily-toolbar,
+  :global(html:not(.mobile-runtime)) .daily-track-surface { animation: none; opacity: 1; transform: none; }
 </style>

@@ -79,7 +79,8 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     }
     coverSourceRadius = radius(miniCover, from?.width ?? 0)
     coverTargetRadius = radius(cover, to?.width ?? 0)
-    sourceRadius = integratedInNav ? radius(nav, Math.min(source.width, source.height)) : 0
+    // 从来源胶囊自身的圆角开始收，展开过程中逐渐收成直角的全屏。
+    sourceRadius = radius(integratedInNav ? nav : mini, Math.min(source.width, source.height))
   }
 
   function measureContent() {

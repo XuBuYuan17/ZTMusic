@@ -15,8 +15,8 @@ assert.doesNotMatch(app, /StartupSplash|startupActive|startupShellReady|startupP
 assert.doesNotMatch(mini, /startupPending|data-startup-cover/, 'mini player must not carry splash handoff state')
 assert.doesNotMatch(sheet, /startupPending|playerFocus/, 'fullscreen player must use its normal enter/focus lifecycle only')
 assert.match(sheet, /use:enter use:dialogFocus=\{close\}/, 'player sheet enter motion and focus lifecycle mount together')
-assert.ok(mobile.includes('use:playerSurfaceGesture={{ controller: playerController, opening: true'), 'floating artwork keeps the drag-to-open gesture')
-assert.ok(app.includes('playerController={mobileSurface}'), 'floating artwork and the full player share the same controller')
+assert.ok(app.includes('class:floating-dock=') && mini.includes('use:playerSurfaceGesture'), 'floating layout reuses the classic mini player and its drag-to-open gesture')
+assert.ok(app.includes('<MobileMiniPlayer controller={mobileSurface}'), 'the mini player in the floating row shares the same surface controller')
 
 // Protect the visual contract with the real renderer, without locking its animation API.
 const { createPlayerSurfaceController } = await import('../src/lib/player-motion/controller.ts')

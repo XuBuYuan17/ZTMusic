@@ -493,3 +493,145 @@ html.mobile-runtime body .am-secondary-context :is(.ly-context-detail-playlist i
     max-height: min(64dvh, 500px);
   }
 }
+
+/* ===== 统一菜单视觉：以播放器「更多操作」面板为基准 =====
+   同一套语言：每组一张圆角卡片 → 行间发丝线 → 图标裸色（主题色、无底板）。
+   覆盖歌单操作、歌曲右键菜单、排序、歌单选择等面板。 */
+
+/* 1. 图标：去掉彩色底板，只留 22px 主题色图标 */
+html.mobile-runtime body :is(
+  .am-secondary-row,
+  .library-option,
+  .mobile-choice-option,
+  .sort-sheet-option,
+  .song-menu__item
+) > svg {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  flex: 0 0 22px;
+  border-radius: 0;
+  color: var(--md-primary);
+  background: transparent;
+}
+
+html.mobile-runtime body .song-menu__icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 0;
+  color: var(--md-primary);
+  background: transparent;
+}
+
+html.mobile-runtime body .song-menu__icon > svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* 2. 分组卡片 + 行间发丝线 */
+html.mobile-runtime body .song-menu__body {
+  display: grid;
+  gap: 10px;
+  padding: 4px 12px 12px;
+}
+
+html.mobile-runtime body .song-menu__group {
+  display: grid;
+  padding: 4px 8px;
+  border-bottom: 0;
+  border-radius: var(--radius-md);
+  background: var(--md-container-high);
+}
+
+html.mobile-runtime body .song-menu__group .song-menu__item:not(:last-child) {
+  box-shadow: inset 0 -1px var(--border);
+}
+
+html.mobile-runtime body .playlist-action-sheet .mobile-choice-body {
+  display: grid;
+  gap: 0;
+  margin: 0 12px 10px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  background: var(--md-container-high);
+}
+
+html.mobile-runtime body .playlist-action-sheet :is(.library-option, .mobile-choice-option) {
+  min-height: 52px;
+  padding: 14px 10px;
+  border-radius: 0;
+}
+
+html.mobile-runtime body .playlist-action-sheet :is(.library-option, .mobile-choice-option):not(:last-child) {
+  box-shadow: inset 0 -1px var(--border);
+}
+
+html.mobile-runtime body .sort-sheet-options {
+  display: grid;
+  gap: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  background: var(--md-container-high);
+}
+
+html.mobile-runtime body .sort-sheet-option {
+  border-radius: 0;
+  min-height: 50px;
+}
+
+html.mobile-runtime body .sort-sheet-option:not(:last-child) {
+  box-shadow: inset 0 -1px var(--border);
+}
+
+/* 3. 选中的行沿用主题色容器，不额外加边框 */
+html.mobile-runtime body .sort-sheet-option.active,
+html.mobile-runtime body .mobile-choice-option.active {
+  border-radius: var(--radius-xs);
+  background: var(--md-primary-container);
+}
+
+/* 4. 面板背景与头部卡片：和「更多操作」面板一致 */
+html.mobile-runtime body :is(
+  .playlist-action-sheet.mobile-choice-sheet,
+  .song-menu
+) {
+  background: var(--md-container-highest);
+}
+
+html.mobile-runtime body .song-menu__header,
+html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
+  margin: 10px 12px 6px;
+  padding: 8px 10px;
+  border-bottom: 0;
+  border-radius: var(--radius-md);
+  background: var(--md-container-high);
+}
+
+html.mobile-runtime body .sort-sheet-direction {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 10px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  background: var(--md-container-high);
+}
+
+html.mobile-runtime body .sort-sheet-direction > button {
+  min-height: 50px;
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+html.mobile-runtime body .sort-sheet-direction > button.active {
+  color: var(--md-primary);
+}
+
+html.mobile-runtime body .sort-sheet-direction > button + button {
+  box-shadow: inset 1px 0 var(--border);
+}

@@ -64,9 +64,8 @@
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
   let showSheet = $state(false)
-  let sheetInitialLyrics = $state(false)
   const mobileSurface = createPlayerSurfaceController()
-  const unsubscribeSurface = mobileSurface.subscribe(({ phase }) => { showSheet = phase !== 'closed'; if (phase === 'closed') sheetInitialLyrics = false })
+  const unsubscribeSurface = mobileSurface.subscribe(({ phase }) => { showSheet = phase !== 'closed' })
   onDestroy(() => { unsubscribeSurface(); mobileSurface.destroy() })
   let showLogin = $state(false)
   let showFollowDialog = $state(false)
@@ -317,12 +316,10 @@
   })
 
   // ── UI 函数 ──
-  function openSheet(_originEl?: Element | null, initialLyrics = false): void {
+  function openSheet(_originEl?: Element | null): void {
     if (!isMobile) { playerMorph.open(); return }
-    if (mobileSurface.phase === 'closed') sheetInitialLyrics = initialLyrics
     mobileSurface.open()
   }
-  function prepareDockLyrics(): void { if (mobileSurface.phase === 'closed') sheetInitialLyrics = true }
   function closeSheet(): void { mobileSurface.close() }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
@@ -408,9 +405,6 @@
           onOpenMenu={openMobileDrawer}
           targetUser={messageTargetUser}
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
-          onOpenPlayer={(origin) => openSheet(origin, true)}
-          onPrepareLyrics={prepareDockLyrics}
-          playerController={mobileSurface}
         />
       {:catch}
         <div class="loading-state" role="alert" use:announceAndroidFrame>移动端界面加载失败，请重启应用</div>
@@ -430,8 +424,8 @@
   </div>
 </main>
 
-{#if !isMobile || (mobileDock.config.layout === 'classic' && (player.id || getStartupTrack(player)))}
-  <div class="player-bar-wrap" class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
+{#if !isMobile || player.id || getStartupTrack(player)}
+  <div class="player-bar-wrap" class:floating-dock={isMobile && mobileDock.config.layout === 'floating'} class:queue-open={showQueuePanel} class:sidebar-collapsed={sidebarCollapsed}>
     {#if isMobile}
       <MobileMiniPlayer controller={mobileSurface} onOpenSheet={openSheet} onToggleQueue={toggleQueue} {showQueuePanel} />
     {:else}
@@ -440,7 +434,7 @@
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} controller={mobileSurface} initialLyrics={sheetInitialLyrics} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} controller={mobileSurface} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}

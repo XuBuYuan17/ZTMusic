@@ -11,11 +11,9 @@
   let {
     limit = 8,
     onOpenAll,
-    showEyebrow = true,
   }: {
     limit?: number
     onOpenAll?: () => void
-    showEyebrow?: boolean
   } = $props()
 
   // 保留原始 track 作为播放队列：索引与列表顺序一致，不能换成归一后的副本
@@ -56,7 +54,7 @@
 
 <section class="profile-home__panel">
   <header>
-    <div>{#if showEyebrow}<span>CONTINUE</span>{/if}<h2>最近播放</h2></div>
+    <div><h2>最近播放</h2></div>
     <button type="button" onclick={() => onOpenAll?.()}>查看全部</button>
   </header>
   <CompactTrackList {rows} emptyText="播放一首歌后会显示在这里" onPlay={playAt} />
@@ -66,7 +64,7 @@
   /* 面板外观与主页 dashboard 的面板保持一致；窄屏由 app-mobile.css 统一覆盖 */
   .profile-home__panel { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--bg-surface); }
   .profile-home__panel > header { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-  .profile-home__panel header span { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
+  .profile-home__panel header h2 { font-size: 18px; }
   .profile-home__panel h2 { margin-top: 4px; font-size: 20px; }
   .profile-home__panel header button { padding: 4px 8px; margin-right: -8px; border-radius: var(--radius-sm); color: var(--accent); font-size: 12px; transition: background-color var(--motion-release) var(--ease-out); }
 

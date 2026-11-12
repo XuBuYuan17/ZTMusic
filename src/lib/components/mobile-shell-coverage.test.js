@@ -37,7 +37,7 @@ assert.ok(responsiveCss.includes('.queue-item:has(.queue-item-open:focus-visible
 assert.ok(mobileApp.includes('class="mobile-tab-bar"'), 'the bottom tab bar must be present')
 for (const view of ['explore', 'search', 'library', 'settings']) assert.ok(dockConfig.includes(`id: '${view}'`), `bottom tab bar is missing the ${view} entry`)
 assert.ok(mobileApp.includes('hiddenDockTabs(mobileDock.config)') && mobileApp.includes('mobile-dock-more'), 'hidden primary destinations remain reachable')
-assert.ok(!mobileApp.includes('use:scrollChrome'), 'bottom navigation must stay visible while scrolling')
+assert.ok(mobileApp.includes('class:chrome-hidden={chromeHidden}') && mobileApp.includes('use:swipeChrome'), 'floating player and navigation are separate rows that hide together')
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')
 assert.ok(!loadingCss.includes("content: 'ZT'"), 'shared loading styles must not recreate the removed ZT animation')

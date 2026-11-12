@@ -316,11 +316,43 @@ html.mobile-runtime[data-theme="dark"] .player-bar-wrap::before {
   background: linear-gradient(to top, rgb(255 255 255 / .08), transparent);
 }
 
-/* 底部导航常驻，兼容旧布局切换时残留的 class。 */
-html.mobile-runtime.mobile-chrome-hidden .mobile-tab-bar { opacity: 1; pointer-events: auto; }
+/* 悬浮底栏：播放条收成导航上方的一条胶囊，交互仍由 MobileMiniPlayer 提供。 */
+html.mobile-runtime .player-bar-wrap.floating-dock {
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(var(--app-bottom-inset) + 76px);
+  z-index: 89;
+  transition: transform 240ms var(--ease-out), opacity 180ms var(--ease-out), bottom 240ms var(--ease-out);
+}
 
-html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap,
-html.mobile-runtime.mobile-chrome-hidden .player-bar-wrap.sidebar-collapsed { transform: none; }
+html.mobile-runtime .player-bar-wrap.floating-dock::before { display: none; }
+
+html.mobile-runtime .player-bar-wrap.floating-dock > .player-bar.mobile-mini-player {
+  height: 56px;
+  min-height: 56px;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 4px 18px rgb(0 0 0 / .14);
+  padding-inline: 16px 8px;
+}
+
+html.mobile-runtime .player-bar-wrap.floating-dock .mini-player-open { height: 48px; }
+
+/* 悬浮布局滚动/下滑：导航滑出屏幕，播放条落到导航原来的位置；经典底栏常驻。 */
+html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .mobile-tab-bar {
+  transform: translateY(calc(100% + 40px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .player-bar-wrap.floating-dock,
+html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .player-bar-wrap.floating-dock.sidebar-collapsed {
+  bottom: calc(var(--app-bottom-inset) + 8px);
+}
 
 html.mobile-runtime .player-bar-wrap > .player-bar,
 html.mobile-runtime .player-bar-wrap > .player-bar.compact,
@@ -781,15 +813,16 @@ html.mobile-runtime .mobile-detail-actions { grid-column: 2 / 4; grid-row: 1; di
 html.mobile-runtime .mobile-detail-actions button { width: 48px; height: 48px; display: grid; place-items: center; background: transparent; color: var(--text); }
 html.mobile-runtime .mobile-detail-actions button:last-child svg { rotate: 90deg; }
 html.mobile-runtime .mobile-page-bar h1.mobile-playlist-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr { grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 22px 18px; min-height: 64px; padding: 8px 48px 8px 0; gap: 2px 12px; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 16px; font-weight: 400; line-height: 22px; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 14px; line-height: 18px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr { grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: 20px 16px; min-height: 58px; padding: 8px 44px 8px 8px; gap: 1px 10px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 15px; font-weight: 400; line-height: 20px; }
+html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 12px; line-height: 16px; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-cover { grid-row: 1 / 3; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table :is(.col-album, .col-dur) { display: none; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr::after { content: ''; position: absolute; left: 60px; right: 0; bottom: 0; height: 1px; background: var(--border); }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active { background: transparent; }
 html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active .col-title { color: var(--md-primary); }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .m-track-more svg { rotate: 90deg; }
+/* 歌单页与历史日推共用歌曲表：行末三点竖排 */
+html.mobile-runtime .mobile-page-content :is(.playlist-detail-page, .daily-page) .track-table .m-track-more svg { rotate: 90deg; }
 
 html.mobile-runtime .library-card > .library-card-info > .library-card-creator { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

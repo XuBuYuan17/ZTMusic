@@ -148,12 +148,7 @@
             </div>
           {/if}
           {#if category === 'appearance'}
-      {#if $responsive.isMobile}
-      <button class="m-settings-row m-settings-row--button" type="button" onclick={() => onNavigate?.('settings-dock')}>
-        <div class="m-settings-copy"><strong>底栏</strong><span>布局、导航图标与数量</span></div>
-        <Icon name="chevron-right" size={18} />
-      </button>
-      {/if}
+      <div class="m-settings-subhead">配色</div>
       <div class="m-settings-row m-settings-row--palette">
         <div class="m-settings-copy">
           <strong>强调色</strong>
@@ -174,6 +169,7 @@
         </div>
       </div>
 
+      <div class="m-settings-subhead">背景</div>
       <div class="m-settings-row m-settings-row--wallpaper">
         <div class="m-settings-copy">
           <strong>自定义壁纸</strong>
@@ -198,6 +194,14 @@
           </div>
           <button class="m-switch" type="button" class:on={wallpaper.videoPlaying} aria-label="播放动态壁纸" aria-pressed={wallpaper.videoPlaying} onclick={() => wallpaper.setVideoPlaying(!wallpaper.videoPlaying)}><span>{wallpaper.videoPlaying ? '开' : '关'}</span></button>
         </div>
+      {/if}
+
+      {#if $responsive.isMobile}
+      <div class="m-settings-subhead">底栏</div>
+      <button class="m-settings-row m-settings-row--button" type="button" onclick={() => onNavigate?.('settings-dock')}>
+        <div class="m-settings-copy"><strong>底栏样式</strong><span>布局、导航图标与数量</span></div>
+        <Icon name="chevron-right" size={18} />
+      </button>
       {/if}
 
           {:else if category === 'sources'}
@@ -292,15 +296,17 @@
   .m-settings-entry > :global(svg) { color: var(--text-tertiary); opacity: .55; }
   .m-entry-icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; color: var(--md-primary); }
   .m-settings-entry + .m-settings-entry::before { left: 58px; }
-  .m-text-action { min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); color: var(--md-primary); background: transparent; font: inherit; font-size: .9375rem; }
-  .m-settings-row--palette, .m-settings-row--wallpaper { flex-wrap: wrap; }
-  .m-accent-picker { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 2px; width: 100%; }
-  .m-accent-picker button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 2px solid transparent; border-radius: 50%; background: transparent; }
-  .m-accent-picker button span { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-preview); }
+  .m-text-action { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; color: var(--md-primary); background: var(--md-primary-container); font: inherit; font-size: .875rem; font-weight: 500; }
+  .m-settings-subhead { position: relative; padding: 16px 16px 6px; color: var(--text-secondary); font-size: .75rem; font-weight: 500; letter-spacing: .02em; }
+  .m-settings-subhead::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); }
+  .m-settings-row--palette, .m-settings-row--wallpaper { flex-wrap: wrap; gap: 10px; }
+  .m-accent-picker { display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 4px; width: 100%; }
+  .m-accent-picker button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 2px solid transparent; border-radius: 50%; background: transparent; }
+  .m-accent-picker button span { width: 26px; height: 26px; border-radius: 50%; background: var(--accent-preview); box-shadow: inset 0 0 0 1px rgb(0 0 0 / .08); }
   .m-accent-picker button.active { border-color: var(--md-primary); }
-  .m-inline-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+  .m-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; justify-content: flex-end; }
   .m-file-input { display: none; }
-  .m-text-action.muted { color: var(--danger); }
+  .m-text-action.muted { background: transparent; color: var(--danger); }
   .m-text-action:disabled { opacity: .48; }
   .m-switch { position: relative; flex: 0 0 52px; width: 52px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; }
   .m-switch::before { content: ''; position: absolute; inset: 6px 0; border-radius: 999px; background: color-mix(in srgb, var(--text-secondary) 28%, transparent); transition: background 160ms; }

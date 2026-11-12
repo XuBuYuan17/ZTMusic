@@ -12,13 +12,8 @@
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
-  import { player } from '../stores/player.svelte.ts'
   import { mobileDock } from '../stores/mobile-dock.svelte.ts'
   import { buildDockItems, DOCK_TABS, hiddenDockTabs, type DockItem } from '../settings/mobile-dock.ts'
-  import { getStartupTrack } from '../app/startup-track.ts'
-  import { coverUrl } from '../utils/image.ts'
-  import { playerSurfaceGesture } from '../player-motion/gesture.ts'
-  import type { PlayerSurfaceController } from '../player-motion/controller.ts'
   import { t } from '../i18n/index.svelte.ts'
   import Icon from './ui/Icon.svelte'
 
@@ -43,13 +38,10 @@
     activeView = 'explore', theme = 'dark', onNavigate, onOpenPlaylist, onOpenAlbum,
     onOpenArtist, onOpenUser, onOpenMessage, onOpenLogin, onSetTheme,
     accentTheme = 'red', onSetAccentTheme, onBack, onOpenMenu,
-    targetUser = null, onUnreadChange, onReady, onOpenPlayer, onPrepareLyrics, playerController,
+    targetUser = null, onUnreadChange, onReady,
   }: {
     activeView?: string
     onReady?: () => void
-    onOpenPlayer?: (origin: Element) => void
-    onPrepareLyrics?: () => void
-    playerController?: PlayerSurfaceController
     theme?: string
     onNavigate?: (view: string, extra?: number | null, preserveSource?: boolean) => void
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
@@ -73,6 +65,7 @@
   const canEdgeBack = $derived(!primaryViews.includes(activeView) || router.routeStack.length > 0)
   let selectedTab = $state(untrack(() => DOCK_TABS.some(tab => tab.id === activeView) ? activeView : [...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => DOCK_TABS.some(tab => tab.id === view)) ?? 'explore'))
   let scrollTop = $state(0)
+  let chromeHidden = $state(false)
   $effect(() => { if (DOCK_TABS.some(tab => tab.id === activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const coverHeaderless = $derived(activeView === 'playlist' || activeView === 'recommendation')
@@ -88,18 +81,22 @@
   let rootEl = $state<HTMLElement | null>(null)
   let dockNav = $state<HTMLElement | null>(null)
   let moreDockOpen = $state(false)
-  let dockCoverFailed = $state(false)
-  const initialTrack = $derived(getStartupTrack(player))
-  const dockCover = $derived(coverUrl(player.cover || initialTrack?.picUrl || '', 88))
-  const dockTitle = $derived(player.title || initialTrack?.name || '未在播放')
   const hiddenCore = $derived(hiddenDockTabs(mobileDock.config))
   const dockItems = $derived(buildDockItems(mobileDock.config))
-  const dockSplit = $derived(Math.ceil(dockItems.length / 2))
-  $effect(() => { dockCover; dockCoverFailed = false })
   $effect(() => { if (!hiddenCore.length) moreDockOpen = false })
   $effect(() => {
     document.documentElement.classList.toggle('mobile-floating-dock', mobileDock.config.layout === 'floating')
     return () => document.documentElement.classList.remove('mobile-floating-dock')
+  })
+  // 播放条在 App 里，收起状态用 html class 共享给两条浮动底栏。
+  // 经典底栏常驻：只有 floating 布局才允许收起。
+  const chromeCanHide = $derived(mobileDock.config.layout === 'floating')
+  function showChrome(): void { if (chromeHidden) chromeHidden = false }
+  // 滚动时导航滑出屏幕、播放条落到导航的位置，滚回顶部或向上滚复原。
+  function hideChrome(): void { if (!chromeHidden) chromeHidden = true }
+  $effect(() => {
+    document.documentElement.classList.toggle('mobile-chrome-hidden', chromeHidden && chromeCanHide)
+    return () => document.documentElement.classList.remove('mobile-chrome-hidden')
   })
   let previousKey: string | null = null
   const scrollPositions = new Map<string, number>()
@@ -224,14 +221,55 @@
     rememberScroll()
     onNavigate?.(view, extra, !primaryViews.includes(view))
   }
-  function toggleDockPlayback(): void {
-    if (player.id) player.togglePlay()
-    else if (initialTrack) player.playTrack(initialTrack, 0)
+  function handleContentScroll(): void {
+    const top = contentEl?.scrollTop ?? 0
+    const delta = top - scrollTop
+    scrollTop = top
+    if (delta === 0) return
+    if (!chromeCanHide) { showChrome(); return }
+    if (top <= 8) { showChrome(); return }
+    // 只在滚动过程中临时让开，停手后自动回来；向上滚/回顶部立刻回来。
+    if (delta > 6) hideChrome()
+    else if (delta < -6) showChrome()
   }
-  function changeDockTrack(direction: 1 | -1): void {
-    if (!player.id) return
-    if (direction > 0) player.next()
-    else player.prev()
+  // 底栏上向下滑收起、向上滑唤回；收起后底部留一个小把手。
+  // 触摸滚动可能让浏览器派发 pointercancel，所以终点位置要跟着 pointermove 记。
+  function swipeChrome(node: HTMLElement) {
+    let startY = 0
+    let startX = 0
+    let lastY = 0
+    let lastX = 0
+    let tracking = false
+    const down = (event: PointerEvent) => {
+      if (!event.isPrimary) return
+      startY = lastY = event.clientY
+      startX = lastX = event.clientX
+      tracking = true
+    }
+    const move = (event: PointerEvent) => {
+      if (!tracking || !event.isPrimary) return
+      lastY = event.clientY
+      lastX = event.clientX
+    }
+    const end = () => {
+      if (!tracking) return
+      tracking = false
+      const dy = lastY - startY
+      if (Math.abs(dy) < 28 || Math.abs(lastX - startX) > Math.abs(dy)) return
+      if (!chromeCanHide) return
+      if (dy > 0) hideChrome()
+      else showChrome()
+    }
+    node.addEventListener('pointerdown', down)
+    node.addEventListener('pointermove', move)
+    node.addEventListener('pointerup', end)
+    node.addEventListener('pointercancel', end)
+    return { destroy() {
+      node.removeEventListener('pointerdown', down)
+      node.removeEventListener('pointermove', move)
+      node.removeEventListener('pointerup', end)
+      node.removeEventListener('pointercancel', end)
+    } }
   }
   function dismissDockMore(event: MouseEvent | KeyboardEvent): void {
     if (!moreDockOpen) return
@@ -277,7 +315,7 @@
   </header>
   {/if}
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: () => activeView === 'settings-dock' ? router.goBack() : router.goSettingsHome() }}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={handleContentScroll} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: () => activeView === 'settings-dock' ? router.goBack() : router.goSettingsHome() }}>
     <div class="mobile-page-content__inner" class:primary-content={isPrimaryView || coverHeaderless}>
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} class:playlist-source-outgoing={playlistSourceKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
@@ -355,24 +393,14 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:more-open={moreDockOpen} style:--dock-count={dockItems.length} aria-label="主导航" bind:this={dockNav}>
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:more-open={moreDockOpen} class:chrome-hidden={chromeHidden} style:--dock-count={dockItems.length} aria-label="主导航" bind:this={dockNav} use:swipeChrome>
     {#if moreDockOpen && hiddenCore.length}
       <button class="mobile-dock-more-backdrop" type="button" tabindex="-1" aria-label="关闭更多页面" onclick={() => moreDockOpen = false}></button>
       <div class="mobile-dock-more" id="mobile-dock-more" role="dialog" aria-modal="true" aria-label="更多页面" tabindex="-1" use:dialogFocus={() => moreDockOpen = false}>
         {#each hiddenCore as tab (tab.id)}<button type="button" onclick={() => handleNav(tab.id)}><Icon name={mobileDock.config.icons[tab.id] || tab.icons[0].value} size={20} strokeWidth={1.8} /><span>{tab.label}</span></button>{/each}
       </div>
     {/if}
-    {#each dockItems.slice(0, dockSplit) as item (item.id)}{@render dockTab(item)}{/each}
-    {#if mobileDock.config.layout === 'floating'}
-      <div class="mobile-integrated-player" role="group" aria-label="迷你播放器" aria-busy={player.loading && !player.playing}>
-        <button class="mobile-dock-open" type="button" aria-label={`打开播放器：${dockTitle}${player.error ? `，${player.error}` : ''}`} disabled={!player.id && !initialTrack} onclick={(event) => onOpenPlayer?.(event.currentTarget)} use:playerSurfaceGesture={{ controller: playerController, opening: true, blocked: () => !player.id && !initialTrack, onOpenStart: onPrepareLyrics, changeTrack: changeDockTrack }}>
-          <span class="mini-player-artwork mobile-dock-art">{#if dockCover && !dockCoverFailed}<img src={dockCover} alt="" referrerpolicy="no-referrer" onerror={() => dockCoverFailed = true} />{:else}<Icon name="music" size={20} />{/if}</span>
-          {#if player.error}<span class="mobile-dock-error" aria-hidden="true">!</span>{/if}
-        </button>
-        <button class="mobile-dock-play" type="button" disabled={!player.id && !initialTrack} aria-label={player.loading && !player.playing ? '正在加载' : player.playing ? '暂停' : '播放'} onclick={toggleDockPlayback}>{#if player.loading && !player.playing}<span class="mobile-dock-spinner" aria-hidden="true"></span>{:else}<Icon name={player.playing ? 'pause' : 'play'} size={22} fill="currentColor" />{/if}</button>
-      </div>
-    {/if}
-    {#each dockItems.slice(dockSplit) as item (item.id)}{@render dockTab(item)}{/each}
+    {#each dockItems as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
 
@@ -407,42 +435,33 @@
     inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left));
     width: auto; height: 60px; display: flex; align-items: center; gap: 0; padding: 4px;
     border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface);
-    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+    background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     box-shadow: 0 4px 18px rgb(0 0 0 / .14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    touch-action: none;
   }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab { flex: 1 1 0; min-width: 44px; height: 50px; gap: 2px; border-radius: 999px; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
   :global(html.mobile-runtime) .mobile-tab--more .mobile-tab__icon { rotate: 90deg; }
-  .mobile-integrated-player { display: flex; flex: none; align-items: center; gap: 0; margin: 0 2px; }
-  .mobile-dock-open, .mobile-dock-play { display: grid; place-items: center; flex: none; height: 48px; padding: 0; border: 0; background: transparent; color: var(--text); }
-  .mobile-dock-open { position: relative; width: 44px; border-radius: 999px; touch-action: none; }
-  .mobile-dock-play { width: 44px; border-radius: 999px; color: var(--md-on-primary); background: var(--md-primary); }
-  .mobile-dock-open, .mobile-dock-play { transition: scale 160ms var(--ease-out); }
-  .mobile-dock-open:global([data-mobile-pressed]), .mobile-dock-play:global([data-mobile-pressed]) { scale: .94; }
-  .mobile-dock-play:disabled, .mobile-dock-open:disabled { opacity: .45; }
-  .mobile-dock-spinner { width: 18px; height: 18px; border: 2px solid color-mix(in srgb, currentColor 35%, transparent); border-top-color: currentColor; border-radius: 50%; animation: mobile-dock-spin 800ms linear infinite; }
-  @keyframes mobile-dock-spin { to { transform: rotate(360deg); } }
-  :global(html.mobile-runtime) .mobile-dock-art { width: 36px; height: 36px; flex-basis: 36px; border-radius: 50%; }
-  .mobile-dock-error { position: absolute; top: 1px; right: 0; width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; background: var(--danger); color: white; font-size: 10px; font-weight: 700; }
+  .mobile-tab-bar.chrome-hidden { transform: translateY(calc(100% + 32px)); opacity: 0; pointer-events: none; }
+  :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); --mobile-dock-space-player: var(--mobile-tabs-space); }
   .mobile-dock-more-backdrop { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
   .mobile-dock-more { position: absolute; z-index: 2; right: 8px; bottom: calc(100% + var(--mobile-player-h) + 8px); min-width: 160px; display: grid; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); box-shadow: var(--shadow-lg); }
   .floating .mobile-dock-more { bottom: calc(100% + 8px); }
   .mobile-dock-more button { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; color: var(--text); background: transparent; border-radius: var(--radius-sm); text-align: left; }
   .mobile-dock-more button:active { background: var(--bg-hover); }
-  .mobile-dock-open:focus-visible, .mobile-dock-play:focus-visible, .mobile-dock-more button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .mobile-dock-more button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   @media (orientation: landscape) and (max-height: 720px) {
     :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: 1fr; grid-template-rows: repeat(var(--dock-count), minmax(48px, 1fr)); }
-    :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; --mobile-tabs-space: calc(72px + var(--app-bottom-inset)); }
+    :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); }
     :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
     :global(html.mobile-runtime) .mobile-tab-bar.floating { inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left)); width: auto; height: 60px; }
     :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) .mobile-dock-more { bottom: 8px; left: calc(100% + 8px); right: auto; }
   }
   @media (max-width: 360px) {
     :global(html.mobile-runtime) .mobile-tab-bar.floating { left: env(safe-area-inset-left); right: env(safe-area-inset-right); padding-inline: 2px; }
-    .mobile-integrated-player { margin: 0; }
   }
-  @media (prefers-reduced-motion: reduce) { .mobile-dock-open, .mobile-dock-play { transition: none; } .mobile-dock-open:global([data-mobile-pressed]), .mobile-dock-play:global([data-mobile-pressed]) { scale: 1; } .mobile-dock-spinner { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .mobile-tab-bar.chrome-hidden { transition: none; } }
   @media (prefers-reduced-transparency: reduce) { :global(html.mobile-runtime) .mobile-tab-bar.floating { background: var(--bg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 </style>

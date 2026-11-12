@@ -406,10 +406,10 @@
         <button class="library-login-btn" type="button" onclick={onOpenLogin}>登录</button>
       </div>
       <div class="library-guest-content">
-        <div class="library-guest-recent"><RecentTracksModule limit={$responsive.isMobile ? 3 : 4} showEyebrow={false} onOpenAll={() => onNavigate?.('recent')} /></div>
+        <div class="library-guest-recent"><RecentTracksModule limit={$responsive.isMobile ? 3 : 4} onOpenAll={() => onNavigate?.('recent')} /></div>
         <div class="library-guest-links">
-          <button type="button" onclick={() => onNavigate?.('localMusic')}><span><strong>本地音乐</strong><small>管理本机音乐</small></span><span aria-hidden="true">›</span></button>
-          <button type="button" onclick={() => onNavigate?.('listeningStats')}><span><strong>听歌统计</strong><small>查看聆听记录</small></span><span aria-hidden="true">›</span></button>
+          <button type="button" onclick={() => onNavigate?.('localMusic')}><span><strong>本地音乐</strong><small>管理本机音乐</small></span></button>
+          <button type="button" onclick={() => onNavigate?.('listeningStats')}><span><strong>听歌统计</strong><small>查看聆听记录</small></span></button>
         </div>
       </div>
     </div>
@@ -437,7 +437,7 @@
         <div class="library-favorite">
           <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} threeColumns /></div>
           <button class="library-favorite__open" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
-            <span>YOUR FAVORITES</span><strong>我喜欢的音乐</strong><em>{likedPlaylist?.trackCount ?? 0} 首歌曲</em>
+            <strong>我喜欢的音乐</strong><em>{likedPlaylist?.trackCount ?? 0} 首歌曲</em>
           </button>
         </div>
         <div class="library-activity">
@@ -447,18 +447,16 @@
             <button class="library-shortcut library-shortcut--daily" type="button" onclick={() => onNavigate?.('dailyHistory')}>
               <span class="library-shortcut__icon" aria-hidden="true"><Icon name="calendar" size={20} fill="none" strokeWidth={1.5} /></span>
               <span class="library-shortcut__copy"><strong>历史日推</strong><em>回看每日推荐</em></span>
-              <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
             </button>
             <button class="library-shortcut library-shortcut--stats" type="button" onclick={() => onNavigate?.('listeningStats')}>
               <span class="library-shortcut__icon" aria-hidden="true"><Icon name="music" size={20} fill="none" strokeWidth={1.5} /></span>
               <span class="library-shortcut__copy"><strong>听歌统计</strong><em>查看聆听报告</em></span>
-              <span class="library-shortcut__arrow" aria-hidden="true"><Icon name="chevron-right" size={16} fill="none" /></span>
             </button>
         </div>
       </div>
 
       <section class="library-playlists" aria-label="我的歌单">
-        <div class="library-playlists__heading"><div><span class="library-eyebrow">YOUR COLLECTION</span><h2>我的歌单</h2></div><button type="button" class="library-create" onclick={() => showCreateModal = true}><Icon name="add" size={18} />创建歌单</button></div>
+        <div class="library-playlists__heading"><div><h2>我的歌单</h2></div><button type="button" class="library-create" onclick={() => showCreateModal = true}><Icon name="add" size={18} />创建歌单</button></div>
         {#if error && !library}<ErrorBlock message={error} onRetry={load} />
         {:else if loading && !library}<p class="library-section-empty">正在整理歌单…</p>
         {:else}
@@ -576,7 +574,6 @@
   .library-identity__person img, .library-identity__avatar { flex: none; width: 84px; height: 84px; border: 2px solid color-mix(in srgb, var(--accent) 38%, var(--bg-surface)); border-radius: 50%; object-fit: cover; background: var(--bg-elevated); }
   .library-identity__avatar { display: grid; place-items: center; color: var(--text-secondary); }
   .library-identity__person > div { min-width: 0; }
-  .library-eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .1em; }
   .library-identity h1 { overflow: hidden; margin: 0; font-size: 24px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
   .library-identity__name { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px; }
   .library-identity__name > span { flex: none; padding: 3px 7px; border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); border-radius: 999px; color: var(--accent); background: var(--accent-bg); font-size: 11px; font-weight: 700; }
@@ -596,7 +593,6 @@
   .library-favorite__art :global(.liked-falls-three) { grid-template-columns: repeat(3, 1fr); }
   .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation: likedFallsScroll 23s linear infinite; animation-delay: -7s; }
   .library-favorite__open { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px; text-align: left; color: #202124; }
-  .library-favorite__open span { font-size: 11px; font-weight: 700; letter-spacing: .1em; }
   .library-favorite__open strong { font-size: 23px; line-height: 1.2; }
   .library-favorite__open em { color: #505156; font-size: 13px; font-style: normal; }
   .library-favorite__open:focus-visible { outline-offset: -4px; }
@@ -608,14 +604,12 @@
   :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-list > button) { min-height: 48px; grid-template-columns: 36px minmax(0, 1fr) 20px; padding: 5px 6px; }
   :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-list img), :global(html:not(.mobile-runtime)) .library-activity :global(.profile-home__track-empty) { width: 36px; height: 36px; }
   .library-shortcuts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .library-shortcut { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text); text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
+  .library-shortcut { min-width: 0; min-height: 64px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text); text-align: left; transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
   .library-shortcut:hover { background: var(--bg-hover); }
   .library-shortcut__icon { flex: none; display: grid; place-items: center; color: var(--text-secondary); }
   .library-shortcut__copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
   .library-shortcut__copy strong { overflow: hidden; font-size: 14px; line-height: 1.35; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
   .library-shortcut__copy em { overflow: hidden; color: var(--text-secondary); font-size: 12px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-  .library-shortcut__arrow { flex: none; display: grid; place-items: center; color: var(--text-tertiary); transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
-  .library-shortcut:hover .library-shortcut__arrow { transform: translateX(3px); color: var(--accent); }
   .library-playlists { min-width: 0; }
   .library-playlists__heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
   .library-playlists__heading h2 { margin-top: 4px; font-size: 21px; }
@@ -676,7 +670,6 @@
   :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(2) .liked-falls-track) { animation-duration: 26s; animation-delay: -13s; }
   :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation-duration: 23s; animation-delay: -7s; }
   :global(html.mobile-runtime) .library-favorite__open { position: absolute; inset: 0; height: 100%; padding: 12px; color: #202124; gap: 3px; }
-  :global(html.mobile-runtime) .library-favorite__open span { font-size: 9px; }
   :global(html.mobile-runtime) .library-favorite__open strong { font-size: 14px; }
   :global(html.mobile-runtime) .library-favorite__open em { font-size: 12px; }
   :global(html.mobile-runtime) .library-activity { grid-column: 1 / -1; grid-row: 2; }
@@ -684,8 +677,6 @@
   :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 16px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); }
   :global(html.mobile-runtime) .library-shortcuts { grid-column: 2; grid-row: 1; grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr); gap: 10px; }
   :global(html.mobile-runtime) .library-shortcut { min-height: 72px; padding: 12px; }
-  @media (max-width: 360px) { .library-shortcut__arrow { display: none; } }
-  @media (prefers-reduced-motion: reduce) { .library-shortcut__arrow { transition: none; } .library-shortcut:hover .library-shortcut__arrow { transform: none; } }
   @media (prefers-reduced-motion: reduce) { .library-favorite__art :global(.liked-falls-track), :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; } }
   @media (prefers-reduced-motion: reduce) { .collection-item__menu::before { transition: none; } }
 </style>
