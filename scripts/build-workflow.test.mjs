@@ -28,7 +28,7 @@ assert.ok(!releasePrepare.includes('HEAD:main'), 'release preparation must not b
 assert.ok(releasePublish.includes('types: [closed]'), 'tagging must wait for a closed release PR')
 assert.ok(releasePublish.includes('github.event.pull_request.merged == true'), 'unmerged PRs must not publish')
 assert.ok(releasePublish.includes('github.event.pull_request.head.repo.full_name == github.repository'), 'tagging must reject foreign release branches')
-assert.ok(workflow.includes('branches: [main, dev]'), 'checks should support both long-lived branches')
+assert.ok(/branches: \[main, dev(, DEV)?\]/.test(workflow), 'checks should support both long-lived branches')
 assert.ok(workflow.includes('retention-days: 14'), 'development artifacts should expire after 14 days')
 assert.ok(workflow.includes('github.run_number') && workflow.includes('outputs.short-sha'), 'artifact names should identify their build')
 assert.ok(workflow.includes('permissions:\n  contents: read') || workflow.includes('permissions:\r\n  contents: read'), 'PR builds should default to read-only permissions')
@@ -48,6 +48,10 @@ const sha = 'a'.repeat(40)
 const context = (event, ref, overrides = {}) => selectBuildContext({ event, ref, sha, ...overrides })
 
 assert.deepEqual(context('push', 'refs/heads/dev'), {
+  channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'false', 'build-linux': 'false', publish: 'false',
+})
+// 仓库开发分支叫 DEV（大写），推送时不能因为大小写被判成非法分支
+assert.deepEqual(context('push', 'refs/heads/DEV'), {
   channel: 'dev', 'short-sha': 'aaaaaaaa', 'build-windows': 'false', 'build-linux': 'false', publish: 'false',
 })
 assert.deepEqual(context('push', 'refs/heads/main'), {

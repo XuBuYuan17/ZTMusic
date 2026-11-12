@@ -11,9 +11,11 @@ export function selectBuildContext({ event, ref, sha, buildWindows, buildLinux }
   const publish = event !== 'pull_request' && /^refs\/tags\/v\d+\.\d+\.\d+$/.test(ref)
   const manual = event === 'workflow_dispatch'
   const manualBranch = manual && /^refs\/heads\/.+$/.test(ref)
-  const channel = event === 'pull_request' || ref === 'refs/heads/dev' || (manualBranch && ref !== 'refs/heads/main') ? 'dev' : 'stable'
+  // 仓库里的开发分支叫 DEV（大写），这里是唯一的分支名判定入口，统一按不区分大小写处理。
+  const devBranch = /^refs\/heads\/dev$/i.test(ref)
+  const channel = event === 'pull_request' || devBranch || (manualBranch && ref !== 'refs/heads/main') ? 'dev' : 'stable'
 
-  if (event !== 'pull_request' && !publish && !manualBranch && !['refs/heads/main', 'refs/heads/dev'].includes(ref)) {
+  if (event !== 'pull_request' && !publish && !manualBranch && ref !== 'refs/heads/main' && !devBranch) {
     throw new Error('Only main, dev, manually selected branches and official version tags can be built')
   }
 
