@@ -2,11 +2,11 @@ name: Build Installers
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, DEV]
     tags:
       - 'v*'
   pull_request:
-    branches: [main, dev]
+    branches: [main, dev, DEV]
   workflow_dispatch:
     inputs:
       build_windows:
