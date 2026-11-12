@@ -36,11 +36,10 @@ for (const native of [false, true]) {
     }
     runInNewContext(script, context)
     context.prepareAndroidStartup()
-    assert.equal(context.useLightStatusIcons('dark', true, false, 'settings'), true, 'dark pages use light status icons')
-    assert.equal(context.useLightStatusIcons('light', true, false, 'settings'), false, 'light pages use dark status icons')
-    assert.equal(context.useLightStatusIcons('light', true, true, 'explore'), true, 'the fullscreen player uses light status icons')
-    assert.equal(context.useLightStatusIcons('light', true, false, 'playlist'), true, 'immersive covers use light status icons')
-    assert.equal(context.useLightStatusIcons('light', false, false, 'playlist'), false, 'desktop playlist layout does not force light icons')
+    assert.equal(context.useLightStatusIcons('dark', true, false), true, 'dark pages use light status icons')
+    assert.equal(context.useLightStatusIcons('light', true, false), false, 'light pages use dark status icons')
+    assert.equal(context.useLightStatusIcons('light', true, true), true, 'the fullscreen player uses light status icons')
+    assert.equal(context.useLightStatusIcons('light', false, false), false, 'desktop layout does not force light icons')
     const expected = saved || 'dark'
     assert.equal(root.dataset.theme, expected)
     assert.equal(root.style.colorScheme, expected)

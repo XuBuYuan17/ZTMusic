@@ -277,7 +277,7 @@
   $effect(() => { const nextTheme = normalizeTheme(theme); if (nextTheme !== theme) theme = nextTheme; syncSystemTheme(nextTheme); setStorage('zheting-theme', nextTheme) })
   $effect(() => {
     const nextTheme = normalizeTheme(theme)
-    syncAndroidTheme(nextTheme, useLightStatusIcons(nextTheme, isMobile, showSheet, router.activeView))
+    syncAndroidTheme(nextTheme, useLightStatusIcons(nextTheme, isMobile, showSheet))
   })
   $effect(() => {
     document.documentElement.classList.toggle('custom-wallpaper', wallpaper.active)

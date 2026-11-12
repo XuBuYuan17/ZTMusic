@@ -32,8 +32,8 @@ export function prepareAndroidStartup(): void {
   applyStartupTheme(theme)
 }
 
-export function useLightStatusIcons(theme: string, mobile: boolean, playerOpen: boolean, view: string): boolean {
-  return theme === 'dark' || (mobile && (playerOpen || view === 'playlist' || view === 'recommendation'))
+export function useLightStatusIcons(theme: string, mobile: boolean, playerOpen: boolean): boolean {
+  return theme === 'dark' || (mobile && playerOpen)
 }
 
 export function syncAndroidTheme(theme: string, lightStatusIcons = theme === 'dark'): void {

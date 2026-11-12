@@ -78,7 +78,7 @@
     <div class="m-player-backdrop"></div>
     <div class="ly-container">
       <AppleMusicPlayer surfaceController={controller} onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
-      <button class="m-player-dismiss" aria-label="收起播放器" onclick={close} use:playerSurfaceGesture={{ controller, blocked: () => showLocalQueue }}><span></span></button>
+      <button class="m-player-dismiss" aria-label="收起播放器" onclick={close} use:playerSurfaceGesture={{ controller, blocked: () => showLocalQueue }}></button>
     </div>
   </div>
 {/if}

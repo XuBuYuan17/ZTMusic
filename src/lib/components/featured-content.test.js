@@ -35,7 +35,7 @@ assert.ok(module.includes('aspect-ratio: 16 / 9'), 'the narrow hero keeps a fixe
 assert.ok(/\.music-feature-card img \{[^}]*object-fit: cover/.test(exploreCss), 'images cover their box')
 
 // ── 3) 横滑不误触返回 ──
-assert.ok(module.includes('touch-action: pan-x'), 'the rail only takes horizontal gestures')
+assert.ok(module.includes('touch-action: auto'), 'the rail allows vertical page scrolling as well as horizontal swipes')
 assert.ok(module.includes('overscroll-behavior-x: contain'), 'the rail does not chain scroll to the page')
 assert.ok(/\.mobile-feature-image \{[^}]*aspect-ratio: 3 \/ 2/.test(mobileCss), 'the narrow cover keeps a fixed ratio')
 assert.ok(mobileCss.includes('overscroll-behavior-x: contain'), 'global rail rule still contains horizontal overscroll')

@@ -596,11 +596,6 @@ html:not(.mobile-runtime) .pm-close {
   background: transparent; cursor: grab;
   opacity: clamp(0.2, var(--p), 1);
 }
-html:not(.mobile-runtime) .pm-close span {
-  width: 40px; height: 4px; border-radius: 999px;
-  background: rgb(255 255 255 / 72%);
-}
-html:not(.mobile-runtime) .pm-close:hover span { background: white; }
 html:not(.mobile-runtime) .pm-close:active { cursor: grabbing; }
 html:not(.mobile-runtime) .pm-close:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 html.desktop-titlebar:not(.mobile-runtime) .pm-close { top: calc(var(--titlebar-h) + 8px); }

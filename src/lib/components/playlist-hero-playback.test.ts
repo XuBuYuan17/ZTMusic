@@ -19,5 +19,7 @@ assert.match(layout, /width: min\(58vw, 292px\)/, 'mobile cover leaves more of t
 assert.match(layout, /font-size: 22px/, 'playlist title keeps clear hierarchy without oversized mobile type')
 assert.match(layout, /playlist-mobile-creator[\s\S]*font-size: 14px/, 'creator is supporting metadata rather than a second headline')
 assert.match(layout, /playlist-play-btn[\s\S]*min-height: 48px/, 'primary play target remains comfortable after compacting the hero')
+assert.match(layout, /playlist-detail-hero > \.playlist-cover \{[\s\S]*?width: min\(44vw, 176px\);[\s\S]*?aspect-ratio: 1/, 'cover and fallback keep the same square geometry')
+assert.match(layout, /playlist-detail-hero \{\s*position: relative; display: flex;[\s\S]*?border-radius: var\(--radius-lg\)/, 'mobile hero remains a rounded card')
 
 console.log('Playlist hero: playback state and compact mobile hierarchy are guarded')

@@ -77,8 +77,7 @@
 {/if}
 
 <style>
-  /* 横滑只吃横向手势：不把滚动传给页面，避免边缘滑动触发返回/回弹 */
-  .mobile-feature-rail { touch-action: pan-x; overscroll-behavior-x: contain; }
+  .mobile-feature-rail { touch-action: auto; overscroll-behavior-x: contain; }
 
   /* 窄屏（mobile-runtime）下的重点卡收敛：大图铺满、隐藏编辑精选栏 */
   :global(html.mobile-runtime .music-discovery-feature) { order: 1; display: block; margin: 0; }

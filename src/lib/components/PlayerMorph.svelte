@@ -105,7 +105,6 @@
     {@const t = playerMorph.titleRect}
     <div class="pm-focus" role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1" use:dialogFocus={() => playerMorph.close()}>
       <button class="pm-close" type="button" use:closeDrag={true} onclick={() => playerMorph.close()} aria-label="收起歌词页" title="点击或向下拖动收起">
-        <span></span>
       </button>
       <div class="pm-scrim"></div>
       <div class="pm-surface" style="clip-path: inset({r.top}px {r.right}px {r.bottom}px {r.left}px round {r.radius}px)">
