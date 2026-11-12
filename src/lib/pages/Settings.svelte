@@ -17,6 +17,8 @@
   import AndroidPlayerSettings from '../components/AndroidPlayerSettings.svelte'
   import SourcePluginSettings from '../components/SourcePluginSettings.svelte'
   import PlaylistGroupsSettings from '../components/PlaylistGroupsSettings.svelte'
+  import AboutPage from './AboutPage.svelte'
+  import MobileDockSettings from '../components/MobileDockSettings.svelte'
   import { getBooleanSetting, setBooleanSetting } from '../utils/settings.ts'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate, onBack }: {
@@ -53,7 +55,7 @@
     version: pkg.version,
   }, t))
   const currentCategory = $derived(SETTINGS_CATEGORIES.find(item => item.id === category))
-  const fields = $derived(category ? settingsFields(category) : [])
+  const fields = $derived(category && category !== 'dock' ? settingsFields(category) : [])
 
   function fieldValue(field: SettingField): string | boolean {
     return field.key === 'theme' ? theme : settings.fieldValue(field.key)
@@ -91,13 +93,13 @@
 
 <div class="m-settings">
   {#if !$responsive.isMobile}
-    <h1 class="m-settings-title">{currentCategory ? t(currentCategory.titleKey) : t('settings.title')}</h1>
+    <h1 class="m-settings-title">{category === 'dock' ? '底栏' : currentCategory ? t(currentCategory.titleKey) : t('settings.title')}</h1>
   {/if}
   {#if category !== null}
     <div class="m-settings-list">
       <button class="m-settings-row m-settings-entry m-settings-back" type="button" onclick={() => onBack?.()}>
         <Icon name="chevron-left" fill="none" size={20} />
-        <strong>{t('settings.back')}</strong>
+        <strong>{category === 'dock' ? '返回外观' : t('settings.back')}</strong>
       </button>
     </div>
   {:else}
@@ -115,7 +117,11 @@
     {/each}
   {/if}
 
-  {#if currentCategory && (category !== 'android' || engine.native)}
+  {#if category === 'dock'}
+    <MobileDockSettings />
+  {:else if category === 'about'}
+    <AboutPage />
+  {:else if currentCategory && (category !== 'android' || engine.native)}
     <section class="m-settings-section" aria-labelledby="settings-category-title">
       <h2 id="settings-category-title">{t(currentCategory.sectionKey)}</h2>
       {#if category === 'android'}
@@ -142,6 +148,12 @@
             </div>
           {/if}
           {#if category === 'appearance'}
+      {#if $responsive.isMobile}
+      <button class="m-settings-row m-settings-row--button" type="button" onclick={() => onNavigate?.('settings-dock')}>
+        <div class="m-settings-copy"><strong>底栏</strong><span>布局、导航图标与数量</span></div>
+        <Icon name="chevron-right" size={18} />
+      </button>
+      {/if}
       <div class="m-settings-row m-settings-row--palette">
         <div class="m-settings-copy">
           <strong>强调色</strong>
@@ -237,12 +249,6 @@
         </button>
       </div>
 
-          {:else if category === 'about'}
-      <div class="m-settings-row m-settings-row--static">
-        <div class="m-settings-copy"><strong>哲听</strong><span>当前版本</span></div>
-        <span class="m-row-value">{pkg.version}</span>
-      </div>
-
           {/if}
         </div>
       {/if}
@@ -284,7 +290,7 @@
   .m-settings-entry .m-row-value { max-width: 30%; font-size: .8125rem; }
   .m-settings-entry :global(svg) { flex-shrink: 0; }
   .m-settings-entry > :global(svg) { color: var(--text-tertiary); opacity: .55; }
-  .m-entry-icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; border-radius: var(--radius-xs); color: var(--md-primary); background: color-mix(in srgb, var(--md-primary) 9%, var(--settings-group, var(--bg))); }
+  .m-entry-icon { display: grid; place-items: center; flex: 0 0 30px; height: 30px; color: var(--md-primary); }
   .m-settings-entry + .m-settings-entry::before { left: 58px; }
   .m-text-action { min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-sm); color: var(--md-primary); background: transparent; font: inherit; font-size: .9375rem; }
   .m-settings-row--palette, .m-settings-row--wallpaper { flex-wrap: wrap; }

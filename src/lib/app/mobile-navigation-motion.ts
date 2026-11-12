@@ -37,6 +37,10 @@ export function playlistDismissProgress(distance: number, travel: number): numbe
   return travel > 0 ? Math.max(0, Math.min(1, distance / travel)) : 0
 }
 
+export function outgoingViewportClipTop(viewportTop: number, pageTop: number): number {
+  return Math.max(0, viewportTop - pageTop)
+}
+
 export function finishPlaylistDismiss(progress: number, velocity: number, distance: number, cancelled = false): boolean {
   return !cancelled && (progress >= .25 || (velocity >= .5 && distance >= 48))
 }
@@ -424,6 +428,7 @@ export function createMobileNavigationMotion() {
         const animation = node.animate(frames, {
           duration,
           easing,
+          fill: playlistTransition && surface ? 'both' : 'none',
         })
         animations.add(animation)
         return animation.finished.catch(() => {})

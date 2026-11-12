@@ -2,8 +2,8 @@
   import { tick, untrack, onDestroy, onMount } from 'svelte'
   import { announceAndroidFrame } from '../app/android-startup.ts'
   onMount(() => { announceAndroidFrame(); onReady?.() })
-  import { reducedMotion } from '../app/desktop-motion.ts'
-  import { createMobileNavigationMotion, mobileNavigationKind } from '../app/mobile-navigation-motion.ts'
+  import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts'
+  import { createMobileNavigationMotion, mobileNavigationKind, outgoingViewportClipTop } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport, mobileEdgeBack } from '../app/mobile-interaction.ts'
   import { requestBack } from '../app/back-navigation.ts'
   import { setScrollViewport } from '../app/scroll-viewport.ts'
@@ -12,6 +12,13 @@
   import type { SongId } from '../types/music.ts'
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
+  import { player } from '../stores/player.svelte.ts'
+  import { mobileDock } from '../stores/mobile-dock.svelte.ts'
+  import { buildDockItems, DOCK_TABS, hiddenDockTabs, type DockItem } from '../settings/mobile-dock.ts'
+  import { getStartupTrack } from '../app/startup-track.ts'
+  import { coverUrl } from '../utils/image.ts'
+  import { playerSurfaceGesture } from '../player-motion/gesture.ts'
+  import type { PlayerSurfaceController } from '../player-motion/controller.ts'
   import { t } from '../i18n/index.svelte.ts'
   import Icon from './ui/Icon.svelte'
 
@@ -36,10 +43,13 @@
     activeView = 'explore', theme = 'dark', onNavigate, onOpenPlaylist, onOpenAlbum,
     onOpenArtist, onOpenUser, onOpenMessage, onOpenLogin, onSetTheme,
     accentTheme = 'red', onSetAccentTheme, onBack, onOpenMenu,
-    targetUser = null, onUnreadChange, onReady,
+    targetUser = null, onUnreadChange, onReady, onOpenPlayer, onPrepareLyrics, playerController,
   }: {
     activeView?: string
     onReady?: () => void
+    onOpenPlayer?: (origin: Element) => void
+    onPrepareLyrics?: () => void
+    playerController?: PlayerSurfaceController
     theme?: string
     onNavigate?: (view: string, extra?: number | null, preserveSource?: boolean) => void
     onOpenPlaylist?: (id: SongId, push?: boolean, preview?: unknown) => void
@@ -61,21 +71,36 @@
   const primaryViews = ['explore', 'search', 'library', 'settings']
   // 只有「还能返回」的页面才启用边缘返回：主视图没有上一页
   const canEdgeBack = $derived(!primaryViews.includes(activeView) || router.routeStack.length > 0)
-  let selectedTab = $state([...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => primaryViews.includes(view)) ?? 'explore')
+  let selectedTab = $state(untrack(() => DOCK_TABS.some(tab => tab.id === activeView) ? activeView : [...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => DOCK_TABS.some(tab => tab.id === view)) ?? 'explore'))
   let scrollTop = $state(0)
-  $effect(() => { if (primaryViews.includes(activeView)) selectedTab = activeView })
+  $effect(() => { if (DOCK_TABS.some(tab => tab.id === activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const coverHeaderless = $derived(activeView === 'playlist' || activeView === 'recommendation')
   const titles: Record<string, string> = $derived({
     home: '我的主页', explore: '发现', library: '资料库', search: '搜索', settings: t('settings.title'),
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
-    messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单',
+    messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单', 'settings-dock': '底栏',
     ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [settingsView(item.id), t(item.titleKey)])),
     album: '专辑', artist: '歌手', user: '个人主页',
   })
   let mountedViews = $state<string[]>([])
   let contentEl = $state<HTMLElement | null>(null)
   let rootEl = $state<HTMLElement | null>(null)
+  let dockNav = $state<HTMLElement | null>(null)
+  let moreDockOpen = $state(false)
+  let dockCoverFailed = $state(false)
+  const initialTrack = $derived(getStartupTrack(player))
+  const dockCover = $derived(coverUrl(player.cover || initialTrack?.picUrl || '', 88))
+  const dockTitle = $derived(player.title || initialTrack?.name || '未在播放')
+  const hiddenCore = $derived(hiddenDockTabs(mobileDock.config))
+  const dockItems = $derived(buildDockItems(mobileDock.config))
+  const dockSplit = $derived(Math.ceil(dockItems.length / 2))
+  $effect(() => { dockCover; dockCoverFailed = false })
+  $effect(() => { if (!hiddenCore.length) moreDockOpen = false })
+  $effect(() => {
+    document.documentElement.classList.toggle('mobile-floating-dock', mobileDock.config.layout === 'floating')
+    return () => document.documentElement.classList.remove('mobile-floating-dock')
+  })
   let previousKey: string | null = null
   const scrollPositions = new Map<string, number>()
   // 向页面暴露滚动视口；滚动位置的记忆/恢复由本组件按 viewKey 负责，页面不参与复位
@@ -98,6 +123,8 @@
   }
   let detailPages = $state<DetailPage[]>([])
   let leavingKey = $state<string | null>(null)
+  let playlistSourceKey = $state<string | null>(null)
+  let playlistEnteringKey = $state<string | null>(null)
   const navigationMotion = createMobileNavigationMotion()
   onDestroy(navigationMotion.cancel)
 
@@ -141,13 +168,18 @@
         oldPage.style.setProperty('--route-outgoing-top', `${oldBox.top}px`)
         oldPage.style.setProperty('--route-outgoing-left', `${oldBox.left}px`)
         oldPage.style.setProperty('--route-outgoing-width', `${oldBox.width}px`)
+        oldPage.style.setProperty('--route-outgoing-clip-top', `${outgoingViewportClipTop(scroller.getBoundingClientRect().top, oldBox.top)}px`)
       }
       const coverSnapshot = navigationMotion.capture(oldPage)
       navigationMotion.cancel()
       const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
       const sharedCover = Boolean(coverSnapshot.origin)
       const coverDetail = activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
-      leavingKey = oldPage && !reducedMotion() ? oldKey : null
+      const reduced = reducedMotion()
+      const openingPlaylist = kind === 'push' && (activeView === 'playlist' || activeView === 'recommendation') && !reduced && Boolean(oldPage)
+      leavingKey = oldPage && !reduced ? oldKey : null
+      playlistSourceKey = openingPlaylist ? oldKey : null
+      playlistEnteringKey = openingPlaylist ? key : null
       scroller.dispatchEvent(new Event('mobile-view-change'))
       if (previousKey) scrollPositions.set(previousKey, scroller.scrollTop)
       previousKey = key
@@ -163,8 +195,9 @@
         scrollTop = position
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
         if (page) observer.observe(page)
-        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reducedMotion(), () => { leavingKey = null }, coverSnapshot)
-        else leavingKey = null
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot)
+        else { leavingKey = null; playlistSourceKey = null }
+        playlistEnteringKey = null
       })
       scroller.addEventListener('wheel', stop, { passive: true })
       scroller.addEventListener('touchstart', stop, { passive: true })
@@ -182,6 +215,7 @@
     callback?.(...args)
   }
   function handleNav(view: string, extra?: number | null): void {
+    moreDockOpen = false
     if (view === 'home' || view === 'profile') view = 'library'
     if (view === activeView) {
       contentEl?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
@@ -189,6 +223,20 @@
     }
     rememberScroll()
     onNavigate?.(view, extra, !primaryViews.includes(view))
+  }
+  function toggleDockPlayback(): void {
+    if (player.id) player.togglePlay()
+    else if (initialTrack) player.playTrack(initialTrack, 0)
+  }
+  function changeDockTrack(direction: 1 | -1): void {
+    if (!player.id) return
+    if (direction > 0) player.next()
+    else player.prev()
+  }
+  function dismissDockMore(event: MouseEvent | KeyboardEvent): void {
+    if (!moreDockOpen) return
+    if (event instanceof KeyboardEvent) { if (event.key === 'Escape') moreDockOpen = false; return }
+    if (event.target instanceof Node && !dockNav?.contains(event.target)) moreDockOpen = false
   }
   function handleHapticPointerDown(event: PointerEvent): void {
     if (event.pointerType !== 'mouse' && shouldHapticTarget(event.target)) hapticTap()
@@ -199,6 +247,20 @@
     return () => rootEl?.removeEventListener('pointerdown', handleHapticPointerDown)
   })
 </script>
+
+<svelte:window onclick={dismissDockMore} onkeydown={dismissDockMore} />
+
+{#snippet dockTab(item: DockItem)}
+  {#if item.id === 'more'}
+    <button class="mobile-tab mobile-tab--more" class:active={hiddenCore.some(tab => tab.id === selectedTab)} type="button" aria-label="更多页面" aria-expanded={moreDockOpen} aria-controls="mobile-dock-more" onclick={() => moreDockOpen = !moreDockOpen}>
+      <span class="mobile-tab__icon"><Icon name={item.icon} size={24} strokeWidth={1.8} /></span><span class="mobile-tab__label">{item.label}</span>
+    </button>
+  {:else}
+    <button class="mobile-tab" class:active={selectedTab === item.id} type="button" data-view={item.id} aria-label={item.label} aria-current={selectedTab === item.id ? 'page' : undefined} onclick={() => handleNav(item.id)}>
+      <span class="mobile-tab__icon"><Icon name={item.icon} size={24} strokeWidth={1.8} /></span><span class="mobile-tab__label">{item.label}</span>
+    </button>
+  {/if}
+{/snippet}
 
 <div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack && settingsCategory(activeView) === null, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
   {#if !isPrimaryView && !coverHeaderless && !settingsCategory(activeView)}
@@ -215,10 +277,10 @@
   </header>
   {/if}
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: router.goSettingsHome }}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={() => { scrollTop = contentEl?.scrollTop ?? 0 }} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: () => activeView === 'settings-dock' ? router.goBack() : router.goSettingsHome() }}>
     <div class="mobile-page-content__inner" class:primary-content={isPrimaryView || coverHeaderless}>
       {#if activeView === 'explore' || mountedViews.includes('explore')}
-        <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} class:playlist-source-outgoing={playlistSourceKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
           <h1 class="mobile-large-title">{titles.explore}</h1>
           <ExplorePage mobile active={activeView === 'explore'} onOpenRecommendation={(key) => openFromCurrentView(router.goRecommendation, key)} {onOpenLogin} onSearch={() => handleNav('search')} onBannerClick={(banner) => openFromCurrentView(router.handleBannerClick, banner)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id as SongId, push, preview)}
@@ -228,7 +290,7 @@
       {/if}
 
       {#if activeView === 'library' || mountedViews.includes('library')}
-        <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} class:playlist-source-outgoing={playlistSourceKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
           <h1 class="mobile-large-title">{titles.library}</h1>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
@@ -236,7 +298,7 @@
       {/if}
 
       {#if activeView === 'search' || mountedViews.includes('search')}
-        <div class="mobile-shared-page mobile-route-page" data-route-key="search" class:mobile-route-outgoing={leavingKey === 'search'} style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="search" class:mobile-route-outgoing={leavingKey === 'search'} class:playlist-source-outgoing={playlistSourceKey === 'search'} style:display={activeView === 'search' ? 'block' : 'none'} inert={activeView !== 'search'} aria-hidden={activeView !== 'search'}>
           <h1 class="mobile-large-title">{titles.search}</h1>
           <SearchPage active={activeView === 'search'} onOpenArtist={(id) => openFromCurrentView(onOpenArtist, id)} onOpenAlbum={(id) => openFromCurrentView(onOpenAlbum, id)}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} />
@@ -244,22 +306,22 @@
       {/if}
 
       {#if activeView === 'settings'}
-        <div class="mobile-shared-page mobile-route-page" data-route-key="settings" class:mobile-route-outgoing={leavingKey === 'settings'} style:display={activeView === 'settings' ? 'block' : 'none'} inert={activeView !== 'settings'} aria-hidden={activeView !== 'settings'}>
+        <div class="mobile-shared-page mobile-route-page" data-route-key="settings" class:mobile-route-outgoing={leavingKey === 'settings'} class:playlist-source-outgoing={playlistSourceKey === 'settings'} style:display={activeView === 'settings' ? 'block' : 'none'} inert={activeView !== 'settings'} aria-hidden={activeView !== 'settings'}>
           <div class="settings-title-row"><h1 class="mobile-large-title">{titles.settings}</h1><button class="settings-menu-button" onclick={(event) => onOpenMenu?.(event.currentTarget)} aria-label="打开导航菜单"><Icon name="more" size={22} /></button></div>
           <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} onNavigate={handleNav} />
         </div>
       {/if}
 
       {#each detailPages as page (page.key)}
-      <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={page.view === 'playlist' || page.view === 'recommendation'} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key}
-        style:display={viewKey === page.key ? 'block' : 'none'} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
+      <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={page.view === 'playlist' || page.view === 'recommendation'} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key} class:playlist-source-outgoing={playlistSourceKey === page.key}
+        style:display={viewKey === page.key ? 'block' : 'none'} style:transform={playlistEnteringKey === page.key ? 'translate3d(0,100vh,0)' : undefined} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
       {#if page.view === 'playlist' || page.view === 'recommendation'}
         <div class="cover-page-controls">
           <button type="button" aria-label="返回上一页" onclick={() => (activeChrome?.back ?? onBack)?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
         </div>
       {/if}
       {#if settingsCategory(page.view) && viewKey === page.key}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={router.goSettingsHome} />
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={page.view === 'settings-dock' ? router.goBack : router.goSettingsHome} />
       {:else if page.view === 'about'}
         <AboutPage />
       {:else if page.view === 'liked'}
@@ -293,13 +355,24 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" aria-label="主导航">
-    {#each [{ view: 'explore', label: '发现', icon: 'compass' }, { view: 'search', label: '搜索', icon: 'search' }, { view: 'library', label: '资料库', icon: 'music' }, { view: 'settings', label: '设置', icon: 'settings' }] as tab}
-      <button class="mobile-tab" class:active={selectedTab === tab.view} data-view={tab.view} aria-current={selectedTab === tab.view ? 'page' : undefined} onclick={() => handleNav(tab.view)}>
-        <span class="mobile-tab__icon"><Icon name={tab.icon} size={24} strokeWidth={1.8} /></span>
-        <span class="mobile-tab__label">{tab.label}</span>
-      </button>
-    {/each}
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:more-open={moreDockOpen} style:--dock-count={dockItems.length} aria-label="主导航" bind:this={dockNav}>
+    {#if moreDockOpen && hiddenCore.length}
+      <button class="mobile-dock-more-backdrop" type="button" tabindex="-1" aria-label="关闭更多页面" onclick={() => moreDockOpen = false}></button>
+      <div class="mobile-dock-more" id="mobile-dock-more" role="dialog" aria-modal="true" aria-label="更多页面" tabindex="-1" use:dialogFocus={() => moreDockOpen = false}>
+        {#each hiddenCore as tab (tab.id)}<button type="button" onclick={() => handleNav(tab.id)}><Icon name={mobileDock.config.icons[tab.id] || tab.icons[0].value} size={20} strokeWidth={1.8} /><span>{tab.label}</span></button>{/each}
+      </div>
+    {/if}
+    {#each dockItems.slice(0, dockSplit) as item (item.id)}{@render dockTab(item)}{/each}
+    {#if mobileDock.config.layout === 'floating'}
+      <div class="mobile-integrated-player" role="group" aria-label="迷你播放器" aria-busy={player.loading && !player.playing}>
+        <button class="mobile-dock-open" type="button" aria-label={`打开播放器：${dockTitle}${player.error ? `，${player.error}` : ''}`} disabled={!player.id && !initialTrack} onclick={(event) => onOpenPlayer?.(event.currentTarget)} use:playerSurfaceGesture={{ controller: playerController, opening: true, blocked: () => !player.id && !initialTrack, onOpenStart: onPrepareLyrics, changeTrack: changeDockTrack }}>
+          <span class="mini-player-artwork mobile-dock-art">{#if dockCover && !dockCoverFailed}<img src={dockCover} alt="" referrerpolicy="no-referrer" onerror={() => dockCoverFailed = true} />{:else}<Icon name="music" size={20} />{/if}</span>
+          {#if player.error}<span class="mobile-dock-error" aria-hidden="true">!</span>{/if}
+        </button>
+        <button class="mobile-dock-play" type="button" disabled={!player.id && !initialTrack} aria-label={player.loading && !player.playing ? '正在加载' : player.playing ? '暂停' : '播放'} onclick={toggleDockPlayback}>{#if player.loading && !player.playing}<span class="mobile-dock-spinner" aria-hidden="true"></span>{:else}<Icon name={player.playing ? 'pause' : 'play'} size={22} fill="currentColor" />{/if}</button>
+      </div>
+    {/if}
+    {#each dockItems.slice(dockSplit) as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
 
@@ -323,5 +396,53 @@
   .playlist-sheet-page.mobile-route-outgoing { margin: 0; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   :global(html.mobile-runtime) .mobile-shared-page.mobile-route-outgoing { width: var(--route-outgoing-width, 100%); }
+  .mobile-route-outgoing.playlist-source-outgoing { clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
+
+  :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-h: 72px; }
+  :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: repeat(var(--dock-count), minmax(0, 1fr)); }
+  :global(html.mobile-runtime) .mobile-tab-bar.more-open { z-index: 100; }
+  :global(html.mobile-runtime) .mobile-tab-bar.icons-only .mobile-tab__label { display: none; }
+  :global(html.mobile-runtime) .mobile-tab-bar.floating {
+    inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left));
+    width: auto; height: 60px; display: flex; align-items: center; gap: 0; padding: 4px;
+    border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface);
+    background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+    box-shadow: 0 4px 18px rgb(0 0 0 / .14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  }
+  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab { flex: 1 1 0; min-width: 44px; height: 50px; gap: 2px; border-radius: 999px; }
+  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
+  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
+  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
+  :global(html.mobile-runtime) .mobile-tab--more .mobile-tab__icon { rotate: 90deg; }
+  .mobile-integrated-player { display: flex; flex: none; align-items: center; gap: 0; margin: 0 2px; }
+  .mobile-dock-open, .mobile-dock-play { display: grid; place-items: center; flex: none; height: 48px; padding: 0; border: 0; background: transparent; color: var(--text); }
+  .mobile-dock-open { position: relative; width: 44px; border-radius: 999px; touch-action: none; }
+  .mobile-dock-play { width: 44px; border-radius: 999px; color: var(--md-on-primary); background: var(--md-primary); }
+  .mobile-dock-open, .mobile-dock-play { transition: scale 160ms var(--ease-out); }
+  .mobile-dock-open:global([data-mobile-pressed]), .mobile-dock-play:global([data-mobile-pressed]) { scale: .94; }
+  .mobile-dock-play:disabled, .mobile-dock-open:disabled { opacity: .45; }
+  .mobile-dock-spinner { width: 18px; height: 18px; border: 2px solid color-mix(in srgb, currentColor 35%, transparent); border-top-color: currentColor; border-radius: 50%; animation: mobile-dock-spin 800ms linear infinite; }
+  @keyframes mobile-dock-spin { to { transform: rotate(360deg); } }
+  :global(html.mobile-runtime) .mobile-dock-art { width: 36px; height: 36px; flex-basis: 36px; border-radius: 50%; }
+  .mobile-dock-error { position: absolute; top: 1px; right: 0; width: 14px; height: 14px; display: grid; place-items: center; border-radius: 50%; background: var(--danger); color: white; font-size: 10px; font-weight: 700; }
+  .mobile-dock-more-backdrop { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
+  .mobile-dock-more { position: absolute; z-index: 2; right: 8px; bottom: calc(100% + var(--mobile-player-h) + 8px); min-width: 160px; display: grid; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); box-shadow: var(--shadow-lg); }
+  .floating .mobile-dock-more { bottom: calc(100% + 8px); }
+  .mobile-dock-more button { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; color: var(--text); background: transparent; border-radius: var(--radius-sm); text-align: left; }
+  .mobile-dock-more button:active { background: var(--bg-hover); }
+  .mobile-dock-open:focus-visible, .mobile-dock-play:focus-visible, .mobile-dock-more button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  @media (orientation: landscape) and (max-height: 720px) {
+    :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: 1fr; grid-template-rows: repeat(var(--dock-count), minmax(48px, 1fr)); }
+    :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; --mobile-tabs-space: calc(72px + var(--app-bottom-inset)); }
+    :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
+    :global(html.mobile-runtime) .mobile-tab-bar.floating { inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left)); width: auto; height: 60px; }
+    :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) .mobile-dock-more { bottom: 8px; left: calc(100% + 8px); right: auto; }
+  }
+  @media (max-width: 360px) {
+    :global(html.mobile-runtime) .mobile-tab-bar.floating { left: env(safe-area-inset-left); right: env(safe-area-inset-right); padding-inline: 2px; }
+    .mobile-integrated-player { margin: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .mobile-dock-open, .mobile-dock-play { transition: none; } .mobile-dock-open:global([data-mobile-pressed]), .mobile-dock-play:global([data-mobile-pressed]) { scale: 1; } .mobile-dock-spinner { animation: none; } }
+  @media (prefers-reduced-transparency: reduce) { :global(html.mobile-runtime) .mobile-tab-bar.floating { background: var(--bg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 </style>

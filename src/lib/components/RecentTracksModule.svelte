@@ -11,9 +11,11 @@
   let {
     limit = 8,
     onOpenAll,
+    showEyebrow = true,
   }: {
     limit?: number
     onOpenAll?: () => void
+    showEyebrow?: boolean
   } = $props()
 
   // 保留原始 track 作为播放队列：索引与列表顺序一致，不能换成归一后的副本
@@ -54,7 +56,7 @@
 
 <section class="profile-home__panel">
   <header>
-    <div><span>CONTINUE</span><h2>最近播放</h2></div>
+    <div>{#if showEyebrow}<span>CONTINUE</span>{/if}<h2>最近播放</h2></div>
     <button type="button" onclick={() => onOpenAll?.()}>查看全部</button>
   </header>
   <CompactTrackList {rows} emptyText="播放一首歌后会显示在这里" onPlay={playAt} />

@@ -295,6 +295,9 @@ export const ncm = {
   lyric(id: SongId) {
     return request('/lyric', { id })
   },
+  lyricNew(id: SongId) {
+    return request('/lyric/new', { id })
+  },
   songDetail(id: SongId | SongId[]) {
     const ids = Array.isArray(id) ? id.join(',') : id
     return request('/song/detail', { ids })

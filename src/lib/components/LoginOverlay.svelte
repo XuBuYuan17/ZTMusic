@@ -29,6 +29,8 @@
   let loginRequestId = 0
   let phoneInput = $state<HTMLInputElement | null>(null)
   let emailInput = $state<HTMLInputElement | null>(null)
+  let tabPointer: number | null = null
+  let suppressTabClickUntil = 0
 
   $effect(() => {
     if (showLogin && mode === 'qr') startQr()
@@ -120,6 +122,30 @@
     pollActive = false
   }
 
+  function holdTabFocus(e: PointerEvent): void {
+    if (e.pointerType !== 'touch' || !e.isPrimary || !(document.activeElement instanceof HTMLInputElement)) return
+    tabPointer = e.pointerId
+    e.preventDefault()
+  }
+
+  function releaseTabFocus(e: PointerEvent, nextMode: LoginMode): void {
+    if (e.pointerId !== tabPointer) return
+    tabPointer = null
+    const bounds = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    if (e.clientX >= bounds.left && e.clientX <= bounds.right && e.clientY >= bounds.top && e.clientY <= bounds.bottom) {
+      suppressTabClickUntil = Date.now() + 500
+      switchMode(nextMode)
+    }
+  }
+
+  function suppressFollowupClick(e: MouseEvent): boolean {
+    if (e.detail === 0 || Date.now() > suppressTabClickUntil) return false
+    suppressTabClickUntil = 0
+    e.preventDefault()
+    e.stopPropagation()
+    return true
+  }
+
   function handleOverlayKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') { e.preventDefault(); onClose?.() }
   }
@@ -131,36 +157,38 @@
 </script>
 
 {#if showLogin}
-  <div class="login-overlay" transition:fade={{ duration: 200 }} role="button" tabindex="0" aria-label="关闭登录窗口" onclick={onClose} onkeydown={handleOverlayKeyDown}>
+  <div class="login-overlay" transition:fade={{ duration: 200 }} role="button" tabindex="0" aria-label="关闭登录窗口" onclick={(e) => { if (!suppressFollowupClick(e)) onClose?.() }} onkeydown={handleOverlayKeyDown}>
     <div class="login-card" transition:desktopPanel use:dialogFocus={() => onClose?.()} use:desktopFeedback role="dialog" tabindex="-1" aria-modal="true" aria-label="登录" onclick={stopEvent} onkeydown={stopEvent}>
-      <button class="close-btn" onclick={onClose} aria-label="关闭">✕</button>
+      <button class="close-btn" type="button" onclick={onClose} aria-label="关闭">✕</button>
 
       <div class="login-header">
         <h2>登录</h2>
-        <p>登录网易云音乐账号</p>
       </div>
 
       <div class="tabs">
-        <button class="tab" class:active={mode === 'qr'} onclick={() => switchMode('qr')}>扫码</button>
-        <button class="tab" class:active={mode === 'phone'} onclick={() => switchMode('phone')}>手机号</button>
-        <button class="tab" class:active={mode === 'email'} onclick={() => switchMode('email')}>邮箱</button>
+        <button class="tab" class:active={mode === 'qr'} aria-pressed={mode === 'qr'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'qr')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('qr') }}>扫码</button>
+        <button class="tab" class:active={mode === 'phone'} aria-pressed={mode === 'phone'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'phone')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('phone') }}>手机号</button>
+        <button class="tab" class:active={mode === 'email'} aria-pressed={mode === 'email'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'email')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('email') }}>邮箱</button>
       </div>
 
       <div class="login-body">
         {#if mode === 'qr'}
           <div class="qr-section">
-            {#if qrImg}
-              <img class="qr-img" src={qrImg} alt="QR code" />
-            {:else if qrStatus && !error}
-              <div class="qr-placeholder">
+            <div class="qr-frame">
+              {#if qrImg}
+                <img class="qr-img" src={qrImg} alt="网易云音乐登录二维码" />
+              {:else if qrStatus && !error}
                   <Spinner size="lg" />
-              </div>
-            {/if}
+              {:else}
+                <span class="qr-unavailable" aria-hidden="true">⌁</span>
+              {/if}
+            </div>
             {#if qrStatus}
-              <p class="qr-status">{qrStatus}</p>
+              <p class="qr-status" role="status">{qrStatus}</p>
             {/if}
             {#if qrImg}
-              <div class="qr-hint">打开网易云音乐APP - 扫一扫登录<br><span class="qr-url-fallback">{qrUrl}</span></div>
+              {#if qrUrl}<details class="qr-fallback"><summary>无法扫码？查看登录链接</summary><span class="qr-url-fallback">{qrUrl}</span></details>{/if}
+              {#if qrStatus.includes('已过期')}<button class="retry-btn" onclick={startQr}>重新获取二维码</button>{/if}
             {/if}
             {#if error}
               <p class="login-error">{error}</p>
@@ -170,8 +198,8 @@
 
         {:else if mode === 'phone'}
           <div class="form">
-            <input class="input" type="tel" placeholder="手机号" bind:value={phone} bind:this={phoneInput} />
-            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} />
+            <label>手机号<input class="input" type="tel" autocomplete="tel" placeholder="请输入手机号" bind:value={phone} bind:this={phoneInput} /></label>
+            <label>密码<input class="input" type="password" autocomplete="current-password" placeholder="请输入密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} /></label>
             {#if error}<p class="login-error">{error}</p>{/if}
             <button class="login-btn" onclick={handleLogin} disabled={processing}>
               {processing ? '登录中...' : '登录'}
@@ -180,8 +208,8 @@
 
         {:else if mode === 'email'}
           <div class="form">
-            <input class="input" type="email" placeholder="邮箱" bind:value={email} bind:this={emailInput} />
-            <input class="input" type="password" placeholder="密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} />
+            <label>邮箱<input class="input" type="email" autocomplete="username" placeholder="请输入邮箱" bind:value={email} bind:this={emailInput} /></label>
+            <label>密码<input class="input" type="password" autocomplete="current-password" placeholder="请输入密码" bind:value={password} onkeydown={(e) => e.key === 'Enter' && !processing && handleLogin()} /></label>
             {#if error}<p class="login-error">{error}</p>{/if}
             <button class="login-btn" onclick={handleLogin} disabled={processing}>
               {processing ? '登录中...' : '登录'}
@@ -203,50 +231,52 @@
   .login-card {
     background: var(--bg-surface);
     border-radius: var(--radius-lg);
-    padding: 32px;
-    width: 380px;
+    padding: 32px 32px 28px;
+    width: 384px;
     max-width: 90vw;
     position: relative;
     box-shadow: 0 16px 48px rgba(0,0,0,0.2);
   }
   .close-btn {
-    position: absolute; top: 12px; right: 16px;
-    font-size: 18px; color: var(--text-secondary);
-    background: none; border: none; cursor: pointer;
+    position: absolute; top: 16px; right: 16px;
+    width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
+    font-size: 18px; color: var(--text-secondary); background: transparent; border: none; cursor: pointer;
   }
-  .close-btn:hover { color: var(--text); }
-  .login-header { text-align: center; margin-bottom: 24px; }
-  .login-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .login-header p { font-size: 13px; color: var(--text-secondary); }
+  .close-btn:hover { color: var(--text); background: var(--bg-elevated); }
+  .login-header { display: flex; align-items: center; min-height: 42px; margin-bottom: 26px; padding-right: 42px; }
+  .login-header h2 { font-size: 21px; font-weight: 700; margin: 0; }
   .tabs {
-    display: flex; gap: 0; margin-bottom: 24px;
-    background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 3px;
+    display: flex; gap: 2px; margin-bottom: 26px;
+    background: var(--bg-elevated); border-radius: var(--radius-md); padding: 4px;
   }
   .tab {
-    flex: 1; padding: 8px; border-radius: var(--radius-sm);
+    flex: 1; padding: 10px 8px; border-radius: var(--radius-md);
     font-size: 13px; font-weight: 500; color: var(--text-secondary);
-    transition: all 0.2s; cursor: pointer; background: none; border: none;
+    transition: background-color 150ms, color 150ms, box-shadow 150ms; cursor: pointer; background: none; border: none;
   }
-  .tab.active { background: var(--bg-surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .qr-section { text-align: center; padding: 8px 0; }
-  .qr-img { width: 220px; height: 220px; border-radius: var(--radius-sm); margin: 0 auto; display: block; background: #fff; padding: 10px; }
-  .qr-placeholder { width: 220px; height: 220px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
+  .tab.active { background: var(--bg-surface); color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .qr-section { text-align: center; padding: 4px 0 0; }
+  .qr-frame { width: min(220px, 100%); aspect-ratio: 1; margin: 0 auto; display: grid; place-items: center; padding: 12px; border-radius: var(--radius-lg); background: #fff; border: 1px solid var(--border); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 5%, transparent); }
+  .qr-img { width: 100%; height: 100%; display: block; }
+  .qr-unavailable { color: #888; font-size: 32px; }
 
-  .qr-status { margin-top: 12px; font-size: 13px; color: var(--text-secondary); }
-  .qr-hint { margin-top: 8px; font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
+  .qr-status { margin-top: 18px; font-size: 13px; color: var(--text-secondary); }
+  .qr-fallback { margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
+  .qr-fallback summary { cursor: pointer; }
   .qr-url-fallback { display: block; font-size: 10px; word-break: break-all; color: var(--text-disabled); margin-top: 4px; user-select: all; }
   .retry-btn { margin-top: 12px; padding: 6px 20px; border-radius: var(--radius-lg); font-size: 12px; color: var(--accent); background: var(--accent-bg); border: none; cursor: pointer; transition: opacity 0.15s; }
   .retry-btn:hover { opacity: 0.8; }
-  .form { display: flex; flex-direction: column; gap: 12px; }
+  .form { display: flex; flex-direction: column; gap: 16px; }
+  .form label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
   .input {
-    padding: 12px 14px; border-radius: var(--radius-sm);
+    width: 100%; padding: 12px 14px; border-radius: var(--radius-md);
     background: var(--bg-elevated); border: 1px solid var(--border);
     color: var(--text); font-size: 14px; outline: none;
     transition: border-color 0.2s;
   }
   .input:focus { border-color: var(--accent); }
   .login-btn {
-    padding: 12px; border-radius: var(--radius-sm);
+    margin-top: 4px; padding: 12px; border-radius: 999px;
     background: var(--accent); color: #fff;
     font-size: 14px; font-weight: 500;
     transition: opacity 0.15s; border: none; cursor: pointer;
@@ -254,4 +284,11 @@
   .login-btn:hover { opacity: 0.9; }
   .login-btn:disabled { opacity: 0.5; cursor: default; }
   .login-error { font-size: 12px; color: #ff4444; text-align: center; margin-top: 8px; }
+  .close-btn:focus-visible, .tab:focus-visible, .retry-btn:focus-visible, .login-btn:focus-visible, .qr-fallback summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  :global(html.mobile-runtime) .login-card { background: var(--bg-surface); }
+  :global(html.mobile-runtime) .login-card .tabs { border-radius: var(--radius-md); background: var(--md-container); }
+  :global(html.mobile-runtime) .login-card .tab { border-radius: var(--radius-md); }
+  :global(html.mobile-runtime) .login-card .tab.active { color: var(--md-primary); background: var(--bg-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  :global(html.mobile-runtime) .login-card .close-btn { background: transparent; }
+  @media (prefers-reduced-motion: reduce) { .tab, .input, .retry-btn, .login-btn { transition: none; } }
 </style>

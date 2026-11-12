@@ -4,6 +4,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { buildDockItems, DEFAULT_MOBILE_DOCK } from '../settings/mobile-dock.ts'
 
 const mobile = await readFile(new URL('./MobileApp.svelte', import.meta.url), 'utf8')
 const library = await readFile(new URL('../pages/pc/Library.svelte', import.meta.url), 'utf8')
@@ -36,10 +37,8 @@ assert.ok(library.includes('RecentTracksModule'), 'library keeps the recent list
 assert.ok(!library.includes('WeeklyListenModule'), '本周常听只留在主页，资料库不再重复一份')
 assert.ok(!library.includes('SocialPreviewSection'), 'social previews live on the profile page')
 
-// ── 5) 入口没有新增第五个底部标签 ──
-const tabs = mobile.match(/mobile-tab-bar[\s\S]*?\{#each \[([\s\S]*?)\] as tab\}/)
-assert.ok(tabs, 'tab bar found')
-const tabViews = [...(tabs?.[1] ?? '').matchAll(/view: '([a-z-]+)'/g)].map(match => match[1])
-assert.deepEqual(tabViews, ['explore', 'search', 'library', 'settings'], 'still four tabs, no home tab')
+// 默认仍然只有四个主入口；其他入口由用户在设置中选择。
+assert.ok(mobile.includes('buildDockItems(mobileDock.config)'), 'the tab bar uses the saved configuration')
+assert.deepEqual(buildDockItems(DEFAULT_MOBILE_DOCK).map(item => item.id), ['explore', 'search', 'library', 'settings'], 'default navigation retains four tabs without a separate home tab')
 
 console.log('mobile home entry: legacy aliases and unified library passed')

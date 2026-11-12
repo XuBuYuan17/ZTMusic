@@ -99,6 +99,32 @@ fn dev_open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn open_external_url(url: String) -> Result<(), String> {
+    if url.len() > 8192 { return Err("Invalid external URL".into()); }
+    let parsed = reqwest::Url::parse(&url).map_err(|_| "Invalid external URL")?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() || !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("Invalid external URL".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use windows::core::{w, PCWSTR};
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        let wide: Vec<u16> = parsed.as_str().encode_utf16().chain(std::iter::once(0)).collect();
+        let result = unsafe { ShellExecuteW(None, w!("open"), PCWSTR(wide.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL) };
+        if result.0 as isize <= 32 { return Err("Unable to open external URL".into()); }
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open").arg(parsed.as_str()).spawn().map_err(|_| "Unable to open external URL")?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    { Err("External URL opening is unavailable on this platform".into()) }
+}
+
 fn native_media_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     tauri::plugin::Builder::new(NATIVE_MEDIA_PLUGIN_NAME)
         .setup(|app, api| {
@@ -190,7 +216,8 @@ pub fn run() {
             webdav::webdav_list_audio,
             webdav::webdav_cache_audio,
             dev_report_client_error,
-            dev_open_devtools
+            dev_open_devtools,
+            open_external_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

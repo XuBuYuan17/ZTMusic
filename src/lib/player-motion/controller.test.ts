@@ -113,6 +113,8 @@ for (const p of [-.1, 0, .25, .5, .7, 1, 1.1]) {
 }
 assert.equal(coverFrame(0, source, target).left, source.left)
 assert.equal(coverFrame(1, source, target).side, target.width)
+assert.match(surfaceFrame(0, { ...source, width: 358, height: 64 }, { width: 390, height: 844 }, 32).clipPath, /round 32px\)$/, 'floating dock starts with its rounded outline')
+assert.match(surfaceFrame(.5, { ...source, width: 358, height: 64 }, { width: 390, height: 844 }, 32).clipPath, /round 16px\)$/, 'rounding follows surface progress')
 assert.equal(coverFrame(.5, source, { ...target, width: 0 }).scale, 1)
 for (const p of [0, .25, .5, 1]) {
   const cover = coverFrame(p, source, target, 8, 16)

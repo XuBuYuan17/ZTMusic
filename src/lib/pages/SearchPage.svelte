@@ -161,11 +161,12 @@
 
 <div class="search-page fade-in" aria-busy={loading}>
   <form class="search-toolbar" onsubmit={(e) => { e.preventDefault(); doSearch() }}>
-    <label class="search-input-wrap" aria-label="搜索音乐">
-      <Icon name="search" size={18} strokeWidth={1.8} />
+    <div class="search-input-wrap">
+      <button class="search-icon-button" type="submit" disabled={!keyword.trim() || loading} aria-label="搜索"><Icon name="search" size={18} strokeWidth={1.8} /></button>
       <input
         class="search-input"
         type="search"
+        aria-label="搜索音乐"
         enterkeyhint="search"
         placeholder="歌曲、歌手、歌单"
         bind:value={keyword}
@@ -176,10 +177,7 @@
             <Icon name="close" size={15} strokeWidth={2} />
           </button>
         {/if}
-    </label>
-    <button class="search-submit" type="submit" disabled={!keyword.trim() || loading}>
-      {loading ? '搜索中' : '搜索'}
-    </button>
+    </div>
   </form>
 
   {#if keyword.trim() !== '' && !loading && !searchError}
@@ -228,6 +226,7 @@
             {#each Array(10) as _, i}
               <div class="search-chart-song-row search-chart-skeleton" aria-hidden="true">
                 <span class="search-chart-rank">{String(i + 1).padStart(2, '0')}</span>
+                <span class="search-chart-cover skeleton-line"></span>
                 <span class="search-song-info"><strong class="skeleton-line"></strong><em class="skeleton-line narrow"></em></span>
                 <span class="search-song-dur skeleton-line tiny"></span>
               </div>
@@ -236,6 +235,7 @@
           {#each hotSongs.slice(0, 10) as track, i (track.id)}
             <button class="search-chart-song-row" onclick={() => playSong(track)}>
               <span class="search-chart-rank">{String(i + 1).padStart(2, '0')}</span>
+              {#if track.coverUrl || track.picUrl}<img class="search-chart-cover" src={imageCoverUrl(track.coverUrl || track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />{:else}<span class="search-chart-cover" aria-hidden="true"></span>{/if}
               <span class="search-song-info"><strong>{track.name}</strong><em><ArtistNames artists={(track.ar || track.artists || []) as ArtistRefish[]} {onOpenArtist} /></em></span>
               <span class="search-song-dur">{formatDuration(track.dt)}</span>
             </button>
@@ -345,16 +345,18 @@
 
 <style>
   .search-page { --search-line: color-mix(in srgb, var(--border) 72%, transparent); width: min(100%, 880px); display: grid; gap: 28px; margin: 0 auto; padding-bottom: 24px; }
-  .search-toolbar { position: sticky; top: 0; z-index: 14; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: -4px -4px -8px; padding: 8px 4px 10px; border: 0; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
-  .search-input-wrap { min-width: 0; height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 13px; border: 1px solid transparent; border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text-secondary); transition: border-color var(--dur-fast), background-color var(--dur-fast); }
+  .search-chart-cover { display: none; }
+  .search-toolbar { position: sticky; top: 0; z-index: 14; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; margin: -4px -4px -8px; padding: 8px 4px 10px; border: 0; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .search-input-wrap { min-width: 0; height: 50px; display: flex; align-items: center; gap: 4px; padding: 0 8px 0 2px; border: 1px solid transparent; border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text-secondary); transition: border-color var(--dur-fast), background-color var(--dur-fast); }
   .search-input-wrap:focus-within { border-color: color-mix(in srgb, var(--accent) 38%, transparent); background: var(--bg-elevated); color: var(--accent); }
   .search-input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--text); font-size: 16px; line-height: 22px; }
   .search-input::placeholder { color: var(--text-tertiary); }
-  .search-clear, .search-submit { border: 0; cursor: pointer; }
+  .search-icon-button, .search-clear { border: 0; cursor: pointer; }
+  .search-icon-button { flex: none; width: 48px; height: 48px; display: grid; place-items: center; border-radius: var(--radius-md); background: transparent; color: inherit; }
+  .search-icon-button:disabled { opacity: 1; cursor: default; }
+  .search-icon-button:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
   .search-clear { flex: none; width: 38px; height: 38px; display: grid; place-items: center; margin-right: -7px; border-radius: 999px; background: transparent; color: var(--text-secondary); }
   .search-clear:hover { background: var(--bg-hover); }
-  .search-submit { height: 50px; min-width: 64px; padding: 0 14px; border-radius: var(--radius-lg); background: var(--accent); color: white; font-size: 13px; font-weight: 700; white-space: nowrap; }
-  .search-submit:disabled { background: var(--bg-surface); color: var(--text-tertiary); opacity: 1; cursor: default; }
   .search-loading { display: flex; justify-content: center; padding: 72px 0; }
   .search-spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
   .search-category-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; border-bottom: 1px solid var(--search-line); }
@@ -407,7 +409,6 @@
   .search-empty { display: grid; place-items: center; gap: 10px; min-height: 260px; color: var(--text-tertiary); }
   @media (max-width: 390px) {
     .search-page { gap: 24px; }
-    .search-submit { min-width: 58px; padding-inline: 11px; }
     .search-category-tabs button { font-size: 12px; }
     .search-category-tabs em { display: none; }
   }

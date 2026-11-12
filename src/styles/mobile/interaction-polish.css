@@ -74,16 +74,12 @@ html.mobile-runtime body .am-more-menu[data-bottom-panel] .am-more-body {
   overscroll-behavior: contain;
 }
 
-/* Search rows still contain a legacy literal “•••” in markup.
- * Do not depend on :has() here: older Android WebViews can drop that selector.
- * This page is a known text-button call site, so draw the same vertical
- * three-dot geometry explicitly while playlist rows keep their real SVG icon. */
+/* Legacy text controls need the same geometry as the shared SVG control. */
 html.mobile-runtime .m-track-more {
   font-size: 0 !important;
   line-height: 0;
 }
 
-html.mobile-runtime .search-page .m-track-more::before,
 html.mobile-runtime .m-track-more:not(:has(svg))::before {
   content: '';
   display: block;

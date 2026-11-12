@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
   import { responsive } from '../utils/responsive.ts';
   import { playerSurfaceGesture } from '../player-motion/gesture.ts';
@@ -30,12 +30,14 @@
     icon: string;
     action?: () => void;
     disabled?: boolean;
+    group?: string;
   }
 
   type SafeTimer = ReturnType<typeof setTimeout>;
 
   let {
     surfaceController,
+    initialLyrics = false,
     onClose,
     onOpenArtist,
     onOpenAlbum,
@@ -45,6 +47,7 @@
     toggleLocalQueue,
   }: {
     surfaceController?: PlayerSurfaceController;
+    initialLyrics?: boolean;
     onClose?: () => void;
     onOpenArtist?: (id: number | null) => void;
     onOpenAlbum?: (id: number | null) => void;
@@ -59,7 +62,7 @@
   let displayCover = $derived(player.cover || initialTrack?.picUrl || '');
   let displayTitle = $derived(player.title || initialTrack?.name || '未在播放');
   let displayDuration = $derived(player.duration || (initialTrack?.dt || 0) / 1000);
-  let lyricsMode = $state(false);
+  let lyricsMode = $state(untrack(() => initialLyrics));
   let surfaceColor = $state('#37505e');
   $effect(() => {
     if (!$responsive.isMobile) return;
@@ -108,15 +111,15 @@
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
   const qualityLabels = QUALITY_LABELS;
   let moreMenuItems = $derived<MenuItem[]>([
-    { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy },
-    { label: '播放队列', icon: 'list', action: handleToggleLocalQueue, disabled: !player.id },
+    { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy, group: '播放与收藏' },
+    { label: '播放队列', icon: 'queue-music', action: handleToggleLocalQueue, disabled: !player.id },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
-    { label: '专辑', icon: 'music', action: openAlbum, disabled: !album?.id },
+    { label: '专辑', icon: 'disc', action: openAlbum, disabled: !album?.id, group: '歌曲内容' },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
-    { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'settings', action: () => openSecondaryPanel('quality') },
     { label: '热评', icon: 'messages', action: () => openSecondaryPanel('comments'), disabled: !player.id },
-    { label: '相似歌单', icon: 'list', action: () => openSecondaryPanel('playlists'), disabled: !player.id },
-    { label: '播放器主题', icon: 'sun', action: () => openSecondaryPanel('theme') },
+    { label: '相似歌单', icon: 'library-music', action: () => openSecondaryPanel('playlists'), disabled: !player.id },
+    { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'audio-quality', action: () => openSecondaryPanel('quality'), group: '播放与外观' },
+    { label: '播放器主题', icon: 'palette', action: () => openSecondaryPanel('theme') },
     { label: '切换应用外观', icon: 'moon', action: toggleTheme },
   ]);
 

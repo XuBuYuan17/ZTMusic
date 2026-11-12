@@ -63,6 +63,7 @@ export interface NeteaseApi {
   searchHot(): Promise<unknown>
   topSongs(category: number): Promise<unknown>
   lyric(id: SongId): Promise<unknown>
+  lyricNew?(id: SongId): Promise<unknown>
   songUrl(id: SongId, level: string, unblock: boolean, signal?: AbortSignal): Promise<unknown>
   songUrlMatch(id: SongId, signal?: AbortSignal): Promise<unknown>
   songUrlOld(id: SongId, bitrate: number, signal?: AbortSignal): Promise<unknown>
@@ -201,12 +202,26 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
     },
 
     async getLyrics(id: SongId): Promise<LyricLine[]> {
-      const response = checkedResponse(await api.lyric(id))
-      return parseLyricResponse(response || {}).lines.map((line: { time: number; content?: string; translation?: string; roman?: string }) => ({
+      let parsed: ReturnType<typeof parseLyricResponse> | undefined
+      if (api.lyricNew) {
+        try {
+          const candidate = parseLyricResponse(checkedResponse(await api.lyricNew(id)))
+          if (candidate.lines.length || candidate.yrcLines.some(line => line.text)) parsed = candidate
+        } catch { /* 普通歌词接口仍可用 */ }
+      }
+      parsed ??= parseLyricResponse(checkedResponse(await api.lyric(id)))
+      const lines: LyricLine[] = parsed.lines.map(line => ({
         time: line.time,
         text: line.content?.trim() || line.translation?.trim() || line.roman?.trim() || '',
         translation: line.translation?.trim() || '',
       })).filter((line: LyricLine) => line.text)
+      if (!lines.length) return parsed.yrcLines.filter(line => line.text && line.words?.length).map(line => ({ time: line.time, text: line.text, translation: '', words: line.words }))
+      for (const wordLine of parsed.yrcLines) {
+        if (!wordLine.words?.length) continue
+        const match = lines.find(line => !line.words && Math.abs(line.time - wordLine.time) <= 0.6 && line.text === wordLine.text)
+        if (match) match.words = wordLine.words
+      }
+      return lines
     },
 
     async getStream(id: SongId, { level = 'standard', unblock = false, signal } = {}): Promise<PlayStream> {

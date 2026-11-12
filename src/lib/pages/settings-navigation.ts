@@ -1,13 +1,14 @@
-import { SETTINGS_CATEGORIES, type SettingsCategory, type SettingsSummaryContext, type SettingsText } from '../settings/definitions.ts'
+import { SETTINGS_CATEGORIES, type SettingsCategory as BaseSettingsCategory, type SettingsSummaryContext, type SettingsText } from '../settings/definitions.ts'
 import { zh } from '../i18n/zh.js'
 export { SETTINGS_CATEGORIES }
-export type { SettingsCategory }
+export type SettingsCategory = BaseSettingsCategory | 'dock'
 
 export function settingsView(category: SettingsCategory): string {
   return `settings-${category}`
 }
 
 export function settingsCategory(view: string): SettingsCategory | null {
+  if (view === 'settings-dock') return 'dock'
   return SETTINGS_CATEGORIES.find(item => view === settingsView(item.id))?.id ?? null
 }
 

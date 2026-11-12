@@ -28,6 +28,10 @@ import { isMobileDevice } from '../utils/responsive.ts'
 import { createLruCache } from '../utils/lru-cache.ts'
 import { normalizeImageUrl, preloadCover } from '../utils/image.ts'
 import { LIMITS } from '../utils/constants.ts'
+import { bannerDestination } from '../app/banner-target.ts'
+import { musicService } from '../music/service.ts'
+import { openExternal } from '../utils/open-external.ts'
+import { toast } from './toast.svelte.ts'
 
 // 详情曲目兼容播放器队列输入，另带歌单内的附加字段
 interface DetailTrack extends CompactTrackInput {
@@ -98,6 +102,7 @@ interface RouteEntry {
 interface BannerTarget {
   targetId?: number
   targetType?: number
+  url?: string
 }
 
 function pickErrorMessage(error: unknown, fallback: string): string {
@@ -515,7 +520,18 @@ function goDailyHistory(): void {
 }
 
 function handleBannerClick(banner: BannerTarget): void {
-  const t = banner.targetId || 0; if (banner.targetType === 10 && t > 0) goAlbum(t); else if (banner.targetType === 1000 && t > 0) goPlaylist(t)
+  const target = bannerDestination(banner)
+  if (!target) { toast.info('该内容暂不支持打开'); return }
+  if (target.kind === 'album') { goAlbum(target.id); return }
+  if (target.kind === 'playlist') { goPlaylist(target.id); return }
+  if (target.kind === 'song') {
+    void musicService.getTracks([target.id]).then(tracks => {
+      if (tracks[0]) player.playTrack(tracks[0], 0)
+      else toast.info('未找到这首歌曲')
+    }).catch(() => toast.error('歌曲加载失败'))
+    return
+  }
+  void openExternal(target.url).catch(() => toast.error('无法打开活动链接'))
 }
 
 async function toggleArtistFollow(): Promise<void> {

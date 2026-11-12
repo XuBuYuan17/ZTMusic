@@ -8,6 +8,7 @@ export interface DisplayLyricLine {
   time: unknown
   text: string
   translation: string
+  words?: Array<{ time: number; duration: number; text: string }>
 }
 
 type Loose = Record<string, unknown>

@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
-import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, playlistDismissProgress, playlistSheetFrames } from './mobile-navigation-motion.ts'
+import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, outgoingViewportClipTop, playlistDismissProgress, playlistSheetFrames } from './mobile-navigation-motion.ts'
 import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
 assert.equal(mobileNavigationKind('forward', true), 'tab')
+assert.equal(outgoingViewportClipTop(44, -623), 667, 'a scrolled source is clipped above the content viewport')
+assert.equal(outgoingViewportClipTop(44, 60), 0, 'a source already below the viewport top is not clipped')
 assert.equal(playlistDismissProgress(100, 400), .25)
 assert.equal(playlistDismissProgress(-20, 400), 0)
 assert.equal(playlistDismissProgress(500, 400), 1)
@@ -47,9 +49,9 @@ assert.equal(missingSourceReturn.at(-1)?.opacity, 0, 'missing source geometry fa
 assert.ok(mobileMotion.dismiss < mobileMotion.expand, 'return is slightly faster than the initial reveal')
 assert.ok(mobileMotion.dismiss >= 320, 'shared return remains long enough to read as a continuous close')
 
-const pending: Array<{ resolve: () => void; cancelled: boolean; duration: number; easing: string; frames: Keyframe[] }> = []
+const pending: Array<{ resolve: () => void; cancelled: boolean; duration: number; easing: string; fill: FillMode | undefined; frames: Keyframe[] }> = []
 const node = { animate(frames: Keyframe[], options: KeyframeAnimationOptions) {
-  const entry = { resolve: () => {}, cancelled: false, duration: Number(options.duration), easing: String(options.easing || ''), frames }
+  const entry = { resolve: () => {}, cancelled: false, duration: Number(options.duration), easing: String(options.easing || ''), fill: options.fill, frames }
   const finished = new Promise<void>(resolve => { entry.resolve = resolve })
   pending.push(entry)
   return { finished, cancel() { entry.cancelled = true; entry.resolve() } }
@@ -109,6 +111,7 @@ motion.play(playlistNode, node, 'push', false, true, false, () => { playlistComp
 assert.equal(pending.length, 7, 'bottom entrance animates the detail but not the stationary source')
 assert.equal(pending[6]!.duration, mobileMotion.playlistEnter)
 assert.equal(pending[6]!.easing, mobileMotion.playlistEasing)
+assert.equal(pending[6]!.fill, 'both', 'the playlist entrance keeps its first and last frame until cleanup')
 pending[6]!.resolve()
 await setImmediate()
 assert.equal(playlistCompleted, 1)
@@ -117,6 +120,7 @@ motion.play(node, playlistNode, 'pop', false, true, false, () => { playlistCompl
 assert.equal(pending.length, 8, 'return only animates the departing playlist')
 assert.equal(pending[7]!.duration, mobileMotion.playlistExit)
 assert.equal(pending[7]!.easing, mobileMotion.playlistEasing)
+assert.equal(pending[7]!.fill, 'both', 'playlist exit does not expose the detail between its final frame and cleanup')
 assert.equal(pending[7]!.frames.at(-1)?.transform, 'translate3d(0,100vh,0)', 'playlist closes down without a cover flight')
 assert.equal(pending[7]!.frames.at(-1)?.clipPath, undefined, 'rounded covers are not clipped into a different shape')
 pending[7]!.resolve()

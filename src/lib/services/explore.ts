@@ -20,6 +20,7 @@ interface ExploreBanner {
   pic: string
   targetId: number
   targetType: number
+  url: string
 }
 
 export interface ExploreData {
@@ -105,6 +106,7 @@ export async function loadExploreData(ncm: ExploreApi): Promise<ExploreData> {
       pic: pickString(banner.imageUrl, banner.bigImageUrl, banner.pic),
       targetId: pickNumber(banner.targetId),
       targetType: pickNumber(banner.targetType),
+      url: pickString(banner.url),
     }
   })
 

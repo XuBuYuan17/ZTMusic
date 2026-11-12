@@ -122,9 +122,6 @@ export function parseLyricResponse(data: unknown): ParsedLyric {
   const tlyric = tlyricText ? parseLRC(tlyricText) : []
   const romalyric = romalrcText ? parseLRC(romalrcText) : []
   // 新版接口 /lyric/new 的逐字歌词
-  // 注意：只有 /lyric/new 会返回 yrc 字段，而本项目调的是 /lyric（实测响应里没有 yrc），
-  // 所以 yrcLines 目前恒为空数组、没有消费方。保留解析器是为了将来切到 /lyric/new 时能直接用，
-  // 但别以为逐字歌词现在能用。
   const yrcLines = yrcText ? parseYrc(yrcText) : []
 
   // LRC 合并（传统歌词 + 翻译 + 罗马音）

@@ -147,7 +147,7 @@
   </div>
 {:else}
   <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
-    {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover(320)}")`} aria-hidden="true"></div>{/if}
+    {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover($responsive.isMobile ? 720 : 320)}")`} aria-hidden="true"></div>{/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
     {#if cover && $responsive.isMobile}
       <div class="playlist-cover-open">

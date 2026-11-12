@@ -25,6 +25,7 @@
   }
 </script>
 
+{#if auth.isLoggedIn}
 {#if mobile}
   <section class="mobile-discovery-section discovery-playlists" aria-label="专属歌单">
     <h2>专属歌单</h2>
@@ -50,4 +51,5 @@
     </div>
     {#if message}<p role="status">{message}</p>{/if}
   </section>
+{/if}
 {/if}

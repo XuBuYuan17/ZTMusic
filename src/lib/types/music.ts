@@ -69,6 +69,7 @@ export interface LyricLine {
   time: number
   text: string
   translation?: string
+  words?: Array<{ time: number; duration: number; text: string }>
 }
 
 export interface PlayStream {

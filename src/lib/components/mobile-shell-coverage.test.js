@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const read = (file) => readFile(new URL(file, import.meta.url), 'utf8')
-const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCss] = await Promise.all([
+const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCss, dockConfig] = await Promise.all([
   read('../../App.svelte'),
   read('./Sidebar.svelte'),
   read('./MobileApp.svelte'),
@@ -11,6 +11,7 @@ const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCs
   read('./QueuePanel.svelte'),
   read('../../styles/mobile/responsive.css'),
   read('../../styles/loading.css'),
+  read('../settings/mobile-dock.ts'),
 ])
 
 for (const page of ['Explore', 'Library']) {
@@ -34,9 +35,8 @@ assert.ok(miniPlayer.includes('player.next()') && miniPlayer.includes('player.pr
 assert.ok(queuePanel.includes('class:pending=') && queuePanel.includes('aria-busy={pendingIndex'), 'queue selection must expose a pending playback state')
 assert.ok(responsiveCss.includes('.queue-item:has(.queue-item-open:focus-visible)') && responsiveCss.includes('.queue-item.pending'), 'queue focus and pending states must use row-level mobile feedback')
 assert.ok(mobileApp.includes('class="mobile-tab-bar"'), 'the bottom tab bar must be present')
-for (const view of ['explore', 'search', 'library', 'settings']) {
-  assert.ok(mobileApp.includes(`view: '${view}'`), `bottom tab bar is missing the ${view} entry`)
-}
+for (const view of ['explore', 'search', 'library', 'settings']) assert.ok(dockConfig.includes(`id: '${view}'`), `bottom tab bar is missing the ${view} entry`)
+assert.ok(mobileApp.includes('hiddenDockTabs(mobileDock.config)') && mobileApp.includes('mobile-dock-more'), 'hidden primary destinations remain reachable')
 assert.ok(!mobileApp.includes('use:scrollChrome'), 'bottom navigation must stay visible while scrolling')
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')

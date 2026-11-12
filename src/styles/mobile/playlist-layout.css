@@ -162,10 +162,28 @@ html.mobile-runtime body .mobile-page-content .playlist-detail-page :is(.playlis
   display: grid; place-items: center; flex: none; width: 44px; height: 44px; background: rgba(255,255,255,.18); color: white;
 }
 html.mobile-runtime body .mobile-page-content .playlist-detail-page .playlist-favorite-btn:disabled { opacity: .45; }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-detail-hero {
+  aspect-ratio: 1 / 1.03;
+  min-height: 330px;
+  justify-content: flex-end;
+}
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-detail-hero:not(.playlist-detail-hero--loading) > :is(.playlist-cover-open, .playlist-cover) { display: none; }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-hero-backdrop { opacity: 1; background-position: center; }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-hero-wash {
+  background: linear-gradient(to bottom, rgb(0 0 0 / .18), rgb(0 0 0 / .08) 30%, rgb(0 0 0 / .48) 55%, rgb(0 0 0 / .82) 100%);
+}
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-hero-copy { text-shadow: 0 2px 12px rgb(0 0 0 / .55); }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-play-btn:hover:not(:disabled) { background: var(--accent); filter: none; }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-playing-record {
+  top: -18%; left: auto; right: -22%; width: 68%;
+  transform: translate(20%, -15%) scale(.85);
+}
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-playing-record.visible { transform: none; }
 html.mobile-runtime body .mobile-page-content .playlist-detail-page .playlist-track-surface {
   border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden;
   background: linear-gradient(to bottom, color-mix(in srgb, var(--playlist-atmosphere, #141414) 42%, var(--bg-surface)), var(--bg-surface) 1200px);
 }
+html.mobile-runtime body .mobile-page-content .playlist-sheet-page .playlist-track-surface { background: var(--md-container-highest); }
 html.mobile-runtime body .mobile-page-content .playlist-detail-page .track-table tbody tr {
   grid-template-columns: 48px minmax(0, 1fr); grid-template-rows: 22px 18px;
   align-items: center; gap: 2px 12px; min-height: 72px; padding: 12px 48px 12px 12px; border-radius: 0;

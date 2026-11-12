@@ -7,6 +7,8 @@ interface GestureOptions {
   blocked?: () => boolean
   horizontal?: (x: number) => void
   changeTrack?: (direction: 1 | -1) => void
+  onGestureStart?: () => void
+  onOpenStart?: () => void
 }
 
 export function playerSurfaceGesture(node: HTMLElement, initial: GestureOptions) {
@@ -38,11 +40,12 @@ export function playerSurfaceGesture(node: HTMLElement, initial: GestureOptions)
     const dy = event.clientY - start.y
     moved ||= Math.max(Math.abs(dx), Math.abs(dy)) >= SLOP
     if (!axis && moved) {
-      if (Math.abs(dx) > Math.abs(dy) * AXIS_RATIO) axis = 'horizontal'
+      if (Math.abs(dx) > Math.abs(dy) * AXIS_RATIO) { axis = 'horizontal'; options.onGestureStart?.() }
       else if (Math.abs(dy) > Math.abs(dx) * AXIS_RATIO) {
         axis = 'vertical'
+        options.onGestureStart?.()
         if ((options.opening && dy > 0) || (!options.opening && dy < 0 && options.controller?.phase === 'open')) return
-        if (options.opening) node.focus({ preventScroll: true })
+        if (options.opening) { options.onOpenStart?.(); node.focus({ preventScroll: true }) }
         options.controller?.beginDrag(start.y, start.time)
       }
     }

@@ -9,10 +9,14 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   const backdrop = root.querySelector<HTMLElement>('.m-player-backdrop')
   const background = root.querySelector<HTMLElement>('.am-bg')
   const nav = document.querySelector<HTMLElement>('.mobile-tab-bar')
-  const mini = document.querySelector<HTMLElement>('.mobile-mini-player')
+  const integrated = document.querySelector<HTMLElement>('.mobile-integrated-player')
+  const mini = integrated ?? document.querySelector<HTMLElement>('.mobile-mini-player')
+  const integratedInNav = Boolean(integrated && nav?.contains(integrated))
   const miniCover = mini?.querySelector<HTMLElement>('.mini-player-artwork')
   const saved = new Map<HTMLElement, Map<string, { value: string; priority: string }>>()
   let source: SurfaceRect
+  let miniSource: SurfaceRect | undefined
+  let sourceRadius = 0
   let coverSource: SurfaceRect | undefined
   let coverTarget: SurfaceRect | undefined
   let coverSourceRadius = 0
@@ -61,7 +65,8 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
 
   function measure() {
     viewport = { width: innerWidth, height: innerHeight }
-    source = mini?.getBoundingClientRect() ?? { left: 0, top: viewport.height, width: viewport.width, height: 0 }
+    miniSource = mini?.getBoundingClientRect()
+    source = (integratedInNav ? nav?.getBoundingClientRect() : miniSource) ?? { left: 0, top: viewport.height, width: viewport.width, height: 0 }
     const from = miniCover?.getBoundingClientRect()
     const to = cover?.getBoundingClientRect()
     coverSource = from?.width && from.height ? from : undefined
@@ -74,6 +79,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     }
     coverSourceRadius = radius(miniCover, from?.width ?? 0)
     coverTargetRadius = radius(cover, to?.width ?? 0)
+    sourceRadius = integratedInNav ? radius(nav, Math.min(source.width, source.height)) : 0
   }
 
   function measureContent() {
@@ -88,14 +94,18 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     captured = true
     root.classList.add('surface-transitioning')
     player.dispatchEvent(new Event('mobile-player-suspend'))
+    if (integratedInNav) {
+      set(nav, 'transition', 'none')
+      set(nav, 'transform', 'none')
+    }
     measure()
     measureContent()
-    if (mini) {
+    if (mini && !integratedInNav) {
       ghost = clone(mini, 'player-surface-mini')
       ghost.querySelector<HTMLElement>('.mini-player-artwork')?.style.setProperty('visibility', 'hidden')
       Object.assign(ghost.style, {
-        left: `${source.left}px`, top: `${source.top}px`, width: `${source.width}px`, height: `${source.height}px`,
-        minHeight: `${source.height}px`, padding: getComputedStyle(mini).padding,
+        left: `${miniSource?.left ?? source.left}px`, top: `${miniSource?.top ?? source.top}px`, width: `${miniSource?.width ?? source.width}px`, height: `${miniSource?.height ?? source.height}px`,
+        minHeight: `${miniSource?.height ?? source.height}px`, padding: getComputedStyle(mini).padding,
         background: 'transparent', border: '0', boxShadow: 'none', zIndex: '20',
       })
     }
@@ -106,6 +116,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
         borderRadius: getComputedStyle(cover).borderRadius, opacity: '1', zIndex: '30',
       })
       set(cover, 'visibility', 'hidden')
+      if (integratedInNav) set(miniCover, 'visibility', 'hidden')
     }
     document.documentElement.classList.add('mobile-player-expanded')
     // A mode click can have a pending Svelte layout update in this same event.
@@ -126,10 +137,10 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   function render() {
     if (destroyed || !captured) return
     const p = clampProgress(controller.sheetProgress.get())
-    const visual = surfaceFrame(p, source, viewport)
+    const visual = surfaceFrame(p, source, viewport, sourceRadius)
     set(nav, 'transition', 'none')
     set(sheet, 'clip-path', visual.clipPath)
-    set(nav, 'transform', visual.navTransform)
+    set(nav, 'transform', integratedInNav ? `translateY(${p * Math.max(0, viewport.height - source.top)}px)` : visual.navTransform)
     set(backdrop, 'opacity', `${visual.backdropOpacity}`)
     set(background, 'opacity', `${visual.backgroundOpacity}`)
     if (ghost) ghost.style.opacity = `${visual.miniOpacity}`
@@ -157,13 +168,18 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     if (!destroyed && captured) {
       // Restore our overrides while measuring the frozen mode's current layout.
       restore()
+      if (integratedInNav) {
+        set(nav, 'transition', 'none')
+        set(nav, 'transform', 'none')
+      }
       measure()
       measureContent()
       if (cover && shared && coverTarget) {
         shared.style.width = shared.style.height = `${coverTarget.width}px`
         set(cover, 'visibility', 'hidden')
+        if (integratedInNav) set(miniCover, 'visibility', 'hidden')
       }
-      if (ghost) Object.assign(ghost.style, { left: `${source.left}px`, top: `${source.top}px`, width: `${source.width}px`, height: `${source.height}px` })
+      if (ghost) Object.assign(ghost.style, { left: `${miniSource?.left ?? source.left}px`, top: `${miniSource?.top ?? source.top}px`, width: `${miniSource?.width ?? source.width}px`, height: `${miniSource?.height ?? source.height}px` })
       render()
     }
   }

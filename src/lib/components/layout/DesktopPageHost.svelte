@@ -181,7 +181,7 @@ let scrollEl = $state<HTMLElement | null>(null)
           />
         {/await}
       {:else if router.activeView === 'settings' || settingsCategory(router.activeView)}
-        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(router.activeView)} onNavigate={router.handleNav} onBack={router.goSettingsHome} />{/await}
+        {#await loadSettingsPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}<module.default {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(router.activeView)} onNavigate={router.handleNav} onBack={router.activeView === 'settings-dock' ? router.goBack : router.goSettingsHome} />{/await}
       {:else if router.activeView === 'about'}
         {#await loadAboutPage()}<div class="desktop-page-loading" role="status" aria-label="正在加载页面"><div class="skeleton-block"></div><div class="skeleton-block"></div></div>{:then module}
           <module.default />

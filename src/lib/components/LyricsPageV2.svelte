@@ -7,8 +7,9 @@
   import AppleMusicPlayer from './AppleMusicPlayer.svelte'
 
   interface LyricsOrigin { x?: number; y?: number; top?: number; right?: number; bottom?: number; left?: number; radius?: number }
-  let { show = false, origin = null, controller, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme }: {
+  let { show = false, origin = null, controller, initialLyrics = false, onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, onToggleTheme }: {
     controller?: PlayerSurfaceController
+    initialLyrics?: boolean
     show?: boolean
     origin?: LyricsOrigin | null
     onClose?: () => void
@@ -77,7 +78,7 @@
   <div class="ly-fullscreen mounted entered" class:closing={closing && !document.documentElement.classList.contains('mobile-runtime')} bind:this={root} use:enter use:dialogFocus={close} role="dialog" aria-modal="true" aria-label="正在播放" tabindex="-1">
     <div class="m-player-backdrop"></div>
     <div class="ly-container">
-      <AppleMusicPlayer surfaceController={controller} onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
+      <AppleMusicPlayer surfaceController={controller} {initialLyrics} onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
       <button class="m-player-dismiss" aria-label="收起播放器" onclick={close} use:playerSurfaceGesture={{ controller, blocked: () => showLocalQueue }}></button>
     </div>
   </div>

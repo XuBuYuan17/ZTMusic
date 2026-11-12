@@ -162,6 +162,18 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
             return
         }
         if (action == "capabilities") { invoke.resolve(JSObject(AndroidSystemAdapter.describe(activity).toString())); return }
+        if (action == "openExternal") {
+            val rawUrl = args.optJSONObject("data")?.optString("url").orEmpty()
+            val uri = Uri.parse(rawUrl)
+            if (rawUrl.length > 8192 || uri.scheme !in listOf("http", "https") || uri.host.isNullOrBlank() || uri.userInfo != null) {
+                invoke.reject("Invalid external URL"); return
+            }
+            activity.runOnUiThread {
+                try { activity.startActivity(Intent(Intent.ACTION_VIEW, uri)); invoke.resolve() }
+                catch (_: Exception) { invoke.reject("Unable to open external URL") }
+            }
+            return
+        }
         if (action == "overlayPermission") {
             activity.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${activity.packageName}")))
             invoke.resolve(); return

@@ -14,6 +14,7 @@
     disabled?: boolean;
     keepOpen?: boolean;
     checked?: boolean;
+    group?: string;
   }
 
   let {
@@ -47,6 +48,15 @@
     showItems?: boolean
     children?: Snippet
   } = $props();
+
+  const groups = $derived.by(() => {
+    const result: { label: string; items: MoreMenuItem[] }[] = [];
+    for (const item of items) {
+      if (!result.length || item.group) result.push({ label: item.group || '', items: [] });
+      result[result.length - 1]!.items.push(item);
+    }
+    return result;
+  });
 
   function handleItem(item: MoreMenuItem): void {
     if (!item.keepOpen) onClose?.();
@@ -88,11 +98,15 @@
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>
       </div>
-      {#if showItems}{#each items as item}
+      {#if showItems}{#each groups as group}
+        <div class="am-more-group" role={group.label ? 'group' : undefined} aria-label={group.label || undefined}>
+        {#each group.items as item}
         <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-checked={item.checked} onclick={() => handleItem(item)} disabled={item.disabled}>
           <Icon name={item.icon} size={18} strokeWidth={1.8} />
           <span>{item.label}</span>
         </button>
+        {/each}
+        </div>
       {/each}{/if}
       {@render children?.()}
       {#if message}
@@ -203,6 +217,8 @@
   .am-more-track small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .am-more-track strong { font-size: 15px; font-weight: 700; }
   .am-more-track small { color: var(--text-secondary); font-size: 12px; }
+
+  .am-more-group { display: contents; }
 
   .am-more-item {
     min-height: 44px;

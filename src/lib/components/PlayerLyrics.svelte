@@ -4,6 +4,7 @@
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
   import { cancelLyricScroll, scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import { mobilePlayerTiming } from '../app/mobile-player-motion.ts';
+  import LyricWords from './LyricWords.svelte';
 
   let { active = false }: { active?: boolean } = $props();
 
@@ -36,7 +37,7 @@
   <button class="am-lyric-line" class:active={i === lyricState.highlightIndex} class:before={i < lyricState.highlightIndex}
     aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
     onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
-    <span class="am-lyric-text">{line.text || '...'}</span>
+    <span class="am-lyric-text">{#if active && i === lyricState.highlightIndex && line.words?.length}<LyricWords words={line.words} />{:else}{line.text || '...'}{/if}</span>
     {#if line.translation}
       <span class="am-lyric-trans">{line.translation}</span>
     {/if}

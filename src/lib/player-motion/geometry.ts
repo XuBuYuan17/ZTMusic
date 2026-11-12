@@ -3,10 +3,10 @@ import { lerp } from '../app/morph-geometry.ts'
 export interface SurfaceRect { left: number; top: number; width: number; height: number }
 export const clampProgress = (value: number) => Math.max(0, Math.min(1, value))
 
-export function surfaceFrame(progress: number, source: SurfaceRect, viewport: { width: number; height: number }) {
+export function surfaceFrame(progress: number, source: SurfaceRect, viewport: { width: number; height: number }, sourceRadius = 0) {
   const p = clampProgress(progress)
   return {
-    clipPath: `inset(${Math.max(0, source.top) * (1 - p)}px ${Math.max(0, viewport.width - source.left - source.width) * (1 - p)}px ${Math.max(0, viewport.height - source.top - source.height) * (1 - p)}px ${Math.max(0, source.left) * (1 - p)}px round 0px)`,
+    clipPath: `inset(${Math.max(0, source.top) * (1 - p)}px ${Math.max(0, viewport.width - source.left - source.width) * (1 - p)}px ${Math.max(0, viewport.height - source.top - source.height) * (1 - p)}px ${Math.max(0, source.left) * (1 - p)}px round ${Math.max(0, sourceRadius) * (1 - p)}px)`,
     navTransform: `translateY(${p * 100}%)`,
     backdropOpacity: p,
     backgroundOpacity: clampProgress(p / .16),

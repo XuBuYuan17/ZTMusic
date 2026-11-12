@@ -401,12 +401,17 @@
 <div class="library-page fade-in">
   {#if !auth.isLoggedIn}
     <div class="library-logged-out">
-      <div class="library-hero-icon">
-        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      <div class="library-guest-login">
+        <div><h2>登录查看你的收藏</h2><p>歌单和喜欢的音乐都在这里</p></div>
+        <button class="library-login-btn" type="button" onclick={onOpenLogin}>登录</button>
       </div>
-      <h2>登录后查看收藏</h2>
-      <p>你收藏的歌单都会在这里显示</p>
-      <button class="library-login-btn" onclick={onOpenLogin}>立即登录</button>
+      <div class="library-guest-content">
+        <div class="library-guest-recent"><RecentTracksModule limit={$responsive.isMobile ? 3 : 4} showEyebrow={false} onOpenAll={() => onNavigate?.('recent')} /></div>
+        <div class="library-guest-links">
+          <button type="button" onclick={() => onNavigate?.('localMusic')}><span><strong>本地音乐</strong><small>管理本机音乐</small></span><span aria-hidden="true">›</span></button>
+          <button type="button" onclick={() => onNavigate?.('listeningStats')}><span><strong>听歌统计</strong><small>查看聆听记录</small></span><span aria-hidden="true">›</span></button>
+        </div>
+      </div>
     </div>
   {:else}
     {#if notice}<div class="library-notice" role="status">{notice}</div>{/if}
