@@ -485,11 +485,18 @@ async function goArtist(id: number | null, shouldPushRoute = true): Promise<void
   }
 
   let data: ArtistResult
-  try { data = await loadArtistDetail(id) as unknown as ArtistResult } catch (e) {
-    if (rid !== _artistRequestId) return
+  try { data = await loadArtistDetail(id, partial => {
+    if (rid !== _artistRequestId || _activeView !== 'artist' || _selectedId !== id) return
+    if (partial.artist) _artistDetail = partial.artist as ArtistInfo
+    if (partial.songs) _artistSongs = partial.songs as DetailTrack[]
+    if (partial.albums) _artistAlbums = partial.albums
+  }) as unknown as ArtistResult } catch (e) {
+    if (rid !== _artistRequestId || _activeView !== 'artist' || _selectedId !== id) return
     data = { artist: null, songs: [], albums: [] }; _artistError = pickErrorMessage(e, '加载失败')
   }
-  if (rid !== _artistRequestId) return
+  if (rid !== _artistRequestId || _activeView !== 'artist' || _selectedId !== id) return
+  const displayedArtist = _artistDetail as ArtistInfo | null
+  if (data.artist && displayedArtist?.id === id) data.artist = { ...data.artist, followed: displayedArtist.followed }
   _artistDetail = data.artist; _artistSongs = data.songs; _artistAlbums = data.albums; _artistLoading = false
   if (data.artist) detailCache.set(cacheKey, data)
 }
@@ -547,8 +554,9 @@ async function toggleArtistFollow(): Promise<void> {
   try { await ncm.artistSub(artist.id, next) } catch { result = artist }
   if (artistFollowRequests.get(artist.id) !== token) return
   artistFollowRequests.delete(artist.id)
-  if (rid === _artistRequestId && _activeView === 'artist' && _artistDetail === target) _artistDetail = result
-  detailCache.set('artist:' + artist.id, { artist: result, songs, albums })
+  if (rid === _artistRequestId && _activeView === 'artist' && _artistDetail?.id === artist.id && _artistDetail.followed === next) _artistDetail = { ..._artistDetail, followed: result.followed }
+  const cached = detailCache.get('artist:' + artist.id) as ArtistResult | null
+  detailCache.set('artist:' + artist.id, { artist: cached?.artist ? { ...cached.artist, followed: result.followed } : result, songs: cached?.songs ?? songs, albums: cached?.albums ?? albums })
 }
 
 // ── 详情视图播放 wrapper（共享数据） ──

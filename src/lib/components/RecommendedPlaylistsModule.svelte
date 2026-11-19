@@ -30,14 +30,14 @@
   } = $props()
 
   let expanded = $state(false)
-  const visible = $derived(expanded ? playlists : playlists.slice(0, limit))
+  const visible = $derived(mobile || expanded ? playlists : playlists.slice(0, limit))
   const truncated = $derived(playlists.length > limit)
 
   function metaOf(playlist: PlaylistItem): string {
     const copywriter = String(playlist.copywriter ?? '')
-    if (copywriter) return copywriter
+    if (copywriter && (!mobile || copywriter !== '歌单')) return copywriter
     const count = Number(playlist.trackCount ?? 0)
-    return count > 0 ? `${count} 首歌曲` : '歌单'
+    return count > 0 ? `${count} 首歌曲` : mobile ? '' : '歌单'
   }
 </script>
 
@@ -45,7 +45,7 @@
 {#if mobile}
   <section class="mobile-discovery-section" aria-label={label}>
     <h2>{title}</h2>
-    <div class="mobile-cover-rail">
+    <div class="mobile-cover-rail mobile-cover-rail--two-rows">
       {#if loading && !playlists.length}
         {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
       {:else}
@@ -54,7 +54,6 @@
         {/each}
       {/if}
     </div>
-    {#if truncated}<button class="music-preview-more" type="button" aria-expanded={expanded} onclick={() => expanded = !expanded}>{expanded ? '收起' : `展开全部 ${playlists.length} 个`}</button>{/if}
   </section>
 {:else}
   <section class="music-discovery-section">

@@ -36,7 +36,7 @@ assert.ok(queuePanel.includes('class:pending=') && queuePanel.includes('aria-bus
 assert.ok(responsiveCss.includes('.queue-item:has(.queue-item-open:focus-visible)') && responsiveCss.includes('.queue-item.pending'), 'queue focus and pending states must use row-level mobile feedback')
 assert.ok(mobileApp.includes('class="mobile-tab-bar"'), 'the bottom tab bar must be present')
 for (const view of ['explore', 'search', 'library', 'settings']) assert.ok(dockConfig.includes(`id: '${view}'`), `bottom tab bar is missing the ${view} entry`)
-assert.ok(mobileApp.includes('hiddenDockTabs(mobileDock.config)') && mobileApp.includes('mobile-dock-more'), 'hidden primary destinations remain reachable')
+assert.ok(sidebar.includes("nav('search')") && sidebar.includes("nav('explore')") && sidebar.includes("nav('library')"), 'primary destinations remain reachable through navigation menu')
 assert.ok(mobileApp.includes('class:chrome-hidden={chromeHidden}') && mobileApp.includes('use:swipeChrome'), 'floating player and navigation are separate rows that hide together')
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')

@@ -6,9 +6,10 @@ import { runInNewContext } from 'node:vm'
 const source = await readFile(new URL('../src/lib/components/ui/PlayerHud.svelte', import.meta.url), 'utf8')
 const script = stripTypeScriptTypes(source.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1].replace(/^\s*import .*\r?\n/gm, ''))
 const player = { volume: 0.8, mode: 'list', hudRequest: null }
+const toast = { hudRequest: null }
 let update, hide, destroy
 const context = {
-  player, $state: value => value, $effect: callback => { update = callback },
+  player, toast, $state: value => value, $effect: callback => { update = callback },
   onDestroy: callback => { destroy = callback },
   setTimeout: callback => { hide = callback; return 1 }, clearTimeout() {},
 }
@@ -23,6 +24,10 @@ assert.equal(context.hud().visible, true); assert.equal(context.hud().text, '40%
 hide(); assert.equal(context.hud().visible, false)
 player.hudRequest = { kind: 'mode', mode: 'repeat' }; update()
 assert.equal(context.hud().text, '单曲循环')
+toast.hudRequest = { message: '最多显示 4 个页面' }; update()
+assert.equal(context.hud().text, '最多显示 4 个页面')
+hide(); toast.hudRequest = { message: '最多显示 4 个页面' }; update()
+assert.equal(context.hud().visible, true, 'repeated notices reopen the HUD')
 destroy()
 
 const store = await readFile(new URL('../src/lib/stores/player.svelte.ts', import.meta.url), 'utf8')

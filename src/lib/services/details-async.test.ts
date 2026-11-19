@@ -163,6 +163,80 @@ function routerHarness() {
 }
 const flush = () => new Promise<void>(resolve => setImmediate(resolve))
 
+await check('artist partial results appear early and stale requests cannot replace the current page', async () => {
+  const { context, router } = routerHarness()
+  const old = deferred<unknown>(), current = deferred<unknown>()
+  const progress = new Map<SongId, (value: unknown) => void>()
+  context.loadArtistDetail = (id: SongId, onProgress: (value: unknown) => void) => {
+    progress.set(id, onProgress)
+    return id === 1 ? old.promise : current.promise
+  }
+  const first = router.goArtist(1)
+  progress.get(1)?.({ artist: { id: 1, followed: false }, songs: [{ id: 10 }] })
+  assert.equal(router.artistDetail?.id, 1)
+  assert.equal(router.artistSongs.length, 1)
+  assert.equal(router.artistLoading, true)
+  const second = router.goArtist(2)
+  progress.get(1)?.({ artist: { id: 1, followed: true }, songs: [{ id: 99 }] })
+  assert.equal(router.artistDetail, null)
+  progress.get(2)?.({ artist: { id: 2, followed: false } })
+  old.resolve({ artist: { id: 1, followed: false }, songs: [], albums: [] }); await first
+  assert.equal((router.artistDetail as { id: SongId } | null)?.id, 2)
+  current.resolve({ artist: { id: 2, followed: false }, songs: [{ id: 20 }], albums: [] }); await second
+  assert.equal(router.artistSongs[0]?.id, 20)
+  assert.equal(router.artistLoading, false)
+})
+
+await check('artist loading cannot commit after a direct album navigation', async () => {
+  const { context, router } = routerHarness()
+  const pending = deferred<unknown>()
+  let progress!: (value: unknown) => void
+  context.loadArtistDetail = (_id: SongId, callback: (value: unknown) => void) => { progress = callback; return pending.promise }
+  const loading = router.goArtist(1)
+  progress({ artist: { id: 1, followed: false } })
+  runInContext("_activeView = 'album'; _selectedId = 2", context)
+  progress({ songs: [{ id: 99 }] })
+  pending.resolve({ artist: { id: 1, followed: false }, songs: [{ id: 10 }], albums: [] }); await loading
+  assert.equal(router.activeView, 'album')
+  assert.equal(router.artistSongs.length, 0)
+})
+
+await check('following during progressive artist loading preserves the follow state and finished lists', async () => {
+  const { context, router } = routerHarness()
+  const pending = deferred<unknown>(), followPending = deferred<void>()
+  let progress!: (value: unknown) => void
+  context.loadArtistDetail = (_id: SongId, callback: (value: unknown) => void) => { progress = callback; return pending.promise }
+  context.ncm = { artistSub: () => followPending.promise }
+  const loading = router.goArtist(1)
+  progress({ artist: { id: 1, followed: false } })
+  const follow = router.toggleArtistFollow()
+  pending.resolve({ artist: { id: 1, followed: false }, songs: [{ id: 10 }], albums: [{ id: 20 }] }); await loading
+  assert.equal(router.artistDetail?.followed, true)
+  followPending.resolve(); await follow
+  const cached = runInContext("detailCache.get('artist:1')", context)
+  assert.equal(cached.artist.followed, true)
+  assert.equal(cached.songs[0].id, 10)
+  assert.equal(cached.albums[0].id, 20)
+})
+
+await check('failed follow during progressive artist loading rolls back without losing the completed data', async () => {
+  const { context, router } = routerHarness()
+  const pending = deferred<unknown>(), followPending = deferred<void>()
+  let progress!: (value: unknown) => void
+  context.loadArtistDetail = (_id: SongId, callback: (value: unknown) => void) => { progress = callback; return pending.promise }
+  context.ncm = { artistSub: () => followPending.promise }
+  const loading = router.goArtist(1)
+  progress({ artist: { id: 1, followed: false } })
+  const follow = router.toggleArtistFollow()
+  pending.resolve({ artist: { id: 1, followed: false }, songs: [{ id: 10 }], albums: [{ id: 20 }] }); await loading
+  followPending.reject(new Error('offline')); await follow
+  assert.equal(router.artistDetail?.followed, false)
+  const cached = runInContext("detailCache.get('artist:1')", context)
+  assert.equal(cached.artist.followed, false)
+  assert.equal(cached.songs[0].id, 10)
+  assert.equal(cached.albums[0].id, 20)
+})
+
 await check('failed artist follow cannot roll back a newly opened artist or null detail', async () => {
   for (const destination of [2, null]) {
     const { context, router } = routerHarness()

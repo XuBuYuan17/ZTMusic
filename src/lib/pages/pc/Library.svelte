@@ -418,21 +418,59 @@
 
     <div class="library-unified">
       <header class="library-identity">
-        {#if data.profile.backgroundUrl}<div class="library-identity__background" aria-hidden="true" style={`background-image: url(${JSON.stringify(coverUrl(data.profile.backgroundUrl, 800))})`}></div>{/if}
+        {#if !$responsive.isMobile && data.profile.backgroundUrl}<div class="library-identity__background" aria-hidden="true" style={`background-image: url(${JSON.stringify(coverUrl(data.profile.backgroundUrl, 800))})`}></div>{/if}
         <div class="library-identity__person">
           {#if data.profile.avatarUrl || auth.user?.avatarUrl}
             <img src={coverUrl(data.profile.avatarUrl || String(auth.user?.avatarUrl), 160)} alt="" referrerpolicy="no-referrer" />
           {:else}<span class="library-identity__avatar"><Icon name="user" size={28} /></span>{/if}
-          <div><div class="library-identity__name"><h1>{data.profile.nickname || auth.user?.nickname || '我的资料库'}</h1>{#if data.profile.level && data.profile.level > 0}<span>Lv.{data.profile.level}</span>{/if}{#if data.profile.identityLabel}<span class="library-identity__role">{data.profile.identityLabel}</span>{/if}</div><p>{data.profile.signature || '你的音乐，都在这里'}</p><div class="library-identity__social"><span>关注 <strong>{displayCount(data.stats.follow)}</strong></span><span>粉丝 <strong>{displayCount(data.stats.fans)}</strong></span></div></div>
+          <div>
+            <div class="library-identity__name">
+              <h1>{data.profile.nickname || auth.user?.nickname || '我的资料库'}</h1>
+              {#if data.profile.level && data.profile.level > 0}<span>Lv.{data.profile.level}</span>{/if}
+              {#if data.profile.identityLabel}<span class="library-identity__role">{data.profile.identityLabel}</span>{/if}
+            </div>
+            {#if data.profile.signature || !$responsive.isMobile}<p>{data.profile.signature || '你的音乐，都在这里'}</p>{/if}
+            <div class="library-identity__social"><span>关注 <strong>{displayCount(data.stats.follow)}</strong></span><span>粉丝 <strong>{displayCount(data.stats.fans)}</strong></span></div>
+          </div>
         </div>
         <div class="library-identity__stats" aria-label="账号数据">
           <div><strong>{displayCount(data.profile.listenSongs)}</strong><span>累计听歌</span></div>
           <div><strong>{likedPlaylist ? displayCount(likedPlaylist.trackCount) : '—'}</strong><span>喜欢歌曲</span></div>
-          <div><strong>{library ? displayCount(createdPlaylists.length) : '—'}</strong><span>创建歌单</span></div>
-          <div><strong>{library ? displayCount(otherSavedPlaylists.length) : '—'}</strong><span>收藏歌单</span></div>
+          {#if $responsive.isMobile}
+            <div><strong>{library ? displayCount(createdPlaylists.length + otherSavedPlaylists.length) : '—'}</strong><span>我的歌单</span></div>
+          {:else}
+            <div><strong>{library ? displayCount(createdPlaylists.length) : '—'}</strong><span>创建歌单</span></div>
+            <div><strong>{library ? displayCount(otherSavedPlaylists.length) : '—'}</strong><span>收藏歌单</span></div>
+          {/if}
         </div>
       </header>
 
+      {#if $responsive.isMobile}
+      <section class="library-mobile-music" aria-label="我的音乐">
+        <h2>我的音乐</h2>
+        <div class="library-mobile-cards">
+          <button class="library-mobile-card" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
+            <span class="library-mobile-card__art" aria-hidden="true">
+              <Icon name="liked" size={34} />
+              {#if likedPlaylist?.picUrl || likedCovers[0]}
+                <img src={coverUrl(likedPlaylist?.picUrl || likedCovers[0], 360)} alt="" loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />
+              {/if}
+            </span>
+            <strong>我喜欢的音乐</strong><small>{likedPlaylist ? displayCount(likedPlaylist.trackCount) : library ? '0' : '—'} 首歌曲</small>
+          </button>
+          <button class="library-mobile-card" type="button" onclick={() => onNavigate?.('dailyHistory')}>
+            <span class="library-mobile-card__art library-mobile-card__art--daily" aria-hidden="true"><Icon name="calendar" size={36} fill="none" strokeWidth={1.5} /></span>
+            <strong>历史日推</strong><small>回看每日推荐</small>
+          </button>
+        </div>
+        <button class="library-mobile-report" type="button" onclick={() => onNavigate?.('listeningStats')}>
+          <span class="library-mobile-report__icon" aria-hidden="true"><Icon name="audio-quality" size={20} /></span>
+          <span class="library-mobile-report__copy"><strong>我的听歌报告</strong><small>回顾每一段聆听</small></span>
+          <Icon name="chevron-right" size={18} aria-hidden="true" />
+        </button>
+      </section>
+      <div class="library-mobile-recent"><RecentTracksModule limit={3} onOpenAll={() => onNavigate?.('recent')} /></div>
+      {:else}
       <div class="library-highlights">
         <div class="library-favorite">
           <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} threeColumns /></div>
@@ -441,7 +479,7 @@
           </button>
         </div>
         <div class="library-activity">
-          <RecentTracksModule limit={$responsive.isMobile ? 3 : 4} onOpenAll={() => onNavigate?.('recent')} />
+          <RecentTracksModule limit={4} onOpenAll={() => onNavigate?.('recent')} />
         </div>
         <div class="library-shortcuts" aria-label="音乐记录">
             <button class="library-shortcut library-shortcut--daily" type="button" onclick={() => onNavigate?.('dailyHistory')}>
@@ -454,6 +492,7 @@
             </button>
         </div>
       </div>
+      {/if}
 
       <section class="library-playlists" aria-label="我的歌单">
         <div class="library-playlists__heading"><div><h2>我的歌单</h2></div><button type="button" class="library-create" onclick={() => showCreateModal = true}><Icon name="add" size={18} />创建歌单</button></div>
@@ -652,31 +691,44 @@
   .collection-error button { padding: 4px 8px; color: var(--accent); }
   @media (max-width: 700px) { .library-highlights { grid-template-columns: minmax(0, 1fr); } .collection-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; } .collection-group__grid { height: 130px; } .collection-group:not(.expanded) .collection-item { width: min(55%, 108px); transform: translateX(var(--cover-offset-mobile)); } .collection-group.expanded .collection-group__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; } }
   .library-management-portal { display: contents; }
-  :global(html.mobile-runtime) .library-unified { gap: 24px; }
   @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity::after { width: 150px; right: -60px; opacity: .45; } }
-  :global(html.mobile-runtime) .library-identity { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px; }
-  :global(html.mobile-runtime) .library-identity__person { gap: 12px; }
-  :global(html.mobile-runtime) .library-identity__person img, :global(html.mobile-runtime) .library-identity__avatar { width: 58px; height: 58px; }
-  :global(html.mobile-runtime) .library-identity h1 { font-size: 19px; }
-  :global(html.mobile-runtime) .library-identity__stats { gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
-  :global(html.mobile-runtime) .library-identity__stats > div { gap: 6px; }
-  :global(html.mobile-runtime) .library-identity__stats strong { font-size: 15px; }
+  :global(html.mobile-runtime) .library-page { max-width: 560px; }
+  :global(html.mobile-runtime) .library-unified { gap: 18px; }
+  :global(html.mobile-runtime) .library-identity { width: 100%; gap: 16px; padding: 0 0 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+  :global(html.mobile-runtime) .library-identity::after { display: none; }
+  :global(html.mobile-runtime) .library-identity__person { width: 100%; gap: 14px; }
+  :global(html.mobile-runtime) .library-identity__person img, :global(html.mobile-runtime) .library-identity__avatar { width: 68px; height: 68px; border: 1px solid var(--border); }
+  :global(html.mobile-runtime) .library-identity h1 { max-width: 100%; font-size: 21px; }
+  :global(html.mobile-runtime) .library-identity__name { gap: 4px 7px; }
+  :global(html.mobile-runtime) .library-identity p { display: -webkit-box; margin-top: 4px; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  :global(html.mobile-runtime) .library-identity__social { gap: 12px; margin-top: 5px; font-size: 11px; }
+  :global(html.mobile-runtime) .library-identity__stats { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0; border: 0; }
+  :global(html.mobile-runtime) .library-identity__stats > div { align-items: center; gap: 4px; text-align: center; }
+  :global(html.mobile-runtime) .library-identity__stats strong { max-width: 100%; font-size: 23px; font-variant-numeric: tabular-nums; }
   :global(html.mobile-runtime) .library-identity__stats span { font-size: 11px; }
-  :global(html.mobile-runtime) .library-highlights { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; gap: 12px; }
-  :global(html.mobile-runtime) .library-favorite { aspect-ratio: 1; min-width: 0; background: var(--bg-surface); color: white; }
-  :global(html.mobile-runtime) .library-favorite__art { position: relative; height: auto; aspect-ratio: 1; z-index: 0; }
-  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-three) { grid-template-columns: repeat(3, 1fr); }
-  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: likedFallsScroll 20s linear infinite; }
-  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(2) .liked-falls-track) { animation-duration: 26s; animation-delay: -13s; }
-  :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation-duration: 23s; animation-delay: -7s; }
-  :global(html.mobile-runtime) .library-favorite__open { position: absolute; inset: 0; height: 100%; padding: 12px; color: #202124; gap: 3px; }
-  :global(html.mobile-runtime) .library-favorite__open strong { font-size: 14px; }
-  :global(html.mobile-runtime) .library-favorite__open em { font-size: 12px; }
-  :global(html.mobile-runtime) .library-activity { grid-column: 1 / -1; grid-row: 2; }
-  :global(html.mobile-runtime) .library-activity { gap: 16px; }
-  :global(html.mobile-runtime) .library-activity :global(.profile-home__panel) { padding: 16px; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--border)); border-radius: var(--radius-lg); background: var(--bg-surface); }
-  :global(html.mobile-runtime) .library-shortcuts { grid-column: 2; grid-row: 1; grid-template-columns: 1fr; grid-template-rows: repeat(2, 1fr); gap: 10px; }
-  :global(html.mobile-runtime) .library-shortcut { min-height: 72px; padding: 12px; }
-  @media (prefers-reduced-motion: reduce) { .library-favorite__art :global(.liked-falls-track), :global(html.mobile-runtime) .library-favorite__art :global(.liked-falls-track) { animation: none; } }
+  .library-mobile-music { display: grid; gap: 12px; }
+  .library-mobile-music h2 { margin: 0; font-size: 20px; line-height: 1.3; }
+  .library-mobile-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .library-mobile-card { min-width: 0; display: grid; align-content: start; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--text); text-align: left; }
+  .library-mobile-card__art { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--accent); margin-bottom: 2px; }
+  .library-mobile-card__art::after { position: absolute; inset: 0; content: ''; border: 1px solid var(--border); border-radius: inherit; pointer-events: none; }
+  .library-mobile-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .library-mobile-card__art--daily { background: linear-gradient(145deg, var(--bg-elevated), var(--md-container, var(--bg-surface))); color: var(--md-primary, var(--accent)); }
+  .library-mobile-card > strong { font-size: 15px; line-height: 1.4; font-weight: 500; }
+  .library-mobile-card > small { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+  .library-mobile-report { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 13px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--accent); text-align: left; }
+  .library-mobile-report__icon { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--accent-bg); }
+  .library-mobile-report__copy { display: grid; flex: 1; gap: 3px; min-width: 0; }
+  .library-mobile-report strong { color: var(--text); font-size: 15px; font-weight: 500; }
+  .library-mobile-report small { color: var(--text-secondary); font-size: 12px; }
+  .library-mobile-recent :global(.profile-home__panel) { padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .library-mobile-recent :global(.profile-home__panel > header) { align-items: center; min-height: 44px; margin-bottom: 0; }
+  .library-mobile-recent :global(.profile-home__panel h2) { margin: 0; font-size: 20px; }
+  .library-mobile-recent :global(.profile-home__panel > header button) { min-height: 44px; }
+  .library-mobile-recent :global(.profile-home__empty) { min-height: 56px; justify-items: start; }
+  .library-mobile-recent :global(.profile-home__track-list) { gap: 0; }
+  .library-mobile-recent :global(.profile-home__track-list > button) { min-height: 68px; padding: 10px 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+  .library-mobile-card:focus-visible, .library-mobile-report:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .library-favorite__art :global(.liked-falls-track) { animation: none; } }
   @media (prefers-reduced-motion: reduce) { .collection-item__menu::before { transition: none; } }
 </style>

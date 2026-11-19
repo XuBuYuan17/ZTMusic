@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
-import { createMobileNavigationMotion, finishPlaylistDismiss, mobileNavigationKind, mobilePageFrames, mobileMotion, outgoingViewportClipTop, playlistDismissProgress, playlistSheetFrames } from './mobile-navigation-motion.ts'
+import { createMobileNavigationMotion, finishPlaylistDismiss, isDetailSheetView, mobileNavigationKind, mobilePageFrames, mobileMotion, outgoingViewportClipTop, playlistDismissProgress, playlistSheetFrames } from './mobile-navigation-motion.ts'
 import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
 assert.equal(mobileNavigationKind('forward', true), 'tab')
+for (const view of ['playlist', 'album', 'recommendation', 'artist']) assert.equal(isDetailSheetView(view), true)
+assert.equal(isDetailSheetView('user'), false)
 assert.equal(outgoingViewportClipTop(44, -623), 667, 'a scrolled source is clipped above the content viewport')
 assert.equal(outgoingViewportClipTop(44, 60), 0, 'a source already below the viewport top is not clipped')
 assert.equal(playlistDismissProgress(100, 400), .25)
@@ -50,12 +52,13 @@ assert.ok(mobileMotion.dismiss < mobileMotion.expand, 'return is slightly faster
 assert.ok(mobileMotion.dismiss >= 320, 'shared return remains long enough to read as a continuous close')
 
 const pending: Array<{ resolve: () => void; cancelled: boolean; duration: number; easing: string; fill: FillMode | undefined; frames: Keyframe[] }> = []
+Object.defineProperty(globalThis, 'window', { configurable: true, value: { innerWidth: 375, innerHeight: 800 } })
 const node = { animate(frames: Keyframe[], options: KeyframeAnimationOptions) {
   const entry = { resolve: () => {}, cancelled: false, duration: Number(options.duration), easing: String(options.easing || ''), fill: options.fill, frames }
   const finished = new Promise<void>(resolve => { entry.resolve = resolve })
   pending.push(entry)
   return { finished, cancel() { entry.cancelled = true; entry.resolve() } }
-}, querySelector() { return null }, querySelectorAll() { return [] }, getBoundingClientRect() { return { left: 20, top: 80, right: 320, bottom: 680, width: 300, height: 600 } } } as unknown as HTMLElement
+}, closest() { return null }, querySelector() { return null }, querySelectorAll() { return [] }, getBoundingClientRect() { return { left: 20, top: 80, right: 320, bottom: 680, width: 300, height: 600 } } } as unknown as HTMLElement
 const motion = createMobileNavigationMotion()
 let stale = 0
 let completed = 0
@@ -126,6 +129,33 @@ assert.equal(pending[7]!.frames.at(-1)?.clipPath, undefined, 'rounded covers are
 pending[7]!.resolve()
 await setImmediate()
 assert.equal(playlistCompleted, 2)
+
+const albumNode = { ...playlistNode, dataset: { routeKey: 'album:42:1' } } as unknown as HTMLElement
+Object.defineProperty(globalThis, 'document', { configurable: true, value: { querySelector: () => null } })
+motion.play(albumNode, node, 'push', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending[8]!.duration, mobileMotion.playlistEnter, 'albums enter with playlist timing')
+assert.deepEqual(pending[8]!.frames, playlistSheetFrames(true), 'albums use the same entrance curve')
+pending[8]!.resolve()
+await setImmediate()
+motion.play(node, albumNode, 'pop', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending[9]!.duration, mobileMotion.playlistExit, 'albums exit with playlist timing')
+assert.deepEqual(pending[9]!.frames, playlistSheetFrames(false), 'albums use the same exit curve')
+pending[9]!.resolve()
+await setImmediate()
+assert.equal(playlistCompleted, 4)
+
+const artistNode = { ...playlistNode, dataset: { routeKey: 'artist:42:1' }, querySelector() { return null } } as unknown as HTMLElement
+motion.play(artistNode, node, 'push', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending[10]!.duration, mobileMotion.playlistEnter)
+assert.deepEqual(pending[10]!.frames, playlistSheetFrames(true), 'artist names use the same sheet entrance without a cover')
+pending[10]!.resolve()
+await setImmediate()
+motion.play(node, artistNode, 'pop', false, true, false, () => { playlistCompleted++ })
+assert.equal(pending[11]!.duration, mobileMotion.playlistExit)
+assert.deepEqual(pending[11]!.frames, playlistSheetFrames(false), 'artist details use the same sheet exit')
+pending[11]!.resolve()
+await setImmediate()
+assert.equal(playlistCompleted, 6)
 
 motion.cancel()
 console.log('Mobile navigation: reversible playlist surface, swipe dismissal thresholds/recovery, interruption and reduced motion passed')

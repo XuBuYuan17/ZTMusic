@@ -17,11 +17,20 @@ let awaitingSource = false
 let installed = false
 let saveError = ''
 /** 待打卡的曲目。本地 / WebDAV 曲目没有网易云 id，保持 null 表示不上报 */
-let scrobbleTarget: { id: SongId; name: string; artist: string } | null = null
+let scrobbleTarget: { id: SongId; name: string; artist: string; sessionVersion: number } | null = null
+let scrobbleError = ''
+let scrobbleRequest = 0
 const checkpoints = new ListeningCheckpoints(rows => listeningDB.save(rows))
 
 function notify(): void { window.dispatchEvent(new Event(LISTENING_CHANGE)) }
 export function listeningSaveError(): string { return saveError }
+
+export function reportNativeScrobble(failed: boolean): void {
+  const error = failed ? '听歌记录已保留在本机，网易云同步未确认' : ''
+  if (scrobbleError === error) return
+  scrobbleError = error
+  notify()
+}
 
 export async function importNativeListening(rows: unknown[]): Promise<void> {
   await initializeListening()
@@ -32,18 +41,22 @@ export async function importNativeListening(rows: unknown[]): Promise<void> {
 }
 
 /**
- * 听歌打卡：把这次有效播放写进服务端，日推、听歌排行、年度报告都吃这份数据。
- * 失败直接丢弃——一次播放记录不值得为它引入离线队列与重试。
+ * ponytail: 打卡接口没有幂等键，失败时保留本地记录并提示，不自动重发。
  */
 function scrobblePlay(seconds: number, duration: number): void {
   const target = scrobbleTarget
-  // 没登录时服务端只会回 401，白白发一轮请求，本地判定挡掉
-  if (!target || seconds <= 0 || !apiSession.getCookie()) return
+  if (!target || seconds <= 0 || target.sessionVersion !== apiSession.getVersion() || !apiSession.getCookie()) return
+  const request = ++scrobbleRequest
+  function setError(message: string): void {
+    if (request !== scrobbleRequest || target?.sessionVersion !== apiSession.getVersion()) return
+    scrobbleError = message
+    notify()
+  }
   void ncm.scrobble(target.id, seconds, {
     total: Number.isFinite(duration) && duration > 0 ? Math.round(duration) : undefined,
     name: target.name || undefined,
     artist: target.artist || undefined,
-  }).catch(() => {})
+  }).then(() => setError(''), () => setError('听歌记录已保留在本机，网易云同步未确认'))
 }
 
 export function initializeListening(): Promise<void> {
@@ -84,8 +97,13 @@ export function beginListening(track: CompactTrack): void {
     artists: track.ar.map(artist => artist.name).filter(Boolean),
     cover: /^(https?:|data:image\/)/.test(track.picUrl || track.al.picUrl) ? track.picUrl || track.al.picUrl : '',
   })
-  if (!track.source || track.source === 'online') {
-    scrobbleTarget = { id: track.id, name: track.name || '', artist: track.ar.map(artist => artist.name).filter(Boolean).join('/') }
+  if ((!track.source || track.source === 'online') && /^[1-9]\d*$/.test(String(track.id)) && apiSession.getCookie()) {
+    scrobbleTarget = {
+      id: track.id,
+      name: track.name || '',
+      artist: track.ar.map(artist => artist.name).filter(Boolean).join('/'),
+      sessionVersion: apiSession.getVersion(),
+    }
   }
   void flushListening()
 }
@@ -112,9 +130,12 @@ export function installListeningRecorder(onError: (message: string) => void): ()
   if (installed) return () => {}
   installed = true
   let shownError = ''
+  let shownScrobbleError = ''
   const reportError = () => {
     if (saveError && saveError !== shownError) onError(saveError)
     shownError = saveError
+    if (scrobbleError && scrobbleError !== shownScrobbleError) onError(scrobbleError)
+    shownScrobbleError = scrobbleError
   }
   const flush = () => { void flushListening() }
   const timer = setInterval(flush, 5000)

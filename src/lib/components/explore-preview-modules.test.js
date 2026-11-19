@@ -10,6 +10,7 @@ const explore = await read('../pages/pc/Explore.svelte')
 const songs = await read('./NewSongsModule.svelte')
 const albums = await read('./NewAlbumsModule.svelte')
 const playlists = await read('./RecommendedPlaylistsModule.svelte')
+const toplists = await read('./ToplistsModule.svelte')
 const card = await read('./PreviewCard.svelte')
 
 // ── 1) 三个模块都接受数据与动作，不自己请求 ──
@@ -18,6 +19,12 @@ for (const [name, source] of [['songs', songs], ['albums', albums], ['playlists'
   assert.ok(!source.includes('loadExploreData'), `${name} module must not load page data`)
   assert.ok(!source.includes('loadToplistsData'), `${name} module must not load page data`)
   assert.ok(source.includes('$props()'), `${name} module takes props`)
+}
+
+for (const [name, source] of [['songs', songs], ['albums', albums], ['playlists', playlists], ['toplists', toplists]]) {
+  assert.match(source, /mobile \|\| expanded \? \w+ : \w+\.slice\(0, limit\)/, `${name} shows all loaded items on mobile`)
+  const mobileSection = source.slice(source.indexOf('{#if mobile}'), source.indexOf('<section class="music-discovery-section'))
+  assert.ok(!mobileSection.includes('music-preview-more'), `${name} has no mobile expand prompt`)
 }
 
 // ── 2) 播放与详情跳转保持原样 ──

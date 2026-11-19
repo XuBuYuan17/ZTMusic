@@ -8,19 +8,19 @@ export const DOCK_TABS = [
 ] as const
 
 export type DockTabId = typeof DOCK_TABS[number]['id']
-export type DockItem = { id: DockTabId | 'more'; label: string; icon: string }
+export type DockItem = { id: DockTabId; label: string; icon: string }
 export type MobileDockConfig = { layout: 'classic' | 'floating'; labels: boolean; tabs: DockTabId[]; icons: Partial<Record<DockTabId, string>> }
 export const DEFAULT_MOBILE_DOCK: MobileDockConfig = { layout: 'classic', labels: true, tabs: ['explore', 'search', 'library', 'settings'], icons: {} }
-export const CORE_DOCK_TABS: DockTabId[] = ['explore', 'search', 'library', 'settings']
 export const MAX_DOCK_TABS = 4
 
 export function normalizeMobileDock(value: unknown): MobileDockConfig {
   const data = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
   const allowed = new Set<string>(DOCK_TABS.map(tab => tab.id))
-  const supplied = Array.isArray(data.tabs) ? data.tabs.filter((id): id is DockTabId => typeof id === 'string' && allowed.has(id) && id !== 'settings') : DEFAULT_MOBILE_DOCK.tabs.filter(id => id !== 'settings')
-  const tabs: DockTabId[] = [...new Set(supplied)].slice(0, MAX_DOCK_TABS - 1)
-  if (!tabs.length) tabs.push('explore')
-  tabs.push('settings')
+  const supplied = Array.isArray(data.tabs) ? data.tabs.filter((id): id is DockTabId => typeof id === 'string' && allowed.has(id)) : DEFAULT_MOBILE_DOCK.tabs
+  const tabs: DockTabId[] = []
+  for (const id of supplied) if (!tabs.includes(id) && (id === 'settings' || tabs.filter(tab => tab !== 'settings').length < MAX_DOCK_TABS - 1)) tabs.push(id)
+  if (!tabs.some(id => id !== 'settings')) tabs.unshift('explore')
+  if (!tabs.includes('settings')) tabs.push('settings')
   const rawIcons = data.icons && typeof data.icons === 'object' && !Array.isArray(data.icons) ? data.icons as Record<string, unknown> : {}
   const icons: MobileDockConfig['icons'] = {}
   for (const tab of DOCK_TABS) {
@@ -36,19 +36,24 @@ export function toggleDockTab(config: MobileDockConfig, id: DockTabId): MobileDo
   const others = config.tabs.filter(tab => tab !== 'settings' && tab !== id)
   if (selected && !others.length) return null
   if (!selected && config.tabs.length >= MAX_DOCK_TABS) return null
-  if (!selected) others.push(id)
-  return normalizeMobileDock({ ...config, tabs: [...others, 'settings'] })
+  const tabs = config.tabs.filter(tab => tab !== id)
+  if (!selected) tabs.splice(tabs.indexOf('settings'), 0, id)
+  return normalizeMobileDock({ ...config, tabs })
 }
 
-export function hiddenDockTabs(config: MobileDockConfig) {
-  return DOCK_TABS.filter(tab => CORE_DOCK_TABS.includes(tab.id) && !config.tabs.includes(tab.id))
+export function moveDockTab(config: MobileDockConfig, id: DockTabId, target: DockTabId): MobileDockConfig | null {
+  const from = config.tabs.indexOf(id)
+  const to = config.tabs.indexOf(target)
+  if (from < 0 || to < 0 || from === to) return null
+  const tabs = [...config.tabs]
+  tabs.splice(from, 1)
+  tabs.splice(to, 0, id)
+  return normalizeMobileDock({ ...config, tabs })
 }
 
 export function buildDockItems(config: MobileDockConfig): DockItem[] {
-  const tabs: DockItem[] = config.tabs.map(id => {
+  return config.tabs.map(id => {
     const tab = DOCK_TABS.find(item => item.id === id)!
     return { id, label: tab.label, icon: config.icons[id] || tab.icons[0].value }
   })
-  if (hiddenDockTabs(config).length) tabs.splice(Math.max(0, tabs.length - 1), 0, { id: 'more', label: '更多', icon: 'more' })
-  return tabs
 }

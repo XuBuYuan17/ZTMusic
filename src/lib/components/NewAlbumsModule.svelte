@@ -26,7 +26,7 @@
   } = $props()
 
   let expanded = $state(false)
-  const visible = $derived(expanded ? albums : albums.slice(0, limit))
+  const visible = $derived(mobile || expanded ? albums : albums.slice(0, limit))
   const truncated = $derived(albums.length > limit)
 </script>
 
@@ -34,7 +34,7 @@
 {#if mobile}
   <section class="mobile-discovery-section" aria-label="新专辑">
     <h2>{title}</h2>
-    <div class="mobile-cover-rail">
+    <div class="mobile-cover-rail mobile-cover-rail--two-rows">
       {#if loading && !albums.length}
         {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
       {:else}
@@ -43,7 +43,6 @@
         {/each}
       {/if}
     </div>
-    {#if truncated}<button class="music-preview-more" type="button" aria-expanded={expanded} onclick={() => expanded = !expanded}>{expanded ? '收起' : `展开全部 ${albums.length} 张`}</button>{/if}
   </section>
 {:else}
   <section class="music-discovery-section music-new-albums-panel">

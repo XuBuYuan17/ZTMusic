@@ -2,8 +2,8 @@
   import { tick, untrack, onDestroy, onMount } from 'svelte'
   import { announceAndroidFrame } from '../app/android-startup.ts'
   onMount(() => { announceAndroidFrame(); onReady?.() })
-  import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts'
-  import { createMobileNavigationMotion, mobileNavigationKind, outgoingViewportClipTop } from '../app/mobile-navigation-motion.ts'
+  import { reducedMotion } from '../app/desktop-motion.ts'
+  import { createMobileNavigationMotion, isDetailSheetView, mobileNavigationKind, outgoingViewportClipTop } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport, mobileEdgeBack } from '../app/mobile-interaction.ts'
   import { requestBack } from '../app/back-navigation.ts'
   import { setScrollViewport } from '../app/scroll-viewport.ts'
@@ -13,7 +13,7 @@
   import { hapticTap, shouldHapticTarget } from '../utils/haptics.ts'
   import { router } from '../stores/router.svelte.ts'
   import { mobileDock } from '../stores/mobile-dock.svelte.ts'
-  import { buildDockItems, DOCK_TABS, hiddenDockTabs, type DockItem } from '../settings/mobile-dock.ts'
+  import { buildDockItems, DOCK_TABS, type DockItem } from '../settings/mobile-dock.ts'
   import { t } from '../i18n/index.svelte.ts'
   import Icon from './ui/Icon.svelte'
 
@@ -68,7 +68,7 @@
   let chromeHidden = $state(false)
   $effect(() => { if (DOCK_TABS.some(tab => tab.id === activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
-  const coverHeaderless = $derived(activeView === 'playlist' || activeView === 'recommendation')
+  const coverHeaderless = $derived(isDetailSheetView(activeView))
   const titles: Record<string, string> = $derived({
     home: '我的主页', explore: '发现', library: '资料库', search: '搜索', settings: t('settings.title'),
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
@@ -79,11 +79,7 @@
   let mountedViews = $state<string[]>([])
   let contentEl = $state<HTMLElement | null>(null)
   let rootEl = $state<HTMLElement | null>(null)
-  let dockNav = $state<HTMLElement | null>(null)
-  let moreDockOpen = $state(false)
-  const hiddenCore = $derived(hiddenDockTabs(mobileDock.config))
   const dockItems = $derived(buildDockItems(mobileDock.config))
-  $effect(() => { if (!hiddenCore.length) moreDockOpen = false })
   $effect(() => {
     document.documentElement.classList.toggle('mobile-floating-dock', mobileDock.config.layout === 'floating')
     return () => document.documentElement.classList.remove('mobile-floating-dock')
@@ -171,9 +167,9 @@
       navigationMotion.cancel()
       const kind = mobileNavigationKind(router.routeTransition, primaryViews.includes(activeView) || activeView === 'search')
       const sharedCover = Boolean(coverSnapshot.origin)
-      const coverDetail = activeView === 'playlist' || activeView === 'album' || activeView === 'recommendation' || Boolean(oldPage?.querySelector('.playlist-detail-page'))
+      const coverDetail = isDetailSheetView(activeView) || isDetailSheetView(oldPage?.dataset.routeKey?.split(':', 1)[0]) || Boolean(oldPage?.querySelector('.playlist-detail-page'))
       const reduced = reducedMotion()
-      const openingPlaylist = kind === 'push' && (activeView === 'playlist' || activeView === 'recommendation') && !reduced && Boolean(oldPage)
+      const openingPlaylist = kind === 'push' && isDetailSheetView(activeView) && !reduced && Boolean(oldPage)
       leavingKey = oldPage && !reduced ? oldKey : null
       playlistSourceKey = openingPlaylist ? oldKey : null
       playlistEnteringKey = openingPlaylist ? key : null
@@ -212,7 +208,6 @@
     callback?.(...args)
   }
   function handleNav(view: string, extra?: number | null): void {
-    moreDockOpen = false
     if (view === 'home' || view === 'profile') view = 'library'
     if (view === activeView) {
       contentEl?.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
@@ -271,11 +266,6 @@
       node.removeEventListener('pointercancel', end)
     } }
   }
-  function dismissDockMore(event: MouseEvent | KeyboardEvent): void {
-    if (!moreDockOpen) return
-    if (event instanceof KeyboardEvent) { if (event.key === 'Escape') moreDockOpen = false; return }
-    if (event.target instanceof Node && !dockNav?.contains(event.target)) moreDockOpen = false
-  }
   function handleHapticPointerDown(event: PointerEvent): void {
     if (event.pointerType !== 'mouse' && shouldHapticTarget(event.target)) hapticTap()
   }
@@ -286,18 +276,10 @@
   })
 </script>
 
-<svelte:window onclick={dismissDockMore} onkeydown={dismissDockMore} />
-
 {#snippet dockTab(item: DockItem)}
-  {#if item.id === 'more'}
-    <button class="mobile-tab mobile-tab--more" class:active={hiddenCore.some(tab => tab.id === selectedTab)} type="button" aria-label="更多页面" aria-expanded={moreDockOpen} aria-controls="mobile-dock-more" onclick={() => moreDockOpen = !moreDockOpen}>
-      <span class="mobile-tab__icon"><Icon name={item.icon} size={24} strokeWidth={1.8} /></span><span class="mobile-tab__label">{item.label}</span>
-    </button>
-  {:else}
-    <button class="mobile-tab" class:active={selectedTab === item.id} type="button" data-view={item.id} aria-label={item.label} aria-current={selectedTab === item.id ? 'page' : undefined} onclick={() => handleNav(item.id)}>
-      <span class="mobile-tab__icon"><Icon name={item.icon} size={24} strokeWidth={1.8} /></span><span class="mobile-tab__label">{item.label}</span>
-    </button>
-  {/if}
+  <button class="mobile-tab" class:active={selectedTab === item.id} type="button" data-view={item.id} aria-label={item.label} aria-current={selectedTab === item.id ? 'page' : undefined} onclick={() => handleNav(item.id)}>
+    <span class="mobile-tab__icon"><Icon name={item.icon} size={24} strokeWidth={1.8} /></span><span class="mobile-tab__label">{item.label}</span>
+  </button>
 {/snippet}
 
 <div class="mobile-app" use:mobileEdgeBack={{ enabled: () => canEdgeBack && settingsCategory(activeView) === null, onBack: () => { requestBack() } }} class:settings-view={activeView === 'settings' || settingsCategory(activeView) !== null} class:secondary={!isPrimaryView} bind:this={rootEl} use:mobileViewport>
@@ -329,7 +311,10 @@
 
       {#if activeView === 'library' || mountedViews.includes('library')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} class:playlist-source-outgoing={playlistSourceKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
-          <h1 class="mobile-large-title">{titles.library}</h1>
+          <div class="library-mobile-header">
+            <h1 class="mobile-large-title">{titles.library}</h1>
+            <div class="library-mobile-header__actions"><button type="button" aria-label="搜索音乐" onclick={() => handleNav('search')}><Icon name="search" size={22} /></button><button type="button" aria-label="打开设置" onclick={() => handleNav('settings')}><Icon name="settings" size={22} /></button></div>
+          </div>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
         </div>
@@ -351,9 +336,9 @@
       {/if}
 
       {#each detailPages as page (page.key)}
-      <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={page.view === 'playlist' || page.view === 'recommendation'} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key} class:playlist-source-outgoing={playlistSourceKey === page.key}
+      <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={isDetailSheetView(page.view)} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key} class:playlist-source-outgoing={playlistSourceKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} style:transform={playlistEnteringKey === page.key ? 'translate3d(0,100vh,0)' : undefined} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
-      {#if page.view === 'playlist' || page.view === 'recommendation'}
+      {#if isDetailSheetView(page.view)}
         <div class="cover-page-controls">
           <button type="button" aria-label="返回上一页" onclick={() => (activeChrome?.back ?? onBack)?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
         </div>
@@ -393,13 +378,7 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:more-open={moreDockOpen} class:chrome-hidden={chromeHidden} style:--dock-count={dockItems.length} aria-label="主导航" bind:this={dockNav} use:swipeChrome>
-    {#if moreDockOpen && hiddenCore.length}
-      <button class="mobile-dock-more-backdrop" type="button" tabindex="-1" aria-label="关闭更多页面" onclick={() => moreDockOpen = false}></button>
-      <div class="mobile-dock-more" id="mobile-dock-more" role="dialog" aria-modal="true" aria-label="更多页面" tabindex="-1" use:dialogFocus={() => moreDockOpen = false}>
-        {#each hiddenCore as tab (tab.id)}<button type="button" onclick={() => handleNav(tab.id)}><Icon name={mobileDock.config.icons[tab.id] || tab.icons[0].value} size={20} strokeWidth={1.8} /><span>{tab.label}</span></button>{/each}
-      </div>
-    {/if}
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:chrome-hidden={chromeHidden} style:--dock-count={dockItems.length} aria-label="主导航" use:swipeChrome>
     {#each dockItems as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
@@ -412,6 +391,10 @@
   .settings-view.secondary :global(.mobile-page-content) { touch-action: pan-y; }
   :global(html.mobile-runtime) .primary-content { padding-top: calc(16px + env(safe-area-inset-top)); }
   .settings-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+  .library-mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 560px; margin: 0 auto 16px; padding-block: 4px 10px; border-bottom: 1px solid var(--border); }
+  .library-mobile-header :global(.mobile-large-title) { margin: 0; padding: 0; border: 0; font-size: 30px; }
+  .library-mobile-header__actions { display: flex; flex: none; }
+  .library-mobile-header__actions button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); }
   .settings-title-row :global(.mobile-large-title) { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
   .settings-menu-button { display: grid; place-items: center; flex: none; width: 48px; height: 48px; color: var(--accent); background: transparent; }
   .settings-menu-button :global(svg) { rotate: 90deg; }
@@ -429,7 +412,6 @@
 
   :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-h: 72px; }
   :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: repeat(var(--dock-count), minmax(0, 1fr)); }
-  :global(html.mobile-runtime) .mobile-tab-bar.more-open { z-index: 100; }
   :global(html.mobile-runtime) .mobile-tab-bar.icons-only .mobile-tab__label { display: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating {
     inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left));
@@ -443,21 +425,13 @@
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
-  :global(html.mobile-runtime) .mobile-tab--more .mobile-tab__icon { rotate: 90deg; }
   .mobile-tab-bar.chrome-hidden { transform: translateY(calc(100% + 32px)); opacity: 0; pointer-events: none; }
   :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); --mobile-dock-space-player: var(--mobile-tabs-space); }
-  .mobile-dock-more-backdrop { position: fixed; inset: 0; z-index: 1; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
-  .mobile-dock-more { position: absolute; z-index: 2; right: 8px; bottom: calc(100% + var(--mobile-player-h) + 8px); min-width: 160px; display: grid; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-surface); box-shadow: var(--shadow-lg); }
-  .floating .mobile-dock-more { bottom: calc(100% + 8px); }
-  .mobile-dock-more button { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; color: var(--text); background: transparent; border-radius: var(--radius-sm); text-align: left; }
-  .mobile-dock-more button:active { background: var(--bg-hover); }
-  .mobile-dock-more button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   @media (orientation: landscape) and (max-height: 720px) {
     :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: 1fr; grid-template-rows: repeat(var(--dock-count), minmax(48px, 1fr)); }
     :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); }
     :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
     :global(html.mobile-runtime) .mobile-tab-bar.floating { inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left)); width: auto; height: 60px; }
-    :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) .mobile-dock-more { bottom: 8px; left: calc(100% + 8px); right: auto; }
   }
   @media (max-width: 360px) {
     :global(html.mobile-runtime) .mobile-tab-bar.floating { left: env(safe-area-inset-left); right: env(safe-area-inset-right); padding-inline: 2px; }

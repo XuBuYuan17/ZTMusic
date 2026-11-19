@@ -243,6 +243,16 @@ try {
   assert.equal(pressWindow.handlers.size, 0, 'destroy removes global listeners')
   advancePress(500)
   assert.equal(opens, 1, 'destroyed actions cannot open later')
+
+  let pressed
+  longPressAction = mobileLongPress(pressCard, { enabled: () => true, open: event => { pressed = event } })
+  const rowPress = pressEvent({ target: { closest: () => pressCard } })
+  pressCard.emit('pointerdown', rowPress)
+  advancePress(500)
+  assert.equal(pressed, rowPress, 'a button row can open its own actions with the original pointer position')
+  pressWindow.emit('pointerup', rowPress)
+  pressCard.emit('click', pressClick(1))
+  assert.equal(prevented && stopped, true, 'releasing a held button row does not play it')
 } finally {
   longPressAction?.destroy()
   Object.assign(globalThis, originalGlobals)

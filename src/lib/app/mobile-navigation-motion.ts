@@ -2,6 +2,9 @@ import { takeCoverOrigin } from './desktop-motion.ts'
 import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 export type MobileNavigationKind = 'tab' | 'push' | 'pop'
+export function isDetailSheetView(view: string | undefined): boolean {
+  return view === 'playlist' || view === 'album' || view === 'recommendation' || view === 'artist'
+}
 export const mobileMotion = {
   tab: 220,
   page: 360,
@@ -343,15 +346,16 @@ export function createMobileNavigationMotion() {
       const incomingClip = sourceRect ? clipToRect(incoming, sourceRect, sourceRadius) : null
       const outgoingClip = outgoing && sourceRect ? clipToRect(outgoing, sourceRect, sourceRadius) : null
       const playlistView = (kind === 'pop' ? outgoing : incoming)?.dataset?.routeKey?.split(':', 1)[0]
-      const playlistTransition = playlistView === 'playlist' || playlistView === 'recommendation'
+      const playlistTransition = isDetailSheetView(playlistView)
       const duration = surface
         ? playlistTransition ? kind === 'pop' ? mobileMotion.playlistExit : mobileMotion.playlistEnter
           : kind === 'pop' ? mobileMotion.dismiss : mobileMotion.expand
         : kind === 'tab' ? mobileMotion.tab : mobileMotion.page
       const hasSharedGeometry = Boolean(sourceRect && (kind === 'pop' ? outgoingClip : incomingClip))
       const easing = surface && playlistTransition ? mobileMotion.playlistEasing : surface && hasSharedGeometry ? mobileMotion.shared : surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
-      const returnGeometry: SharedReturnGeometry | null = surface && kind === 'push' && sourceRect && incoming.querySelector('.playlist-detail-page')
-        ? { rect: copyRect(sourceRect), radius: sourceRadius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
+      const returnRect = sourceRect ?? (playlistTransition ? incoming.getBoundingClientRect() : null)
+      const returnGeometry: SharedReturnGeometry | null = surface && kind === 'push' && returnRect && (playlistTransition || incoming.querySelector('.playlist-detail-page'))
+        ? { rect: copyRect(returnRect), radius: sourceRadius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
         : null
 
       const sharedPending: Promise<unknown>[] = []

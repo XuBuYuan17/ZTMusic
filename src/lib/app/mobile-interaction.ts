@@ -109,7 +109,7 @@ export function mobileDrag(node: HTMLElement, options: { close: () => void; next
   } }
 }
 
-export function mobileLongPress(node: HTMLElement, options: { enabled: () => boolean; open: () => void }) {
+export function mobileLongPress(node: HTMLElement, options: { enabled: () => boolean; open: (event: PointerEvent) => void }) {
   let pointer: number | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let start = { x: 0, y: 0 }
@@ -117,13 +117,14 @@ export function mobileLongPress(node: HTMLElement, options: { enabled: () => boo
   function cancel() { clearTimeout(timer); timer = undefined; pointer = null }
   function down(event: PointerEvent) {
     if (!options.enabled() || !event.isPrimary || event.button !== 0 || pointer !== null) return
-    if ((event.target as Element).closest('button, a, input, textarea, select')) return
+    const control = (event.target as Element).closest('button, a, input, textarea, select')
+    if (control && control !== node) return
     suppressClick = false
     pointer = event.pointerId
     start = { x: event.clientX, y: event.clientY }
     timer = setTimeout(() => {
       timer = undefined
-      if (pointer !== null && options.enabled()) { suppressClick = true; options.open() }
+      if (pointer !== null && options.enabled()) { suppressClick = true; options.open(event) }
     }, 500)
   }
   function move(event: PointerEvent) {

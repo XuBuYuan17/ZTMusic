@@ -162,7 +162,7 @@ assert.ok(!homePage.includes('likedPlaylist?.trackCount ?? 0} 首'), '入口文�
 assert.ok(homePage.includes('RecentTracksModule') && librarySource.includes('RecentTracksModule'), '两端复用同一个最近播放模块')
 assert.ok(weeklyModule.includes('CompactTrackList'), '本周常听复用同一个紧凑列表')
 assert.ok(!homePage.includes('profile-home__track-list'), '列表样式不得再留在页面里')
-assert.ok(recentModule.includes('player.playQueue(sources as unknown as CompactTrackInput[], index)'), '预览播放必须用原始队列 + 列表索引')
+assert.ok(recentModule.includes('player.playInQueue(songRows[index]?.source'), '最近播放预览应点播所选曲目并保留当前队列')
 assert.ok(recentModule.includes('local-listening-history-change') && recentModule.includes('LISTENING_CHANGE'), '播放历史变化后模块要刷新')
 // D04：本周常听模块（主页独占，资料库不再重复；资料库改用收听统计与历史日推入口）
 assert.ok(homePage.includes('WeeklyListenModule'), '主页必须复用本周常听模块')

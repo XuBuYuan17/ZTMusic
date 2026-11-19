@@ -40,7 +40,7 @@ globalThis.__listeningFixture = {
   dbHistory: { list: async () => [] },
   summarizeLocalListening: () => ({ playCount: 0, totalDuration: 0 }),
   ncm: { scrobble: async (...args) => { scrobbles.push(args) } },
-  apiSession: { getCookie: () => 'fixture-cookie' },
+  apiSession: { getCookie: () => 'fixture-cookie', getVersion: () => 1 },
   isMobileDevice: () => true,
 }
 const source = await readFile(new URL('./listening-recorder.ts', import.meta.url), 'utf8')

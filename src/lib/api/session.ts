@@ -7,6 +7,11 @@ export const DEV_PROXY_API_BASE = '/ncm-api'
 const LEGACY_LOCAL_API_BASES = new Set(['http://localhost:3000', 'http://127.0.0.1:3000'])
 const API_BASE_KEY = 'api_base'
 const API_COOKIE_KEY = 'api_cookie'
+export const API_SESSION_CHANGE = 'api-session-change'
+
+function notifySessionChange(): void {
+  if (typeof window !== 'undefined') window.dispatchEvent?.(new Event(API_SESSION_CHANGE))
+}
 
 function loadApiBase(): string {
   let base = getStorage(API_BASE_KEY, '')
@@ -73,6 +78,7 @@ export const apiSession: ApiSession = {
     sessionVersion++
     setStorage(API_BASE_KEY, url)
     apiBase = url
+    notifySessionChange()
   },
 
   getCookie(): string {
@@ -83,12 +89,14 @@ export const apiSession: ApiSession = {
     sessionVersion++
     apiCookie = cookie || ''
     setStorage(API_COOKIE_KEY, apiCookie)
+    notifySessionChange()
   },
 
   clearCookie(): void {
     sessionVersion++
     apiCookie = ''
     removeStorage(API_COOKIE_KEY)
+    notifySessionChange()
   },
 
   saveCookieFromResponse(data: unknown, rawCookie: string = '', expectedVersion: number = sessionVersion): void {
@@ -112,8 +120,10 @@ export const apiSession: ApiSession = {
     })
     // 其余情况仍是「只有合并后还含 MUSIC_U 才写入」，防止匿名接口的 __csrf/NMTID 抹掉登录态
     if (serverCleared || normalizeCookieForRequest(merged)) {
+      const previous = normalizeCookieForRequest(apiCookie)
       apiCookie = merged
       setStorage(API_COOKIE_KEY, apiCookie)
+      if (previous !== normalizeCookieForRequest(apiCookie)) notifySessionChange()
     }
   },
 }

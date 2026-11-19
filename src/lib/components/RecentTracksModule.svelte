@@ -6,6 +6,8 @@
   import { toSongRows, withRowKeys } from './song-row.ts'
   import CompactTrackList from './CompactTrackList.svelte'
   import type { CompactTrackRow } from './CompactTrackList.svelte'
+  import SongListActions from './SongListActions.svelte'
+  import { openAlbumRef, openArtistRef } from '../app/nav-refs.ts'
 
   // 最近播放预览：自己负责读取本机历史并跟随变化刷新，两个页面可以直接复用。
   let {
@@ -16,10 +18,11 @@
     onOpenAll?: () => void
   } = $props()
 
-  // 保留原始 track 作为播放队列：索引与列表顺序一致，不能换成归一后的副本
-  let sources = $state<unknown[]>([])
+  let sources = $state<Awaited<ReturnType<typeof loadLocalRecentTracks>>>([])
+  let bindSongMenu: ((track: unknown) => { oncontextmenu: (event: MouseEvent) => void }) | undefined
+  const songRows = $derived(toSongRows(sources))
 
-  const rows = $derived<CompactTrackRow[]>(withRowKeys(toSongRows(sources)).map(({ key, row }) => ({
+  const rows = $derived<CompactTrackRow[]>(withRowKeys(songRows).map(({ key, row }) => ({
     key,
     title: row.name,
     subtitle: row.artists.map(artist => artist.name).filter(Boolean).join(' / ') || '未知歌手',
@@ -34,10 +37,13 @@
     }
   }
 
-  // 预览播放：队列就是当前展示的这一串，index 即列表索引
   function playAt(index: number): void {
-    if (!sources.length) return
-    player.playQueue(sources as unknown as CompactTrackInput[], index)
+    player.playInQueue(songRows[index]?.source as CompactTrackInput | undefined)
+  }
+
+  function openSongMenu(index: number, event: MouseEvent): void {
+    const row = songRows[index]
+    if (row) bindSongMenu?.(row.source).oncontextmenu(event)
   }
 
   $effect(() => {
@@ -57,8 +63,9 @@
     <div><h2>最近播放</h2></div>
     <button type="button" onclick={() => onOpenAll?.()}>查看全部</button>
   </header>
-  <CompactTrackList {rows} emptyText="播放一首歌后会显示在这里" onPlay={playAt} />
+  <CompactTrackList {rows} emptyText="播放一首歌后会显示在这里" onPlay={playAt} onRowMenu={openSongMenu} />
 </section>
+<SongListActions onOpenArtist={openArtistRef} onOpenAlbum={openAlbumRef} onBindRow={bind => { bindSongMenu = bind }} />
 
 <style>
   /* 面板外观与主页 dashboard 的面板保持一致；窄屏由 app-mobile.css 统一覆盖 */

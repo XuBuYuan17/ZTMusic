@@ -5,7 +5,9 @@
   import { coverUrl, coverRectUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
   import SongList from '../components/SongList.svelte'
+  import Icon from '../components/ui/Icon.svelte'
   import { toSongRows } from '../components/song-row.ts'
+  import { responsive } from '../utils/responsive.ts'
 
   // 与 router 的 DetailTrack 结构对齐（只列本组件实际读取的字段），router 传入时结构兼容
   interface ArtistTrack {
@@ -78,6 +80,10 @@
   } = $props()
 
   let showAllSongs = $state(false)
+  let showAllAlbums = $state(false)
+  let showFullBio = $state(false)
+  let bioOverflow = $state(false)
+  let bioEl = $state<HTMLElement | null>(null)
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
   function rec(value: unknown): Record<string, unknown> | null {
@@ -113,10 +119,25 @@
   // 热门歌曲交给共享列表；歌手页只保留自己的取数、关注与专辑区
   const songRows = $derived(toSongRows(visibleSongs))
   const albumCards = $derived(albums as unknown as ArtistAlbumCard[])
+  const visibleAlbums = $derived($responsive.isMobile && !showAllAlbums ? albumCards.slice(0, 6) : albumCards)
 
   $effect(() => {
     artist?.id
     showAllSongs = false
+    showAllAlbums = false
+    showFullBio = false
+    bioOverflow = false
+  })
+
+  $effect(() => {
+    artist?.briefDesc
+    const el = bioEl
+    if (!el || showFullBio) return
+    const update = () => { bioOverflow = el.scrollHeight > el.clientHeight + 1 }
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    update()
+    return () => observer.disconnect()
   })
 
   function handleRowKeydown(event: KeyboardEvent, track: ArtistTrack): void {
@@ -140,7 +161,7 @@
 </script>
 
 <div class="artist-page">
-  {#if loading}
+  {#if loading && !artist}
     <div class="artist-hero">
       <div class="artist-hero-bg"></div>
       <div class="artist-hero-mask"></div>
@@ -157,13 +178,13 @@
         <div class="artist-meta"><span class="skeleton-line medium"></span></div>
       </div>
     </div>
-    <section class="artist-section" aria-label="加载热门歌曲">
+    <section class="artist-section artist-songs-section" aria-label="加载热门歌曲">
       <div class="artist-section-header">
         <h2>热门歌曲</h2>
       </div>
       <SongList skeleton rows={[]} skeletonLabel="加载热门歌曲" />
     </section>
-    <section class="artist-section" aria-label="加载专辑作品">
+    <section class="artist-section artist-albums-section" aria-label="加载专辑作品">
       <h2>专辑作品</h2>
       <div class="artist-albums">
         {#each Array(6) as _}
@@ -175,14 +196,14 @@
         {/each}
       </div>
     </section>
-  {:else if error}
+  {:else if error && !artist}
     <div class="artist-empty">
       <p>{error}</p>
       <button onclick={onBack}>返回</button>
     </div>
   {:else if artist}
     <div class="artist-hero">
-      <div class="artist-hero-bg" style="background-image:url({coverRectUrl(artist.cover || artist.avatar || artist.picUrl || '', 1000, 500)})"></div>
+      <div class="artist-hero-bg" style="background-image:url({coverRectUrl(artist.cover || artist.avatar || artist.picUrl || '', $responsive.isMobile ? 800 : 1000, $responsive.isMobile ? 600 : 500)})"></div>
       <div class="artist-hero-grain"></div>
       <div class="artist-hero-mask"></div>
       <button class="artist-back" onclick={onBack} aria-label="返回">
@@ -190,7 +211,7 @@
       </button>
       <div class="artist-avatar-wrap">
         {#if artist.avatar || artist.picUrl || artist.cover}
-          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, 360)} alt={artist.name as string} loading="lazy" referrerpolicy="no-referrer" />
+          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, $responsive.isMobile ? 300 : 360)} alt={artist.name as string} loading="eager" referrerpolicy="no-referrer" />
         {:else}
           <div class="artist-avatar artist-avatar-placeholder">{(artist.name as string)?.charAt(0) || '?'}</div>
         {/if}
@@ -206,6 +227,9 @@
           {#if artist.albumSize}<span>{artist.albumSize} 张专辑</span>{/if}
           {#if (artist.identities as unknown[] | undefined)?.length}<span>{(artist.identities as string[]).join(' · ')}</span>{/if}
         </div>
+        {#if $responsive.isMobile && artist.accountUserId}
+          <button class="artist-profile-link" type="button" aria-label="查看歌手的网易云账号主页" onclick={() => onOpenUser?.(artist.accountUserId)}>网易云账号 <Icon name="chevron-right" size={15} /></button>
+        {/if}
       </div>
         <div class="artist-actions">
           <button class="artist-play-all" onclick={onPlayAll} disabled={!songs.length}>
@@ -215,22 +239,26 @@
           <button class="artist-follow-btn" class:active={artist.followed} onclick={onToggleFollow}>
             {artist.followed ? '已关注' : '关注'}
           </button>
-          {#if artist.accountUserId}
-            <button class="artist-profile-btn" onclick={() => onOpenUser?.(artist.accountUserId)}>个人主页</button>
+          {#if !$responsive.isMobile && artist.accountUserId}
+            <button class="artist-profile-btn" onclick={() => onOpenUser?.(artist.accountUserId)}>网易云账号</button>
           {/if}
           {#if albums.length}<span class="artist-work-count">{albums.length} 张作品已收录</span>{/if}
         </div>
     </div>
 
-    {#if artist.briefDesc}
+    {#snippet artistBio()}
+    {#if artist?.briefDesc}
       <section class="artist-section artist-bio-section">
         <h2>简介</h2>
-        <p class="artist-desc">{artist.briefDesc}</p>
+        <p class="artist-desc" class:expanded={showFullBio} bind:this={bioEl}>{artist.briefDesc}</p>
+        {#if bioOverflow || showFullBio}<button class="artist-bio-toggle" type="button" aria-expanded={showFullBio} onclick={() => showFullBio = !showFullBio}>{showFullBio ? '收起简介' : '展开简介'}</button>{/if}
       </section>
     {/if}
+    {/snippet}
+    {#if !$responsive.isMobile}{@render artistBio()}{/if}
 
     {#if songs.length > 0}
-      <section class="artist-section">
+      <section class="artist-section artist-songs-section">
         <div class="artist-section-header">
           <h2>热门歌曲</h2>
           <div class="artist-section-actions">
@@ -249,13 +277,15 @@
           {onOpenAlbum}
         />
       </section>
+    {:else if loading}
+      <section class="artist-section artist-songs-section" aria-label="加载热门歌曲"><div class="artist-section-header"><h2>热门歌曲</h2></div><SongList skeleton rows={[]} skeletonLabel="加载热门歌曲" /></section>
     {/if}
 
     {#if albums.length > 0}
-      <section class="artist-section">
-        <h2>专辑作品</h2>
+      <section class="artist-section artist-albums-section">
+        <div class="artist-section-header"><h2>专辑作品</h2>{#if $responsive.isMobile && albums.length > 6}<button class="artist-section-action secondary" type="button" aria-expanded={showAllAlbums} onclick={() => showAllAlbums = !showAllAlbums}>{showAllAlbums ? '收起' : `展开 ${albums.length} 张`}</button>{/if}</div>
         <div class="artist-albums">
-          {#each albumCards as album (album.id)}
+          {#each visibleAlbums as album (album.id)}
             <div class="artist-album-card" data-motion="card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
               <div class="artist-album-cover">
                 {#if album.picUrl}
@@ -272,7 +302,10 @@
           {/each}
         </div>
       </section>
+    {:else if loading}
+      <section class="artist-section artist-albums-section" aria-label="加载专辑作品"><h2>专辑作品</h2><div class="artist-albums">{#each Array(3) as _}<div class="artist-album-card skeleton-row"><div class="artist-album-cover skeleton-block"></div><div class="artist-album-name skeleton-line"></div></div>{/each}</div></section>
     {/if}
+    {#if $responsive.isMobile}{@render artistBio()}{/if}
   {:else}
     <div class="artist-empty">
       <p>没有找到歌手信息</p>
@@ -321,6 +354,8 @@
   .artist-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .artist-section h2 { margin: 0 0 14px; color: var(--text); font-size: 22px; letter-spacing: 0; }
   .artist-desc { margin: 0; max-width: 980px; color: var(--text-secondary); line-height: 1.82; white-space: pre-line; display: -webkit-box; line-clamp: 6; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+  .artist-desc.expanded { display: block; overflow: visible; }
+  .artist-bio-toggle { min-height: 40px; padding: 8px 0 0; border: 0; background: transparent; color: var(--accent); font-size: 13px; font-weight: 500; }
   .artist-albums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px; }
   .artist-album-card { cursor: pointer; transition: transform .18s, background-color .18s; min-width: 0; padding: 8px; border-radius: var(--radius-lg); }
   .artist-album-card:hover { transform: translateY(-2px); background: var(--bg-hover); }

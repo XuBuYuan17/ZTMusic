@@ -30,7 +30,7 @@
   } = $props()
 
   let expanded = $state(false)
-  const visible = $derived(expanded ? toplists : toplists.slice(0, limit))
+  const visible = $derived(mobile || expanded ? toplists : toplists.slice(0, limit))
   const truncated = $derived(toplists.length > limit)
   const failed = $derived(Boolean(error) && !toplists.length)
 </script>
@@ -45,7 +45,7 @@
           {#if onRetry}<button type="button" onclick={() => onRetry?.()}>重试</button>{/if}
         </div>
       {:else}
-        <div class="mobile-cover-rail">
+        <div class="mobile-cover-rail mobile-cover-rail--two-rows">
           {#if loading && !toplists.length}
             {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
           {:else}
@@ -54,7 +54,6 @@
             {/each}
           {/if}
         </div>
-        {#if truncated}<button class="music-preview-more" type="button" aria-expanded={expanded} onclick={() => expanded = !expanded}>{expanded ? '收起' : `展开全部 ${toplists.length} 个`}</button>{/if}
       {/if}
     </section>
   {:else}

@@ -15,7 +15,6 @@ interface HomeApi {
   userLevel?(): Promise<unknown>
   userRecordWeek(uid: SongId): Promise<unknown>
   recommendResource(): Promise<unknown>
-  userRecord(uid: SongId, type: number): Promise<unknown>
   toplist(): Promise<unknown>
 }
 
@@ -242,28 +241,31 @@ export async function loadLocalRecentTracks(limit = 200): Promise<NormalizedLoca
     .filter((song): song is NormalizedLocalHistorySong => song !== null)
 }
 
-export async function loadRecentData(ncm: HomeApi, user: unknown): Promise<Array<NormalizedRecordSong | NormalizedLocalHistorySong>> {
-  const uid = uidOf(user)
-  let recentTracks: Array<NormalizedRecordSong | NormalizedLocalHistorySong> = []
-  if (uid) {
-    try {
-      // type=0 全部时间记录（allData）；type=1 仅本周（weekData）
-      const res = await ncm.userRecord(uid, 0)
-      const r = rec(res)
-      const rd = r ? rec(r.data) : null
-      // 部分账号关闭了全部时间统计时 allData 为空，退回本周数据
-      const allList = asArray(r?.allData ?? rd?.allData)
-      const weekList = asArray(r?.weekData ?? rd?.weekData ?? rd?.list ?? r?.list)
-      const list = allList.length ? allList : weekList
-      recentTracks = list.map(normalizeRecordSong).filter((t): t is NormalizedRecordSong => t !== null)
-    } catch {
-      recentTracks = []
-    }
-  }
-  if (recentTracks.length === 0) {
-    recentTracks = await loadLocalRecentTracks()
-  }
-  return recentTracks
+export function mergeRecentTracks(local: NormalizedLocalHistorySong[], response: unknown): Array<NormalizedRecordSong | NormalizedLocalHistorySong> {
+  const payload = rec(response)
+  const list = Number(payload?.code) === 200 ? asArray(rec(payload?.data)?.list) : []
+  const cloud = list.flatMap(item => {
+    const entry = rec(item)
+    const song = normalizeRecordSong(entry?.data ?? entry?.song)
+    return song ? [{ ...song, source: 'online', playedAt: toNumber(entry?.playTime) }] : []
+  })
+  const seen = new Set<string>()
+  return [...local, ...cloud].sort((a, b) => b.playedAt - a.playedAt).filter(track => {
+    if ((typeof track.id !== 'string' && typeof track.id !== 'number') || !track.id) return false
+    const source = track.source === 'local' || track.source === 'webdav' ? track.source : 'online'
+    const key = `${source}:${track.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export async function loadRecentData(ncm: { recentPlayedSongs(): Promise<unknown> }, user: unknown): Promise<Array<NormalizedRecordSong | NormalizedLocalHistorySong>> {
+  const [local, cloud] = await Promise.all([
+    loadLocalRecentTracks(),
+    uidOf(user) ? ncm.recentPlayedSongs().catch(() => null) : null,
+  ])
+  return mergeRecentTracks(local, cloud)
 }
 
 export async function loadToplistsData(ncm: HomeApi): Promise<unknown[]> {

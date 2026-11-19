@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
-import { DEFAULT_MOBILE_DOCK, normalizeMobileDock, toggleDockTab } from '../settings/mobile-dock.ts'
+import { DEFAULT_MOBILE_DOCK, normalizeMobileDock, moveDockTab, toggleDockTab } from '../settings/mobile-dock.ts'
 
 const source = (await readFile(new URL('./mobile-dock.svelte.ts', import.meta.url), 'utf8')).replace(/^import .*\n/m, '').replace('export const mobileDock', 'const mobileDock')
 const js = stripTypeScriptTypes(source) + '\nglobalThis.result = mobileDock'
@@ -13,12 +13,15 @@ const storage = {
   setItem: (key, value) => { if (failWrites) throw new Error('storage blocked'); data.set(key, String(value)) },
 }
 function create() {
-  const context = { localStorage: storage, $state: value => value, DEFAULT_MOBILE_DOCK, normalizeMobileDock, toggleDockTab }
+  const context = { localStorage: storage, $state: value => value, DEFAULT_MOBILE_DOCK, normalizeMobileDock, moveDockTab, toggleDockTab }
   runInNewContext(js, context)
   return context.result
 }
 
 const dock = create()
+dock.moveTab('settings', 'search')
+assert.deepEqual([...create().config.tabs], ['explore', 'settings', 'search', 'library'], 'order survives reload')
+dock.moveTab('settings', 'library')
 dock.setLayout('floating')
 dock.toggleTab('search')
 dock.setIcon('library', 'grid')

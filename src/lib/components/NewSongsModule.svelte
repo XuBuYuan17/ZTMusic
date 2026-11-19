@@ -35,7 +35,7 @@
   } = $props()
 
   let expanded = $state(false)
-  const visible = $derived(expanded ? songs : songs.slice(0, limit))
+  const visible = $derived(mobile || expanded ? songs : songs.slice(0, limit))
   const truncated = $derived(songs.length > limit)
 
   interface ArtistRef { id?: SongId; name: string }
@@ -74,7 +74,6 @@
         {/each}
       {/if}
     </div>
-    {#if truncated}<button class="music-preview-more" type="button" aria-expanded={expanded} onclick={() => expanded = !expanded}>{expanded ? '收起' : `展开全部 ${songs.length} 首`}</button>{/if}
   </section>
 {:else}
   <section class="music-discovery-section music-new-songs-section">

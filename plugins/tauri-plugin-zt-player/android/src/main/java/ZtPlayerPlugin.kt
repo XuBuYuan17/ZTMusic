@@ -133,6 +133,12 @@ class ZtPlayerPlugin(private val activity: Activity): Plugin(activity) {
             PlaybackDiagnostics.mark(activity, "AndroidEngine.connect")
             invoke.resolve(); return
         }
+        if (action == "listeningAccount") {
+            val data = args.optJSONObject("data")
+            NativeListeningSync.configure(data?.optString("base").orEmpty(), data?.optString("cookie").orEmpty())
+            invoke.resolve()
+            return
+        }
         if (action == "state" && !PlaybackService.active) {
             PlaybackDiagnostics.mark(activity, "state.restore silent=true service=false")
             invoke.resolve(JSObject(NativePlaybackStore(activity).silentSnapshot().toString()))

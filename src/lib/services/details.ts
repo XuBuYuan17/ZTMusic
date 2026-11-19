@@ -269,9 +269,9 @@ export async function loadAlbumDetail(extractColor: ColorExtractor, id: SongId):
   return { detail, heroColor }
 }
 
-export async function loadArtistDetail(id: SongId): Promise<ArtistDetailResult> {
+export async function loadArtistDetail(id: SongId, onProgress?: (partial: Partial<ArtistDetail>) => void): Promise<ArtistDetailResult> {
   try {
-    return await musicService.getArtist(id)
+    return await musicService.getArtist(id, onProgress)
   } catch {
     return { artist: null, songs: [], albums: [] }
   }

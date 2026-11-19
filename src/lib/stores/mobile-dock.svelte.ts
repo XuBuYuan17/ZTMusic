@@ -1,4 +1,4 @@
-import { DEFAULT_MOBILE_DOCK, normalizeMobileDock, toggleDockTab, type DockTabId, type MobileDockConfig } from '../settings/mobile-dock.ts'
+import { DEFAULT_MOBILE_DOCK, normalizeMobileDock, toggleDockTab, moveDockTab, type DockTabId, type MobileDockConfig } from '../settings/mobile-dock.ts'
 
 const KEY = 'mobile_dock_config'
 function load(): MobileDockConfig {
@@ -22,6 +22,7 @@ export const mobileDock = {
   setLayout(layout: MobileDockConfig['layout']) { save(normalizeMobileDock({ ...config, layout })) },
   setLabels(labels: boolean) { save(normalizeMobileDock({ ...config, labels })) },
   toggleTab(id: DockTabId) { const next = toggleDockTab(config, id); if (next) save(next) },
+  moveTab(id: DockTabId, target: DockTabId) { const next = moveDockTab(config, id, target); if (next) save(next) },
   setIcon(id: DockTabId, icon: string) { save(normalizeMobileDock({ ...config, icons: { ...config.icons, [id]: icon } })) },
   reset() { save(normalizeMobileDock(DEFAULT_MOBILE_DOCK)) },
 }

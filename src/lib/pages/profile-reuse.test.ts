@@ -30,6 +30,7 @@ assert.ok(!user.includes('user-page__social'), 'no local social markup left')
 assert.ok(artist.includes('onToggleFollow'), 'artist follow stays on the page')
 assert.ok(artist.includes('artist.followed'), 'follow state still drives the button')
 assert.ok(artist.includes('onOpenUser?.(artist.accountUserId)'), 'the linked user profile entry is kept')
+assert.ok(artist.includes('网易云账号') && artist.includes('artist-profile-link'), 'the linked account is clearly named and secondary on mobile')
 assert.ok(artist.includes('artist-albums'), 'albums section is page specific and kept')
 assert.ok(artist.includes('showAllSongs'), 'the show-all toggle for songs is kept')
 

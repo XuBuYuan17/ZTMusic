@@ -55,6 +55,10 @@ function isSong(value: Song | null): value is Song {
   return value !== null
 }
 
+function comparableLyric(text: string): string {
+  return text.normalize('NFKC').replace(/[\s\p{P}\p{S}]/gu, '')
+}
+
 /** 网易云端点客户端：本 provider 实际用到的 ncm 方法子集 */
 export interface NeteaseApi {
   cloudsearch(keyword: string, limit: number, offset: number): Promise<unknown>
@@ -218,10 +222,13 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       if (!lines.length) return parsed.yrcLines.filter(line => line.text && line.words?.length).map(line => ({ time: line.time, text: line.text, translation: '', words: line.words }))
       for (const wordLine of parsed.yrcLines) {
         if (!wordLine.words?.length) continue
-        const match = lines.find(line => !line.words && Math.abs(line.time - wordLine.time) <= 0.6 && line.text === wordLine.text)
-        if (match) match.words = wordLine.words
+        const comparable = comparableLyric(wordLine.text)
+        if (!comparable) continue
+        const match = lines.filter(line => !line.words && Math.abs(line.time - wordLine.time) <= 2 && comparableLyric(line.text) === comparable)
+          .sort((a, b) => Math.abs(a.time - wordLine.time) - Math.abs(b.time - wordLine.time))[0]
+        if (match) { match.words = wordLine.words; match.time = wordLine.time }
       }
-      return lines
+      return lines.sort((a, b) => a.time - b.time)
     },
 
     async getStream(id: SongId, { level = 'standard', unblock = false, signal } = {}): Promise<PlayStream> {
@@ -290,41 +297,39 @@ export function createNeteaseProvider(api: NeteaseApi = ncm as NeteaseApi): Musi
       return { album, songs: songs.map(mapSong).filter(isSong) }
     },
 
-    async getArtist(id: SongId): Promise<ArtistDetail> {
-      const [detailRes, songsRes, albumsRes] = await Promise.all([
-        api.artistDetail(id).catch(() => null),
-        api.artistSongs(id, 50).catch(() => ({ songs: [] })),
-        api.artistAlbums(id, 30).catch(() => ({ hotAlbums: [] })),
-      ])
-      const detail = asRecord(detailRes)
-      const detailData = asRecord(detail.data)
-      const songsPayload = asRecord(songsRes)
-      const albumsPayload = asRecord(albumsRes)
-      const raw = asRecord(detailData.artist || detail.artist || albumsPayload.artist)
-      const baseArtist: NcmRecord = { ...raw, id: raw.id || id, name: raw.name || '未知歌手' }
-      const mappedArtist = mapArtist(baseArtist)
-      if (!mappedArtist) throw new Error('Netease artist mapping produced no result')
-      const identify = asRecord(detailData.identify)
-      const artistUser = asRecord(detailData.user)
-      const rawIdentities = asArray<string>(raw.identities)
-      const artist: ArtistDetail['artist'] = {
-        ...mappedArtist,
-        cover: asString(raw.cover) || asString(raw.picUrl),
-        avatar: asString(raw.avatar) || asString(raw.img1v1Url) || asString(raw.picUrl),
-        alias: asArray<unknown>(raw.alias || raw.transNames),
-        identities: rawIdentities.length
-          ? rawIdentities
-          : typeof identify.imageDesc === 'string' ? identify.imageDesc.split('、') : [],
-        briefDesc: asString(raw.briefDesc),
-        followed: Boolean(raw.followed || artistUser.followed),
-        accountUserId: artistUser.userId as SongId | undefined,
-        identityLabel: asString(identify.imageDesc),
+    async getArtist(id: SongId, onProgress?: (partial: Partial<ArtistDetail>) => void): Promise<ArtistDetail> {
+      function artistFrom(detailRes: unknown, albumsRes: unknown): ArtistDetail['artist'] {
+        const detail = asRecord(detailRes)
+        const detailData = asRecord(detail.data)
+        const raw = asRecord(detailData.artist || detail.artist || asRecord(albumsRes).artist)
+        const mapped = mapArtist({ ...raw, id: raw.id || id, name: raw.name || '未知歌手' })
+        if (!mapped) throw new Error('Netease artist mapping produced no result')
+        const identify = asRecord(detailData.identify)
+        const artistUser = asRecord(detailData.user)
+        const identities = asArray<string>(raw.identities)
+        return { ...mapped, cover: asString(raw.cover) || asString(raw.picUrl), avatar: asString(raw.avatar) || asString(raw.img1v1Url) || asString(raw.picUrl),
+          alias: asArray<unknown>(raw.alias || raw.transNames), identities: identities.length ? identities : typeof identify.imageDesc === 'string' ? identify.imageDesc.split('、') : [],
+          briefDesc: asString(raw.briefDesc), followed: Boolean(raw.followed || artistUser.followed), accountUserId: artistUser.userId as SongId | undefined, identityLabel: asString(identify.imageDesc) }
       }
-      return {
-        artist,
-        songs: asArray<unknown>(songsPayload.songs || asRecord(songsPayload.data).songs).map(mapSong).filter(isSong),
-        albums: asArray<unknown>(albumsPayload.hotAlbums || asRecord(albumsPayload.album).albums).map(mapAlbum).filter((a): a is ProviderAlbum => a !== null),
-      }
+      const detailPromise = api.artistDetail(id).catch(() => null).then(detail => {
+        const record = asRecord(detail)
+        if (asRecord(record.data).artist || record.artist) onProgress?.({ artist: artistFrom(detail, null) })
+        return detail
+      })
+      const songsPromise = api.artistSongs(id, 50).catch(() => ({ songs: [] })).then(response => {
+        const data = asRecord(response)
+        const songs = asArray<unknown>(data.songs || asRecord(data.data).songs).map(mapSong).filter(isSong)
+        onProgress?.({ songs })
+        return songs
+      })
+      const albumsPromise = api.artistAlbums(id, 30).catch(() => ({ hotAlbums: [] })).then(response => {
+        const data = asRecord(response)
+        const albums = asArray<unknown>(data.hotAlbums || asRecord(data.album).albums).map(mapAlbum).filter((a): a is ProviderAlbum => a !== null)
+        onProgress?.({ albums })
+        return { response, albums }
+      })
+      const [detail, songs, { response, albums }] = await Promise.all([detailPromise, songsPromise, albumsPromise])
+      return { artist: artistFrom(detail, response), songs, albums }
     },
   } satisfies Omit<MusicProvider, 'capabilities'>)
 }

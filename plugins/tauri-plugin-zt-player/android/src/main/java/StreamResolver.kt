@@ -12,6 +12,14 @@ import java.net.URL
 import java.util.concurrent.atomic.AtomicLong
 
 class StreamResolver(private val context: Context, private val onResolved: (String, Double?, Long) -> Unit = { _, _, _ -> }) : ResolvingDataSource.Resolver {
+    companion object {
+        internal fun validatedBase(value: String): String {
+            val uri = Uri.parse(value)
+            require(uri.scheme == "https" && uri.userInfo == null && uri.port == -1)
+            require(uri.host in setOf("music.xubuyuan.top", "music.163.com", "interface.music.163.com", "interface3.music.163.com"))
+            return uri.toString().trimEnd('/')
+        }
+    }
     @Volatile var base = "https://music.xubuyuan.top"
     @Volatile var cookie = ""
     @Volatile var quality = "standard"
@@ -33,10 +41,7 @@ class StreamResolver(private val context: Context, private val onResolved: (Stri
 
     fun configure(data: JSONObject) {
         generation.incrementAndGet()
-        val uri = Uri.parse(data.optString("base", base))
-        require(uri.scheme == "https" && uri.userInfo == null && uri.port == -1)
-        require(uri.host in setOf("music.xubuyuan.top", "music.163.com", "interface.music.163.com", "interface3.music.163.com"))
-        base = uri.toString().trimEnd('/')
+        base = validatedBase(data.optString("base", base))
         cookie = data.optString("cookie", "")
         quality = data.optString("quality", "standard").takeIf { it in setOf("standard", "higher", "exhigh", "lossless") } ?: "standard"
         synchronized(cache) { cache.clear(); attemptsUsed.clear() }

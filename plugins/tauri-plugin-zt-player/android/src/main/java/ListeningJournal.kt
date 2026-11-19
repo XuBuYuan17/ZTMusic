@@ -20,6 +20,7 @@ class ListeningJournal(context: Context) : SQLiteOpenHelper(context, "native-lis
     private var session = ""
     private var total = 0L
     private var counted = false
+    private var accountAtPlay: NativeListeningSync.Account? = null
     private var previousTrack = JSONObject()
     private var duration = 0L
     override fun onCreate(db: SQLiteDatabase) { db.execSQL("CREATE TABLE records (key TEXT PRIMARY KEY, sequence INTEGER NOT NULL, value TEXT NOT NULL)") }
@@ -46,17 +47,20 @@ class ListeningJournal(context: Context) : SQLiteOpenHelper(context, "native-lis
             db.replaceOrThrow("records", null, ContentValues().apply { put("key", key); put("sequence", sequence); put("value", row.toString()) })
             total = nextTotal
             counted = counted || countNow
+            if (countNow) NativeListeningSync.submit(accountAtPlay, previousId, previousTrack, total, duration)
         }
         val item = player.currentMediaItem
         val id = item?.mediaId.orEmpty()
         if (id != previousId) {
             previousId = id; session = "android:${UUID.randomUUID()}"; total = 0; counted = false
+            accountAtPlay = null
             val raw = JSONObject(item?.mediaMetadata?.extras?.getString("track") ?: "{}")
             val ar = raw.optJSONArray("ar") ?: JSONArray()
             val artists = JSONArray(); for (i in 0 until ar.length()) artists.put(ar.optJSONObject(i)?.optString("name").orEmpty())
             previousTrack = JSONObject().put("key", "${raw.optString("source", "online")}:$id").put("name", raw.optString("name")).put("artists", artists).put("cover", raw.optString("picUrl"))
             duration = raw.optLong("dt")
         }
+        if (player.isPlaying && total == 0L) accountAtPlay = NativeListeningSync.account
         lastMono = mono; running = player.isPlaying
     }
 
@@ -72,6 +76,6 @@ class ListeningJournal(context: Context) : SQLiteOpenHelper(context, "native-lis
         readableDatabase.rawQuery("SELECT sequence,value FROM records WHERE sequence > ? ORDER BY sequence LIMIT 500", arrayOf(after.toString())).use { cursor ->
             while (cursor.moveToNext()) { cursorValue = cursor.getLong(0); rows.put(JSONObject(cursor.getString(1))) }
         }
-        return JSONObject().put("cursor", cursorValue).put("rows", rows)
+        return JSONObject().put("cursor", cursorValue).put("rows", rows).put("cloudSyncFailed", NativeListeningSync.failed())
     }
 }

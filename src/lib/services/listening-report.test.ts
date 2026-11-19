@@ -217,6 +217,7 @@ engine.destroy()
 // 听歌打卡：只上报网易云在线曲目、未登录不发请求、每个 session 至多一次。
 // 用 'sample'（引擎 timeupdate）推进——'resume' 每次都 reset 基线，推不动 session
 let scrobbles: string[] = []
+let scrobbleResult: unknown = { code: 200, data: 'confirmed' }
 let mono = 0
 let wall = start
 Object.assign(globalThis, {
@@ -224,20 +225,22 @@ Object.assign(globalThis, {
   window: { innerWidth: 1440, innerHeight: 900, dispatchEvent() {}, addEventListener() {}, removeEventListener() {} },
   localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
   performance: { now: () => mono },
-  fetch: async (url: unknown) => { scrobbles.push(String(url)); return new Response('{}', { status: 200 }) },
+  fetch: async (url: unknown) => { scrobbles.push(String(url)); return Response.json(scrobbleResult) },
 })
 const realNow = Date.now
 Date.now = () => wall
 const { observeListening: observe } = await import('./listening-recorder.ts')
 const { apiSession } = await import('../api/session.ts')
+const { ncm } = await import('../api/client.ts')
 const online: CompactTrack = { id: 42, name: '在线曲', ar: [{ id: 7, name: '甲' }], al: { name: '专辑', picUrl: '' }, dt: 180_000, picUrl: '' }
 const at = (second: number): PlayerEngineState => ({ src: 'https://example.com/1.mp3', currentTime: second, duration: 180, ended: false, networkState: 1, readyState: 4, paused: false })
-function play(seconds: number, track: CompactTrack): void {
+function play(seconds: number, track: CompactTrack, onSample?: (second: number) => void): void {
   observe('end', at(0), track)
   mono = 0
   wall = start
   observe('resume', at(0), track)
   for (let i = 1; i <= seconds; i++) {
+    onSample?.(i)
     mono = i * 1000
     wall = start + i * 1000
     observe('sample', at(i), track)
@@ -264,6 +267,13 @@ scrobbles = []
 play(31, { ...online, source: 'local' })
 await settle()
 assert.equal(scrobbles.length, 0, '本地曲目不上报')
+
+play(31, online, second => { if (second === 20) apiSession.setCookie('MUSIC_U=another-account') })
+await settle()
+assert.equal(scrobbles.length, 0, '播放途中换号，不把上一账号的播放写到新账号')
+
+scrobbleResult = { code: 200, msg: 'PLV 上报失败' }
+await assert.rejects(ncm.scrobble(42, 31), /未确认/, 'HTTP 200 的失败响应不能视为同步成功')
 
 Date.now = realNow
 console.log('listening report: timing, ranking, checkpoints and engine signals passed')

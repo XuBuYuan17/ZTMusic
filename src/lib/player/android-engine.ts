@@ -149,12 +149,13 @@ export class AndroidEngine implements PlayerEngine {
     if (this.syncingJournal || this.destroyed) return
     this.syncingJournal = true
     try {
-      const { importNativeListening } = await import('../services/listening-recorder.ts')
+      const { importNativeListening, reportNativeScrobble } = await import('../services/listening-recorder.ts')
       let cursor = Number(getStorage('native_listening_cursor', '0')) || 0
       while (!this.destroyed) {
-        const result = await androidCommand<{ cursor: number; rows: unknown[] }>('journal', { cursor })
+        const result = await androidCommand<{ cursor: number; rows: unknown[]; cloudSyncFailed?: boolean }>('journal', { cursor })
         if (!Number.isFinite(result.cursor) || result.cursor < cursor || !Array.isArray(result.rows)) throw new Error('Invalid native listening journal')
         await importNativeListening(result.rows)
+        reportNativeScrobble(result.cloudSyncFailed === true)
         setStorage('native_listening_cursor', result.cursor)
         if (result.rows.length < 500 || result.cursor === cursor) break
         cursor = result.cursor

@@ -16,6 +16,7 @@ let _type = $state<ToastType>('info')
 let _visible = $state(false)
 let _timer: ReturnType<typeof setTimeout> | null = null
 let _seq = 0
+let _hudRequest = $state<{ message: string } | null>(null)
 
 function show(message: string, type: ToastType = 'info', duration = 2500): void {
   if (_timer) clearTimeout(_timer)
@@ -40,6 +41,8 @@ export const toast = {
   get type() { return _type },
   get visible() { return _visible },
   get seq() { return _seq },
+  get hudRequest() { return _hudRequest },
+  showHud: (message: string) => { _hudRequest = { message } },
   show,
   hide,
   success: (msg: string) => show(msg, 'success'),

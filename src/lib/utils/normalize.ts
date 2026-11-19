@@ -64,6 +64,7 @@ export interface NormalizedLocalHistorySong extends Loose {
   al: Loose
   picUrl: string
   dt: number
+  playedAt: number
   source?: string
   localId?: unknown
   webdavId?: unknown
@@ -167,6 +168,7 @@ export function normalizeLocalHistorySong(item: Loose): NormalizedLocalHistorySo
     al: asRecord(item.album),
     picUrl: asString(item.picUrl) || extractCover(item),
     dt: asNumber(item.duration),
+    playedAt: asNumber(item.playedAt),
     source: asString(item.source) || undefined,
     localId: item.localId,
     webdavId: item.webdavId,

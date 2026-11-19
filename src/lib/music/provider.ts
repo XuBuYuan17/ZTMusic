@@ -34,7 +34,7 @@ export interface MusicProvider {
   getTracks(ids: SongId[]): Promise<Song[]>
   getPlaylist(id: SongId): Promise<PlaylistDetail | null>
   getAlbum(id: SongId): Promise<AlbumDetail>
-  getArtist(id: SongId): Promise<ArtistDetail>
+  getArtist(id: SongId, onProgress?: (partial: Partial<ArtistDetail>) => void): Promise<ArtistDetail>
 }
 
 /**

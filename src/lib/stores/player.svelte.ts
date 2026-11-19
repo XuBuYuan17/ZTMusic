@@ -846,6 +846,20 @@ class PlayerState {
     }
   }
 
+  playInQueue(track: CompactTrackInput | null | undefined): void {
+    if (!track?.id) return
+    const id = String(track.id)
+    let index = this.queue.findIndex(item => String(item.id) === id)
+    if (index < 0) {
+      index = this.queue.length
+      if (this.appendQueue([track]) === 0) {
+        toast.warning('播放队列已满')
+        return
+      }
+    }
+    this.playTrack(this.queue[index], index)
+  }
+
   get playbackRevision(): number { return this._playRequestId }
 
   appendQueue(tracks: readonly CompactTrackInput[]): number {

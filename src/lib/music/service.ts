@@ -64,7 +64,7 @@ export const musicService = Object.freeze({
   getAlbum(id: SongId): Promise<AlbumDetail> {
     return musicProviders.call('getAlbum', id) as Promise<AlbumDetail>
   },
-  getArtist(id: SongId): Promise<ArtistDetail> {
-    return musicProviders.call('getArtist', id) as Promise<ArtistDetail>
+  getArtist(id: SongId, onProgress?: (partial: Partial<ArtistDetail>) => void): Promise<ArtistDetail> {
+    return musicProviders.call('getArtist', id, onProgress) as Promise<ArtistDetail>
   },
 })

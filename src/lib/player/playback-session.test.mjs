@@ -4,7 +4,7 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import { compactTrack, appendQueueState, createShuffleState, getNextIndex, getPrevIndex, commitNextIndex, commitPrevIndex, resolveQueueSelection } from './queue.ts'
 import { createFallbackController } from './fallback.ts'
-import { PLAYBACK, ERROR_MESSAGES, STORAGE_KEYS } from '../utils/constants.ts'
+import { PLAYBACK, ERROR_MESSAGES, LIMITS, STORAGE_KEYS } from '../utils/constants.ts'
 
 class FakeAudio extends EventTarget {
   src = ''
@@ -37,6 +37,7 @@ const settle = () => new Promise(resolve => setImmediate(resolve))
 function harness() {
   const engine = new AudioEngine()
   const errors = []
+  const warnings = []
   const storage = new Map()
   const invalidated = []
   const timers = []
@@ -49,7 +50,7 @@ function harness() {
   const context = {
     engine, URL, AbortController, DOMException, createFallbackController, compactTrack, createShuffleState, appendQueueState,
     getNextIndex, getPrevIndex, commitNextIndex, commitPrevIndex, resolveQueueSelection,
-    PLAYBACK, ERROR_MESSAGES, STORAGE_KEYS,
+    PLAYBACK, ERROR_MESSAGES, STORAGE_KEYS, toast: { warning: message => warnings.push(message) },
     ERROR_KIND: { TIMEOUT: 'timeout' },
     setTimeout: callback => { timers.push(callback); return timers.length },
     clearTimeout: handle => { timers[handle - 1] = null },
@@ -84,7 +85,7 @@ function harness() {
     _setNoUrlError: () => { errors.push('NoUrl'); player.error = 'NoUrl' },
     _prefetchNextTrack() {}, _fillFallbackInBackground() {},
   })
-  return { player, engine, errors, storage, invalidated, timers, resolveWith: fn => { resolveUrls = fn }, fillWith: fn => { fillUrls = fn } }
+  return { player, engine, errors, warnings, storage, invalidated, timers, resolveWith: fn => { resolveUrls = fn }, fillWith: fn => { fillUrls = fn } }
 }
 
 let passed = 0
@@ -294,6 +295,38 @@ await test('background queue append preserves current playback, progress and nat
   assert.equal(player.queueRevision, 1)
   assert.deepEqual(commands, [{ index: 0, start: false }])
   assert.equal(storage.get(STORAGE_KEYS.PLAYER_QUEUE).length, 5)
+})
+
+await test('recent playback appends and plays one track without replacing the queue or duplicating it', async () => {
+  const { player } = harness()
+  player.playInQueue(track(4))
+  assert.deepEqual(player.queue.map(item => item.id), [1, 2, 3, 4])
+  assert.equal(player.id, 4)
+  assert.equal(player.queueIndex, 3)
+
+  player.playInQueue(track('2'))
+  assert.deepEqual(player.queue.map(item => item.id), [1, 2, 3, 4])
+  assert.equal(player.id, 2)
+  assert.equal(player.queueIndex, 1)
+  await settle()
+})
+
+await test('recent playback starts an empty queue and preserves a full queue', async () => {
+  const { player, warnings } = harness()
+  player.queue = []
+  player.queueIndex = -1
+  player.playInQueue(track(4))
+  assert.deepEqual(player.queue.map(item => item.id), [4])
+  assert.equal(player.queueIndex, 0)
+  assert.equal(player.id, 4)
+  await settle()
+
+  player.queue = Array.from({ length: LIMITS.MAX_QUEUE }, (_, i) => track(i + 4))
+  const queue = player.queue
+  player.playInQueue(track(1))
+  assert.equal(player.queue, queue)
+  assert.equal(player.id, 4)
+  assert.deepEqual(warnings, ['播放队列已满'])
 })
 
 await test('next reuses the decoded buffer before prefetching the following track', async () => {

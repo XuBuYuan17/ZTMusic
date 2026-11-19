@@ -356,6 +356,9 @@ export const ncm = {
   userRecordWeek(uid: SongId) {
     return request('/user/record', { uid, type: 1 })
   },
+  recentPlayedSongs(limit = 100) {
+    return request('/record/recent/song', { limit, timestamp: Date.now() }, 'GET', null, { cache: false })
+  },
   userSubcount() {
     return request('/user/subcount')
   },
@@ -489,13 +492,14 @@ export const ncm = {
     const list = Array.isArray(ids) ? ids : [ids]
     return request('/song/like/check', { ids: JSON.stringify(list), timestamp: Date.now() }, 'GET', null, { cache: false })
   },
-  /**
-   * 听歌打卡：把有效播放写进服务端，日推、听歌排行、年度报告都吃这份数据。
-   * 只用 v1——/scrobble 在本服务端稳定返回 502（网关连不上网易云），而 v1 的 sourceid
-   * 是可选的，播放来源可能是搜索或本地队列、拿不到歌单/专辑 id。
-   */
-  scrobble(id: SongId, time: number, extra: { total?: number; name?: string; artist?: string; level?: string } = {}) {
-    return request('/scrobble/v1', { timestamp: Date.now() }, 'POST', { id, time: Math.round(time), ...extra })
+  /** v1 允许上报没有歌单或专辑来源的有效播放。 */
+  async scrobble(id: SongId, time: number, extra: { total?: number; name?: string; artist?: string; level?: string } = {}): Promise<void> {
+    const body: RequestParams = { id, time: Math.round(time) }
+    for (const [key, value] of Object.entries(extra)) {
+      if (value !== undefined) body[key] = value
+    }
+    const result = await request('/scrobble/v1', { timestamp: Date.now() }, 'POST', body, { randomCNIP: false, saveCookie: false }) as { code?: unknown; data?: unknown } | null
+    if (Number(result?.code) !== 200 || typeof result?.data !== 'string') throw new Error('网易云未确认听歌记录上报')
   },
 
   // ===== 私信 & 通知 =====

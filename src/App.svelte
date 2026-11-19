@@ -7,6 +7,8 @@
   import { getStartupTrack } from './lib/app/startup-track.ts'
   import { loadCachedExploreData } from './lib/services/explore.ts'
   import { ncm } from './lib/api/client.ts'
+  import { apiSession, API_SESSION_CHANGE } from './lib/api/session.ts'
+  import { androidCommand } from './lib/player/android-engine.ts'
   import { subscribeAndroidBack } from './lib/app/android-back.ts'
   import { isAndroidRuntime } from './lib/utils/runtime.ts'
   import { canViewTransition, shouldAnimateLayoutFlip, startLayoutTransition } from './lib/app/layout-transition.ts'
@@ -39,6 +41,7 @@
   import PlayerBar from './lib/components/PlayerBar.svelte'
   import MobileMiniPlayer from './lib/components/MobileMiniPlayer.svelte'
   import { mobileFeedback } from './lib/app/mobile-feedback.ts'
+  import { mobileSheetTiming } from './lib/app/mobile-interaction.ts'
   import QueuePanel from './lib/components/QueuePanel.svelte'
   import FollowDialog from './lib/components/FollowDialog.svelte'
   import LyricsPageV2 from './lib/components/LyricsPageV2.svelte'
@@ -64,9 +67,18 @@
   // ── UI 状态 ──
   let sidebarCollapsed = $state(isMobileRuntime())
   let showSheet = $state(false)
+  let pendingOverlayArtist: number | null = null
+  let artistNavigationTimer: ReturnType<typeof setTimeout> | undefined
   const mobileSurface = createPlayerSurfaceController()
-  const unsubscribeSurface = mobileSurface.subscribe(({ phase }) => { showSheet = phase !== 'closed' })
-  onDestroy(() => { unsubscribeSurface(); mobileSurface.destroy() })
+  const unsubscribeSurface = mobileSurface.subscribe(({ phase }) => {
+    showSheet = phase !== 'closed'
+    if (phase === 'closed' && pendingOverlayArtist !== null) {
+      const id = pendingOverlayArtist
+      pendingOverlayArtist = null
+      void tick().then(() => { if (!showSheet) router.goArtist(id) })
+    }
+  })
+  onDestroy(() => { if (artistNavigationTimer) clearTimeout(artistNavigationTimer); unsubscribeSurface(); mobileSurface.destroy() })
   let showLogin = $state(false)
   let showFollowDialog = $state(false)
   let showQueuePanel = $state(false)
@@ -165,6 +177,17 @@
   }
 
   auth.init()
+  $effect(() => {
+    if (!isAndroidRuntime()) return
+    const sync = () => {
+      const cookie = auth.isLoggedIn && auth.cookieOk ? apiSession.getCookie() : ''
+      void androidCommand('listeningAccount', { base: apiSession.getBase(), cookie })
+        .catch(() => console.warn('[Listening] Android account sync unavailable'))
+    }
+    sync()
+    window.addEventListener(API_SESSION_CHANGE, sync)
+    return () => window.removeEventListener(API_SESSION_CHANGE, sync)
+  })
   $effect(() => {
     const owner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
     let cancelled = false
@@ -318,9 +341,25 @@
   // ── UI 函数 ──
   function openSheet(_originEl?: Element | null): void {
     if (!isMobile) { playerMorph.open(); return }
+    pendingOverlayArtist = null
+    if (artistNavigationTimer) clearTimeout(artistNavigationTimer)
     mobileSurface.open()
   }
   function closeSheet(): void { mobileSurface.close() }
+  function openArtistFromMobileOverlay(id: number | null): void {
+    if (!id) return
+    if (artistNavigationTimer) clearTimeout(artistNavigationTimer)
+    if (showQueuePanel) showQueuePanel = false
+    if (showSheet) {
+      pendingOverlayArtist = id
+      closeSheet()
+    } else {
+      artistNavigationTimer = setTimeout(() => {
+        artistNavigationTimer = undefined
+        if (!showSheet && !showQueuePanel) router.goArtist(id)
+      }, reducedMotion() ? 0 : mobileSheetTiming.exit)
+    }
+  }
   function toggleQueue(): void { showQueuePanel = !showQueuePanel }
   function closeQueue(): void { showQueuePanel = false }
   function openMobileDrawer(trigger: HTMLButtonElement): void {
@@ -434,7 +473,7 @@
   </div>
 {/if}
 
-<LyricsPageV2 show={showSheet} controller={mobileSurface} onClose={closeSheet} onOpenArtist={router.goArtist} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
+<LyricsPageV2 show={showSheet} controller={mobileSurface} onClose={closeSheet} onOpenArtist={openArtistFromMobileOverlay} onOpenAlbum={router.goAlbum} onOpenPlaylist={router.goPlaylist} onToggleTheme={toggleTheme} />
 {#if !isMobile}
   <PlayerMorph
     onOpenArtist={router.goArtist}
@@ -446,6 +485,6 @@
 {/if}
 <LoginOverlay showLogin={showLogin} onClose={() => showLogin = false} />
 <FollowDialog show={showFollowDialog} user={auth.user} onClose={() => showFollowDialog = false} onOpenMessage={openMessageWithUser} />
-<QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={router.goArtist} mobileVisible={isMobile} />
+<QueuePanel show={showQueuePanel} onClose={closeQueue} onOpenArtist={isMobile ? openArtistFromMobileOverlay : router.goArtist} mobileVisible={isMobile} />
 <Toast />
 <PlayerHud />
