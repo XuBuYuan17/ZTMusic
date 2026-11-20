@@ -6,7 +6,7 @@ import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 assert.equal(mobileNavigationKind('forward', false), 'push')
 assert.equal(mobileNavigationKind('back', false), 'pop')
 assert.equal(mobileNavigationKind('forward', true), 'tab')
-for (const view of ['playlist', 'album', 'recommendation', 'artist']) assert.equal(isDetailSheetView(view), true)
+for (const view of ['playlist', 'album', 'recommendation', 'artist', 'dailyHistory']) assert.equal(isDetailSheetView(view), true)
 assert.equal(isDetailSheetView('user'), false)
 assert.equal(outgoingViewportClipTop(44, -623), 667, 'a scrolled source is clipped above the content viewport')
 assert.equal(outgoingViewportClipTop(44, 60), 0, 'a source already below the viewport top is not clipped')

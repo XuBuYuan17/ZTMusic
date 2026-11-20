@@ -3,7 +3,7 @@ import { dampedOut, mobileSheetTiming } from './mobile-interaction.ts'
 
 export type MobileNavigationKind = 'tab' | 'push' | 'pop'
 export function isDetailSheetView(view: string | undefined): boolean {
-  return view === 'playlist' || view === 'album' || view === 'recommendation' || view === 'artist'
+  return view === 'playlist' || view === 'album' || view === 'recommendation' || view === 'artist' || view === 'dailyHistory'
 }
 export const mobileMotion = {
   tab: 220,

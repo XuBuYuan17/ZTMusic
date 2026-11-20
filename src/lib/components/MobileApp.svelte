@@ -338,7 +338,12 @@
       {#each detailPages as page (page.key)}
       <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={isDetailSheetView(page.view)} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key} class:playlist-source-outgoing={playlistSourceKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} style:transform={playlistEnteringKey === page.key ? 'translate3d(0,100vh,0)' : undefined} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
-      {#if isDetailSheetView(page.view)}
+      {#if page.view === 'dailyHistory'}
+        <header class="mobile-page-bar daily-history-page-bar">
+          <button class="mobile-page-bar__button" type="button" aria-label="返回上一页" onclick={() => onBack?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
+          <h1>{titles.dailyHistory}</h1>
+        </header>
+      {:else if isDetailSheetView(page.view)}
         <div class="cover-page-controls">
           <button type="button" aria-label="返回上一页" onclick={() => (activeChrome?.back ?? onBack)?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
         </div>
@@ -405,6 +410,7 @@
   .mobile-route-page { min-height: 100%; }
   .playlist-sheet-page { position: relative; box-sizing: border-box; width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right))); margin: -16px calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-right))) 0 calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left))); padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left)); border-radius: var(--radius-xl) var(--radius-xl) 0 0; overflow: clip; background: var(--bg); }
   .playlist-sheet-page.mobile-route-outgoing { margin: 0; }
+  .playlist-sheet-page .daily-history-page-bar { padding-inline: 0; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   :global(html.mobile-runtime) .mobile-shared-page.mobile-route-outgoing { width: var(--route-outgoing-width, 100%); }
   .mobile-route-outgoing.playlist-source-outgoing { clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
