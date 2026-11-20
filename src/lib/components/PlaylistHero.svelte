@@ -29,6 +29,7 @@
     detailType = '歌单',
     coverIsBundled = false,
     coverTiles,
+    showPlayingRecord = true,
     totalCount = 0,
     visibleCount = 0,
     totalDuration = 0,
@@ -53,6 +54,7 @@
     detailType?: string
     coverIsBundled?: boolean
     coverTiles?: string[]
+    showPlayingRecord?: boolean
     totalCount?: number
     visibleCount?: number
     totalDuration?: number
@@ -168,7 +170,7 @@
         <Icon name="music" size={42} strokeWidth={1.3} />
       </div>
     {/if}
-    {#if $responsive.isMobile && !useCoverFalls}
+    {#if $responsive.isMobile && showPlayingRecord && !useCoverFalls}
       <div class="playlist-playing-record" class:visible={containsCurrentTrack && player.playing} aria-hidden="true">
         <div class="playlist-playing-record__disc">
           {#if player.cover}<img src={coverUrl(player.cover, 200)} alt="" referrerpolicy="no-referrer" />{/if}
