@@ -6,15 +6,15 @@
 
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { SongId } from '../../types/music.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import type { DailyDateItem } from '../../services/dailyHistory.ts'
   import type { NormalizedSong } from '../../utils/normalize.ts'
   import { player } from '../../stores/player.svelte.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
-  import { loadDailyHistoryData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
-  import { formatDuration } from '../../format.ts'
+  import { loadDailyHistoryDatesData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
+  import { coverUrl } from '../../utils/image.ts'
+  import dailyCover from '../../../assets/discovery/daily.svg'
   import PlaylistHero from '../../components/PlaylistHero.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
   import SongList from '../../components/SongList.svelte'
@@ -24,11 +24,10 @@
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import Icon from '../../components/ui/Icon.svelte'
 
-  interface TrackArtist { id?: SongId; name?: unknown }
   type RowBinder = (track: unknown) => { oncontextmenu: (event: MouseEvent) => void }
-  type ChipDate = string | DailyDateItem
 
-  let { onOpenArtist, onOpenAlbum }: {
+  let { mobile = false, onOpenArtist, onOpenAlbum }: {
+    mobile?: boolean
     onOpenArtist?: (id: unknown) => void
     onOpenAlbum?: (id: unknown) => void
   } = $props()
@@ -36,9 +35,11 @@
   const initial = dailySnapshot?.userId === auth.user?.userId ? dailySnapshot : null
   let dailyHistoryDates = $state<DailyDateItem[]>(initial?.dates ?? [])
   let dailyHistorySongs = $state<NormalizedSong[]>(initial?.songs ?? [])
-  let dailyHistoryLoading = $state(false)
+  let dailyHistoryLoading = $state(auth.isLoggedIn && !initial)
   let error = $state('')
   let selectedDailyDate = $state(initial?.selectedDate ?? '')
+  let ownerId = auth.user?.userId
+  let coverFailed = $state(false)
 
   function save(): void {
     dailySnapshot = { userId: auth.user?.userId, dates: [...dailyHistoryDates], selectedDate: selectedDailyDate, songs: [...dailyHistorySongs] }
@@ -47,18 +48,40 @@
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
   async function load(): Promise<void> {
-    const rid = ++_requestId; dailyHistoryLoading = !dailyHistoryDates.length; error = ''
-    try { const d = await loadDailyHistoryData(ncm); if (rid !== _requestId) return; dailyHistoryDates = d.dates; selectedDailyDate = d.selectedDate; dailyHistorySongs = d.songs; save() }
-    catch (e) { if (rid === _requestId) error = (e as { message?: string } | null | undefined)?.message || '加载失败' }
-    finally { if (rid === _requestId) dailyHistoryLoading = false }
+    const rid = ++_requestId
+    dailyHistoryLoading = true; error = ''
+    try {
+      const dates = await loadDailyHistoryDatesData(ncm)
+      if (rid !== _requestId) return
+      dailyHistoryDates = dates
+      const date = dates.some(item => item.date === selectedDailyDate) ? selectedDailyDate : dates[0]?.date
+      if (date) await loadDetail(date)
+      else {
+        selectedDailyDate = ''; dailyHistorySongs = []
+        save()
+      }
+    } catch (e) {
+      if (rid === _requestId) error = e instanceof Error ? e.message : '历史日期加载失败'
+    } finally {
+      if (rid === _requestId) dailyHistoryLoading = false
+    }
   }
 
-  async function loadDetail(date: ChipDate): Promise<void> {
-    if (!date) return; const rid = ++_requestId; selectedDailyDate = date as string; dailyHistoryLoading = true
-    // ponytail: date 正常是 string；item.date 为空串时 {item.date || item} 会传入整个日期对象，
-    // 原 JS 行为原样保留（service 内部 String 化），这里只做类型层 cast。
-    try { const s = await loadDailyHistoryDetailData(ncm, date as string | number); if (rid === _requestId) { dailyHistorySongs = s; save() } }
-    finally { if (rid === _requestId) dailyHistoryLoading = false }
+  async function loadDetail(date: string): Promise<void> {
+    if (!date || !auth.isLoggedIn) return
+    const rid = ++_requestId
+    if (selectedDailyDate !== date) dailyHistorySongs = []
+    selectedDailyDate = date; dailyHistoryLoading = true; error = ''
+    try {
+      const songs = await loadDailyHistoryDetailData(ncm, date)
+      if (rid !== _requestId) return
+      dailyHistorySongs = songs
+      save()
+    } catch (e) {
+      if (rid === _requestId) error = e instanceof Error ? e.message : '日推歌曲加载失败'
+    } finally {
+      if (rid === _requestId) dailyHistoryLoading = false
+    }
   }
 
   const scrollViewport = getScrollViewport()
@@ -78,34 +101,37 @@
     if (idx >= 0) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], idx); else player.playTrack(track as unknown as CompactTrackInput, 0)
   }
 
-  $effect(() => { if (auth.isLoggedIn) untrack(load) })
-
-  function artistsOf(track: NormalizedSong): TrackArtist[] {
-    return (track.artists || track.ar || []) as TrackArtist[]
-  }
-
-  function albumOf(track: NormalizedSong): string {
-    return ((track.album as { name?: unknown } | null | undefined)?.name as string) || (track.al?.name as string) || ''
-  }
-
-  function handleSongKeydown(event: KeyboardEvent, track: NormalizedSong): void {
-    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault()
-      playTrack(track)
+  $effect(() => {
+    const uid = auth.user?.userId
+    const loggedIn = auth.isLoggedIn
+    if (!loggedIn || uid !== ownerId) {
+      ownerId = uid
+      dailyHistoryDates = []; selectedDailyDate = ''; dailyHistorySongs = []
+      dailyHistoryLoading = false; error = ''
     }
-  }
+    if (loggedIn) void untrack(load)
+    return () => { _requestId++ }
+  })
 
-  function formatDateLabel(date: ChipDate | null | undefined): string {
-    if (!date) return '选择日期'
-    const parts = String(date).split('-')
-    return parts.length === 3 ? `${parts[1]}.${parts[2]}` : String(date)
+  function formatDateLabel(date: string, summary = false): string {
+    const match = /^\d{4}-(\d{2})-(\d{2})$/.exec(date)
+    if (!match) return date
+    return summary ? `${Number(match[1])} 月 ${Number(match[2])} 日` : `${match[1]}.${match[2]}`
   }
 
   const dailyDetail = $derived({ name: '每日推荐', picUrl: rows.find(row => row.cover)?.cover || '', creator: selectedDailyDate || '历史日推' })
+  const summaryCover = $derived(coverUrl(dailyDetail.picUrl, 120))
+  $effect(() => { summaryCover; coverFailed = false })
+  function retry(): void {
+    if (selectedDailyDate && dailyHistoryDates.length) void loadDetail(selectedDailyDate)
+    else void load()
+  }
 </script>
 
-<div class="daily-page fade-in">
-  <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading} totalCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} visibleCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} onPlayAll={playAll} />
+<div class="daily-page fade-in" class:daily-page--mobile={mobile}>
+  {#if !mobile}
+    <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading} totalCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} visibleCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} onPlayAll={playAll} />
+  {/if}
 
   {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
     <section class="daily-date-surface" aria-label="加载历史日期">
@@ -123,8 +149,8 @@
     <section class="daily-date-surface" aria-label="历史日期">
       <div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>
       <div class="daily-date-scroll">
-        {#each dailyHistoryDates as item (item.date || item)}
-          {@const date = item.date || item}
+        {#each dailyHistoryDates as item (item.date)}
+          {@const date = item.date}
           <button class="daily-date-chip" class:active={selectedDailyDate === date} aria-current={selectedDailyDate === date ? 'date' : undefined} onclick={() => loadDetail(date)}>
             <span>{formatDateLabel(date)}</span>
             {#if item.weekday}<small>{item.weekday}</small>{/if}
@@ -134,13 +160,24 @@
     </section>
   {/if}
 
+  {#if mobile && (selectedDailyDate || dailyHistoryLoading)}
+    <section class="daily-summary" aria-label="选中日期的日推">
+      <img src={summaryCover && !coverFailed ? summaryCover : dailyCover} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
+      <div class="daily-summary__text">
+        <strong>{selectedDailyDate ? formatDateLabel(selectedDailyDate, true) : '每日推荐'}</strong>
+        <small>{dailyHistoryLoading ? '正在加载…' : error ? '加载失败' : `${dailyHistorySongs.length} 首歌曲`}</small>
+      </div>
+      <button class="daily-summary__play" type="button" onclick={playAll} disabled={dailyHistoryLoading || !dailyHistorySongs.length}><Icon name="play" size={16} />播放全部</button>
+    </section>
+  {/if}
+
   {#if dailyHistoryLoading}
-    <div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>正在同步</span></div>
+    {#if !mobile}<div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>正在同步</span></div>{/if}
     <div class="daily-track-surface">
       <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
     </div>
   {:else if dailyHistorySongs.length > 0}
-    <div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>{dailyHistorySongs.length} 首</span></div>
+    {#if !mobile}<div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>{dailyHistorySongs.length} 首</span></div>{/if}
     <div class="daily-track-surface">
       <SongList
         {rows}
@@ -151,15 +188,15 @@
         {onOpenAlbum}
       />
     </div>
-  {:else}
+  {:else if !error}
     <div class="daily-empty">
       <Icon name="calendar" size={40} />
-      <p>暂无历史日推</p>
-      <p class="daily-empty-hint">需要登录后获取</p>
+      <p>{selectedDailyDate ? '这一天没有推荐歌曲' : '暂无历史日推'}</p>
+      {#if !auth.isLoggedIn}<p class="daily-empty-hint">需要登录后获取</p>{/if}
     </div>
   {/if}
   {#if error}
-    <ErrorBlock message={error} onRetry={load} />
+    <ErrorBlock message={error} onRetry={retry} />
   {/if}
 
   <SongListActions onOpenArtist={onOpenArtist} onOpenAlbum={onOpenAlbum} onBindRow={(fn: RowBinder) => { songActions = { bindRow: fn } }} />
@@ -196,13 +233,25 @@
   @keyframes dailyPageIn { from { opacity: 0; transform: translateY(12px) scale(0.992); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes dailySurfaceIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  :global(html.mobile-runtime) .daily-page :global(.playlist-detail-hero) { gap: 14px; padding: 4px 0 10px; }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-cover), :global(html.mobile-runtime) .daily-page :global(.playlist-cover-open) { width: min(58vw, 292px); }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy) { gap: 5px; }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-copy h1) { font-size: 22px; font-weight: 500; line-height: 1.22; }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-mobile-creator) { font-size: 14px; line-height: 20px; color: var(--text-secondary); }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-hero-actions) { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 12px; margin-top: 8px; }
-  :global(html.mobile-runtime) .daily-page :global(.playlist-play-btn) { min-height: 48px; font-size: 16px; }
+  .daily-page--mobile :is(.daily-date-surface, .daily-track-surface) { padding: 0; border: 0; border-radius: 0; background: transparent; animation: none; }
+  .daily-page--mobile .daily-date-surface { gap: 8px; }
+  .daily-page--mobile .daily-date-heading { margin: 0; }
+  .daily-page--mobile .daily-date-heading strong { font-size: 13px; }
+  .daily-page--mobile .daily-date-chip { min-width: 64px; min-height: 44px; padding: 5px 9px; background: var(--md-container); }
+  .daily-page--mobile .daily-date-chip.active { background: var(--md-primary-container); }
+  .daily-page--mobile .daily-date-chip.active small { color: var(--md-primary); }
+  .daily-summary { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 64px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--md-container); }
+  .daily-summary img { display: block; width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; }
+  .daily-summary__text { display: grid; min-width: 0; gap: 3px; }
+  .daily-summary__text :is(strong, small) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .daily-summary__text strong { font-size: 15px; font-weight: 700; }
+  .daily-summary__text small { color: var(--text-secondary); font-size: 12px; }
+  .daily-summary__play { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border-radius: 999px; background: var(--md-primary); color: var(--md-on-primary); font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .daily-summary__play:disabled { opacity: .48; }
+  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table tbody tr) { grid-template-columns: 40px minmax(0, 1fr) 44px; min-height: 76px; }
+  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table .col-cover) { width: 40px; }
+  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table .col-cover :is(.track-cover-img, .track-cover-placeholder)) { width: 100%; height: 40px; }
+  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table tbody tr + tr) { border-top: 1px solid var(--border); }
 
   @media (prefers-reduced-motion: reduce) {
     .daily-page, .daily-date-surface, .daily-toolbar, .daily-track-surface { animation: none; opacity: 1; transform: none; }

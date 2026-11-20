@@ -11,25 +11,21 @@ export interface DailyDateItem {
   [key: string]: unknown
 }
 
-export interface DailyHistoryData {
-  dates: DailyDateItem[]
-  selectedDate: string
-  songs: NormalizedSong[]
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
 function toDateItems(raw: unknown): DailyDateItem[] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .map((item): DailyDateItem | null => {
-      if (typeof item === 'string') return { date: item }
-      const rec = asRecord(item)
-      return rec && typeof rec.date === 'string' ? rec as DailyDateItem : null
-    })
-    .filter((item): item is DailyDateItem => item !== null)
+  const dates = new Map<string, DailyDateItem>()
+  for (const item of raw) {
+    const record = asRecord(item)
+    const value = typeof item === 'string' ? item : record?.date
+    if (typeof value !== 'string' || !value.trim()) continue
+    const date = value.trim()
+    if (!dates.has(date)) dates.set(date, { ...record, date })
+  }
+  return [...dates.values()]
 }
 
 function toSongs(raw: unknown): NormalizedSong[] {
@@ -37,30 +33,22 @@ function toSongs(raw: unknown): NormalizedSong[] {
   return raw.map(normalizeSong).filter((song): song is NormalizedSong => song !== null)
 }
 
-export async function loadDailyHistoryData(ncm: DailyHistoryApi): Promise<DailyHistoryData> {
-  try {
-    const res = await ncm.historyRecommendSongs()
-    const r = asRecord(res)
-    const d = asRecord(r?.data)
-    const rawDates = d?.dates || r?.dates || r?.data || []
-    const dates = toDateItems(rawDates)
-    const selectedDate = dates[0]?.date || ''
-    const songs = selectedDate ? await loadDailyHistoryDetailData(ncm, selectedDate) : []
-    return { dates, selectedDate, songs }
-  } catch {
-    return { dates: [], selectedDate: '', songs: [] }
+function checkedResponse(response: unknown, fallback: string): Record<string, unknown> | null {
+  const result = asRecord(response)
+  if (result?.code != null && Number(result.code) !== 200) {
+    throw new Error(String(result.message || result.msg || fallback))
   }
+  return result
+}
+
+export async function loadDailyHistoryDatesData(ncm: DailyHistoryApi): Promise<DailyDateItem[]> {
+  const result = checkedResponse(await ncm.historyRecommendSongs(), '历史日期加载失败')
+  return toDateItems(asRecord(result?.data)?.dates || result?.dates || result?.data)
 }
 
 export async function loadDailyHistoryDetailData(ncm: DailyHistoryApi, date: string | number): Promise<NormalizedSong[]> {
   if (!date) return []
-  try {
-    const res = await ncm.historyRecommendSongsDetail(date)
-    const r = asRecord(res)
-    const d = asRecord(r?.data)
-    const rawSongs = d?.songs || r?.songs || d?.dailySongs || []
-    return toSongs(rawSongs)
-  } catch {
-    return []
-  }
+  const result = checkedResponse(await ncm.historyRecommendSongsDetail(date), '日推歌曲加载失败')
+  const data = asRecord(result?.data)
+  return toSongs(data?.songs || result?.songs || data?.dailySongs)
 }

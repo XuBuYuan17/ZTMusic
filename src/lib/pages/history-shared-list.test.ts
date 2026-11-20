@@ -4,6 +4,7 @@
  */
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { loadDailyHistoryDatesData, loadDailyHistoryDetailData } from '../services/dailyHistory.ts'
 
 const read = (file: string) => readFile(new URL(file, import.meta.url), 'utf8')
 const recent = await read('./pc/Recent.svelte')
@@ -28,10 +29,13 @@ assert.ok(!daily.includes('daily-song-row'), 'daily history no longer renders it
 // ── 2) 日期与分组不丢 ──
 assert.ok(daily.includes('daily-date-scroll'), 'the date chip rail is kept')
 assert.ok(daily.includes('class:active={selectedDailyDate === date}'), 'the selected date stays highlighted')
-assert.ok(daily.includes('selectedDailyDate = date as string'), 'picking a date still updates the selection')
+assert.ok(daily.includes('selectedDailyDate = date;'), 'picking a date still updates the selection')
 assert.ok(daily.includes('selectedDate: selectedDailyDate'), 'the snapshot still remembers the selected date')
 assert.ok(daily.includes('const initial = dailySnapshot?.userId === auth.user?.userId ? dailySnapshot : null'), 'the snapshot is restored per account')
 assert.ok(daily.includes('const rows = $derived(toSongRows(dailyHistorySongs))'), 'rows follow the selected date')
+assert.match(daily, /\{#if !mobile\}\s*<PlaylistHero/, 'the desktop hero never mounts in the mobile history view')
+assert.ok(daily.indexOf('class="daily-date-scroll"') < daily.indexOf('class="daily-summary"'), 'on mobile the date rail precedes the summary')
+assert.ok(daily.includes('disabled={dailyHistoryLoading || !dailyHistorySongs.length}'), 'mobile play-all waits for songs from the chosen date')
 
 // 最近播放的分组信息（标题 + 计数）仍在页面
 assert.ok(recent.includes('共 {recentTracks.length} 首歌曲'), 'recent keeps its header summary')
@@ -53,5 +57,15 @@ assert.ok(scroll.includes('export function trackScrollTop'), 'a scroll memory he
 assert.ok(scroll.includes('export function restoreScrollTop'), 'and a restore helper')
 assert.ok(recent.includes("restoreScrollTop('recent', scrollViewport)") && recent.includes("trackScrollTop('recent', scrollViewport)"), 'recent restores its position')
 assert.ok(daily.includes("restoreScrollTop('dailyHistory', scrollViewport)") && daily.includes("trackScrollTop('dailyHistory', scrollViewport)"), 'daily restores its position')
+
+const dailyApi = {
+  historyRecommendSongs: async () => ({ code: 200, data: { dates: [{ date: '2026-11-19', weekday: '周四' }, '', '2026-11-19', '2026-11-18'] } }),
+  historyRecommendSongsDetail: async (date: string | number) => date === '2026-11-19'
+    ? { code: 200, data: { songs: [{ id: 1, name: '推荐曲目' }] } }
+    : { code: 503, message: '暂时不可用' },
+}
+assert.deepEqual(await loadDailyHistoryDatesData(dailyApi), [{ date: '2026-11-19', weekday: '周四' }, { date: '2026-11-18' }])
+assert.equal((await loadDailyHistoryDetailData(dailyApi, '2026-11-19'))[0]?.id, 1)
+await assert.rejects(loadDailyHistoryDetailData(dailyApi, '2026-11-18'), /暂时不可用/, 'network errors must be retryable rather than presented as an empty day')
 
 console.log('history pages: shared list, date/queue rules and restoration passed')

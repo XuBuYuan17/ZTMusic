@@ -356,7 +356,7 @@
       {:else if page.view === 'listeningStats'}
         <ListeningReportPage />
       {:else if page.view === 'dailyHistory'}
-        <DailyHistoryPage {onOpenArtist} {onOpenAlbum} />
+        <DailyHistoryPage mobile {onOpenArtist} {onOpenAlbum} />
       {:else if page.view === 'messages'}
         <MessagesPage onNavigate={handleNav} {targetUser} onUnreadChange={(count: unknown) => onUnreadChange?.(count)} />
       {:else if page.view === 'playlist' || page.view === 'album' || page.view === 'recommendation'}
