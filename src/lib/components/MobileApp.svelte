@@ -66,6 +66,7 @@
   let selectedTab = $state(untrack(() => DOCK_TABS.some(tab => tab.id === activeView) ? activeView : [...router.routeStack].map(route => route.view === 'home' ? 'library' : route.view).reverse().find(view => DOCK_TABS.some(tab => tab.id === view)) ?? 'explore'))
   let scrollTop = $state(0)
   let chromeHidden = $state(false)
+  let chromeScrollAnchor = 0
   $effect(() => { if (DOCK_TABS.some(tab => tab.id === activeView)) selectedTab = activeView })
   const isPrimaryView = $derived(primaryViews.includes(activeView))
   const coverHeaderless = $derived(isDetailSheetView(activeView))
@@ -87,9 +88,9 @@
   // 播放条在 App 里，收起状态用 html class 共享给两条浮动底栏。
   // 经典底栏常驻：只有 floating 布局才允许收起。
   const chromeCanHide = $derived(mobileDock.config.layout === 'floating')
-  function showChrome(): void { if (chromeHidden) chromeHidden = false }
+  function showChrome(): void { chromeScrollAnchor = scrollTop; chromeHidden = false }
   // 滚动时导航滑出屏幕、播放条落到导航的位置，滚回顶部或向上滚复原。
-  function hideChrome(): void { if (!chromeHidden) chromeHidden = true }
+  function hideChrome(): void { chromeScrollAnchor = scrollTop; chromeHidden = true }
   $effect(() => {
     document.documentElement.classList.toggle('mobile-chrome-hidden', chromeHidden && chromeCanHide)
     return () => document.documentElement.classList.remove('mobile-chrome-hidden')
@@ -186,6 +187,7 @@
         if (cancelled) return
         scroller.scrollTop = position
         scrollTop = position
+        showChrome()
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
         if (page) observer.observe(page)
         if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot)
@@ -218,16 +220,19 @@
   }
   function handleContentScroll(): void {
     const top = contentEl?.scrollTop ?? 0
-    const delta = top - scrollTop
+    if (top === scrollTop) return
     scrollTop = top
-    if (delta === 0) return
     if (!chromeCanHide) { showChrome(); return }
     if (top <= 8) { showChrome(); return }
-    // 只在滚动过程中临时让开，停手后自动回来；向上滚/回顶部立刻回来。
-    if (delta > 6) hideChrome()
-    else if (delta < -6) showChrome()
+    if (chromeHidden) {
+      chromeScrollAnchor = Math.max(chromeScrollAnchor, top)
+      if (chromeScrollAnchor - top >= 18) showChrome()
+    } else {
+      chromeScrollAnchor = Math.min(chromeScrollAnchor, top)
+      if (top - chromeScrollAnchor >= 26) hideChrome()
+    }
   }
-  // 底栏上向下滑收起、向上滑唤回；收起后底部留一个小把手。
+  // 底栏上向下滑收起、向上滑唤回。
   // 触摸滚动可能让浏览器派发 pointercancel，所以终点位置要跟着 pointermove 记。
   function swipeChrome(node: HTMLElement) {
     let startY = 0
@@ -383,7 +388,7 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} class:chrome-hidden={chromeHidden} style:--dock-count={dockItems.length} aria-label="主导航" use:swipeChrome>
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} style:--dock-count={dockItems.length} aria-label="主导航" use:swipeChrome>
     {#each dockItems as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
@@ -416,12 +421,10 @@
   .mobile-route-outgoing.playlist-source-outgoing { z-index: 0; clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 
-  :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-h: 72px; }
   :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: repeat(var(--dock-count), minmax(0, 1fr)); }
   :global(html.mobile-runtime) .mobile-tab-bar.icons-only .mobile-tab__label { display: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating {
-    inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left));
-    width: auto; height: 60px; display: flex; align-items: center; gap: 0; padding: 4px;
+    width: auto; height: var(--mobile-floating-height); display: flex; align-items: center; gap: 0; padding: 4px;
     border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     box-shadow: 0 4px 18px rgb(0 0 0 / .14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
@@ -431,17 +434,13 @@
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
-  .mobile-tab-bar.chrome-hidden { transform: translateY(calc(100% + 32px)); opacity: 0; pointer-events: none; }
-  :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); --mobile-dock-space-player: var(--mobile-tabs-space); }
   @media (orientation: landscape) and (max-height: 720px) {
     :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: 1fr; grid-template-rows: repeat(var(--dock-count), minmax(48px, 1fr)); }
-    :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; --mobile-tabs-space: calc(132px + var(--app-bottom-inset)); }
+    :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; }
     :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
-    :global(html.mobile-runtime) .mobile-tab-bar.floating { inset: auto max(4px, env(safe-area-inset-right)) calc(var(--app-bottom-inset) + 8px) max(4px, env(safe-area-inset-left)); width: auto; height: 60px; }
   }
   @media (max-width: 360px) {
-    :global(html.mobile-runtime) .mobile-tab-bar.floating { left: env(safe-area-inset-left); right: env(safe-area-inset-right); padding-inline: 2px; }
+    :global(html.mobile-runtime) .mobile-tab-bar.floating { padding-inline: 2px; }
   }
-  @media (prefers-reduced-motion: reduce) { .mobile-tab-bar.chrome-hidden { transition: none; } }
   @media (prefers-reduced-transparency: reduce) { :global(html.mobile-runtime) .mobile-tab-bar.floating { background: var(--bg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 </style>

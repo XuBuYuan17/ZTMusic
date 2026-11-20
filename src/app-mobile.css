@@ -316,20 +316,33 @@ html.mobile-runtime[data-theme="dark"] .player-bar-wrap::before {
   background: linear-gradient(to top, rgb(255 255 255 / .08), transparent);
 }
 
-/* 悬浮底栏：播放条收成导航上方的一条胶囊，交互仍由 MobileMiniPlayer 提供。 */
+html.mobile-runtime.mobile-floating-dock {
+  --mobile-floating-edge: 8px;
+  --mobile-floating-height: 60px;
+  --mobile-floating-step: calc(var(--mobile-floating-height) + 8px);
+  --mobile-floating-bottom: calc(var(--app-bottom-inset) + var(--mobile-floating-edge));
+  --mobile-floating-motion: 420ms cubic-bezier(.22, .72, .26, 1);
+  --mobile-tabs-space: calc(var(--mobile-floating-height) + var(--mobile-floating-bottom));
+  --mobile-dock-space-player: calc(var(--mobile-tabs-space) + var(--mobile-floating-step));
+}
+
+html.mobile-runtime :is(.player-bar-wrap.floating-dock, .mobile-tab-bar.floating) {
+  left: max(var(--mobile-floating-edge), env(safe-area-inset-left));
+  right: max(var(--mobile-floating-edge), env(safe-area-inset-right));
+  bottom: var(--mobile-floating-bottom);
+}
+
 html.mobile-runtime .player-bar-wrap.floating-dock {
-  left: max(8px, env(safe-area-inset-left));
-  right: max(8px, env(safe-area-inset-right));
-  bottom: calc(var(--app-bottom-inset) + 76px);
   z-index: 89;
-  transition: transform 240ms var(--ease-out), opacity 180ms var(--ease-out), bottom 240ms var(--ease-out);
+  translate: 0 calc(0px - var(--mobile-floating-step));
+  transition: translate var(--mobile-floating-motion);
 }
 
 html.mobile-runtime .player-bar-wrap.floating-dock::before { display: none; }
 
 html.mobile-runtime .player-bar-wrap.floating-dock > .player-bar.mobile-mini-player {
-  height: 56px;
-  min-height: 56px;
+  height: var(--mobile-floating-height);
+  min-height: var(--mobile-floating-height);
   align-items: center;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -343,15 +356,22 @@ html.mobile-runtime .player-bar-wrap.floating-dock > .player-bar.mobile-mini-pla
 html.mobile-runtime .player-bar-wrap.floating-dock .mini-player-open { height: 48px; }
 
 /* 悬浮布局滚动/下滑：导航滑出屏幕，播放条落到导航原来的位置；经典底栏常驻。 */
-html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .mobile-tab-bar {
-  transform: translateY(calc(100% + 40px));
+html.mobile-runtime.mobile-floating-dock .mobile-tab-bar.floating {
+  transition: transform var(--mobile-floating-motion), opacity 320ms ease-in-out;
+}
+
+html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .mobile-tab-bar.floating {
+  transform: translateY(var(--mobile-floating-step));
   opacity: 0;
   pointer-events: none;
 }
 
-html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .player-bar-wrap.floating-dock,
-html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .player-bar-wrap.floating-dock.sidebar-collapsed {
-  bottom: calc(var(--app-bottom-inset) + 8px);
+html.mobile-runtime.mobile-floating-dock.mobile-chrome-hidden .player-bar-wrap.floating-dock {
+  translate: 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime.mobile-floating-dock :is(.player-bar-wrap.floating-dock, .mobile-tab-bar.floating) { transition: none; }
 }
 
 html.mobile-runtime .player-bar-wrap > .player-bar,

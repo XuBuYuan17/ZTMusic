@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const read = (file) => readFile(new URL(file, import.meta.url), 'utf8')
-const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCss, dockConfig] = await Promise.all([
+const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCss, dockConfig, mobileCss] = await Promise.all([
   read('../../App.svelte'),
   read('./Sidebar.svelte'),
   read('./MobileApp.svelte'),
@@ -12,6 +12,7 @@ const [app, sidebar, mobileApp, miniPlayer, queuePanel, responsiveCss, loadingCs
   read('../../styles/mobile/responsive.css'),
   read('../../styles/loading.css'),
   read('../settings/mobile-dock.ts'),
+  read('../../app-mobile.css'),
 ])
 
 for (const page of ['Explore', 'Library']) {
@@ -37,7 +38,9 @@ assert.ok(responsiveCss.includes('.queue-item:has(.queue-item-open:focus-visible
 assert.ok(mobileApp.includes('class="mobile-tab-bar"'), 'the bottom tab bar must be present')
 for (const view of ['explore', 'search', 'library', 'settings']) assert.ok(dockConfig.includes(`id: '${view}'`), `bottom tab bar is missing the ${view} entry`)
 assert.ok(sidebar.includes("nav('search')") && sidebar.includes("nav('explore')") && sidebar.includes("nav('library')"), 'primary destinations remain reachable through navigation menu')
-assert.ok(mobileApp.includes('class:chrome-hidden={chromeHidden}') && mobileApp.includes('use:swipeChrome'), 'floating player and navigation are separate rows that hide together')
+assert.ok(mobileApp.includes("classList.toggle('mobile-chrome-hidden', chromeHidden && chromeCanHide)") && mobileApp.includes('use:swipeChrome'), 'floating player and navigation share the same hide state')
+assert.match(mobileCss, /:is\(\.player-bar-wrap\.floating-dock, \.mobile-tab-bar\.floating\)\s*\{[^}]*left:[^}]*right:/, 'both capsules use the same horizontal safe-area insets')
+assert.ok(mobileCss.includes('transition: translate var(--mobile-floating-motion)') && mobileCss.includes('transition: transform var(--mobile-floating-motion)'), 'the two rows move on the same timing curve')
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')
 assert.ok(!loadingCss.includes("content: 'ZT'"), 'shared loading styles must not recreate the removed ZT animation')
