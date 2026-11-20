@@ -299,7 +299,6 @@
         <strong>{mt.name || '未知歌曲'}</strong>
         <span>{artistText(mt) || '未知歌手'}</span>
       </div>
-      <button class="song-menu__close" type="button" aria-label="关闭歌曲操作" onclick={onClose}><Icon name="close" size={20} /></button>
     </header>
     <div class="song-menu__body" bind:this={menuBody}>
     {#if playlistMode === 'menu'}
@@ -362,9 +361,6 @@
 {/if}
 
 <style>
-  .song-menu__close { display: none; }
-  :global(html.mobile-runtime) .song-menu__header { grid-template-columns: 42px minmax(0, 1fr) 48px; }
-  :global(html.mobile-runtime) .song-menu__close { display: grid; place-items: center; width: 48px; height: 48px; color: var(--text-secondary); border-radius: 999px; }
   .song-menu-portal {
     display: contents;
   }

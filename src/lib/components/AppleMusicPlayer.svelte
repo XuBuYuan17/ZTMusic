@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, tick, untrack } from 'svelte';
   import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
   import { responsive } from '../utils/responsive.ts';
   import { playerSurfaceGesture } from '../player-motion/gesture.ts';
@@ -8,6 +8,7 @@
   import type { SongId } from '../types/music.ts';
   import type { CompactTrack, CompactAlbum } from '../player/queue.ts';
   import { player } from '../stores/player.svelte.ts';
+  import { auth } from '../stores/auth.svelte.ts';
   import { ncm } from '../api/client.ts';
   import { coverUrl, progressiveCover } from '../utils/image.ts';
   import { extractColor } from '../player/colors.ts';
@@ -20,6 +21,7 @@
   import ArtistNames from './ArtistNames.svelte';
   import QueuePanel from './QueuePanel.svelte';
   import PlayerMoreMenu from './PlayerMoreMenu.svelte';
+  import SongPlaylistPanel from './SongPlaylistPanel.svelte';
   import PlayerSecondarySheet, { type Panel, type StripPanel } from './PlayerSecondarySheet.svelte';
   import PlayerLyrics from './PlayerLyrics.svelte';
   import StartupArtwork from './StartupArtwork.svelte';
@@ -30,6 +32,7 @@
     icon: string;
     action?: () => void;
     disabled?: boolean;
+    keepOpen?: boolean;
     group?: string;
   }
 
@@ -88,6 +91,8 @@
     };
   });
   let showMoreMenu = $state(false);
+  let moreMenuElement = $state<HTMLDivElement | null>(null);
+  let playlistTrack = $state<{ id: SongId; title: string; cover: string; artist: string } | null>(null);
   let menuMessage = $state('');
   let actionBusy = $state('');
   let contextPanelRequest = $state<StripPanel | null>(null);
@@ -110,8 +115,10 @@
   );
   let firstArtist = $derived(currentArtists.find(artist => artist?.id));
   const qualityLabels = QUALITY_LABELS;
+  const canAddToPlaylist = $derived(Boolean(player.currentTrack && (!player.currentTrack.source || player.currentTrack.source === 'online') && /^[1-9]\d*$/.test(String(player.id))));
   let moreMenuItems = $derived<MenuItem[]>([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy, group: '播放与收藏' },
+    { label: '添加到歌单', icon: 'add', action: openPlaylistPicker, disabled: !canAddToPlaylist, keepOpen: true },
     { label: '播放队列', icon: 'queue-music', action: handleToggleLocalQueue, disabled: !player.id },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
     { label: '专辑', icon: 'disc', action: openAlbum, disabled: !album?.id, group: '歌曲内容' },
@@ -181,11 +188,27 @@
   }
 
   function toggleMoreMenu(): void {
-    showMoreMenu = !showMoreMenu;
+    if (showMoreMenu) closeMoreMenu();
+    else showMoreMenu = true;
   }
 
   function closeMoreMenu(): void {
     showMoreMenu = false;
+    playlistTrack = null;
+  }
+
+  async function openPlaylistPicker(): Promise<void> {
+    if (!auth.isLoggedIn || !auth.cookieOk) { showMenuMessage('请先登录'); return; }
+    const id = player.id;
+    if (!id || !canAddToPlaylist) return;
+    playlistTrack = { id, title: displayTitle, cover: displayCover, artist: player.artist || '' };
+    await tick();
+    moreMenuElement?.querySelector<HTMLElement>('.song-menu__panel-head button')?.focus({ preventScroll: true });
+  }
+
+  function closePlaylistPicker(): void {
+    playlistTrack = null;
+    void tick().then(() => moreMenuElement?.querySelector<HTMLElement>('.am-more-item[aria-label="添加到歌单"]')?.focus({ preventScroll: true }));
   }
 
   function openSecondaryPanel(panel: Panel): void {
@@ -315,12 +338,21 @@
     open={showMoreMenu}
     onToggle={toggleMoreMenu}
     onClose={closeMoreMenu}
+    onDismiss={() => playlistTrack ? closePlaylistPicker() : closeMoreMenu()}
+    bind:menuElement={moreMenuElement}
     items={moreMenuItems}
+    showItems={!playlistTrack}
     message={menuMessage}
-    cover={displayCover ? coverUrl(displayCover, 96) : ''}
-    title={displayTitle}
-    artist={player.artist || ''}
-  />
+    cover={coverUrl(playlistTrack?.cover ?? displayCover, 96)}
+    title={playlistTrack?.title ?? displayTitle}
+    artist={playlistTrack?.artist ?? (player.artist || '')}
+  >
+    {#if playlistTrack}
+      <div class="song-menu__playlist-page">
+        <SongPlaylistPanel active trackId={playlistTrack.id} trackName={playlistTrack.title} onBack={closePlaylistPicker} onToast={showMenuMessage} />
+      </div>
+    {/if}
+  </PlayerMoreMenu>
 
   {#snippet coverArtwork()}
     {#if !displayCover}<StartupArtwork />{/if}

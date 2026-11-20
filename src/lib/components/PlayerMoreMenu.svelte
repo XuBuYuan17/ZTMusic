@@ -95,15 +95,12 @@
       <header class="am-more-track">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>
-        {#if !desktopAnchor}
-          <button class="am-more-close" type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button>
-        {/if}
       </header>
       <div class="am-more-body">
       {#if showItems}{#each groups as group}
         <div class="am-more-group" role={group.label ? 'group' : undefined} aria-label={group.label || undefined}>
         {#each group.items as item}
-        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-checked={item.checked} onclick={() => handleItem(item)} disabled={item.disabled}>
+        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-label={item.label} aria-checked={item.checked} onclick={() => handleItem(item)} disabled={item.disabled}>
           <Icon name={item.icon} size={18} strokeWidth={1.8} />
           <span>{item.label}</span>
         </button>
@@ -120,7 +117,6 @@
 </div>
 
 <style>
-  .am-more-close { display: none; }
   .am-more-body { display: contents; }
   .am-more-shell {
     position: absolute;
