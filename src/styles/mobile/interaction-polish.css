@@ -31,33 +31,6 @@ html.mobile-runtime body :is(
   animation: mobilePanelBackdropEnterFallback 220ms ease-out both;
 }
 
-/* Keep the tall playlist menu inside the visual viewport. The panel itself stays
- * fixed while only the action list scrolls, so rounded corners and the gesture
- * area never become part of the scrollable content. */
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet {
-  display: flex;
-  flex-direction: column;
-  max-height: min(
-    78dvh,
-    calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-action-panel-bottom) - max(24px, env(safe-area-inset-top)))
-  );
-  padding-bottom: 8px;
-  border-radius: var(--radius-xl);
-  overflow: hidden;
-}
-
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
-  flex: none;
-}
-
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .mobile-choice-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  overscroll-behavior: contain;
-}
-
 /* Legacy text controls need the same geometry as the shared SVG control. */
 html.mobile-runtime .m-track-more {
   font-size: 0 !important;

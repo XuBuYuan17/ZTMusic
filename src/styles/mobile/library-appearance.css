@@ -98,57 +98,28 @@ html.mobile-runtime body .library-page .library-notice {
   background: var(--md-primary-container);
 }
 
-/* Library management uses the same floating panel surface as the player menus. */
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet {
-  background: var(--md-container);
-  border-color: var(--border);
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-cover {
-  background: var(--md-container-high);
-  color: var(--text-secondary);
-  box-shadow: none;
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-options-header h2,
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option {
-  color: var(--text);
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option:hover,
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option:active {
-  background: var(--md-container-high);
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger {
-  color: var(--danger);
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger > svg {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, var(--md-container));
-}
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger:hover,
-html.mobile-runtime body .library-options-portal .playlist-action-sheet.mobile-choice-sheet .library-option--danger:active {
-  background: color-mix(in srgb, var(--danger) 8%, var(--md-container));
-}
 html.mobile-runtime body .library-page :is(.library-modal, .confirm-card) {
   background: var(--md-container-highest);
   box-shadow: var(--md-shadow);
 }
-html.mobile-runtime body .library-page :is(.library-modal-input, .library-modal-textarea) {
+html.mobile-runtime body :is(.library-page, .nested-action-form) :is(.library-modal-input, .library-modal-textarea) {
   color: var(--text);
   background: var(--md-container);
   border-color: var(--border);
   border-radius: var(--radius-md);
 }
-html.mobile-runtime body .library-page :is(.library-modal-input, .library-modal-textarea):focus {
+html.mobile-runtime body :is(.library-page, .nested-action-form) :is(.library-modal-input, .library-modal-textarea):focus {
   border-color: var(--md-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-primary) 16%, transparent);
 }
 html.mobile-runtime body .library-page .library-modal-check input {
   accent-color: var(--md-primary);
 }
-html.mobile-runtime body .library-page :is(.library-modal-btn-cancel, .confirm-btn-cancel) {
+html.mobile-runtime body :is(.library-page, .nested-action-form) :is(.library-modal-btn-cancel, .confirm-btn-cancel) {
   background: var(--md-container-high);
   color: var(--text-secondary);
 }
-html.mobile-runtime body .library-page :is(.library-modal-btn-confirm, .library-login-btn) {
+html.mobile-runtime body :is(.library-page, .nested-action-form) :is(.library-modal-btn-confirm, .library-login-btn) {
   background: var(--md-primary);
   color: var(--md-on-primary);
 }

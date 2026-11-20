@@ -6,15 +6,20 @@
   import type { SongId } from '../types/music.ts'
   import { auth } from '../stores/auth.svelte.ts'
   import { readPlaylistGroups, setPlaylistGroupMembership, type PlaylistGroup } from '../services/playlist-groups.ts'
+  import NestedActionSheet from './NestedActionSheet.svelte'
 
   let {
     pl,
     onClose,
     onNotice,
+    nested = false,
+    saving = $bindable(false),
   }: {
     pl: NormalizedPlaylist
     onClose?: () => void
     onNotice?: (text: string) => void
+    nested?: boolean
+    saving?: boolean
   } = $props()
 
   // 列表接口不保证带回 description，取不到就是空——此时用户不动这一栏就一个字都不会发出去，
@@ -26,7 +31,6 @@
   const initialDesc = pl.description || ''
   let name = $state(initialName)
   let desc = $state(initialDesc)
-  let saving = $state(false)
   const ownerId = auth.user?.userId
   function initialGroupData(): { groups: PlaylistGroup[]; error: string } {
     try { return { groups: readPlaylistGroups(ownerId), error: '' } }
@@ -43,6 +47,7 @@
   }
 
   function focusOnMount(node: HTMLInputElement) {
+    if (nested) return
     queueMicrotask(() => { node.focus(); node.select() })
   }
 
@@ -99,9 +104,20 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
+{#if nested}
+  <NestedActionSheet title="编辑歌单" onBack={close} fill>
+    <div class="nested-action-form">{@render fields()}</div>
+  </NestedActionSheet>
+{:else}
 <div class="library-modal-backdrop" role="presentation" onclick={handleBackdrop}>
   <div class="library-modal" use:dialogFocus={close} use:desktopFeedback role="dialog" tabindex="-1" aria-modal="true" aria-labelledby="edit-playlist-title">
     <h3 class="library-modal-title" id="edit-playlist-title">编辑歌单</h3>
+    {@render fields()}
+  </div>
+</div>
+{/if}
+
+{#snippet fields()}
     <input
       class="library-modal-input"
       type="text"
@@ -131,8 +147,7 @@
       <button class="library-modal-btn library-modal-btn-cancel" type="button" onclick={close} disabled={saving}>取消</button>
       <button class="library-modal-btn library-modal-btn-confirm" type="button" onclick={submit} disabled={saving}>{saving ? '保存中…' : '保存'}</button>
     </div>
-  </div>
-</div>
+{/snippet}
 
 <style>
   .playlist-edit-groups { display: grid; gap: 8px; min-width: 0; margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); }

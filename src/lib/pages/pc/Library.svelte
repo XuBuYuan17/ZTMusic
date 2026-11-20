@@ -157,6 +157,7 @@
 
   // 自建歌单：编辑 / 删除
   let editTarget = $state<NormalizedPlaylist | null>(null)
+  let editBusy = $state(false)
   let groupTarget = $state<NormalizedPlaylist | null>(null)
   let deleteTarget = $state<NormalizedPlaylist | null>(null)
   let deleting = $state(false)
@@ -176,7 +177,18 @@
     const action = mobileLongPress(node, { enabled: () => isTouchDevice(), open: () => openOptions(current.pl, current.kind, node) })
     return { update(next: typeof item) { current = next }, destroy() { action.destroy() } }
   }
-  function closeOptions(action: (() => void) | null = null) { pendingAction = action; if (optionsTarget) optionsClosing = true }
+  function closeOptions(action: (() => void) | null = null) {
+    pendingAction = action
+    if (optionsTarget) {
+      if ($responsive.isMobile) { editTarget = null; groupTarget = null }
+      optionsClosing = true
+    }
+  }
+  function dismissOptions(): void {
+    if ($responsive.isMobile && editTarget) { if (!editBusy) editTarget = null }
+    else if ($responsive.isMobile && groupTarget) groupTarget = null
+    else closeOptions()
+  }
   function finishOptions() {
     optionsTarget = null
     const action = pendingAction
@@ -567,10 +579,10 @@
   {/if}
 
   <!-- 编辑歌单（改名 / 改简介） -->
-  {#if editTarget}
+  {#if editTarget && !$responsive.isMobile}
     <PlaylistEditModal pl={editTarget} onClose={() => editTarget = null} onNotice={showNotice} />
   {/if}
-  {#if groupTarget}
+  {#if groupTarget && !$responsive.isMobile}
     <PlaylistGroupPicker playlist={groupTarget} onClose={() => groupTarget = null} onNotice={showNotice} />
   {/if}
 
@@ -604,22 +616,36 @@
     { label: '加入播放队列', icon: 'add', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'append')) },
     { label: '下一首插播', icon: 'queue', onSelect: () => closeOptions(() => void queuePlaylist(selected.pl.id, 'next')) },
     { label: '分享歌单', icon: 'share', onSelect: () => closeOptions(() => void sharePlaylist(selected.pl.id, String(selected.pl.name))) },
-    { label: '整理分组', icon: 'folder', onSelect: () => closeOptions(() => { groupTarget = selected.pl }) },
+    { label: '整理分组', icon: 'folder', onSelect: () => {
+      if ($responsive.isMobile) groupTarget = selected.pl
+      else closeOptions(() => { groupTarget = selected.pl })
+    } },
     // 管理项由策略模块决定：非本人歌单不会出现编辑/删除
     ...libraryPlaylistActions(selected.kind).map(action => ({
       label: action.label,
       icon: action.icon,
       danger: action.danger,
-      onSelect: () => closeOptions(() => {
-        if (action.id === 'edit') editTarget = selected.pl
-        else if (action.id === 'delete') confirmDelete(selected.pl)
-        else confirmUnsubscribe(selected.pl)
-      }),
+      onSelect: () => {
+        if (action.id === 'edit' && $responsive.isMobile) { editTarget = selected.pl; return }
+        closeOptions(() => {
+          if (action.id === 'edit') editTarget = selected.pl
+          else if (action.id === 'delete') confirmDelete(selected.pl)
+          else confirmUnsubscribe(selected.pl)
+        })
+      },
     })),
   ]}
   <div class="library-options-portal" use:playlistPortal>
   <PlaylistActionSheet show={!optionsClosing} title={String(selected.pl.name)} cover={selected.pl.picUrl || ''} {actions} bottomOnDesktop
-    onPlay={() => closeOptions(() => void queuePlaylist(selected.pl.id, 'play'))} onClose={() => closeOptions()} onClosed={finishOptions} />
+    onPlay={() => closeOptions(() => void queuePlaylist(selected.pl.id, 'play'))} onClose={() => closeOptions()} onDismiss={dismissOptions} onClosed={finishOptions}>
+    {#snippet nested()}
+      {#if $responsive.isMobile && editTarget}
+        <PlaylistEditModal nested pl={editTarget} bind:saving={editBusy} onClose={() => editTarget = null} onNotice={showNotice} />
+      {:else if $responsive.isMobile && groupTarget}
+        <PlaylistGroupPicker nested playlist={groupTarget} onClose={() => groupTarget = null} onNotice={showNotice} />
+      {/if}
+    {/snippet}
+  </PlaylistActionSheet>
   </div>
 {/if}
 

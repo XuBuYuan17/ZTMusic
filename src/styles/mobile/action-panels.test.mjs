@@ -30,10 +30,9 @@ assert.match(css, /min-height:\s*44px/, 'action rows use compact touch-friendly 
 assert.match(css, /border-radius:\s*var\(--radius-xl\)/, 'floating panels use the shared large radius token')
 assert.match(css, /background:\s*var\(--md-container\)/, 'floating panels use an opaque tonal surface')
 
-assert.ok(polish.includes('var(--mobile-viewport-height, 100dvh) - var(--mobile-action-panel-bottom)'), 'playlist sheet height accounts for the live viewport and bottom safe anchor')
-assert.ok(polish.includes('.playlist-action-sheet.mobile-choice-sheet .mobile-choice-body'), 'playlist actions get their own scroll container')
+assert.ok(css.includes('var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))'), 'action sheets respect the live viewport and top safe area')
 assert.match(playerMenu, /<header class="am-more-track">[\s\S]*?<\/header>\s*<div class="am-more-body">/, 'track information is outside the scrolling player actions')
-assert.match(css, /:is\(\.song-menu__body, \.am-more-body\)\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/, 'both song action lists can shrink and scroll inside their sheets')
+assert.match(css, /:is\(\.song-menu__body, \.am-more-body, \.playlist-action-sheet \.mobile-choice-body\)\s*\{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/, 'song and playlist action lists can shrink and scroll inside their sheets')
 assert.match(nestedSheet, /use:dialogFocus=\{onBack\} in:mobileSheet out:mobileSheet/, 'child sheets use the top dialog for back handling and vertical motion')
 assert.ok(!nestedSheet.includes('data-bottom-panel'), 'a child must not claim the exclusive top-level bottom panel')
 assert.match(playerMenu, /<div class="am-more-body">[\s\S]*?\{@render nested\?\.\(\)\}/, 'the nested layer is mounted with the original player actions')

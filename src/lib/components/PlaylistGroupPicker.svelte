@@ -3,8 +3,9 @@
   import { dialogFocus } from '../app/desktop-motion.ts'
   import { readPlaylistGroups, setPlaylistGroupMembership, type PlaylistGroup } from '../services/playlist-groups.ts'
   import type { NormalizedPlaylist } from '../utils/normalize.ts'
+  import NestedActionSheet from './NestedActionSheet.svelte'
 
-  let { playlist, onClose, onNotice }: { playlist: NormalizedPlaylist; onClose: () => void; onNotice: (message: string) => void } = $props()
+  let { playlist, onClose, onNotice, nested = false }: { playlist: NormalizedPlaylist; onClose: () => void; onNotice: (message: string) => void; nested?: boolean } = $props()
   const ownerId = auth.user?.userId
   function initialGroupData(): { groups: PlaylistGroup[]; error: string } {
     try { return { groups: readPlaylistGroups(ownerId), error: '' } }
@@ -24,17 +25,27 @@
   }
 </script>
 
+{#if nested}
+  <NestedActionSheet title="整理歌单分组" onBack={onClose}>
+    <div class="nested-action-form">{@render content()}</div>
+  </NestedActionSheet>
+{:else}
 <div class="library-modal-backdrop" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) onClose() }}>
   <div class="library-modal" role="dialog" aria-modal="true" aria-label="整理歌单分组" tabindex="-1" use:dialogFocus={onClose}>
     <h3 class="library-modal-title">整理歌单分组</h3>
+    {@render content()}
+  </div>
+</div>
+{/if}
+
+{#snippet content()}
     <p class="group-picker__caption">{playlist.name} · 仅保存在本设备</p>
     {#if groups.length}
       <div class="group-picker__list">{#each groups as group (group.id)}<label><input type="checkbox" value={group.id} bind:group={selected} /> {group.name}</label>{/each}</div>
     {:else if !error}<p class="group-picker__caption">请先在设置中创建分组。</p>{/if}
     {#if error}<p role="alert" class="group-picker__error">{error}</p>{/if}
     <div class="library-modal-actions"><button class="library-modal-btn library-modal-btn-cancel" type="button" onclick={onClose}>取消</button><button class="library-modal-btn library-modal-btn-confirm" type="button" disabled={!groups.length} onclick={save}>保存</button></div>
-  </div>
-</div>
+{/snippet}
 
 <style>
   .group-picker__caption { margin: 10px 0; color: var(--text-secondary); font-size: 13px; }

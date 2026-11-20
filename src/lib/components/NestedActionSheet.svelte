@@ -40,4 +40,5 @@
   .nested-action-body :global(.am-secondary-list) { min-height: 0; padding: 0; }
   .nested-action-body :global(.am-secondary-context) { padding-bottom: 0; }
   .nested-action-body :global(.song-menu__playlists) { overflow-y: auto; }
+  .nested-action-body :global(.nested-action-form) { min-height: 0; overflow-y: auto; padding: 8px 8px 4px; }
 </style>

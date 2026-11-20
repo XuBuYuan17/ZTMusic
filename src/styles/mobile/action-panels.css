@@ -64,8 +64,10 @@ html.mobile-runtime body .queue-panel.queue-panel-mobile-visible {
   max-height: min(64dvh, 540px);
 }
 
-html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics)) {
+html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics), .playlist-action-sheet.mobile-choice-sheet) {
   top: auto !important;
+  display: flex;
+  flex-direction: column;
   left: max(var(--mobile-action-panel-gap), env(safe-area-inset-left)) !important;
   right: max(var(--mobile-action-panel-gap), env(safe-area-inset-right)) !important;
   bottom: max(0px, calc(100dvh - var(--mobile-viewport-height, 100dvh) - var(--mobile-viewport-top, 0px))) !important;
@@ -225,7 +227,7 @@ html.mobile-runtime body .am-more-message {
   padding: 2px 12px 0;
 }
 
-html.mobile-runtime body :is(.song-menu__header, .am-more-track) {
+html.mobile-runtime body :is(.song-menu__header, .am-more-track, .playlist-action-sheet.mobile-choice-sheet .library-options-header) {
   flex: none;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr);
@@ -279,7 +281,7 @@ html.mobile-runtime body .song-menu__title span {
   text-overflow: ellipsis;
 }
 
-html.mobile-runtime body :is(.song-menu__body, .am-more-body) {
+html.mobile-runtime body :is(.song-menu__body, .am-more-body, .playlist-action-sheet .mobile-choice-body) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -304,12 +306,13 @@ html.mobile-runtime body :is(.song-menu__group + .song-menu__group, .am-more-gro
 }
 
 html.mobile-runtime body :is(.song-menu__group, .am-more-group) > button + button,
+html.mobile-runtime body .playlist-action-sheet .mobile-choice-body > button + button,
 html.mobile-runtime body .nested-action-body :is(.song-menu__playlist, .am-secondary-row) + :is(.song-menu__playlist, .am-secondary-row) {
   border-top: 1px solid var(--border);
 }
 
-html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics), .nested-action-sheet)
-  :is(.song-menu__item, .am-more-item, .song-menu__playlist, .am-secondary-row):is(:active, :focus-visible):not(:disabled) {
+html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics), .nested-action-sheet, .playlist-action-sheet)
+  :is(.song-menu__item, .am-more-item, .song-menu__playlist, .am-secondary-row, .library-option):is(:active, :focus-visible):not(:disabled) {
   background: color-mix(in srgb, var(--md-primary) 6%, var(--md-container));
 }
 
@@ -333,20 +336,9 @@ html.mobile-runtime body .song-menu__item em {
   font-weight: 400;
 }
 
-/* Playlist/album actions: keep cover context, but shrink it to toolbar scale. */
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
-  display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) 36px;
-  align-items: center;
-  gap: 10px;
-  min-height: 60px;
-  padding: 5px 8px 8px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
-}
-
 html.mobile-runtime body .playlist-action-sheet .library-options-cover {
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius-sm);
 }
 
@@ -356,12 +348,7 @@ html.mobile-runtime body .playlist-action-sheet h2 {
   font-weight: 700;
 }
 
-html.mobile-runtime body .playlist-action-sheet .mobile-choice-done {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-}
+html.mobile-runtime body .playlist-action-sheet .mobile-choice-done { display: none; }
 
 html.mobile-runtime body .playlist-action-sheet .playlist-sheet-play {
   left: calc(50% - 15px);
@@ -507,23 +494,16 @@ html.mobile-runtime body .song-menu__icon > svg {
   height: 20px;
 }
 
-html.mobile-runtime body .playlist-action-sheet .mobile-choice-body {
-  display: grid;
-  gap: 0;
-  margin: 0 12px 10px;
-  padding: 4px 8px;
-  border-radius: var(--radius-md);
-  background: var(--md-container-high);
-}
-
-html.mobile-runtime body .playlist-action-sheet :is(.library-option, .mobile-choice-option) {
-  min-height: 52px;
-  padding: 14px 10px;
+html.mobile-runtime body .playlist-action-sheet .library-option {
+  min-height: 44px;
+  padding: 7px 10px;
   border-radius: 0;
+  font-size: 14px;
 }
 
-html.mobile-runtime body .playlist-action-sheet :is(.library-option, .mobile-choice-option):not(:last-child) {
-  box-shadow: inset 0 -1px var(--border);
+html.mobile-runtime body .playlist-action-sheet .library-option > svg { color: inherit; }
+html.mobile-runtime body .playlist-action-sheet .library-option--danger {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
 }
 
 html.mobile-runtime body .sort-sheet-options {
@@ -550,20 +530,7 @@ html.mobile-runtime body .mobile-choice-option.active {
   background: var(--md-primary-container);
 }
 
-/* 4. 歌单管理面板的背景与头部卡片 */
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet {
-  background: var(--md-container-highest);
-}
-
-html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
-  margin: 10px 12px 6px;
-  padding: 8px 10px;
-  border-bottom: 0;
-  border-radius: var(--radius-md);
-  background: var(--md-container-high);
-}
-
-html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics)) {
+html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics), .playlist-action-sheet.mobile-choice-sheet) {
   max-height: min(78dvh, calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))));
 }
 

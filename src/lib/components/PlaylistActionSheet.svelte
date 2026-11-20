@@ -37,14 +37,15 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from 'svelte'
   import Icon from './ui/Icon.svelte'
   import { coverUrl } from '../utils/image.ts'
   import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts'
   import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts'
   import { fade } from 'svelte/transition'
 
-  let { title, cover = '', coverIsBundled = false, actions, onPlay, onClose, onClosed, show = true, label = '歌单管理', bottomOnDesktop = false }: {
-    show?: boolean; title: string; cover?: string; coverIsBundled?: boolean; actions: PlaylistAction[]; onPlay?: () => void; onClose: () => void; onClosed?: () => void; label?: string; bottomOnDesktop?: boolean
+  let { title, cover = '', coverIsBundled = false, actions, onPlay, onClose, onDismiss, onClosed, show = true, label = '歌单管理', bottomOnDesktop = false, nested }: {
+    show?: boolean; title: string; cover?: string; coverIsBundled?: boolean; actions: PlaylistAction[]; onPlay?: () => void; onClose: () => void; onDismiss?: () => void; onClosed?: () => void; label?: string; bottomOnDesktop?: boolean; nested?: Snippet
   } = $props()
   let coverFailed = $state(false)
   let presented = $state(false)
@@ -72,7 +73,7 @@
 </script>
 
 {#if presented}
-  <button class="mobile-choice-backdrop" type="button" aria-label={`关闭${label}`} onclick={onClose} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
+  <button class="mobile-choice-backdrop" type="button" aria-label={`关闭${label}`} onclick={onDismiss ?? onClose} transition:fade={{ duration: reducedMotion() ? 0 : 240 }}></button>
   <div class="mobile-choice-sheet library-options-sheet playlist-action-sheet" class:sheet-bottom-desktop={bottomOnDesktop} data-bottom-panel role="dialog" aria-modal="true" aria-label={label} tabindex="-1" use:dialogFocus={onClose} in:mobileSheet={{ desktopCentered: bottomOnDesktop }} out:mobileSheet={{ desktopCentered: bottomOnDesktop }} onoutroend={finishClose}>
     <button class="m-sheet-handle" type="button" aria-label={`关闭${label}`} onclick={onClose} use:mobileDrag={{ close: onClose, panel: true }}></button>
     <header class="library-options-header">
@@ -91,6 +92,7 @@
         </button>
       {/each}
     </div>
+    {@render nested?.()}
   </div>
 {/if}
 
