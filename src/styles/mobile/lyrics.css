@@ -74,7 +74,21 @@ html.mobile-runtime .ly-container .am-lyrics-fade-top, html.mobile-runtime .ly-c
 html.mobile-runtime .ly-container .am-more-shell { position: relative; inset: auto; grid-row: 2; grid-column: 1; align-self: center; justify-self: end; width: 44px; }
 html.mobile-runtime .ly-container .am-more-btn { width: 44px; height: 44px; background: rgba(255,255,255,.14); border-radius: 50%; box-shadow: none; backdrop-filter: none; }
 html.mobile-runtime .m-player-dismiss { position: absolute; top: calc(var(--player-titlebar-offset, 0px) + env(safe-area-inset-top)); left: calc(50% - 48px); width: 96px; height: 48px; z-index: 1001; display: grid; place-items: center; background: none; touch-action: none; }
+html.mobile-runtime .m-player-dismiss::before {
+  content: ''; position: absolute; top: 12px; inset-inline: 0; margin-inline: auto; width: 34px; height: 4px;
+  border-radius: 999px; background: #fff; box-shadow: 0 0 8px rgb(255 255 255 / .35);
+  opacity: 0; transform: translateY(-2px) scaleX(.72);
+  transition: opacity 220ms ease-out, transform 260ms ease-out;
+}
+html.mobile-runtime .m-player-dismiss:is(.handle-visible, :focus-visible)::before {
+  opacity: .9; transform: translateY(0) scaleX(1);
+  transition-duration: 120ms, 200ms;
+}
 html.mobile-runtime .m-player-dismiss:focus-visible { outline: 2px solid white; outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime .m-player-dismiss:is(.handle-visible, :focus-visible)::before,
+  html.mobile-runtime .m-player-dismiss::before { transform: none; transition: none; }
+}
 html.mobile-runtime .ly-container .vinyl-theme:not(.lyrics-mode) .am-flying-cover {
   width: min(78%, max(0px, calc(100dvh - 440px - var(--player-titlebar-offset, 0px) - env(safe-area-inset-top) - env(safe-area-inset-bottom))), 320px);
   justify-self: start; margin-left: 2%;

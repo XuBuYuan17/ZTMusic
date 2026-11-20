@@ -21,6 +21,9 @@
   let showLocalQueue = $state(false)
   let closing = $state(false)
   let root = $state<HTMLElement | null>(null)
+  let handleVisible = $state(false)
+  let handlePointer: number | null = null
+  let handleTimer: ReturnType<typeof setTimeout> | undefined
   const animations = new Set<Animation>()
   function animate(node: HTMLElement, frames: Keyframe[], options: KeyframeAnimationOptions) {
     const animation = node.animate(frames, options)
@@ -38,7 +41,12 @@
   function enter(node: HTMLElement) {
     closing = false
     showLocalQueue = false
-    if (controller) return renderPlayerSurface(node, controller)
+    handleVisible = false
+    handlePointer = null
+    if (controller) {
+      const surface = renderPlayerSurface(node, controller)
+      return { destroy() { clearTimeout(handleTimer); surface.destroy() } }
+    }
     const frame = requestAnimationFrame(() => {
       const cover = node.querySelector<HTMLElement>('.am-flying-cover')
       if (reduced()) return
@@ -50,7 +58,27 @@
     return { destroy() {
       cancelAnimationFrame(frame)
       cancelAnimations()
+      clearTimeout(handleTimer)
     } }
+  }
+
+  function revealHandle(event: PointerEvent): void {
+    if (!event.isPrimary || event.button !== 0 || showLocalQueue || !document.documentElement.classList.contains('mobile-runtime')) return
+    clearTimeout(handleTimer)
+    handleVisible = true
+    handlePointer = event.pointerId
+    const handle = event.currentTarget as HTMLButtonElement
+    handle.setPointerCapture(event.pointerId)
+  }
+
+  function releaseHandle(event: PointerEvent): void {
+    if (event.pointerId !== handlePointer) return
+    handlePointer = null
+    handleTimer = setTimeout(() => { handleVisible = false }, 720)
+  }
+
+  function activateHandle(event: MouseEvent): void {
+    if (event.detail === 0 || !document.documentElement.classList.contains('mobile-runtime')) close()
   }
 
   function close() {
@@ -79,7 +107,10 @@
     <div class="m-player-backdrop"></div>
     <div class="ly-container">
       <AppleMusicPlayer surfaceController={controller} {initialLyrics} onClose={close} {onOpenArtist} {onOpenAlbum} {onOpenPlaylist} {onToggleTheme} {showLocalQueue} toggleLocalQueue={() => showLocalQueue = !showLocalQueue} />
-      <button class="m-player-dismiss" aria-label="收起播放器" onclick={close} use:playerSurfaceGesture={{ controller, blocked: () => showLocalQueue }}></button>
+      <button class="m-player-dismiss" class:handle-visible={handleVisible} type="button" aria-label="收起播放器"
+        onclick={activateHandle} onpointerdown={revealHandle} onpointerup={releaseHandle}
+        onpointercancel={releaseHandle} onlostpointercapture={releaseHandle}
+        use:playerSurfaceGesture={{ controller, blocked: () => showLocalQueue }}></button>
     </div>
   </div>
 {/if}
