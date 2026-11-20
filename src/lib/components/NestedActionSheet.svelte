@@ -30,8 +30,7 @@
     max-height: calc(100% - 28px); overflow: hidden;
     padding-bottom: max(8px, env(safe-area-inset-bottom));
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-    background: var(--md-container-highest); color: var(--text);
-    box-shadow: 0 -8px 24px rgb(0 0 0 / .16);
+    color: var(--text);
   }
   .nested-action-sheet.fill { height: calc(100% - 28px); }
   header { display: grid; flex: none; grid-template-columns: 44px minmax(0, 1fr); align-items: center; margin: 0 14px; border-bottom: 1px solid var(--border); }
