@@ -8,6 +8,7 @@
   import PlaylistActionSheet, { playlistPortal, type PlaylistAction } from './PlaylistActionSheet.svelte'
   import { heroCreatorName, heroMetaText, heroPlayback } from './playlist-hero-content.ts'
   import Icon from './ui/Icon.svelte'
+  import LikedCoverFalls from './LikedCoverFalls.svelte'
 
   interface HeroDetail {
     id?: SongId
@@ -27,6 +28,7 @@
     heroColor = '#141414',
     detailType = '歌单',
     coverIsBundled = false,
+    coverTiles,
     totalCount = 0,
     visibleCount = 0,
     totalDuration = 0,
@@ -50,6 +52,7 @@
     heroColor?: string
     detailType?: string
     coverIsBundled?: boolean
+    coverTiles?: string[]
     totalCount?: number
     visibleCount?: number
     totalDuration?: number
@@ -71,6 +74,7 @@
   } = $props()
 
   const cover = $derived(detail?.coverImgUrl || detail?.picUrl || '')
+  const useCoverFalls = $derived($responsive.isMobile && coverTiles !== undefined)
   // 固定推荐封面来自打包资源；API 图片仍使用原来的 URL 校验和渐进加载。
   const resolvedCover = (size: number) => coverIsBundled ? cover : coverUrl(cover, size)
   function loadCover(node: HTMLImageElement, options: { source: string; size: number; bundled: boolean }) {
@@ -147,20 +151,24 @@
   </div>
 {:else}
   <div class="playlist-detail-hero" class:is-syncing={loading} style={`--playlist-hero-color:${heroColor}`}>
-    {#if cover}<div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover($responsive.isMobile ? 720 : 320)}")`} aria-hidden="true"></div>{/if}
+    {#if useCoverFalls}
+      <div class="playlist-hero-backdrop playlist-hero-backdrop--falls" aria-hidden="true"><LikedCoverFalls covers={coverTiles} threeColumns /></div>
+    {:else if cover}
+      <div class="playlist-hero-backdrop" style={`background-image:url("${resolvedCover($responsive.isMobile ? 720 : 320)}")`} aria-hidden="true"></div>
+    {/if}
     <div class="playlist-hero-wash" aria-hidden="true"></div>
-    {#if cover && $responsive.isMobile}
+    {#if !useCoverFalls && cover && $responsive.isMobile}
       <div class="playlist-cover-open">
         {#if coverFailed}<span class="playlist-cover playlist-cover--empty"><Icon name="music" size={36} /></span>{:else}<img class="playlist-cover" use:loadCover={{ source: cover, size: 640, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover onerror={() => coverFailed = true} />{/if}
       </div>
-    {:else if cover}
+    {:else if !useCoverFalls && cover}
       <img class="playlist-cover" use:loadCover={{ source: cover, size: 320, bundled: coverIsBundled }} alt={detail.name} referrerpolicy="no-referrer" fetchpriority="high" use:flyCover />
-    {:else}
+    {:else if !useCoverFalls}
       <div class="playlist-cover playlist-cover--empty">
         <Icon name="music" size={42} strokeWidth={1.3} />
       </div>
     {/if}
-    {#if $responsive.isMobile}
+    {#if $responsive.isMobile && !useCoverFalls}
       <div class="playlist-playing-record" class:visible={containsCurrentTrack && player.playing} aria-hidden="true">
         <div class="playlist-playing-record__disc">
           {#if player.cover}<img src={coverUrl(player.cover, 200)} alt="" referrerpolicy="no-referrer" />{/if}
@@ -214,6 +222,7 @@
 {/if}
 
 <style>
+  .playlist-hero-backdrop--falls :global(.liked-falls-badge) { display: none; }
   /* 操作入口常驻声明，显隐交给布局：窄布局（下一段 :global 规则）把它显示出来 */
   .playlist-more-btn { display: none; }
   .playlist-favorite-btn { display: none; }

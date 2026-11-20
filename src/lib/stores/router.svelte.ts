@@ -47,6 +47,8 @@ interface PlaylistDetail {
   picUrl: string
   creator?: unknown
   subscribed?: boolean
+  specialType?: unknown
+  coverTiles?: string[]
   trackCount: number
   description: string
   tracks: DetailTrack[]
@@ -61,6 +63,8 @@ interface PlaylistPreviewInput {
   coverImgUrl?: string
   picUrl?: string
   cover?: string
+  specialType?: unknown
+  coverTiles?: string[]
   creator?: unknown
   trackCount?: number
   size?: number
@@ -265,6 +269,8 @@ function createPlaylistPreview(p: PlaylistPreviewInput | null, id: number): Play
     name: p.name || '加载中',
     coverImgUrl: p.coverImgUrl || p.picUrl || p.cover || '',
     picUrl: p.picUrl || p.coverImgUrl || p.cover || '',
+    specialType: p.specialType,
+    coverTiles: p.coverTiles,
     creator: typeof p.creator === 'string' ? { nickname: p.creator } : p.creator,
     trackCount: p.trackCount || p.size || 0,
     description: p.description || p.copywriter || p.updateFrequency || '',

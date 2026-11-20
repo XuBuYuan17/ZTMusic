@@ -11,6 +11,7 @@
   import { queuePlaylist, sharePlaylist } from '../components/PlaylistActionSheet.svelte'
   import type { CompactTrackInput } from '../player/queue.ts'
   import PlaylistHero from '../components/PlaylistHero.svelte'
+  import { toSongRows } from '../components/song-row.ts'
   import PlaylistSortSheet from '../components/PlaylistSortSheet.svelte'
   import PlaylistToolbar from '../components/PlaylistToolbar.svelte'
   import PlaylistTrackTable from '../components/PlaylistTrackTable.svelte'
@@ -48,6 +49,8 @@
     picUrl: string
     creator?: unknown
     subscribed?: boolean
+    specialType?: unknown
+    coverTiles?: string[]
     trackCount: number
     description: string
     tracks: DetailTrackLike[]
@@ -115,6 +118,11 @@
   let lastViewKey = $state(initialViewKey)
   const viewKey = $derived(playlistViewKey(viewKind(), selectedId))
   const heroCover = $derived(playlistDetail?.coverImgUrl || playlistDetail?.picUrl ? coverUrl(playlistDetail.coverImgUrl || playlistDetail.picUrl, 64) : '')
+  const heroCoverTiles = $derived.by(() => {
+    if (Number(playlistDetail?.specialType) !== 5) return undefined
+    const covers = toSongRows(playlistDetail?.tracks.slice(0, 24) || []).map(row => row.cover)
+    return [...new Set([...covers, ...(playlistDetail?.coverTiles ?? [])].filter(Boolean))].slice(0, 8)
+  })
   // 上下文只在组件初始化期可读；action / effect 内部只消费这份引用
   const scrollViewport = getScrollViewport()
   const pageChrome = getPageChromeHost()
@@ -264,6 +272,7 @@
         {heroColor}
         {detailType}
         coverIsBundled={recommendation}
+        coverTiles={heroCoverTiles}
         bind:showMenu={heroMenuOpen}
         totalCount={totalTrackCount}
         visibleCount={visibleTracks.length}

@@ -211,6 +211,8 @@
   overflow: hidden;
 }
 
+.liked-falls-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
 .liked-falls-track {
   display: flex;
   flex-direction: column;
@@ -231,6 +233,11 @@
 .liked-falls-track-r {
   animation: likedFallsScroll 26s linear infinite;
   animation-delay: -13s;
+}
+
+.liked-falls-three .liked-falls-col:nth-child(3) .liked-falls-track {
+  animation: likedFallsScroll 23s linear infinite;
+  animation-delay: -7s;
 }
 
 .liked-falls::after {
@@ -261,7 +268,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .liked-falls-track-l,
-  .liked-falls-track-r {
+  .liked-falls-track-r,
+  .liked-falls-three .liked-falls-col:nth-child(3) .liked-falls-track {
     animation: none;
   }
 }

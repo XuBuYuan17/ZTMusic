@@ -226,6 +226,12 @@
 
   // 喜爱歌曲卡封面瀑布流：只取前 8 首的封面
   let likedCovers = $state<string[]>(initial?.likedCovers ?? [])
+  const mobileLikedCovers = $derived(likedCovers.length ? likedCovers : likedPlaylist?.picUrl ? [likedPlaylist.picUrl] : [])
+
+  function openLikedPlaylist(): void {
+    if (!likedPlaylist) { onNavigate?.('liked'); return }
+    onOpenPlaylist?.(likedPlaylist.id as SongId, true, { ...likedPlaylist, specialType: 5, coverTiles: [...likedCovers] })
+  }
 
   function libraryScope(): string | null {
     const uid = auth.user?.userId
@@ -252,11 +258,11 @@
       if (rid !== _requestId || scope !== libraryScope()) return
       const r = rec(res)
       const songs = Array.isArray(r?.songs) ? r.songs : []
-      likedCovers = songs.map((s) => {
+      likedCovers = [...new Set(songs.map((s) => {
         const x = rec(s)
         const pic = rec(x?.al)?.picUrl ?? rec(x?.album)?.picUrl
         return typeof pic === 'string' ? pic : ''
-      }).filter(Boolean)
+      }).filter(Boolean))]
       save(scope)
     } catch {
       // 拉不到就回退灰底红星
@@ -480,17 +486,25 @@
       <section class="library-mobile-music" aria-label="我的音乐">
         <h2>我的音乐</h2>
         <div class="library-mobile-cards">
-          <button class="library-mobile-card" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
+          <button class="library-mobile-card" type="button" onclick={openLikedPlaylist}>
             <span class="library-mobile-card__art" aria-hidden="true">
-              <Icon name="liked" size={34} />
-              {#if likedPlaylist?.picUrl || likedCovers[0]}
-                <img src={coverUrl(likedPlaylist?.picUrl || likedCovers[0], 360)} alt="" loading="lazy" referrerpolicy="no-referrer" onerror={(event) => { (event.currentTarget as HTMLImageElement).hidden = true }} />
+              {#if mobileLikedCovers.length}
+                <LikedCoverFalls covers={mobileLikedCovers} />
+              {:else}
+                <Icon name="liked" size={34} />
               {/if}
             </span>
             <strong>我喜欢的音乐</strong><small>{likedPlaylist ? displayCount(likedPlaylist.trackCount) : library ? '0' : '—'} 首歌曲</small>
           </button>
           <button class="library-mobile-card" type="button" onclick={() => onNavigate?.('dailyHistory')}>
-            <span class="library-mobile-card__art library-mobile-card__art--daily" aria-hidden="true"><Icon name="calendar" size={36} fill="none" strokeWidth={1.5} /></span>
+            <span class="library-mobile-card__art library-mobile-card__art--daily" aria-hidden="true">
+              <span class="library-daily-calendar">
+                <span class="library-daily-calendar__heading"><Icon name="calendar" size={18} fill="none" strokeWidth={1.7} /></span>
+                <span class="library-daily-calendar__days">
+                  {#each [0, 1, 2, 3, 4, 5] as day (day)}<i class:highlight={day === 4}></i>{/each}
+                </span>
+              </span>
+            </span>
             <strong>历史日推</strong><small>回看每日推荐</small>
           </button>
         </div>
@@ -505,7 +519,7 @@
       <div class="library-highlights">
         <div class="library-favorite">
           <div class="library-favorite__art" aria-hidden="true"><LikedCoverFalls covers={likedCovers} threeColumns /></div>
-          <button class="library-favorite__open" type="button" onclick={() => likedPlaylist ? onOpenPlaylist?.(likedPlaylist.id as SongId, true, likedPlaylist) : onNavigate?.('liked')}>
+          <button class="library-favorite__open" type="button" onclick={openLikedPlaylist}>
             <strong>我喜欢的音乐</strong><em>{likedPlaylist?.trackCount ?? 0} 首歌曲</em>
           </button>
         </div>
@@ -674,8 +688,6 @@
   .library-favorite__art { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
   .library-favorite__art::after { position: absolute; inset: 0; content: ''; pointer-events: none; background: linear-gradient(to top, rgb(235 235 237 / .96), rgb(235 235 237 / .75) 24%, transparent 65%); }
   .library-favorite__art :global(.liked-falls-badge) { display: none; }
-  .library-favorite__art :global(.liked-falls-three) { grid-template-columns: repeat(3, 1fr); }
-  .library-favorite__art :global(.liked-falls-col:nth-child(3) .liked-falls-track) { animation: likedFallsScroll 23s linear infinite; animation-delay: -7s; }
   .library-favorite__open { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: start; gap: 5px; padding: 24px; text-align: left; color: #202124; }
   .library-favorite__open strong { font-size: 23px; line-height: 1.2; }
   .library-favorite__open em { color: #505156; font-size: 13px; font-style: normal; }
@@ -757,8 +769,29 @@
   .library-mobile-card { min-width: 0; display: grid; align-content: start; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--text); text-align: left; }
   .library-mobile-card__art { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--accent); margin-bottom: 2px; }
   .library-mobile-card__art::after { position: absolute; inset: 0; content: ''; border: 1px solid var(--border); border-radius: inherit; pointer-events: none; }
-  .library-mobile-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .library-mobile-card__art--daily { background: linear-gradient(145deg, var(--bg-elevated), var(--md-container, var(--bg-surface))); color: var(--md-primary, var(--accent)); }
+  .library-mobile-card__art--daily {
+    color: var(--md-primary);
+    background:
+      radial-gradient(circle at 82% 17%, color-mix(in srgb, var(--md-primary) 19%, transparent) 0 21%, transparent 22%),
+      linear-gradient(145deg, var(--md-container), var(--md-primary-container));
+  }
+  .library-daily-calendar {
+    position: relative; isolation: isolate; display: grid; align-content: center; gap: 7px;
+    width: 58%; aspect-ratio: 1; padding: 9%; border: 1px solid var(--border);
+    border-radius: var(--radius-md); background: var(--bg-surface); transform: rotate(-9deg);
+    box-shadow: 0 5px 14px color-mix(in srgb, var(--md-primary) 15%, transparent);
+  }
+  .library-daily-calendar::before {
+    position: absolute; z-index: -1; inset: 4px -7px -6px 4px; content: '';
+    border-right: 1px solid color-mix(in srgb, var(--md-primary) 28%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--md-primary) 28%, transparent);
+    border-radius: inherit; background: linear-gradient(135deg, transparent 72%, var(--md-primary-container)); pointer-events: none;
+  }
+  .library-daily-calendar__heading { display: flex; align-items: center; gap: 5px; }
+  .library-daily-calendar__heading::after { content: ''; width: 37%; height: 3px; border-radius: 2px; background: currentColor; opacity: .28; }
+  .library-daily-calendar__days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .library-daily-calendar__days i { aspect-ratio: 1; border-radius: var(--radius-xs); background: var(--md-primary-container); }
+  .library-daily-calendar__days i.highlight { background: var(--md-primary); }
   .library-mobile-card > strong { font-size: 15px; line-height: 1.4; font-weight: 500; }
   .library-mobile-card > small { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
   .library-mobile-report { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 13px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--accent); text-align: left; }
