@@ -306,7 +306,7 @@
   </header>
   {/if}
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={handleContentScroll} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: () => activeView === 'settings-dock' ? router.goBack() : router.goSettingsHome() }}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={handleContentScroll} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: router.goSettingsHome }}>
     <div class="mobile-page-content__inner" class:primary-content={isPrimaryView || coverHeaderless}>
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} class:playlist-source-outgoing={playlistSourceKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
@@ -352,7 +352,7 @@
         </div>
       {/if}
       {#if settingsCategory(page.view) && viewKey === page.key}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={page.view === 'settings-dock' ? router.goBack : router.goSettingsHome} />
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={router.goSettingsHome} />
       {:else if page.view === 'about'}
         <AboutPage />
       {:else if page.view === 'liked'}

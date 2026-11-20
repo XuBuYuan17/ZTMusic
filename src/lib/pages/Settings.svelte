@@ -99,7 +99,7 @@
     <div class="m-settings-list">
       <button class="m-settings-row m-settings-entry m-settings-back" type="button" onclick={() => onBack?.()}>
         <Icon name="chevron-left" fill="none" size={20} />
-        <strong>{category === 'dock' ? '返回外观' : t('settings.back')}</strong>
+        <strong>{t('settings.back')}</strong>
       </button>
     </div>
   {:else}
@@ -110,8 +110,14 @@
             <span class="m-entry-icon"><Icon name={item.icon} fill="none" size={21} /></span>
             <strong>{t(item.titleKey)}</strong>
             <span class="m-row-value">{summaries[item.id]}</span>
-            <Icon name="chevron-right" fill="none" size={17} />
           </button>
+          {#if $responsive.isMobile && item.id === 'appearance'}
+            <button class="m-settings-row m-settings-entry" type="button" onclick={() => onNavigate?.(settingsView('dock'))}>
+              <span class="m-entry-icon"><Icon name="grid" fill="none" size={21} /></span>
+              <strong>底栏样式</strong>
+              <span class="m-row-value">布局、导航图标与数量</span>
+            </button>
+          {/if}
         {/each}
       </div>
     {/each}
@@ -149,25 +155,30 @@
           {/if}
           {#if category === 'appearance'}
       <div class="m-settings-subhead">配色</div>
-      <div class="m-settings-row m-settings-row--palette">
-        <div class="m-settings-copy">
-          <strong>强调色</strong>
-          <span>也可以跟随正在播放的封面</span>
+      {#if $responsive.isMobile}
+        <SettingSelect label="强调色" description="也可以跟随正在播放的封面" value={accentTheme} options={ACCENT_THEME_OPTIONS}
+          onChange={value => onSetAccentTheme?.(value)} />
+      {:else}
+        <div class="m-settings-row m-settings-row--palette">
+          <div class="m-settings-copy">
+            <strong>强调色</strong>
+            <span>也可以跟随正在播放的封面</span>
+          </div>
+          <div class="m-accent-picker" role="radiogroup" aria-label="主题配色">
+            {#each ACCENT_THEME_OPTIONS as option}
+              <button
+                type="button"
+                role="radio"
+                aria-label={option.label}
+                aria-checked={accentTheme === option.value}
+                class:active={accentTheme === option.value}
+                title={option.label}
+                onclick={() => onSetAccentTheme?.(option.value)}
+              ><span style={`--accent-preview:${option.preview}`}></span></button>
+            {/each}
+          </div>
         </div>
-        <div class="m-accent-picker" role="radiogroup" aria-label="主题配色">
-          {#each ACCENT_THEME_OPTIONS as option}
-            <button
-              type="button"
-              role="radio"
-              aria-label={option.label}
-              aria-checked={accentTheme === option.value}
-              class:active={accentTheme === option.value}
-              title={option.label}
-              onclick={() => onSetAccentTheme?.(option.value)}
-            ><span style={`--accent-preview:${option.preview}`}></span></button>
-          {/each}
-        </div>
-      </div>
+      {/if}
 
       <div class="m-settings-subhead">背景</div>
       <div class="m-settings-row m-settings-row--wallpaper">
@@ -178,10 +189,10 @@
         <div class="m-inline-actions">
           <input bind:this={wallpaperInput} class="m-file-input" type="file" accept="image/*,video/*" onchange={handleWallpaperFile} />
           <button class="m-text-action" type="button" disabled={wallpaper.loading} onclick={() => wallpaperInput?.click()}>
-            {wallpaper.loading ? '处理中…' : wallpaper.active ? '更换' : '选择'}
+            <span class="settings-button-label">{wallpaper.loading ? '处理中…' : wallpaper.active ? '更换' : '选择'}</span>
           </button>
           {#if wallpaper.active}
-            <button class="m-text-action muted" type="button" disabled={wallpaper.loading} onclick={() => wallpaper.clear()}>移除</button>
+            <button class="m-text-action muted" type="button" disabled={wallpaper.loading} onclick={() => wallpaper.clear()}><span class="settings-button-label">移除</span></button>
           {/if}
         </div>
       </div>
@@ -196,13 +207,6 @@
         </div>
       {/if}
 
-      {#if $responsive.isMobile}
-      <div class="m-settings-subhead">底栏</div>
-      <button class="m-settings-row m-settings-row--button" type="button" onclick={() => onNavigate?.('settings-dock')}>
-        <div class="m-settings-copy"><strong>底栏样式</strong><span>布局、导航图标与数量</span></div>
-        <Icon name="chevron-right" size={18} />
-      </button>
-      {/if}
 
           {:else if category === 'sources'}
             <SourcePluginSettings mobile={$responsive.isMobile} />
@@ -261,7 +265,7 @@
   {#if category === 'data'}<PlaylistGroupsSettings />{/if}
   {#if category === 'playback'}<p class="m-settings-note">{t('settings.playbackNote')}</p>{/if}
   {#if category === 'data' && auth.isLoggedIn}
-    <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} />退出登录</button>
+    <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} /><span class="settings-button-label">退出登录</span></button>
   {/if}
 </div>
 
@@ -316,6 +320,10 @@
   .m-switch span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   :global(.m-settings .mobile-setting-select) { min-width: 0; min-height: 44px; max-width: 48%; gap: 4px; padding: 4px 0 4px 8px; border: 0; color: var(--text-secondary); background: transparent; font-size: .9375rem; box-shadow: none; }
   :global(.m-settings .mobile-setting-select span) { white-space: normal; overflow-wrap: anywhere; }
+  .m-settings :global(.mobile-setting-select.mobile-setting-select--row) {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; max-width: none; min-height: 64px; padding: 10px 16px; border-radius: 0; gap: 12px; color: var(--text);
+  }
   .m-settings-row--stacked { align-items: stretch; flex-direction: column; gap: 8px; }
   .m-settings-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--bg); font: inherit; font-size: 1rem; }
   .m-settings-input:focus { outline: 2px solid var(--md-primary); }

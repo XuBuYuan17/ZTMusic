@@ -4,6 +4,8 @@
   import { coverUrl, coverRectUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
   import PlaylistTrackTable from '../components/PlaylistTrackTable.svelte'
+  import PlaylistCoverCard from '../components/PlaylistCoverCard.svelte'
+  import { albumReleaseYear, groupArtistAlbumsByYear } from './artist-album-years.ts'
   import Icon from '../components/ui/Icon.svelte'
   import { responsive } from '../utils/responsive.ts'
 
@@ -76,26 +78,22 @@
   } = $props()
 
   let showAllSongs = $state(false)
-  let showAllAlbums = $state(false)
+  let expandedAlbumYear = $state<number | 'unknown' | null>(null)
   let showFullBio = $state(false)
   let bioOverflow = $state(false)
   let bioEl = $state<HTMLElement | null>(null)
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
-  function publishYear(album: ArtistAlbumCard): number | string {
-    if (!album.publishTime) return ''
-    return new Date(album.publishTime as string | number).getFullYear()
-  }
-
   const visibleSongs = $derived(showAllSongs ? songs : songs.slice(0, 5))
+  const avatarSource = $derived(artist?.avatar || artist?.picUrl || artist?.cover)
   // router.artistAlbums 是 unknown[]，在边界单点 cast 成本页展示接口
   const albumCards = $derived(albums as unknown as ArtistAlbumCard[])
-  const visibleAlbums = $derived($responsive.isMobile && !showAllAlbums ? albumCards.slice(0, 6) : albumCards)
+  const albumYearGroups = $derived(groupArtistAlbumsByYear(albumCards))
 
   $effect(() => {
     artist?.id
     showAllSongs = false
-    showAllAlbums = false
+    expandedAlbumYear = null
     showFullBio = false
     bioOverflow = false
   })
@@ -125,9 +123,25 @@
 </script>
 
 {#snippet hotTracks(skeleton = false)}
-  <PlaylistTrackTable {skeleton} showHeader={false} skeletonLabel="加载热门歌曲"
-    tracks={visibleSongs} currentId={player.id} rowActions={songActions?.bindRow ?? null}
-    onPlay={playHotTrack} {onOpenArtist} {onOpenAlbum} />
+  <div class="playlist-track-surface">
+    <PlaylistTrackTable {skeleton} showHeader={false} skeletonLabel="加载热门歌曲"
+      tracks={visibleSongs} currentId={player.id} rowActions={songActions?.bindRow ?? null}
+      onPlay={playHotTrack} {onOpenArtist} {onOpenAlbum} />
+  </div>
+{/snippet}
+
+{#snippet artistBio()}
+  {#if artist?.briefDesc}
+    <section class="artist-bio-section" class:artist-section={!$responsive.isMobile} aria-label={$responsive.isMobile ? '简介' : undefined}>
+      {#if !$responsive.isMobile}<h2>简介</h2>{/if}
+      <p class="artist-desc" class:expanded={showFullBio} bind:this={bioEl}>{artist.briefDesc}</p>
+      {#if bioOverflow || showFullBio}
+        <button class="artist-bio-toggle" type="button" aria-expanded={showFullBio} aria-label={showFullBio ? '收起简介' : '展开简介'} onclick={() => showFullBio = !showFullBio}>
+          {showFullBio ? '收起' : '展开'}{#if !$responsive.isMobile}简介{/if}
+        </button>
+      {/if}
+    </section>
+  {/if}
 {/snippet}
 
 <div class="artist-page">
@@ -173,15 +187,15 @@
     </div>
   {:else if artist}
     <div class="artist-hero">
-      <div class="artist-hero-bg" style="background-image:url({coverRectUrl(artist.cover || artist.avatar || artist.picUrl || '', $responsive.isMobile ? 800 : 1000, $responsive.isMobile ? 600 : 500)})"></div>
+      <div class="artist-hero-bg" style="background-image:url({coverRectUrl(artist.cover || avatarSource, $responsive.isMobile ? 640 : 1000, $responsive.isMobile ? 360 : 500)})"></div>
       <div class="artist-hero-grain"></div>
       <div class="artist-hero-mask"></div>
       <button class="artist-back" onclick={onBack} aria-label="返回">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <div class="artist-avatar-wrap">
-        {#if artist.avatar || artist.picUrl || artist.cover}
-          <img class="artist-avatar" src={coverUrl(artist.avatar || artist.picUrl || artist.cover, $responsive.isMobile ? 300 : 360)} alt={artist.name as string} loading="eager" referrerpolicy="no-referrer" />
+        {#if avatarSource}
+          <img class="artist-avatar" src={coverUrl(avatarSource, $responsive.isMobile ? 240 : 360)} alt={artist.name as string} loading="eager" referrerpolicy="no-referrer" />
         {:else}
           <div class="artist-avatar artist-avatar-placeholder">{(artist.name as string)?.charAt(0) || '?'}</div>
         {/if}
@@ -198,9 +212,10 @@
           {#if (artist.identities as unknown[] | undefined)?.length}<span>{(artist.identities as string[]).join(' · ')}</span>{/if}
         </div>
         {#if $responsive.isMobile && artist.accountUserId}
-          <button class="artist-profile-link" type="button" aria-label="查看歌手的网易云账号主页" onclick={() => onOpenUser?.(artist.accountUserId)}>网易云账号 <Icon name="chevron-right" size={15} /></button>
+          <button class="artist-profile-link" type="button" aria-label="查看歌手的网易云账号主页" onclick={() => onOpenUser?.(artist.accountUserId)}>网易云账号</button>
         {/if}
       </div>
+      {#if $responsive.isMobile}{@render artistBio()}{/if}
         <div class="artist-actions">
           <button class="artist-play-all" onclick={onPlayAll} disabled={!songs.length}>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -216,15 +231,6 @@
         </div>
     </div>
 
-    {#snippet artistBio()}
-    {#if artist?.briefDesc}
-      <section class="artist-section artist-bio-section">
-        <h2>简介</h2>
-        <p class="artist-desc" class:expanded={showFullBio} bind:this={bioEl}>{artist.briefDesc}</p>
-        {#if bioOverflow || showFullBio}<button class="artist-bio-toggle" type="button" aria-expanded={showFullBio} onclick={() => showFullBio = !showFullBio}>{showFullBio ? '收起简介' : '展开简介'}</button>{/if}
-      </section>
-    {/if}
-    {/snippet}
     {#if !$responsive.isMobile}{@render artistBio()}{/if}
 
     {#if songs.length > 0}
@@ -235,7 +241,7 @@
             {#if songs.length > 5}
               <button class="artist-section-action secondary" onclick={() => showAllSongs = !showAllSongs}>{showAllSongs ? '收起' : `查看全部 ${songs.length} 首`}</button>
             {/if}
-            <button class="artist-section-action" onclick={onPlayAll}>播放全部</button>
+            {#if !$responsive.isMobile}<button class="artist-section-action" onclick={onPlayAll}>播放全部</button>{/if}
           </div>
         </div>
         {@render hotTracks()}
@@ -246,29 +252,66 @@
 
     {#if albums.length > 0}
       <section class="artist-section artist-albums-section">
-        <div class="artist-section-header"><h2>专辑作品</h2>{#if $responsive.isMobile && albums.length > 6}<button class="artist-section-action secondary" type="button" aria-expanded={showAllAlbums} onclick={() => showAllAlbums = !showAllAlbums}>{showAllAlbums ? '收起' : `展开 ${albums.length} 张`}</button>{/if}</div>
-        <div class="artist-albums">
-          {#each visibleAlbums as album (album.id)}
-            <div class="artist-album-card" data-motion="card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
-              <div class="artist-album-cover">
-                {#if album.picUrl}
-                  <img src={coverUrl(album.picUrl, 400)} alt={album.name as string} loading="lazy" referrerpolicy="no-referrer" />
-                {:else}
-                  <div class="artist-album-placeholder">
-                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <h2>专辑作品</h2>
+        {#if $responsive.isMobile}
+          <div class="artist-album-groups">
+            {#each albumYearGroups as group (group.year)}
+              {@const key = group.year ?? 'unknown'}
+              {@const label = group.year === null ? '年份未知' : group.year + ' 年'}
+              {@const expanded = expandedAlbumYear === key}
+              {@const preview = group.albums.slice(0, 3)}
+              <section class="artist-album-group" class:expanded aria-label={label}>
+                <button class="artist-album-group-toggle" type="button" aria-expanded={expanded} onclick={() => expandedAlbumYear = expanded ? null : key}>
+                  {#if !expanded}
+                    <span class="artist-album-stack" aria-hidden="true">
+                      {#each preview as album, index (album.id)}
+                        <span class="artist-album-stack-cover" style:--cover-offset={index - (preview.length - 1) / 2}>
+                          {#if typeof album.picUrl === 'string' && album.picUrl}
+                            <img src={coverUrl(album.picUrl, 220)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                          {:else}
+                            <Icon name="music" size={24} />
+                          {/if}
+                        </span>
+                      {/each}
+                    </span>
+                  {/if}
+                  <span class="artist-album-group-info"><strong>{label}</strong><small>{group.albums.length} 张专辑</small></span>
+                  {#if expanded}<span class="artist-album-group-close">收起</span>{/if}
+                </button>
+                {#if expanded}
+                  <div class="artist-album-group-grid">
+                    {#each group.albums as album (album.id)}
+                      <PlaylistCoverCard title={String(album.name || '未知专辑')} cover={typeof album.picUrl === 'string' ? album.picUrl : ''}
+                        meta={album.size ? String(album.size) + ' 首' : ''} onSelect={() => onOpenAlbum?.(album.id)} />
+                    {/each}
                   </div>
                 {/if}
+              </section>
+            {/each}
+          </div>
+        {:else}
+          <div class="artist-albums">
+            {#each albumCards as album (album.id)}
+              <div class="artist-album-card" data-motion="card" role="button" tabindex="0" onclick={() => onOpenAlbum?.(album.id)} onkeydown={(event) => handleCardKeydown(event, () => onOpenAlbum?.(album.id))}>
+                <div class="artist-album-cover">
+                  {#if album.picUrl}
+                    <img src={coverUrl(album.picUrl, 400)} alt={album.name as string} loading="lazy" referrerpolicy="no-referrer" />
+                  {:else}
+                    <div class="artist-album-placeholder">
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                    </div>
+                  {/if}
+                </div>
+                <div class="artist-album-name">{album.name}</div>
+                <div class="artist-album-meta">{albumReleaseYear(album.publishTime) ?? ''}{#if album.size} · {album.size} 首{/if}</div>
               </div>
-              <div class="artist-album-name">{album.name}</div>
-              <div class="artist-album-meta">{publishYear(album)}{#if album.size} · {album.size} 首{/if}</div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {/if}
       </section>
     {:else if loading}
       <section class="artist-section artist-albums-section" aria-label="加载专辑作品"><h2>专辑作品</h2><div class="artist-albums">{#each Array(3) as _}<div class="artist-album-card skeleton-row"><div class="artist-album-cover skeleton-block"></div><div class="artist-album-name skeleton-line"></div></div>{/each}</div></section>
     {/if}
-    {#if $responsive.isMobile}{@render artistBio()}{/if}
   {:else}
     <div class="artist-empty">
       <p>没有找到歌手信息</p>

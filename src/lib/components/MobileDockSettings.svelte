@@ -100,7 +100,7 @@
   <span class="dock-settings__sr-only" aria-live="polite">{announcement}</span>
   <p class="dock-settings__note">未显示的页面可从设置页右上角的导航菜单进入。</p>
   {#if mobileDock.error}<p class="dock-settings__error" role="alert">{mobileDock.error}</p>{/if}
-  <button class="dock-settings__reset" type="button" onclick={() => mobileDock.reset()}>恢复默认</button>
+  <button class="dock-settings__reset" type="button" onclick={() => mobileDock.reset()}><span class="settings-button-label">恢复默认</span></button>
 </div>
 
 <style>

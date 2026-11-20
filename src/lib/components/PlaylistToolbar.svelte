@@ -79,7 +79,7 @@
 
   <div class="playlist-sort-controls">
     <button class="playlist-sort-mobile" type="button" aria-label="选择歌曲排序" aria-haspopup="dialog" aria-expanded={sortSheetOpen} onclick={() => onOpenSortSheet?.()}>
-      <span>{sortName}</span><span>{directionName}</span><Icon name="chevron-down" size={18} />
+      <span>{sortName}</span><span>{directionName}</span>
     </button>
     <label class="playlist-sort-select">
       <span>排序</span>
