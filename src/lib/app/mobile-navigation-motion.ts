@@ -305,6 +305,21 @@ export function createMobileNavigationMotion() {
     backdrop = null
   }
 
+  function armDismiss(page: HTMLElement, rect: RectLike, radius: string, sheet: boolean): void {
+    dismissCleanup = attachPlaylistDismiss(page, {
+      rect: copyRect(rect), radius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+    }, async () => {
+      skipNextInteractivePop = true
+      try {
+        const { router } = await import('../stores/router.svelte.ts')
+        router.goBack()
+      } catch (error) {
+        skipNextInteractivePop = false
+        throw error
+      }
+    }, sheet)
+  }
+
   return {
     cancel,
     capture(outgoing: HTMLElement | null) {
@@ -325,10 +340,12 @@ export function createMobileNavigationMotion() {
     }) {
       cancel()
       const current = generation
+      const incomingSheet = isDetailSheetView(incoming.dataset?.routeKey?.split(':', 1)[0])
 
       if (surface && kind === 'pop' && skipNextInteractivePop) {
         skipNextInteractivePop = false
         clearSharedCoverReturn()
+        if (incomingSheet && !reduced) armDismiss(incoming, incoming.getBoundingClientRect(), '22px', true)
         done()
         if (outgoing) queueMicrotask(() => {
           outgoing.style.removeProperty('clip-path')
@@ -353,10 +370,11 @@ export function createMobileNavigationMotion() {
         : kind === 'tab' ? mobileMotion.tab : mobileMotion.page
       const hasSharedGeometry = Boolean(sourceRect && (kind === 'pop' ? outgoingClip : incomingClip))
       const easing = surface && playlistTransition ? mobileMotion.playlistEasing : surface && hasSharedGeometry ? mobileMotion.shared : surface && kind === 'pop' ? mobileMotion.exit : mobileMotion.standard
-      const returnRect = sourceRect ?? (playlistTransition ? incoming.getBoundingClientRect() : null)
-      const returnGeometry: SharedReturnGeometry | null = surface && kind === 'push' && returnRect && (playlistTransition || incoming.querySelector('.playlist-detail-page'))
-        ? { rect: copyRect(returnRect), radius: sourceRadius, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight }
-        : null
+      const returnRect = kind === 'pop' && incomingSheet
+        ? incoming.getBoundingClientRect()
+        : kind === 'push' && surface && (incomingSheet || incoming.querySelector('.playlist-detail-page'))
+          ? sourceRect ?? (incomingSheet ? incoming.getBoundingClientRect() : null)
+          : null
 
       const sharedPending: Promise<unknown>[] = []
       const bottomEntrance = playlistTransition || (kind === 'push' && Boolean(incoming.querySelector('.playlist-detail-page')))
@@ -447,18 +465,7 @@ export function createMobileNavigationMotion() {
         backdrop?.remove()
         backdrop = null
         if (surface && kind === 'pop') clearSharedCoverReturn()
-        if (returnGeometry) {
-          dismissCleanup = attachPlaylistDismiss(incoming, returnGeometry, async () => {
-            skipNextInteractivePop = true
-            try {
-              const { router } = await import('../stores/router.svelte.ts')
-              router.goBack()
-            } catch (error) {
-              skipNextInteractivePop = false
-              throw error
-            }
-          }, playlistTransition)
-        }
+        if (returnRect) armDismiss(incoming, returnRect, sourceRadius, incomingSheet)
         done()
       })
     },

@@ -43,29 +43,6 @@ html.mobile-runtime .playlist-cover-open.is-disc::after {
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Playlist / album route transitions must behave like a real page surface.
- * The previous route is intentionally kept below the clipped detail page; the
- * solid background prevents old-page text from showing through during reveal. */
-html.mobile-runtime .mobile-detail-page:has(.playlist-detail-page) {
-  position: relative;
-  z-index: 2;
-  min-height: calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-page-bar-height, 64px));
-  background: var(--bg);
-  isolation: isolate;
-}
-
-html.mobile-runtime .mobile-route-outgoing.mobile-detail-page:has(.playlist-detail-page) {
-  /* Keep the captured viewport layout: the detail rule above must not turn an
-   * outgoing page back into normal flow after the source page is restored. */
-  position: fixed;
-  top: var(--route-outgoing-top, 0px);
-  left: var(--route-outgoing-left, 0px);
-  width: var(--route-outgoing-width, 100%);
-  right: auto;
-  z-index: 3;
-  background: var(--bg);
-}
-
 @media (prefers-reduced-motion: reduce) {
   html.mobile-runtime .playlist-cover,
   html.mobile-runtime .playlist-cover-open,

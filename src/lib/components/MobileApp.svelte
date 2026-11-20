@@ -408,12 +408,12 @@
   .settings-view :global(.mobile-page-content) { background: var(--settings-page); }
 
   .mobile-route-page { min-height: 100%; }
-  .playlist-sheet-page { position: relative; box-sizing: border-box; width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right))); margin: -16px calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-right))) 0 calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left))); padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left)); border-radius: var(--radius-xl) var(--radius-xl) 0 0; overflow: clip; background: var(--bg); }
-  .playlist-sheet-page.mobile-route-outgoing { margin: 0; }
+  .playlist-sheet-page { position: relative; z-index: 2; isolation: isolate; min-height: calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-page-bar-height, 64px)); box-sizing: border-box; width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right))); margin: -16px calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-right))) 0 calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left))); padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left)); border-radius: var(--radius-xl) var(--radius-xl) 0 0; overflow: clip; background: var(--bg); }
+  .playlist-sheet-page.mobile-route-outgoing { z-index: 3; margin: 0; }
   .playlist-sheet-page .daily-history-page-bar { padding-inline: 0; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   :global(html.mobile-runtime) .mobile-shared-page.mobile-route-outgoing { width: var(--route-outgoing-width, 100%); }
-  .mobile-route-outgoing.playlist-source-outgoing { clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
+  .mobile-route-outgoing.playlist-source-outgoing { z-index: 0; clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
   .mobile-route-outgoing :global(*) { pointer-events: none !important; }
 
   :global(html.mobile-runtime.mobile-floating-dock) { --mobile-tabs-h: 72px; }

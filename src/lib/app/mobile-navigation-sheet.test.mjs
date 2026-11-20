@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { setImmediate } from 'node:timers/promises'
+import { readFile } from 'node:fs/promises'
 import { createMobileNavigationMotion } from './mobile-navigation-motion.ts'
 
 const callbacks = new Map()
@@ -76,4 +77,19 @@ callbacks.get('pointerdown')(pointer('pointerdown', 100, 800))
 callbacks.get('pointermove')(pointer('pointermove', 160, 1000))
 assert.equal(style.transform, 'translate3d(0,60px,0)', 'artist sheet follows the finger without source artwork')
 motion.cancel()
+
+const dailyPage = { ...artistPage, dataset: { routeKey: 'dailyHistory::1' } }
+motion.play(dailyPage, artistPage, 'pop', false, true, false, () => {})
+animations.at(-1).finish()
+await setImmediate()
+assert.ok(callbacks.has('pointerdown'), 'returning from an artist to the history collection restores drag dismissal')
+callbacks.get('pointerdown')(pointer('pointerdown', 100, 1200))
+callbacks.get('pointermove')(pointer('pointermove', 160, 1400))
+assert.equal(style.transform, 'translate3d(0,60px,0)', 'the daily history collection drags as one sheet')
+motion.cancel()
+
+const mobileShell = await readFile(new URL('../components/MobileApp.svelte', import.meta.url), 'utf8')
+assert.match(mobileShell, /\.playlist-sheet-page \{[^}]*z-index:\s*2;/, 'every incoming sheet paints above the dimmer')
+assert.match(mobileShell, /\.playlist-sheet-page\.mobile-route-outgoing \{[^}]*z-index:\s*3;/, 'the closing sheet paints above the restored page')
+assert.match(mobileShell, /\.mobile-route-outgoing\.playlist-source-outgoing \{[^}]*z-index:\s*0;/, 'a sheet opening another sheet drops beneath the dimmer')
 console.log('playlist sheet: follow, cancellation, recovery and completed drag passed')
