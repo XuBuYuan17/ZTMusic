@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
   import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
+  import { reducedMotion } from '../app/desktop-motion.ts';
   import { responsive } from '../utils/responsive.ts';
   import { playerSurfaceGesture } from '../player-motion/gesture.ts';
   import type { PlayerSurfaceController } from '../player-motion/controller.ts';
@@ -189,26 +190,53 @@
 
   function toggleMoreMenu(): void {
     if (showMoreMenu) closeMoreMenu();
-    else showMoreMenu = true;
+    else {
+      playlistTrack = null;
+      showMoreMenu = true;
+    }
   }
 
   function closeMoreMenu(): void {
     showMoreMenu = false;
-    playlistTrack = null;
   }
 
   async function openPlaylistPicker(): Promise<void> {
     if (!auth.isLoggedIn || !auth.cookieOk) { showMenuMessage('请先登录'); return; }
     const id = player.id;
     if (!id || !canAddToPlaylist) return;
+    const sheet = moreMenuElement;
+    if ($responsive.isMobile && sheet) {
+      sheet.style.height = `${sheet.offsetHeight}px`;
+    }
     playlistTrack = { id, title: displayTitle, cover: displayCover, artist: player.artist || '' };
     await tick();
-    moreMenuElement?.querySelector<HTMLElement>('.song-menu__panel-head button')?.focus({ preventScroll: true });
+    if (showMoreMenu && playlistTrack?.id === id) {
+      animatePlaylistPage(8, '.song-menu__panel-head button');
+    }
   }
 
   function closePlaylistPicker(): void {
     playlistTrack = null;
-    void tick().then(() => moreMenuElement?.querySelector<HTMLElement>('.am-more-item[aria-label="添加到歌单"]')?.focus({ preventScroll: true }));
+    void tick().then(() => {
+      if (showMoreMenu && !playlistTrack) {
+        animatePlaylistPage(-8, '.am-more-item[aria-label="添加到歌单"]');
+        moreMenuElement?.style.removeProperty('height');
+      }
+    });
+  }
+
+  function animatePlaylistPage(offset: number, focusSelector: string): void {
+    const body = moreMenuElement?.querySelector<HTMLElement>('.am-more-body');
+    if (!body) return;
+    body.scrollTop = 0;
+    if ($responsive.isMobile && !reducedMotion()) {
+      body.getAnimations().forEach(animation => animation.cancel());
+      body.animate(
+        [{ opacity: 0, transform: `translateX(${offset}px)` }, { opacity: 1, transform: 'none' }],
+        { duration: 180, easing: 'ease-out' },
+      );
+    }
+    body.querySelector<HTMLElement>(focusSelector)?.focus({ preventScroll: true });
   }
 
   function openSecondaryPanel(panel: Panel): void {
