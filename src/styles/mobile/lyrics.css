@@ -75,7 +75,7 @@ html.mobile-runtime .ly-container .am-more-shell { position: relative; inset: au
 html.mobile-runtime .ly-container .am-more-btn { width: 44px; height: 44px; background: rgba(255,255,255,.14); border-radius: 50%; box-shadow: none; backdrop-filter: none; }
 html.mobile-runtime .m-player-dismiss { position: absolute; top: calc(var(--player-titlebar-offset, 0px) + env(safe-area-inset-top)); left: calc(50% - 48px); width: 96px; height: 48px; z-index: 1001; display: grid; place-items: center; background: none; touch-action: none; }
 html.mobile-runtime .m-player-dismiss::before {
-  content: ''; position: absolute; top: 12px; inset-inline: 0; margin-inline: auto; width: 34px; height: 4px;
+  content: ''; position: absolute; top: 12px; inset-inline: 0; margin-inline: auto; width: 64px; height: 6px;
   border-radius: 999px; background: #fff; box-shadow: 0 0 8px rgb(255 255 255 / .35);
   opacity: 0; transform: translateY(-2px) scaleX(.72);
   transition: opacity 220ms ease-out, transform 260ms ease-out;
