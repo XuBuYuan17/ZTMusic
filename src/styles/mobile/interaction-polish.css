@@ -58,22 +58,6 @@ html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .mobile-choi
   overscroll-behavior: contain;
 }
 
-/* The drag handle already communicates dismissal on mobile. Removing the extra
- * “更多操作” row gives the track context and actions the vertical space instead. */
-html.mobile-runtime body .am-more-menu[data-bottom-panel] .mobile-more-header {
-  display: none;
-}
-
-html.mobile-runtime body .am-more-menu[data-bottom-panel] .am-more-body {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  overscroll-behavior: contain;
-}
-
 /* Legacy text controls need the same geometry as the shared SVG control. */
 html.mobile-runtime .m-track-more {
   font-size: 0 !important;

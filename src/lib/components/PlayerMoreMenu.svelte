@@ -92,12 +92,14 @@
     {#if !desktopAnchor}
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     {/if}
-      <header class="mobile-more-header"><h2>更多操作</h2><button type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button></header>
-      <div class="am-more-body">
-      <div class="am-more-track" aria-hidden="true">
+      <header class="am-more-track">
         {#if cover}<img src={cover} alt="" referrerpolicy="no-referrer" />{/if}
         <span><strong>{title}</strong><small>{artist}</small></span>
-      </div>
+        {#if !desktopAnchor}
+          <button class="am-more-close" type="button" aria-label="关闭更多操作" onclick={() => onClose?.()}><Icon name="close" size={20} /></button>
+        {/if}
+      </header>
+      <div class="am-more-body">
       {#if showItems}{#each groups as group}
         <div class="am-more-group" role={group.label ? 'group' : undefined} aria-label={group.label || undefined}>
         {#each group.items as item}
@@ -118,7 +120,7 @@
 </div>
 
 <style>
-  .mobile-more-header { display: none; }
+  .am-more-close { display: none; }
   .am-more-body { display: contents; }
   .am-more-shell {
     position: absolute;

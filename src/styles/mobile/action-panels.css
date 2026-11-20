@@ -54,7 +54,7 @@ html.mobile-runtime body .queue-panel.queue-panel-mobile-visible {
   max-height: min(64dvh, 540px);
 }
 
-html.mobile-runtime body .song-menu {
+html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics)) {
   top: auto !important;
   left: max(var(--mobile-action-panel-gap), env(safe-area-inset-left)) !important;
   right: max(var(--mobile-action-panel-gap), env(safe-area-inset-right)) !important;
@@ -68,7 +68,6 @@ html.mobile-runtime body .song-menu {
 html.mobile-runtime body :is(
   .mobile-choice-sheet,
   .playlist-action-sheet.mobile-choice-sheet,
-  .am-more-menu[data-bottom-panel],
   .am-secondary-sheet[data-bottom-panel]
 ) {
   padding-bottom: 8px;
@@ -102,7 +101,6 @@ html.mobile-runtime body .m-sheet-handle::before {
 
 html.mobile-runtime body :is(
   .mobile-choice-sheet > header,
-  .mobile-more-header,
   .am-secondary-header,
   .queue-header
 ) {
@@ -114,7 +112,6 @@ html.mobile-runtime body :is(
 
 html.mobile-runtime body :is(
   .mobile-choice-sheet h2,
-  .mobile-more-header h2,
   .am-secondary-title,
   .queue-title
 ) {
@@ -126,7 +123,6 @@ html.mobile-runtime body :is(
 
 html.mobile-runtime body :is(
   .mobile-choice-done,
-  .mobile-more-header button,
   .am-secondary-close,
   .queue-close-btn,
   .song-menu__close
@@ -186,17 +182,13 @@ html.mobile-runtime body :is(
   background: var(--md-primary-container);
 }
 
-html.mobile-runtime body .am-more-item { gap: 16px; min-height: 48px; }
 html.mobile-runtime body .am-more-menu[data-bottom-panel] { background: var(--md-container-highest); }
-html.mobile-runtime body .am-more-menu .am-more-group { display: grid; flex: none; margin: 6px 4px 0; padding: 4px 8px; border-radius: var(--radius-md); background: var(--md-container-high); }
-html.mobile-runtime body .am-more-menu .am-more-group .am-more-item { border-radius: var(--radius-md); }
-html.mobile-runtime body .am-more-menu .am-more-group .am-more-item:not(:last-child) { box-shadow: inset 0 -1px var(--border); }
-html.mobile-runtime body .am-more-item > svg {
+html.mobile-runtime body .am-more-body .am-more-item > svg {
   width: 22px;
   height: 22px;
   padding: 0;
   flex: 0 0 22px;
-  color: var(--md-primary);
+  color: inherit;
   background: transparent;
 }
 
@@ -206,45 +198,13 @@ html.mobile-runtime body .am-secondary-row.active {
   background: var(--md-primary-container);
 }
 
-/* Player “more” menu: distinguish the current track from the actions below. */
-html.mobile-runtime body .mobile-more-header {
-  display: flex;
-}
-
-html.mobile-runtime body .am-more-track {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  margin: 0 4px 6px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--md-container-high);
-  text-align: left;
-}
-
 html.mobile-runtime body .am-more-track img {
-  width: 58px;
-  height: 58px;
-  border-radius: var(--radius-md);
-  box-shadow: 0 5px 14px rgb(0 0 0 / .14);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
 }
-html.mobile-runtime body .am-more-track span { min-width: 0; }
-html.mobile-runtime body .am-more-track span:only-child { grid-column: 1 / -1; }
-
-html.mobile-runtime body .am-more-track strong {
-  display: -webkit-box;
-  overflow: hidden;
-  white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  max-width: 100%;
-  font-size: 16px;
-  line-height: 21px;
-  font-weight: 700;
-}
+html.mobile-runtime body .am-more-track > span:first-child { grid-column: 1 / 3; }
+html.mobile-runtime body .am-more-track .am-more-close { display: grid; place-items: center; width: 48px; height: 48px; color: var(--text-secondary); }
 
 html.mobile-runtime body .am-more-track small,
 html.mobile-runtime body .am-more-message {
@@ -258,12 +218,13 @@ html.mobile-runtime body .am-more-message {
   padding: 2px 12px 0;
 }
 
-html.mobile-runtime body .song-menu__header {
+html.mobile-runtime body :is(.song-menu__header, .am-more-track) {
   flex: none;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 48px;
   align-items: center;
   gap: 10px;
+  min-height: 0;
   margin: 0 14px;
   padding: 4px 0 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
@@ -288,7 +249,7 @@ html.mobile-runtime body .song-menu__title {
   min-width: 0;
 }
 
-html.mobile-runtime body .song-menu__title strong {
+html.mobile-runtime body :is(.song-menu__title, .am-more-track) strong {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -311,17 +272,18 @@ html.mobile-runtime body .song-menu__title span {
   text-overflow: ellipsis;
 }
 
-html.mobile-runtime body .song-menu__body {
+html.mobile-runtime body :is(.song-menu__body, .am-more-body) {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  gap: 0;
   min-height: 0;
   padding: 4px 14px 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-html.mobile-runtime body .song-menu__group {
+html.mobile-runtime body :is(.song-menu__group, .am-more-group) {
   display: grid;
   flex: none;
   gap: 0;
@@ -330,7 +292,7 @@ html.mobile-runtime body .song-menu__group {
   border: 0;
 }
 
-html.mobile-runtime body .song-menu__group + .song-menu__group {
+html.mobile-runtime body :is(.song-menu__group + .song-menu__group, .am-more-group + .am-more-group) {
   border-top: 1px solid var(--border);
 }
 
@@ -587,12 +549,13 @@ html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-opt
   background: var(--md-container-high);
 }
 
-html.mobile-runtime body .song-menu {
+html.mobile-runtime body :is(.song-menu, .am-more-menu[data-bottom-panel]:not(.desktop-lyrics)) {
   max-height: min(78dvh, calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))));
 }
 
 html.mobile-runtime body .song-menu.panel .song-menu__body { overflow: hidden; }
 html.mobile-runtime body .song-menu .song-menu__item.primary { color: var(--md-primary); }
+html.mobile-runtime body .am-more-menu .am-more-item[aria-checked="true"] { color: var(--md-primary); }
 html.mobile-runtime body .song-menu .song-menu__item--danger { color: color-mix(in srgb, var(--danger) 72%, var(--text)); }
 
 html.mobile-runtime body .sort-sheet-direction {
