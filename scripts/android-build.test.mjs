@@ -15,7 +15,7 @@ assert.deepEqual([...triggers.matchAll(/^  ([a-z_]+):/gm)].map(match => match[1]
 assert.match(triggers, /options: \[debug, release\]/, 'both debug and optimized release must be selectable')
 assert.match(triggers, /default: debug/, 'existing test builds keep their default')
 assert.match(workflow, /permissions:\r?\n  contents: read/, 'Android packaging does not need release permissions')
-assert.ok(!/action-gh-release|gh release|pull_request_target|secrets\./.test(workflow), 'test builds must not publish or depend on secrets')
+assert.ok(!/action-gh-release|gh release|pull_request_target/.test(workflow), 'test builds must not publish or run on untrusted triggers')
 assert.match(workflow, /cancel-in-progress: false/, 'test signing-key initialization is serialized')
 
 const config = JSON.parse(workflow.match(/^  ANDROID_CONFIG: '(.+)'$/m)?.[1] ?? '{}')
@@ -35,7 +35,11 @@ assert.match(workflow, /apksigner" verify --verbose/, 'reject an unsigned or inv
 assert.match(workflow, /name: Test Android native plugin[\s\S]*?\.\/gradlew testDebugUnitTest/, 'native plugin unit tests must run in remote CI')
 assert.match(workflow, /if-no-files-found: error/, 'missing output must fail the build')
 assert.match(workflow, /path: src-tauri\/gen\/android\/app\/build\/outputs\/apk\/\*\*\/\*\.apk/, 'upload APKs only, excluding keystores and generated source')
-assert.match(workflow, /path: ~\/\.android\/debug\.keystore/, 'cache the test certificate for repeat installations')
+assert.ok(!/path: ~\/\.android\/debug\.keystore/.test(workflow), 'private keys must not be stored in Actions cache')
+assert.match(workflow, /secrets\.ANDROID_TEST_KEYSTORE_BASE64/)
+assert.match(workflow, /secrets\.ANDROID_TEST_KEYSTORE_PASSWORD/)
+assert.match(workflow, /apksigner" sign[\s\S]*?--ks-key-alias zheting-test[\s\S]*?--out "\$apk\.signed" "\$apk"/, 'both modes must use the persistent test key')
+assert.match(workflow, /trap 'rm -f "\$keystore"' EXIT/, 'the temporary key is removed after signing')
 assert.match(workflow, /android-aarch64-\$\{\{ inputs.build_type \}\}/, 'debug and release Rust caches stay separate')
 assert.match(workflow, /zheting-android-arm64-\$\{\{ inputs.build_type \}\}/, 'artifact names identify the selected mode')
 
