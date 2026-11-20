@@ -318,7 +318,6 @@
         <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} class:playlist-source-outgoing={playlistSourceKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
           <div class="library-mobile-header">
             <h1 class="mobile-large-title">{titles.library}</h1>
-            <div class="library-mobile-header__actions"><button type="button" aria-label="搜索音乐" onclick={() => handleNav('search')}><Icon name="search" size={22} /></button><button type="button" aria-label="打开设置" onclick={() => handleNav('settings')}><Icon name="settings" size={22} /></button></div>
           </div>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
@@ -401,10 +400,8 @@
   .settings-view.secondary :global(.mobile-page-content) { touch-action: pan-y; }
   :global(html.mobile-runtime) .primary-content { padding-top: calc(16px + env(safe-area-inset-top)); }
   .settings-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
-  .library-mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 560px; margin: 0 auto 16px; padding-block: 4px 10px; border-bottom: 1px solid var(--border); }
+  .library-mobile-header { max-width: 560px; margin: 0 auto 16px; padding-block: 4px 10px; border-bottom: 1px solid var(--border); }
   .library-mobile-header :global(.mobile-large-title) { margin: 0; padding: 0; border: 0; font-size: 30px; }
-  .library-mobile-header__actions { display: flex; flex: none; }
-  .library-mobile-header__actions button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); }
   .settings-title-row :global(.mobile-large-title) { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
   .settings-menu-button { display: grid; place-items: center; flex: none; width: 48px; height: 48px; color: var(--accent); background: transparent; }
   .settings-menu-button :global(svg) { rotate: 90deg; }
