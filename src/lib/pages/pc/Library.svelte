@@ -1,5 +1,4 @@
 <script module lang="ts">
-  let librarySnapshot: { userId: unknown; library: unknown; likedCovers: string[] } | null = null
   let libraryReturn: { userId: unknown; group: string; playlistId: string; scrollTop: number } | null = null
 </script>
 
@@ -8,6 +7,8 @@
   import type { NormalizedPlaylist } from '../../utils/normalize.ts'
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
+  import { apiSession } from '../../api/session.ts'
+  import { readPageSnapshot, savePageSnapshot } from '../../utils/storage.ts'
   import { normalizePlaylist } from '../../utils/normalize.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import ConfirmDialog from '../../components/ConfirmDialog.svelte'
@@ -50,12 +51,13 @@
     onNavigate?: (view: string) => void
   } = $props()
 
-  const initial = librarySnapshot?.userId === auth.user?.userId ? librarySnapshot : null
-  let library = $state<LibraryData | null>((initial?.library as LibraryData | undefined) ?? null)
+  const initialScope = libraryScope()
+  const initial = readLibrarySnapshot(initialScope)
+  let library = $state<LibraryData | null>(initial?.library ?? null)
   let loading = $state(false)
   let error = $state('')
   let _requestId = 0
-  let ownerId = initial?.userId ?? null
+  let ownerScope = initialScope
   const returning = router.routeTransition === 'back' && router.previousView === 'playlist' && libraryReturn?.userId === auth.user?.userId ? libraryReturn : null
   let expandedCollection = $state<string | null>(returning?.group ?? null)
   const scrollViewport = getScrollViewport()
@@ -213,16 +215,29 @@
   // 喜爱歌曲卡封面瀑布流：只取前 8 首的封面
   let likedCovers = $state<string[]>(initial?.likedCovers ?? [])
 
-  function save(): void {
-    librarySnapshot = { userId: auth.user?.userId, library, likedCovers: [...likedCovers] }
+  function libraryScope(): string | null {
+    const uid = auth.user?.userId
+    return auth.isLoggedIn && uid ? JSON.stringify([apiSession.getBase(), String(uid)]) : null
   }
 
-  async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number): Promise<void> {
+  function readLibrarySnapshot(scope: string | null) {
+    if (!scope) return null
+    const snapshot = readPageSnapshot<{ library: LibraryData; likedCovers: string[] }>('startup-library-v1', scope)
+    return snapshot?.library?.profile && snapshot.library.stats &&
+      Array.isArray(snapshot.library.createdPlaylists) && Array.isArray(snapshot.library.savedPlaylists) &&
+      Array.isArray(snapshot.likedCovers) ? snapshot : null
+  }
+
+  function save(scope: string): void {
+    savePageSnapshot('startup-library-v1', scope, { library, likedCovers })
+  }
+
+  async function loadLikedCovers(liked: NormalizedPlaylist | null, rid: number, scope: string): Promise<void> {
     const id = liked?.id
     if (!id) { likedCovers = []; return }
     try {
       const res = await ncm.playlistTracks(id as SongId, 8, 0)
-      if (rid !== _requestId) return
+      if (rid !== _requestId || scope !== libraryScope()) return
       const r = rec(res)
       const songs = Array.isArray(r?.songs) ? r.songs : []
       likedCovers = songs.map((s) => {
@@ -230,7 +245,7 @@
         const pic = rec(x?.al)?.picUrl ?? rec(x?.album)?.picUrl
         return typeof pic === 'string' ? pic : ''
       }).filter(Boolean)
-      save()
+      save(scope)
     } catch {
       // 拉不到就回退灰底红星
     }
@@ -258,18 +273,18 @@
 
   async function load(): Promise<void> {
     const rid = ++_requestId; loading = true; error = ''
-    if (!auth.isLoggedIn) { loading = false; library = null; return }
+    const scope = libraryScope()
+    if (!scope) { loading = false; library = null; return }
     try {
       const rawUid: unknown = auth.user?.userId || auth.user?.id
       const uid: SongId = typeof rawUid === 'number' || typeof rawUid === 'string' ? rawUid : 0
-      const owner: unknown = rawUid
       const [all, subRes, detailRes] = await Promise.all([
-        loadLibraryPlaylists(ncm.userPlaylist, uid, () => rid === _requestId && (auth.user?.userId || auth.user?.id) === owner),
+        loadLibraryPlaylists(ncm.userPlaylist, uid, () => rid === _requestId && scope === libraryScope()),
         ncm.userSubcount().catch(() => ({})),
         ncm.userDetail(uid).catch(() => ({})),
       ])
       // 请求期间换号时，过期结果不得写进新账号的状态与快照
-      if (rid !== _requestId || (auth.user?.userId || auth.user?.id) !== owner) return
+      if (rid !== _requestId || scope !== libraryScope()) return
 
       const saved = all.filter(p => !isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
       const created = all.filter(p => isOwnPlaylist(p, uid)).map(normalizePlaylist).filter((p): p is NormalizedPlaylist => p !== null)
@@ -288,11 +303,13 @@
       const createdCount = count(sub.createdPlaylistCount)
       const savedCount = count(sub.subPlaylistCount)
 
+      const previous = library
+      if (!liked || String(liked.id) !== String(previous?.likedPlaylist?.id)) likedCovers = []
       library = {
         stats: {
-          follow: count(profile.follows ?? detail.follows ?? sub.followCount),
-          fans: count(profile.followeds ?? detail.followeds ?? sub.followedCount),
-          playlist: createdCount !== null && savedCount !== null ? createdCount + savedCount : count(profile.playlistCount ?? detail.playlistCount),
+          follow: count(profile.follows ?? detail.follows ?? sub.followCount) ?? previous?.stats.follow ?? null,
+          fans: count(profile.followeds ?? detail.followeds ?? sub.followedCount) ?? previous?.stats.fans ?? null,
+          playlist: createdCount !== null && savedCount !== null ? createdCount + savedCount : count(profile.playlistCount ?? detail.playlistCount) ?? previous?.stats.playlist ?? null,
         },
         createdPlaylists: created,
         savedPlaylists: saved,
@@ -300,15 +317,15 @@
         profile: {
           nickname: String(profile.nickname ?? auth.user?.nickname ?? ''),
           avatarUrl: String(profile.avatarUrl ?? auth.user?.avatarUrl ?? ''),
-          backgroundUrl: String(profile.backgroundUrl ?? profile.backgroundImageUrl ?? ''),
-          identityLabel: String(mainAuth.desc ?? identify.imageDesc ?? profile.detailDescription ?? ''),
-          signature: String(profile.signature ?? ''),
-          level: count(detail.level ?? profile.level),
-          listenSongs: count(detail.listenSongs ?? profile.listenSongs),
+          backgroundUrl: String(profile.backgroundUrl ?? profile.backgroundImageUrl ?? previous?.profile.backgroundUrl ?? ''),
+          identityLabel: String(mainAuth.desc ?? identify.imageDesc ?? profile.detailDescription ?? previous?.profile.identityLabel ?? ''),
+          signature: String(profile.signature ?? previous?.profile.signature ?? ''),
+          level: count(detail.level ?? profile.level) ?? previous?.profile.level ?? null,
+          listenSongs: count(detail.listenSongs ?? profile.listenSongs) ?? previous?.profile.listenSongs ?? null,
         },
       }
-      save()
-      void loadLikedCovers(liked, rid)
+      save(scope)
+      void loadLikedCovers(liked, rid, scope)
     } catch (e) {
       if (rid === _requestId) error = ((e as { message?: unknown } | null | undefined)?.message || '加载失败') as string
     } finally {
@@ -379,8 +396,10 @@
 
   $effect(() => {
     const uid = auth.user?.userId ?? null
-    if (!auth.isLoggedIn || uid !== ownerId) {
-      _requestId++; library = null; likedCovers = []; ownerId = uid
+    const scope = libraryScope()
+    if (scope !== ownerScope) {
+      const snapshot = readLibrarySnapshot(scope)
+      _requestId++; library = snapshot?.library ?? null; likedCovers = snapshot?.likedCovers ?? []; ownerScope = scope
       libraryReturn = null
       dismissPlaylistManager(); closeOptions(); showCreateModal = false; editTarget = null; groupTarget = null; deleteTarget = null; unsubscribeTarget = null
     }

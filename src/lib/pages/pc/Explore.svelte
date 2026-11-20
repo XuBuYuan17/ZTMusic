@@ -8,8 +8,10 @@
   let exploreSnapshot: ExploreData | null = null
   let exploreSnapshotAt = 0
   let exploreSnapshotOwner: unknown = null
+  let exploreSnapshotScope = ''
   let toplistsSnapshot: Toplist[] = []
   let toplistsSnapshotAt = 0
+  let toplistsSnapshotBase = ''
   const SNAPSHOT_TTL = 5 * 60 * 1000
 </script>
 
@@ -25,6 +27,8 @@
   import { coverUrl, coverRectUrl, progressiveCover, preloadCover } from '../../utils/image.ts'
   import ErrorBlock from '../../components/ui/ErrorBlock.svelte'
   import { ncm } from '../../api/client.ts'
+  import { apiSession } from '../../api/session.ts'
+  import { readPageSnapshot, savePageSnapshot } from '../../utils/storage.ts'
   import { loadCachedExploreData as fetchExploreData } from '../../services/explore.ts'
   import { loadToplistsData } from '../../services/home.ts'
   import FeaturedContent from '../../components/FeaturedContent.svelte'
@@ -61,8 +65,11 @@
   } = $props()
 
   const initialOwner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
-  const initialExplore = exploreSnapshotOwner === initialOwner && Date.now() - exploreSnapshotAt < SNAPSHOT_TTL ? exploreSnapshot : null
-  const toplistsAreFresh = toplistsSnapshot.length > 0 && Date.now() - toplistsSnapshotAt < SNAPSHOT_TTL
+  const initialScope = exploreScope(initialOwner)
+  const initialExplore = exploreSnapshotOwner === initialOwner && exploreSnapshotScope === initialScope && Date.now() - exploreSnapshotAt < SNAPSHOT_TTL
+    ? exploreSnapshot : readExploreSnapshot(initialScope)
+  const initialToplists = readPageSnapshot<Toplist[]>('startup-toplists-v1', apiSession.getBase())
+  const toplistsAreFresh = toplistsSnapshotBase === apiSession.getBase() && toplistsSnapshot.length > 0 && Date.now() - toplistsSnapshotAt < SNAPSHOT_TTL
 
   let exploreLoading = $state(!initialExplore)
   let exploreBanners = $state<ExploreData['banners']>(initialExplore?.banners ?? [])
@@ -71,13 +78,32 @@
   let exploreRecommendSongs = $state<NormalizedSong[]>(initialExplore?.recommendSongs ?? [])
   let exploreNewAlbums = $state<NormalizedAlbum[]>(initialExplore?.newAlbums ?? [])
   let exploreBlocks = $state<HomepageBlock[]>(initialExplore?.blocks ?? [])
-  let toplists = $state<Toplist[]>(toplistsSnapshot)
+  let toplists = $state<Toplist[]>(toplistsAreFresh ? toplistsSnapshot : Array.isArray(initialToplists) ? initialToplists : [])
   let toplistsLoading = $state(false)
   let toplistsLoaded = $state(toplistsAreFresh)
   let toplistsError = $state('')
   let error = $state('')
   let bindSongRow = $state<((track: unknown) => { oncontextmenu: (event: MouseEvent) => void }) | null>(null)
   let requestId = 0
+  let displayedScope = initialScope
+
+  function exploreScope(owner: typeof initialOwner): string {
+    return JSON.stringify([apiSession.getBase(), owner?.userId == null ? null : String(owner.userId)])
+  }
+
+  function readExploreSnapshot(scope: string): ExploreData | null {
+    const data = readPageSnapshot<ExploreData>('startup-explore-v1', scope)
+    return data && [data.banners, data.personalized, data.topPlaylists, data.recommendSongs, data.newAlbums, data.blocks].every(Array.isArray) ? data : null
+  }
+
+  function showExplore(data: ExploreData | null): void {
+    exploreBanners = data?.banners ?? []
+    explorePersonalized = data?.personalized ?? []
+    exploreTopPlaylists = data?.topPlaylists ?? []
+    exploreRecommendSongs = data?.recommendSongs ?? []
+    exploreNewAlbums = data?.newAlbums ?? []
+    exploreBlocks = data?.blocks ?? []
+  }
 
   function errorMessage(e: unknown): string {
     return (e as { message?: string } | null | undefined)?.message || '加载失败'
@@ -85,16 +111,24 @@
 
   async function loadExplore(refresh = false): Promise<void> {
     const owner = auth.isLoggedIn && auth.cookieOk ? auth.user : null
+    const scope = exploreScope(owner)
+    const sessionVersion = apiSession.getVersion()
     const rid = ++requestId
-    if (exploreSnapshotOwner !== owner) {
-      exploreBanners = []; explorePersonalized = []; exploreTopPlaylists = []; exploreRecommendSongs = []; exploreNewAlbums = []; exploreBlocks = []
+    if (displayedScope !== scope) {
+      displayedScope = scope
+      showExplore(readExploreSnapshot(scope))
     }
-    exploreLoading = !exploreSnapshot || exploreSnapshotOwner !== owner; error = ''
+    exploreLoading = true; error = ''
     try {
       const d = await fetchExploreData(ncm, owner, refresh)
-      if (rid !== requestId || owner !== (auth.isLoggedIn && auth.cookieOk ? auth.user : null)) return
-      exploreSnapshot = d; exploreSnapshotOwner = owner; exploreSnapshotAt = Date.now(); exploreBanners = d.banners; explorePersonalized = d.personalized; exploreTopPlaylists = d.topPlaylists; exploreRecommendSongs = d.recommendSongs; exploreNewAlbums = d.newAlbums; exploreBlocks = d.blocks
-      if (d.allFailed && !d.banners.length && !d.blocks.length) error = '发现页加载失败'
+      if (rid !== requestId || sessionVersion !== apiSession.getVersion() || owner !== (auth.isLoggedIn && auth.cookieOk ? auth.user : null)) return
+      if (![d.banners, d.personalized, d.topPlaylists, d.recommendSongs, d.newAlbums, d.blocks].some(items => items.length)) {
+        error = '发现页加载失败'
+        return
+      }
+      exploreSnapshot = d; exploreSnapshotOwner = owner; exploreSnapshotAt = Date.now(); exploreSnapshotScope = scope
+      showExplore(d)
+      if (owner?.userId || !apiSession.getCookie()) savePageSnapshot('startup-explore-v1', scope, d)
     } catch (e) { if (rid === requestId) error = errorMessage(e) }
     finally { if (rid === requestId) exploreLoading = false }
   }
@@ -102,8 +136,14 @@
   async function loadToplists(): Promise<void> {
     // 失败只记在榜单自己的状态里：榜单挂了不该让整页显示错误块
     toplistsError = ''
-    toplistsLoading = toplistsSnapshot.length === 0
-    try { toplists = await loadToplistsData(ncm) as unknown as Toplist[]; toplistsSnapshot = toplists; toplistsSnapshotAt = Date.now() }
+    toplistsLoading = toplists.length === 0
+    const base = apiSession.getBase()
+    try {
+      const lists = await loadToplistsData(ncm) as unknown as Toplist[]
+      if (base !== apiSession.getBase() || !lists.length) return
+      toplists = lists; toplistsSnapshot = lists; toplistsSnapshotAt = Date.now(); toplistsSnapshotBase = base
+      savePageSnapshot('startup-toplists-v1', base, lists)
+    }
     catch (e) { toplistsError = errorMessage(e) }
     finally { toplistsLoading = false; toplistsLoaded = true }
   }
@@ -137,7 +177,7 @@
   const songPanelTitle = $derived(primarySongBlock?.title || '新歌精选')
 
   // 加载生命周期：初载（无内容）→ 缓存（有内容）→ 后台刷新（有内容且在请求）→ 失败（有内容则降级为提示）
-  const hasContent = $derived(Boolean(exploreBanners.length || explorePersonalized.length || exploreTopPlaylists.length || exploreNewAlbums.length || exploreBlocks.length))
+  const hasContent = $derived(Boolean(exploreBanners.length || explorePersonalized.length || exploreTopPlaylists.length || exploreRecommendSongs.length || exploreNewAlbums.length || exploreBlocks.length))
   const phase = $derived.by(() => {
     if (!hasContent) return error ? 'failed' : 'initial'
     if (exploreLoading) return 'refreshing'

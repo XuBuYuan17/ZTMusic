@@ -34,7 +34,7 @@ assert.ok(!/exploreBanners = \[\]/.test(catchBlock), 'a failed refresh must not 
 assert.ok(catchBlock.includes('error = errorMessage(e)'), 'a failed refresh records an error')
 
 // ── 4) 账号切换不混用 ──
-assert.ok(source.includes('if (exploreSnapshotOwner !== owner) {'), 'a different account clears the previous lists')
+assert.ok(source.includes('if (displayedScope !== scope) {') && source.includes('showExplore(readExploreSnapshot(scope))'), 'a different account only displays its own cached lists')
 assert.ok(source.includes('owner !== (auth.isLoggedIn && auth.cookieOk ? auth.user : null)'), 'a late response from the previous account is dropped')
 assert.ok(source.includes('if (rid !== requestId'), 'a superseded request is dropped')
 
