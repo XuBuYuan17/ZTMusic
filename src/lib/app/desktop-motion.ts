@@ -207,7 +207,7 @@ export function dialogFocus(node: HTMLElement, close: () => void) {
   const mobile = document.documentElement.classList.contains('mobile-runtime')
   // The secondary sheet already owns focus/isolation. A nested comment dialog
   // must not make the sheet's header and close button inert.
-  if (mobile && node.matches('.ly-context-detail--mobile') && node.parentElement?.closest('.am-secondary-sheet')) {
+  if (mobile && node.matches('.ly-context-detail--mobile') && node.parentElement?.closest('.am-secondary-context')) {
     return { destroy() {} }
   }
   const previous = document.activeElement as HTMLElement | null

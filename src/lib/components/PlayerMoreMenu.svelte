@@ -32,6 +32,7 @@
     onDismiss,
     showItems = true,
     children,
+    nested,
   }: {
     open?: boolean
     onToggle?: () => void
@@ -47,6 +48,7 @@
     onDismiss?: () => void
     showItems?: boolean
     children?: Snippet
+    nested?: Snippet
   } = $props();
 
   const groups = $derived.by(() => {
@@ -112,6 +114,7 @@
         <div class="am-more-message" aria-live="polite">{message}</div>
       {/if}
       </div>
+      {@render nested?.()}
     </div>
   {/if}
 </div>

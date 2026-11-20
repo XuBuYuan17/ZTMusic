@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
   import { createMobilePlayerMotion } from '../app/mobile-player-motion.ts';
-  import { reducedMotion } from '../app/desktop-motion.ts';
   import { responsive } from '../utils/responsive.ts';
   import { playerSurfaceGesture } from '../player-motion/gesture.ts';
   import type { PlayerSurfaceController } from '../player-motion/controller.ts';
@@ -23,6 +22,7 @@
   import QueuePanel from './QueuePanel.svelte';
   import PlayerMoreMenu from './PlayerMoreMenu.svelte';
   import SongPlaylistPanel from './SongPlaylistPanel.svelte';
+  import NestedActionSheet from './NestedActionSheet.svelte';
   import PlayerSecondarySheet, { type Panel, type StripPanel } from './PlayerSecondarySheet.svelte';
   import PlayerLyrics from './PlayerLyrics.svelte';
   import StartupArtwork from './StartupArtwork.svelte';
@@ -124,10 +124,10 @@
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
     { label: '专辑', icon: 'disc', action: openAlbum, disabled: !album?.id, group: '歌曲内容' },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
-    { label: '热评', icon: 'messages', action: () => openSecondaryPanel('comments'), disabled: !player.id },
-    { label: '相似歌单', icon: 'library-music', action: () => openSecondaryPanel('playlists'), disabled: !player.id },
-    { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'audio-quality', action: () => openSecondaryPanel('quality'), group: '播放与外观' },
-    { label: '播放器主题', icon: 'palette', action: () => openSecondaryPanel('theme') },
+    { label: '热评', icon: 'messages', action: () => openSecondaryPanel('comments'), disabled: !player.id, keepOpen: $responsive.isMobile },
+    { label: '相似歌单', icon: 'library-music', action: () => openSecondaryPanel('playlists'), disabled: !player.id, keepOpen: $responsive.isMobile },
+    { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'audio-quality', action: () => openSecondaryPanel('quality'), group: '播放与外观', keepOpen: $responsive.isMobile },
+    { label: '播放器主题', icon: 'palette', action: () => openSecondaryPanel('theme'), keepOpen: $responsive.isMobile },
     { label: '切换应用外观', icon: 'moon', action: toggleTheme },
   ]);
 
@@ -198,49 +198,32 @@
 
   function closeMoreMenu(): void {
     showMoreMenu = false;
+    closeSecondaryPanel();
+  }
+
+  function dismissMoreMenu(): void {
+    if (playlistTrack) closePlaylistPicker();
+    else if (secondaryPanel) closeSecondaryPanel();
+    else closeMoreMenu();
   }
 
   async function openPlaylistPicker(): Promise<void> {
     if (!auth.isLoggedIn || !auth.cookieOk) { showMenuMessage('请先登录'); return; }
     const id = player.id;
     if (!id || !canAddToPlaylist) return;
-    const sheet = moreMenuElement;
-    if ($responsive.isMobile && sheet) {
-      sheet.style.height = `${sheet.offsetHeight}px`;
-    }
     playlistTrack = { id, title: displayTitle, cover: displayCover, artist: player.artist || '' };
+    if ($responsive.isMobile) return;
     await tick();
-    if (showMoreMenu && playlistTrack?.id === id) {
-      animatePlaylistPage(8, '.song-menu__panel-head button');
-    }
+    moreMenuElement?.querySelector<HTMLElement>('.song-menu__panel-head button')?.focus({ preventScroll: true });
   }
 
   function closePlaylistPicker(): void {
     playlistTrack = null;
-    void tick().then(() => {
-      if (showMoreMenu && !playlistTrack) {
-        animatePlaylistPage(-8, '.am-more-item[aria-label="添加到歌单"]');
-        moreMenuElement?.style.removeProperty('height');
-      }
-    });
-  }
-
-  function animatePlaylistPage(offset: number, focusSelector: string): void {
-    const body = moreMenuElement?.querySelector<HTMLElement>('.am-more-body');
-    if (!body) return;
-    body.scrollTop = 0;
-    if ($responsive.isMobile && !reducedMotion()) {
-      body.getAnimations().forEach(animation => animation.cancel());
-      body.animate(
-        [{ opacity: 0, transform: `translateX(${offset}px)` }, { opacity: 1, transform: 'none' }],
-        { duration: 180, easing: 'ease-out' },
-      );
-    }
-    body.querySelector<HTMLElement>(focusSelector)?.focus({ preventScroll: true });
+    if (!$responsive.isMobile) void tick().then(() => moreMenuElement?.querySelector<HTMLElement>('.am-more-item[aria-label="添加到歌单"]')?.focus({ preventScroll: true }));
   }
 
   function openSecondaryPanel(panel: Panel): void {
-    showMoreMenu = false;
+    if (!$responsive.isMobile) showMoreMenu = false;
     secondaryPanel = panel;
     if (panel === 'comments' || panel === 'playlists') contextPanelRequest = panel;
   }
@@ -365,21 +348,32 @@
   <PlayerMoreMenu
     open={showMoreMenu}
     onToggle={toggleMoreMenu}
-    onClose={closeMoreMenu}
-    onDismiss={() => playlistTrack ? closePlaylistPicker() : closeMoreMenu()}
+    onClose={dismissMoreMenu}
+    onDismiss={$responsive.isMobile ? closeMoreMenu : dismissMoreMenu}
     bind:menuElement={moreMenuElement}
     items={moreMenuItems}
-    showItems={!playlistTrack}
+    showItems={$responsive.isMobile || !playlistTrack}
     message={menuMessage}
     cover={coverUrl(playlistTrack?.cover ?? displayCover, 96)}
     title={playlistTrack?.title ?? displayTitle}
     artist={playlistTrack?.artist ?? (player.artist || '')}
   >
-    {#if playlistTrack}
+    {#if playlistTrack && !$responsive.isMobile}
       <div class="song-menu__playlist-page">
         <SongPlaylistPanel active trackId={playlistTrack.id} trackName={playlistTrack.title} onBack={closePlaylistPicker} onToast={showMenuMessage} />
       </div>
     {/if}
+    {#snippet nested()}
+      {#if $responsive.isMobile}
+        {#if playlistTrack}
+          <NestedActionSheet title="添加到歌单" onBack={closePlaylistPicker} fill>
+            <SongPlaylistPanel active showHeader={false} trackId={playlistTrack.id} onBack={closePlaylistPicker} onToast={showMenuMessage} />
+          </NestedActionSheet>
+        {:else}
+          {@render playerSecondary(true)}
+        {/if}
+      {/if}
+    {/snippet}
   </PlayerMoreMenu>
 
   {#snippet coverArtwork()}
@@ -434,8 +428,12 @@
     <AppleMusicControls {initialTrack} onqueue={handleToggleLocalQueue} showQueue={showLocalQueue} />
   </div>
 
+  {#if !$responsive.isMobile}{@render playerSecondary(false)}{/if}
+
+  {#snippet playerSecondary(nested: boolean)}
   <PlayerSecondarySheet
     panel={secondaryPanel}
+    {nested}
     onClose={closeSecondaryPanel}
     {playerTheme}
     onSetPlayerTheme={setPlayerTheme}
@@ -445,6 +443,7 @@
     onContextPanelChange={(value) => { contextPanelRequest = value }}
     onOpenArtist={handleOpenArtist}
   />
+  {/snippet}
 
   <PlayerLyrics active={lyricsMode} />
 

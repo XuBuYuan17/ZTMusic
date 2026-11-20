@@ -21,6 +21,7 @@
     mode = 'add',
     trackId = null,
     trackName = '',
+    showHeader = true,
     onBack,
     onToast,
   }: {
@@ -28,6 +29,7 @@
     mode?: 'add' | 'remove'
     trackId?: SongId | null
     trackName?: unknown
+    showHeader?: boolean
     onBack?: () => void
     onToast?: (text: string) => void
   } = $props()
@@ -141,13 +143,13 @@
   })
 </script>
 
-<div class="song-menu__panel-head">
+{#if showHeader}<div class="song-menu__panel-head">
   <button onclick={() => onBack?.()} aria-label="返回"><Icon name="chevron-left" size={18} fill="none" /></button>
   <div>
     <strong>{mode === 'remove' ? '从歌单移除' : '添加到歌单'}</strong>
     <span>{trackName}</span>
   </div>
-</div>
+</div>{/if}
 <div class="song-menu__playlists">
   {#if loadingPlaylists}
     <div class="song-menu__state">正在加载歌单…</div>

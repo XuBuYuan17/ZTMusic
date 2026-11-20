@@ -1,7 +1,6 @@
 <script lang="ts">
   import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts'
   import { fade } from 'svelte/transition'
-  import { tick } from 'svelte'
   import { responsive } from '../utils/responsive.ts'
   import { dialogFocus, desktopFeedback, desktopPanel, reducedMotion } from '../app/desktop-motion.ts'
   import type { SongId } from '../types/music.ts'
@@ -13,6 +12,7 @@
   import { notifyLikeChange } from '../services/likes.ts'
   import Icon from './ui/Icon.svelte'
   import SongPlaylistPanel from './SongPlaylistPanel.svelte'
+  import NestedActionSheet from './NestedActionSheet.svelte'
 
   interface MenuArtist { id?: SongId; name?: unknown }
   interface MenuAlbum { id?: SongId; name?: unknown; picUrl?: unknown }
@@ -49,8 +49,6 @@
   } = $props()
 
   let playlistMode = $state<PlaylistMode>('menu')
-  let menuBody = $state<HTMLElement | null>(null)
-  let menuScroll = 0
   let liked = $state(false)
   let likeLoading = $state(false)
   let toastText = $state('')
@@ -123,14 +121,6 @@
 
   // 组件销毁时清理所有定时器
   $effect(() => () => timers.forEach(id => clearTimeout(id)))
-
-  // Escape 键关闭菜单（仅移动：桌面由 dialogFocus 按弹层栈统一处理）
-  $effect(() => {
-    if (!show || !document.documentElement.classList.contains('mobile-runtime')) return
-    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose?.() }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  })
 
   function artistsOf(t: unknown): MenuArtist[] {
     const m = asMenuTrack(t)
@@ -220,20 +210,16 @@
       showToast('登录状态异常')
       return
     }
-    const mobile = document.documentElement.classList.contains('mobile-runtime')
-    if (mobile) menuScroll = menuBody?.scrollTop || 0
     playlistMode = mode
-    if (mobile) tick().then(() => menuBody?.querySelector<HTMLElement>('[aria-label="返回"]')?.focus({ preventScroll: true }))
   }
 
   function returnToMenu(): void {
-    const mode = playlistMode
     playlistMode = 'menu'
-    if (document.documentElement.classList.contains('mobile-runtime')) tick().then(() => {
-      if (!menuBody) return
-      menuBody.scrollTop = menuScroll
-      menuBody.querySelector<HTMLElement>(`[data-playlist-action="${mode}"]`)?.focus({ preventScroll: true })
-    })
+  }
+
+  function dismissMenu(): void {
+    if ($responsive.isMobile && playlistMode !== 'menu') returnToMenu()
+    else onClose?.()
   }
 
   function openArtist(): void {
@@ -273,12 +259,12 @@
 
 {#if show && mt}
   <div class="song-menu-portal" use:portal>
-    <button class="song-menu-scrim" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} type="button" aria-label="关闭歌曲菜单" onclick={onClose} oncontextmenu={handleContextmenu}></button>
+    <button class="song-menu-scrim" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} type="button" aria-label="关闭歌曲菜单" onclick={dismissMenu} oncontextmenu={handleContextmenu}></button>
     <div
       class="song-menu"
       in:menuTransition out:menuTransition
       use:dialogFocus={() => onClose?.()} use:desktopFeedback
-      class:panel={playlistMode !== 'menu'}
+      class:panel={!$responsive.isMobile && playlistMode !== 'menu'}
       style="left:{menuLeft}px;top:{menuTop}px"
       role={$responsive.isMobile ? 'dialog' : 'menu'}
       aria-modal={$responsive.isMobile ? true : undefined}
@@ -300,8 +286,8 @@
         <span>{artistText(mt) || '未知歌手'}</span>
       </div>
     </header>
-    <div class="song-menu__body" bind:this={menuBody}>
-    {#if playlistMode === 'menu'}
+    <div class="song-menu__body">
+    {#if $responsive.isMobile || playlistMode === 'menu'}
       <div class="song-menu__group">
         <button class="song-menu__item" class:primary={liked} onclick={toggleLike} disabled={likeLoading}>
           <span class="song-menu__icon"><Icon name={liked ? 'heart-filled' : 'heart'} size={16} /></span>
@@ -341,7 +327,7 @@
         </button>
       </div>
     {/if}
-    <div class="song-menu__playlist-page" hidden={playlistMode === 'menu'}>
+    {#if !$responsive.isMobile}<div class="song-menu__playlist-page" hidden={playlistMode === 'menu'}>
       <SongPlaylistPanel
         active={playlistMode !== 'menu'}
         mode={playlistMode === 'remove' ? 'remove' : 'add'}
@@ -350,8 +336,13 @@
         onBack={returnToMenu}
         onToast={showToast}
       />
+    </div>{/if}
     </div>
-    </div>
+    {#if $responsive.isMobile && playlistMode !== 'menu'}
+      <NestedActionSheet title={playlistMode === 'remove' ? '从歌单移除' : '添加到歌单'} onBack={returnToMenu} fill>
+        <SongPlaylistPanel active mode={playlistMode} showHeader={false} trackId={mt.id ?? null} onBack={returnToMenu} onToast={showToast} />
+      </NestedActionSheet>
+    {/if}
     </div>
 
     {#if toastText}

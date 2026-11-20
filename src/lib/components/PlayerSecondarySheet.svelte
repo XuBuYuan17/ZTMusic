@@ -8,6 +8,7 @@
   import { QUALITY_LABELS } from '../player/quality.ts';
   import SongContextStrip from './SongContextStrip.svelte';
   import Icon from './ui/Icon.svelte';
+  import NestedActionSheet from './NestedActionSheet.svelte';
 
   export type Panel = 'quality' | 'comments' | 'playlists' | 'theme';
   // 与 SongContextStrip 本地 ContextPanel 同型（该类型未导出）
@@ -15,6 +16,7 @@
 
   let {
     panel,
+    nested = false,
     onClose,
     playerTheme,
     onSetPlayerTheme,
@@ -25,6 +27,7 @@
     onOpenArtist,
   }: {
     panel: Panel | null
+    nested?: boolean
     onClose?: () => void
     playerTheme: string
     onSetPlayerTheme: (theme: string) => void
@@ -56,7 +59,11 @@
   });
 </script>
 
-{#if panel}
+{#if panel && nested}
+  <NestedActionSheet {title} onBack={() => onClose?.()} fill={panel === 'comments' || panel === 'playlists'}>
+    {@render content()}
+  </NestedActionSheet>
+{:else if panel}
   <div class="am-secondary-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
   <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
@@ -66,7 +73,11 @@
         <Icon name="close" size={18} />
       </button>
     </div>
+    {@render content()}
+  </div>
+{/if}
 
+{#snippet content()}
     {#if panel === 'quality'}
       <div class="am-secondary-list">
         {#each QUALITY_ORDER as level}
@@ -94,8 +105,7 @@
         <SongContextStrip variant="mobile" activePanel={activeContextPanel} showCards={false} onActivePanelChange={onContextPanelChange} onOpenArtist={onOpenArtist} />
       </div>
     {/if}
-  </div>
-{/if}
+{/snippet}
 
 <style>
   .am-secondary-backdrop {
