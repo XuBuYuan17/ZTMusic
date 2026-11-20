@@ -81,6 +81,7 @@
   let contentEl = $state<HTMLElement | null>(null)
   let rootEl = $state<HTMLElement | null>(null)
   const dockItems = $derived(buildDockItems(mobileDock.config))
+  const activeDockIndex = $derived(dockItems.findIndex(item => item.id === selectedTab))
   $effect(() => {
     document.documentElement.classList.toggle('mobile-floating-dock', mobileDock.config.layout === 'floating')
     return () => document.documentElement.classList.remove('mobile-floating-dock')
@@ -189,8 +190,11 @@
         scrollTop = position
         showChrome()
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
+        const oldTabIndex = dockItems.findIndex(item => item.id === oldKey)
+        const newTabIndex = dockItems.findIndex(item => item.id === key)
+        const tabDirection = oldTabIndex >= 0 && newTabIndex >= 0 && newTabIndex < oldTabIndex ? -1 : 1
         if (page) observer.observe(page)
-        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot)
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot, tabDirection)
         else { leavingKey = null; playlistSourceKey = null }
         playlistEnteringKey = null
       })
@@ -387,7 +391,11 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} style:--dock-count={dockItems.length} aria-label="主导航" use:swipeChrome>
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels}
+    style:--dock-count={dockItems.length} style:--dock-active={Math.max(0, activeDockIndex)} aria-label="主导航" use:swipeChrome>
+    <span class="dock-selection-track" aria-hidden="true">
+      <span class="dock-selection" class:unselected={activeDockIndex < 0}></span>
+    </span>
     {#each dockItems as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
@@ -420,24 +428,39 @@
 
   :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: repeat(var(--dock-count), minmax(0, 1fr)); }
   :global(html.mobile-runtime) .mobile-tab-bar.icons-only .mobile-tab__label { display: none; }
+  .dock-selection-track { position: absolute; inset: 0 env(safe-area-inset-right) var(--app-bottom-inset) env(safe-area-inset-left); pointer-events: none; }
+  .dock-selection {
+    display: grid; justify-items: center; width: calc(100% / var(--dock-count)); height: 100%;
+    transform: translateX(calc(var(--dock-active) * 100%));
+    transition: transform 320ms cubic-bezier(.22, .72, .24, 1), opacity 160ms ease;
+  }
+  .dock-selection.unselected { opacity: 0; }
+  .dock-selection::before { content: ''; width: 24px; height: 3px; margin-top: 3px; border-radius: 999px; background: var(--md-primary); }
+  .mobile-tab-bar > .mobile-tab { position: relative; z-index: 1; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating {
-    width: auto; height: var(--mobile-floating-height); display: flex; align-items: center; gap: 0; padding: 4px;
+    --floating-dock-pad-inline: 4px;
+    width: auto; height: var(--mobile-floating-height); display: flex; align-items: center; gap: 0; padding: 4px var(--floating-dock-pad-inline);
     border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     box-shadow: 0 4px 18px rgb(0 0 0 / .14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
     touch-action: none;
   }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab { flex: 1 1 0; min-width: 44px; height: 50px; gap: 2px; border-radius: 999px; }
-  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
+  .mobile-tab-bar.floating .dock-selection-track { inset: 4px var(--floating-dock-pad-inline); }
+  .mobile-tab-bar.floating .dock-selection::before { width: 100%; height: 100%; margin-top: 0; background: var(--md-primary-container); }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
   @media (orientation: landscape) and (max-height: 720px) {
     :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: 1fr; grid-template-rows: repeat(var(--dock-count), minmax(48px, 1fr)); }
+    .mobile-tab-bar:not(.floating) .dock-selection-track { inset: 0 0 var(--app-bottom-inset) env(safe-area-inset-left); }
+    .mobile-tab-bar:not(.floating) .dock-selection { width: 100%; height: calc(100% / var(--dock-count)); transform: translateY(calc(var(--dock-active) * 100%)); align-items: center; justify-items: start; }
+    .mobile-tab-bar:not(.floating) .dock-selection::before { width: 3px; height: 24px; margin: 0 0 0 3px; }
     :global(html.mobile-runtime.mobile-floating-dock) { --mobile-landscape-rail: 0px; }
     :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
   }
   @media (max-width: 360px) {
-    :global(html.mobile-runtime) .mobile-tab-bar.floating { padding-inline: 2px; }
+    :global(html.mobile-runtime) .mobile-tab-bar.floating { --floating-dock-pad-inline: 2px; }
   }
+  @media (prefers-reduced-motion: reduce) { .dock-selection { transition: none; } }
   @media (prefers-reduced-transparency: reduce) { :global(html.mobile-runtime) .mobile-tab-bar.floating { background: var(--bg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 </style>
