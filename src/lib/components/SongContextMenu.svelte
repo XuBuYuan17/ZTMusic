@@ -85,7 +85,7 @@
 
   const MENU_WIDTH = 278
   const MENU_MARGIN = 12
-  const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 304 : 448)
+  const MENU_HEIGHT = $derived(playlistMode === 'menu' ? 320 : 448)
 
   let menuLeft = $derived(Math.max(MENU_MARGIN, Math.min(x || MENU_MARGIN, (typeof window !== 'undefined' ? window.innerWidth : 1200) - MENU_WIDTH - MENU_MARGIN)))
   // 桌面自定义标题栏时菜单不得进入顶部 38px 区域（标题栏 z-index 更高会盖住）
@@ -304,7 +304,7 @@
     <div class="song-menu__body" bind:this={menuBody}>
     {#if playlistMode === 'menu'}
       <div class="song-menu__group">
-        <button class="song-menu__item primary" onclick={toggleLike} disabled={likeLoading}>
+        <button class="song-menu__item" class:primary={liked} onclick={toggleLike} disabled={likeLoading}>
           <span class="song-menu__icon"><Icon name={liked ? 'heart-filled' : 'heart'} size={16} /></span>
           <span>{liked ? '取消喜欢' : '喜欢'}</span>
           {#if likeLoading}<em>处理中</em>{/if}
@@ -313,16 +313,13 @@
           <span class="song-menu__icon"><Icon name="add" size={16} /></span>
           <span>添加到歌单</span>
         </button>
-        <button class="song-menu__item" data-playlist-action="remove" onclick={() => openPlaylistPanel('remove')}>
-          <span class="song-menu__icon"><Icon name="trash" size={16} /></span>
-          <span>从歌单移除</span>
-        </button>
       </div>
 
       <div class="song-menu__group">
         <button class="song-menu__item" onclick={openArtist} disabled={!firstArtist(mt)?.id}>
           <span class="song-menu__icon"><Icon name="user" size={16} /></span>
           <span>查看歌手</span>
+          {#if firstArtist(mt)?.name}<em>{firstArtist(mt)?.name}</em>{/if}
         </button>
         <button class="song-menu__item" onclick={openAlbum} disabled={!albumOf(mt)?.id}>
           <span class="song-menu__icon"><Icon name="music" size={16} /></span>
@@ -335,6 +332,13 @@
         <button class="song-menu__item" onclick={copyLink}>
           <span class="song-menu__icon"><Icon name="link" size={16} /></span>
           <span>复制链接</span>
+        </button>
+      </div>
+
+      <div class="song-menu__group compact">
+        <button class="song-menu__item song-menu__item--danger" data-playlist-action="remove" onclick={() => openPlaylistPanel('remove')}>
+          <span class="song-menu__icon"><Icon name="trash" size={16} /></span>
+          <span>从歌单移除</span>
         </button>
       </div>
     {/if}

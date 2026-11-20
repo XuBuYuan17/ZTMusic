@@ -58,10 +58,11 @@ html.mobile-runtime body .song-menu {
   top: auto !important;
   left: max(var(--mobile-action-panel-gap), env(safe-area-inset-left)) !important;
   right: max(var(--mobile-action-panel-gap), env(safe-area-inset-right)) !important;
-  bottom: var(--mobile-action-panel-bottom) !important;
+  bottom: max(0px, calc(100dvh - var(--mobile-viewport-height, 100dvh) - var(--mobile-viewport-top, 0px))) !important;
   width: auto !important;
   max-width: 620px;
-  padding: 0;
+  padding: 0 0 max(8px, env(safe-area-inset-bottom));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
 
 html.mobile-runtime body :is(
@@ -200,8 +201,7 @@ html.mobile-runtime body .am-more-item > svg {
 }
 
 html.mobile-runtime body .mobile-choice-option.active,
-html.mobile-runtime body .am-secondary-row.active,
-html.mobile-runtime body .song-menu__item.primary {
+html.mobile-runtime body .am-secondary-row.active {
   color: var(--md-primary);
   background: var(--md-primary-container);
 }
@@ -258,15 +258,17 @@ html.mobile-runtime body .am-more-message {
   padding: 2px 12px 0;
 }
 
-/* Song context menu follows the same floating card rhythm. */
 html.mobile-runtime body .song-menu__header {
+  flex: none;
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 36px;
+  grid-template-columns: 40px minmax(0, 1fr) 48px;
   align-items: center;
   gap: 10px;
-  min-height: 58px;
-  padding: 7px 8px 7px 10px;
+  margin: 0 14px;
+  padding: 4px 0 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent);
+  border-radius: 0;
+  background: transparent;
 }
 
 html.mobile-runtime body .song-menu__cover {
@@ -287,13 +289,15 @@ html.mobile-runtime body .song-menu__title {
 }
 
 html.mobile-runtime body .song-menu__title strong {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   font-size: 14px;
   line-height: 19px;
   font-weight: 700;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 html.mobile-runtime body .song-menu__title span {
@@ -308,39 +312,43 @@ html.mobile-runtime body .song-menu__title span {
 }
 
 html.mobile-runtime body .song-menu__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-height: 0;
-  padding: 4px 8px 8px;
+  padding: 4px 14px 8px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 html.mobile-runtime body .song-menu__group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  flex: none;
+  gap: 0;
   margin: 0;
-  padding: 4px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent);
+  padding: 3px 0;
+  border: 0;
 }
 
-html.mobile-runtime body .song-menu__group:last-child {
-  border-bottom: 0;
+html.mobile-runtime body .song-menu__group + .song-menu__group {
+  border-top: 1px solid var(--border);
 }
 
 html.mobile-runtime body .song-menu__icon {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  flex: 0 0 30px;
-  border-radius: var(--radius-md);
-  color: var(--md-primary);
-  background: var(--md-primary-container);
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  color: inherit;
+  background: transparent;
 }
 
 html.mobile-runtime body .song-menu__item em {
   margin-left: auto;
   color: var(--text-secondary);
-  font-size: 11px;
+  max-width: 50%;
+  font-size: 12px;
   line-height: 16px;
   font-style: normal;
   font-weight: 400;
@@ -515,37 +523,9 @@ html.mobile-runtime body :is(
   background: transparent;
 }
 
-html.mobile-runtime body .song-menu__icon {
-  width: 22px;
-  height: 22px;
-  flex: 0 0 22px;
-  border-radius: 0;
-  color: var(--md-primary);
-  background: transparent;
-}
-
 html.mobile-runtime body .song-menu__icon > svg {
   width: 20px;
   height: 20px;
-}
-
-/* 2. 分组卡片 + 行间发丝线 */
-html.mobile-runtime body .song-menu__body {
-  display: grid;
-  gap: 10px;
-  padding: 4px 12px 12px;
-}
-
-html.mobile-runtime body .song-menu__group {
-  display: grid;
-  padding: 4px 8px;
-  border-bottom: 0;
-  border-radius: var(--radius-md);
-  background: var(--md-container-high);
-}
-
-html.mobile-runtime body .song-menu__group .song-menu__item:not(:last-child) {
-  box-shadow: inset 0 -1px var(--border);
 }
 
 html.mobile-runtime body .playlist-action-sheet .mobile-choice-body {
@@ -599,7 +579,6 @@ html.mobile-runtime body :is(
   background: var(--md-container-highest);
 }
 
-html.mobile-runtime body .song-menu__header,
 html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-options-header {
   margin: 10px 12px 6px;
   padding: 8px 10px;
@@ -607,6 +586,14 @@ html.mobile-runtime body .playlist-action-sheet.mobile-choice-sheet .library-opt
   border-radius: var(--radius-md);
   background: var(--md-container-high);
 }
+
+html.mobile-runtime body .song-menu {
+  max-height: min(78dvh, calc(var(--mobile-viewport-height, 100dvh) - max(24px, env(safe-area-inset-top))));
+}
+
+html.mobile-runtime body .song-menu.panel .song-menu__body { overflow: hidden; }
+html.mobile-runtime body .song-menu .song-menu__item.primary { color: var(--md-primary); }
+html.mobile-runtime body .song-menu .song-menu__item--danger { color: color-mix(in srgb, var(--danger) 72%, var(--text)); }
 
 html.mobile-runtime body .sort-sheet-direction {
   display: grid;
