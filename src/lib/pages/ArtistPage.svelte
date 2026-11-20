@@ -1,12 +1,10 @@
 <script lang="ts">
   import type { SongId } from '../types/music.ts'
   import { player } from '../stores/player.svelte.ts'
-  import { formatDuration } from '../format.ts'
   import { coverUrl, coverRectUrl } from '../utils/image.ts'
   import SongListActions from '../components/SongListActions.svelte'
-  import SongList from '../components/SongList.svelte'
+  import PlaylistTrackTable from '../components/PlaylistTrackTable.svelte'
   import Icon from '../components/ui/Icon.svelte'
-  import { toSongRows } from '../components/song-row.ts'
   import { responsive } from '../utils/responsive.ts'
 
   // 与 router 的 DetailTrack 结构对齐（只列本组件实际读取的字段），router 传入时结构兼容
@@ -21,8 +19,6 @@
     dt?: number
     duration?: number
   }
-
-  interface TrackArtist { id?: SongId; name?: unknown }
 
   // 对应 router.ArtistInfo（{ id: SongId; followed: boolean; [key:string]: unknown }）里本页读取的字段
   interface ArtistInfoLike {
@@ -86,29 +82,6 @@
   let bioEl = $state<HTMLElement | null>(null)
   let songActions = $state<{ bindRow: RowBinder } | null>(null)
 
-  function rec(value: unknown): Record<string, unknown> | null {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-      ? value as Record<string, unknown>
-      : null
-  }
-
-  function coverOf(track: ArtistTrack): string {
-    const al = rec(track.al) || rec(track.album)
-    return track.picUrl || (al?.picUrl as string) || ''
-  }
-
-  function artistsOf(track: ArtistTrack): TrackArtist[] {
-    return (track.ar as TrackArtist[] | undefined) || (track.artists as TrackArtist[] | undefined) || []
-  }
-
-  function albumOf(track: ArtistTrack): Record<string, unknown> {
-    return rec(track.al) || rec(track.album) || {}
-  }
-
-  function durationOf(track: ArtistTrack): string {
-    return formatDuration(track.dt || track.duration || 0)
-  }
-
   function publishYear(album: ArtistAlbumCard): number | string {
     if (!album.publishTime) return ''
     return new Date(album.publishTime as string | number).getFullYear()
@@ -116,8 +89,6 @@
 
   const visibleSongs = $derived(showAllSongs ? songs : songs.slice(0, 5))
   // router.artistAlbums 是 unknown[]，在边界单点 cast 成本页展示接口
-  // 热门歌曲交给共享列表；歌手页只保留自己的取数、关注与专辑区
-  const songRows = $derived(toSongRows(visibleSongs))
   const albumCards = $derived(albums as unknown as ArtistAlbumCard[])
   const visibleAlbums = $derived($responsive.isMobile && !showAllAlbums ? albumCards.slice(0, 6) : albumCards)
 
@@ -140,16 +111,9 @@
     return () => observer.disconnect()
   })
 
-  function handleRowKeydown(event: KeyboardEvent, track: ArtistTrack): void {
-    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
-      event.preventDefault()
-      onPlayTrack?.(track)
-    }
-  }
-
-  function handleSongContext(track: ArtistTrack, event: MouseEvent): void {
-    event.preventDefault()
-    songActions?.bindRow(track)?.oncontextmenu?.(event)
+  function playHotTrack(id: SongId): void {
+    const track = visibleSongs.find(song => song.id === id)
+    if (track) onPlayTrack?.(track)
   }
 
   function handleCardKeydown(event: KeyboardEvent, action?: () => void): void {
@@ -159,6 +123,12 @@
     }
   }
 </script>
+
+{#snippet hotTracks(skeleton = false)}
+  <PlaylistTrackTable {skeleton} showHeader={false} skeletonLabel="加载热门歌曲"
+    tracks={visibleSongs} currentId={player.id} rowActions={songActions?.bindRow ?? null}
+    onPlay={playHotTrack} {onOpenArtist} {onOpenAlbum} />
+{/snippet}
 
 <div class="artist-page">
   {#if loading && !artist}
@@ -182,7 +152,7 @@
       <div class="artist-section-header">
         <h2>热门歌曲</h2>
       </div>
-      <SongList skeleton rows={[]} skeletonLabel="加载热门歌曲" />
+      {@render hotTracks(true)}
     </section>
     <section class="artist-section artist-albums-section" aria-label="加载专辑作品">
       <h2>专辑作品</h2>
@@ -268,17 +238,10 @@
             <button class="artist-section-action" onclick={onPlayAll}>播放全部</button>
           </div>
         </div>
-        <SongList
-          rows={songRows}
-          currentId={player.id}
-          rowActions={songActions?.bindRow ?? null}
-          onPlay={(row) => onPlayTrack?.(row.source as ArtistTrack)}
-          {onOpenArtist}
-          {onOpenAlbum}
-        />
+        {@render hotTracks()}
       </section>
     {:else if loading}
-      <section class="artist-section artist-songs-section" aria-label="加载热门歌曲"><div class="artist-section-header"><h2>热门歌曲</h2></div><SongList skeleton rows={[]} skeletonLabel="加载热门歌曲" /></section>
+      <section class="artist-section artist-songs-section" aria-label="加载热门歌曲"><div class="artist-section-header"><h2>热门歌曲</h2></div>{@render hotTracks(true)}</section>
     {/if}
 
     {#if albums.length > 0}
