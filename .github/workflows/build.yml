@@ -142,10 +142,13 @@ jobs:
         env:
           VITE_APP_CHANNEL: dev
           VITE_BUILD_SHA: ${{ github.sha }}
+          VITE_DEVICE_PAIRING_URL: ${{ vars.VITE_DEVICE_PAIRING_URL }}
         run: pnpm tauri build --ci --verbose --config src-tauri/tauri.dev.conf.json --features dev-channel --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Build Windows installer
         if: needs.source-check.outputs.channel == 'stable'
+        env:
+          VITE_DEVICE_PAIRING_URL: ${{ vars.VITE_DEVICE_PAIRING_URL }}
         run: pnpm tauri build --ci --verbose --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       - name: Upload Windows installer

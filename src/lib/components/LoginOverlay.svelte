@@ -9,6 +9,13 @@
 
   type LoginMode = 'qr' | 'phone' | 'email' | 'device'
 
+  const loginModes: { id: LoginMode; label: string }[] = [
+    { id: 'qr', label: '网易云扫码' },
+    { id: 'device', label: '哲听扫码登录' },
+    { id: 'phone', label: '手机号' },
+    { id: 'email', label: '邮箱' },
+  ]
+
   let { showLogin = false, onClose, onLoginSuccess }: {
     showLogin?: boolean
     onClose?: () => void
@@ -166,16 +173,19 @@
         <h2>登录</h2>
       </div>
 
-      <div class="tabs">
-        <button class="tab" class:active={mode === 'qr'} aria-pressed={mode === 'qr'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'qr')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('qr') }}>扫码</button>
-        <button class="tab" class:active={mode === 'phone'} aria-pressed={mode === 'phone'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'phone')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('phone') }}>手机号</button>
-        <button class="tab" class:active={mode === 'email'} aria-pressed={mode === 'email'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'email')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('email') }}>邮箱</button>
-      </div>
-
-      <div class="login-device-link">
-        <button class="retry-btn" type="button" aria-pressed={mode === 'device'} onclick={() => switchMode(mode === 'device' ? 'qr' : 'device')}>
-          {mode === 'device' ? '返回网易云扫码' : '从另一台哲听登录'}
-        </button>
+      <div class="tabs" role="group" aria-label="登录方式">
+        {#each loginModes as option (option.id)}
+          <button
+            class="tab"
+            type="button"
+            class:active={mode === option.id}
+            aria-pressed={mode === option.id}
+            onpointerdown={holdTabFocus}
+            onpointerup={(e) => releaseTabFocus(e, option.id)}
+            onpointercancel={() => tabPointer = null}
+            onclick={(e) => { if (!suppressFollowupClick(e)) switchMode(option.id) }}
+          >{option.label}</button>
+        {/each}
       </div>
 
       <div class="login-body">
@@ -231,7 +241,6 @@
 {/if}
 
 <style>
-  .login-device-link { display: flex; justify-content: center; margin: 8px 0; }
   .login-overlay {
     position: fixed; inset: 0; z-index: 600;
     display: flex; align-items: center; justify-content: center;
@@ -260,7 +269,7 @@
     background: var(--bg-elevated); border-radius: var(--radius-md); padding: 4px;
   }
   .tab {
-    flex: 1; padding: 10px 8px; border-radius: var(--radius-md);
+    flex: 1 1 auto; white-space: nowrap; padding: 10px 8px; border-radius: var(--radius-md);
     font-size: 13px; font-weight: 500; color: var(--text-secondary);
     transition: background-color 150ms, color 150ms, box-shadow 150ms; cursor: pointer; background: none; border: none;
   }
@@ -301,5 +310,9 @@
   :global(html.mobile-runtime) .login-card .tab { border-radius: var(--radius-md); }
   :global(html.mobile-runtime) .login-card .tab.active { color: var(--md-primary); background: var(--bg-surface); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
   :global(html.mobile-runtime) .login-card .close-btn { background: transparent; }
+  @media (max-width: 420px) {
+    .tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    :global(html.mobile-runtime) .login-card .tabs { border-radius: var(--radius-lg); }
+  }
   @media (prefers-reduced-motion: reduce) { .tab, .input, .retry-btn, .login-btn { transition: none; } }
 </style>

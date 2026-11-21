@@ -118,6 +118,7 @@ jobs:
         env:
           VITE_APP_CHANNEL: ${{ inputs.build_type == 'release' && 'stable' || 'dev' }}
           VITE_BUILD_SHA: ${{ github.sha }}
+          VITE_DEVICE_PAIRING_URL: ${{ vars.VITE_DEVICE_PAIRING_URL }}
         run: |
           args=(--ci --apk --target aarch64 --config "$ANDROID_CONFIG")
           if [[ "${{ inputs.build_type }}" == "debug" ]]; then args+=(--debug); fi
