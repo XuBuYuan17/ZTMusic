@@ -33,22 +33,22 @@
   {:else}
     <form class="group-settings__new" onsubmit={(event) => { event.preventDefault(); if (run(() => createPlaylistGroup(auth.user?.userId, name))) name = '' }}>
       <input aria-label="新分组名称" maxlength="30" placeholder="新分组名称" bind:value={name} />
-      <button type="submit"><span class="settings-button-label">新建分组</span></button>
+      <button type="submit">新建分组</button>
     </form>
     {#each groups as group (group.id)}
       <div class="group-settings__row">
         {#if editing === group.id}
           <input aria-label="分组名称" maxlength="30" bind:value={editName} />
-          <button type="button" onclick={() => { if (run(() => renamePlaylistGroup(auth.user?.userId, group.id, editName))) editing = '' }}><span class="settings-button-label">保存</span></button>
-          <button type="button" onclick={() => editing = ''}><span class="settings-button-label">取消</span></button>
+          <button type="button" onclick={() => { if (run(() => renamePlaylistGroup(auth.user?.userId, group.id, editName))) editing = '' }}>保存</button>
+          <button type="button" onclick={() => editing = ''}>取消</button>
         {:else if deleting === group.id}
           <span>删除「{group.name}」？歌单会保留。</span>
-          <button type="button" class="danger" onclick={() => { if (run(() => deletePlaylistGroup(auth.user?.userId, group.id))) deleting = '' }}><span class="settings-button-label">确认删除</span></button>
-          <button type="button" onclick={() => deleting = ''}><span class="settings-button-label">取消</span></button>
+          <button type="button" class="danger" onclick={() => { if (run(() => deletePlaylistGroup(auth.user?.userId, group.id))) deleting = '' }}>确认删除</button>
+          <button type="button" onclick={() => deleting = ''}>取消</button>
         {:else}
           <span><strong>{group.name}</strong><small>{group.playlistIds.length} 个歌单</small></span>
-          <button type="button" onclick={() => { editing = group.id; editName = group.name; deleting = '' }}><span class="settings-button-label">重命名</span></button>
-          <button type="button" onclick={() => { deleting = group.id; editing = '' }}><span class="settings-button-label">删除</span></button>
+          <button type="button" onclick={() => { editing = group.id; editName = group.name; deleting = '' }}>重命名</button>
+          <button type="button" onclick={() => { deleting = group.id; editing = '' }}>删除</button>
         {/if}
       </div>
     {/each}

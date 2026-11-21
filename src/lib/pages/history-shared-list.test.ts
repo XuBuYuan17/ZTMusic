@@ -33,10 +33,9 @@ assert.ok(daily.includes('selectedDailyDate = date;'), 'picking a date still upd
 assert.ok(daily.includes('selectedDate: selectedDailyDate'), 'the snapshot still remembers the selected date')
 assert.ok(daily.includes('const initial = dailySnapshot?.userId === auth.user?.userId ? dailySnapshot : null'), 'the snapshot is restored per account')
 assert.ok(daily.includes('const rows = $derived(toSongRows(dailyHistorySongs))'), 'rows follow the selected date')
-assert.ok(daily.includes('class:playlist-detail-page={mobile}') && daily.includes('class:playlist-track-surface={mobile}'), 'mobile history shares the playlist layout and track surface')
-assert.ok(daily.indexOf('<PlaylistHero') < daily.indexOf('class="daily-date-scroll"'), 'the playlist cover precedes the date selector')
-assert.ok(daily.includes('showPlayingRecord={false}'), 'the collection never adds a second playing cover')
-assert.ok(daily.includes('visibleCount={availableCount}') && daily.includes('if (dailyHistoryLoading || !dailyHistorySongs.length) return'), 'play-all waits for songs from the chosen date')
+assert.match(daily, /\{#if !mobile\}\s*<PlaylistHero/, 'the desktop hero never mounts in the mobile history view')
+assert.ok(daily.indexOf('class="daily-date-scroll"') < daily.indexOf('class="daily-summary"'), 'on mobile the date rail precedes the summary')
+assert.ok(daily.includes('disabled={dailyHistoryLoading || !dailyHistorySongs.length}'), 'mobile play-all waits for songs from the chosen date')
 
 // 最近播放的分组信息（标题 + 计数）仍在页面
 assert.ok(recent.includes('共 {recentTracks.length} 首歌曲'), 'recent keeps its header summary')

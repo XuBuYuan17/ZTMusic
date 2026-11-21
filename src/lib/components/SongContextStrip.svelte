@@ -373,6 +373,7 @@
                 <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
                   <span class="ly-context-playlist-art">
                     {#if pl.coverImgUrl}<img src={coverUrl(pl.coverImgUrl, 240)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
+                    <span><Icon name="chevron-right" size={15}/></span>
                   </span>
                   <strong>{pl.name}</strong>
                   <em>{pl.creator?.nickname || (pl.trackCount ? `${pl.trackCount} 首歌曲` : '为你推荐')}</em>

@@ -25,10 +25,6 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   let shared: HTMLElement | undefined
   let ghost: HTMLElement | undefined
   let captured = false
-  let wasOpen = false
-  let returning = false
-  let returnNavTravel = 0
-  let returnNavRest = ''
   let destroyed = false
   let content: Array<{ node: HTMLElement; opacity: number; transform: string }> = []
 
@@ -68,16 +64,6 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   }
 
   function measure() {
-    const rootClasses = document.documentElement.classList
-    let expandedNavTop = 0
-    if (returning && nav) {
-      set(nav, 'transition', 'none')
-      expandedNavTop = nav.getBoundingClientRect().top
-      rootClasses.remove('mobile-player-expanded')
-      const rest = getComputedStyle(nav).transform
-      returnNavRest = rest === 'none' ? '' : rest
-      returnNavTravel = expandedNavTop - nav.getBoundingClientRect().top
-    }
     viewport = { width: innerWidth, height: innerHeight }
     miniSource = mini?.getBoundingClientRect()
     source = (integratedInNav ? nav?.getBoundingClientRect() : miniSource) ?? { left: 0, top: viewport.height, width: viewport.width, height: 0 }
@@ -95,7 +81,6 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     coverTargetRadius = radius(cover, to?.width ?? 0)
     // 从来源胶囊自身的圆角开始收，展开过程中逐渐收成直角的全屏。
     sourceRadius = radius(integratedInNav ? nav : mini, Math.min(source.width, source.height))
-    if (returning && nav) rootClasses.add('mobile-player-expanded')
   }
 
   function measureContent() {
@@ -108,17 +93,15 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
   function capture() {
     if (captured) return
     captured = true
-    returning = wasOpen
-    wasOpen = false
     root.classList.add('surface-transitioning')
     player.dispatchEvent(new Event('mobile-player-suspend'))
-    if (integratedInNav && !returning) {
+    if (integratedInNav) {
       set(nav, 'transition', 'none')
       set(nav, 'transform', 'none')
     }
     measure()
     measureContent()
-    if (mini && !integratedInNav && !returning) {
+    if (mini && !integratedInNav) {
       ghost = clone(mini, 'player-surface-mini')
       ghost.querySelector<HTMLElement>('.mini-player-artwork')?.style.setProperty('visibility', 'hidden')
       Object.assign(ghost.style, {
@@ -134,7 +117,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
         borderRadius: getComputedStyle(cover).borderRadius, opacity: '1', zIndex: '30',
       })
       set(cover, 'visibility', 'hidden')
-      if (integratedInNav || returning) set(miniCover, 'visibility', 'hidden')
+      if (integratedInNav) set(miniCover, 'visibility', 'hidden')
     }
     document.documentElement.classList.add('mobile-player-expanded')
     // A mode click can have a pending Svelte layout update in this same event.
@@ -158,20 +141,10 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     const visual = surfaceFrame(p, source, viewport, sourceRadius)
     set(nav, 'transition', 'none')
     set(sheet, 'clip-path', visual.clipPath)
-    if (returning && !integratedInNav) {
-      set(sheet, 'background-color', `color-mix(in srgb, var(--bg) ${visual.backgroundOpacity * 100}%, transparent)`)
-    }
-    const navTransform = returning
-      ? `translateY(${p * returnNavTravel}px)${returnNavRest ? ` ${returnNavRest}` : ''}`
-      : integratedInNav ? `translateY(${p * Math.max(0, viewport.height - source.top)}px)` : visual.navTransform
-    set(nav, 'transform', navTransform)
+    set(nav, 'transform', integratedInNav ? `translateY(${p * Math.max(0, viewport.height - source.top)}px)` : visual.navTransform)
     set(backdrop, 'opacity', `${visual.backdropOpacity}`)
     set(background, 'opacity', `${visual.backgroundOpacity}`)
     if (ghost) ghost.style.opacity = `${visual.miniOpacity}`
-    if (returning && !integratedInNav) {
-      set(mini, 'visibility', 'visible')
-      set(mini, 'opacity', `${visual.miniOpacity}`)
-    }
     for (const { node, opacity, transform } of content) {
       set(node, 'transition', 'none')
       set(node, 'opacity', `${opacity * visual.contentOpacity}`)
@@ -186,13 +159,8 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
 
   const unsubscribeProgress = controller.sheetProgress.on('change', () => frame.render(render))
   const unsubscribeState = controller.subscribe(({ phase }) => {
-    if (phase === 'open') { release(); wasOpen = true; return }
-    if (phase === 'closed') {
-      if (returning) render()
-      document.documentElement.classList.remove('mobile-player-expanded')
-      release()
-      return
-    }
+    if (phase === 'open') { release(); return }
+    if (phase === 'closed') { release(); document.documentElement.classList.remove('mobile-player-expanded'); return }
     capture()
     render()
   })
@@ -201,7 +169,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
     if (!destroyed && captured) {
       // Restore our overrides while measuring the frozen mode's current layout.
       restore()
-      if (integratedInNav && !returning) {
+      if (integratedInNav) {
         set(nav, 'transition', 'none')
         set(nav, 'transform', 'none')
       }
@@ -210,7 +178,7 @@ export function renderPlayerSurface(root: HTMLElement, controller: PlayerSurface
       if (cover && shared && coverTarget) {
         shared.style.width = shared.style.height = `${coverTarget.width}px`
         set(cover, 'visibility', 'hidden')
-        if (integratedInNav || returning) set(miniCover, 'visibility', 'hidden')
+        if (integratedInNav) set(miniCover, 'visibility', 'hidden')
       }
       if (ghost) Object.assign(ghost.style, { left: `${miniSource?.left ?? source.left}px`, top: `${miniSource?.top ?? source.top}px`, width: `${miniSource?.width ?? source.width}px`, height: `${miniSource?.height ?? source.height}px` })
       render()

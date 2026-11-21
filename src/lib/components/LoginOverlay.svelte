@@ -263,7 +263,6 @@
   .qr-status { margin-top: 18px; font-size: 13px; color: var(--text-secondary); }
   .qr-fallback { margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
   .qr-fallback summary { cursor: pointer; }
-  :global(html.mobile-runtime) .qr-fallback summary { list-style: none; }
   .qr-url-fallback { display: block; font-size: 10px; word-break: break-all; color: var(--text-disabled); margin-top: 4px; user-select: all; }
   .retry-btn { margin-top: 12px; padding: 6px 20px; border-radius: var(--radius-lg); font-size: 12px; color: var(--accent); background: var(--accent-bg); border: none; cursor: pointer; transition: opacity 0.15s; }
   .retry-btn:hover { opacity: 0.8; }

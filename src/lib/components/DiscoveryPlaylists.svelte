@@ -29,7 +29,7 @@
 {#if mobile}
   <section class="mobile-discovery-section discovery-playlists" aria-label="专属歌单">
     <h2>专属歌单</h2>
-    <div class="mobile-cover-rail mobile-cover-rail--single-row">
+    <div class="mobile-cover-rail mobile-cover-rail--two-rows">
       {#each discoveryPlaylists as playlist (playlist.key)}
         <button class="mobile-cover-item" type="button" data-motion="card" data-discovery={playlist.key} onclick={() => open(playlist.key)}>
           <span class="mobile-cover-image"><img src={cover(playlist.key, playlist.coverImgUrl)} alt="" loading="eager" referrerpolicy="no-referrer" onerror={(event) => coverFailed(event, playlist.coverImgUrl)} /></span>

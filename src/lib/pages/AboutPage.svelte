@@ -81,7 +81,7 @@
 
   <section class="about-card" aria-labelledby="about-contributors">
     <h2 id="about-contributors">贡献者</h2>
-    <div class="about-contributors">{#each contributors as contributor}<button type="button" title={contributor.url} onclick={() => openLink(contributor.url)}><span class="settings-button-label">{contributor.name}</span></button>{/each}</div>
+    <div class="about-contributors">{#each contributors as contributor}<button type="button" title={contributor.url} onclick={() => openLink(contributor.url)}>{contributor.name}</button>{/each}</div>
   </section>
 
   <section class="about-card" aria-labelledby="about-author">
@@ -101,7 +101,7 @@
     <div class="about-licenses">
       <p>本应用使用 HarmonyOS Sans 字体，Copyright 2021 Huawei Device Co., Ltd.，依 HarmonyOS Sans Fonts License Agreement 授权随包分发，字体文件未经修改。完整条款见 <code>fonts/HarmonyOS-Sans-LICENSE.txt</code>。</p>
       <p>部分图标使用 Material Symbols，遵循 Apache License 2.0；许可文件见 <code>licenses/Material-Symbols-LICENSE.txt</code>。</p>
-      <button class="about-inline-link" type="button" onclick={() => openLink('https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced')}><span class="settings-button-label">NeteaseCloudMusicApi Enhanced</span></button>
+      <button class="about-inline-link" type="button" onclick={() => openLink('https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced')}>NeteaseCloudMusicApi Enhanced</button>
     </div>
   </section>
 </div>

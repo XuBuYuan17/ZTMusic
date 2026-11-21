@@ -88,7 +88,7 @@
     </label>
     <div class="source-plugin-add-footer">
       <small>{t('sourcePlugins.help')}</small>
-      <button type="button" onkeydown={handleButtonKeydown} disabled={!pluginName.trim() || !endpoint.trim()} onclick={addPlugin}><span class="settings-button-label">{t('sourcePlugins.add')}</span></button>
+      <button type="button" onkeydown={handleButtonKeydown} disabled={!pluginName.trim() || !endpoint.trim()} onclick={addPlugin}>{t('sourcePlugins.add')}</button>
     </div>
     {#if status && (!mobile || statusError)}<div class="source-plugin-status" class:error={statusError} role="status" aria-live="polite">{t(status)}</div>{/if}
   </div>
@@ -121,19 +121,19 @@
               onclick={() => toggle(plugin)}
             ><span>{plugin.enabled ? t('common.on') : t('common.off')}</span></button>
             <div class="source-mobile-tools">
-              <button class="source-manage" type="button" aria-label={`管理 ${plugin.name}`} aria-expanded={managing === plugin.id} onclick={() => managing = managing === plugin.id ? null : plugin.id}><span class="settings-button-label">管理</span></button>
+              <button class="source-manage" type="button" aria-label={`管理 ${plugin.name}`} aria-expanded={managing === plugin.id} onclick={() => managing = managing === plugin.id ? null : plugin.id}>管理</button>
               {#if managing === plugin.id}
-            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === 0} aria-label={`${t('sourcePlugins.up')} ${plugin.name}`} onclick={() => move(plugin, -1)}><span class="settings-button-label">↑</span></button>
-            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === plugins.length - 1} aria-label={`${t('sourcePlugins.down')} ${plugin.name}`} onclick={() => move(plugin, 1)}><span class="settings-button-label">↓</span></button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === 0} aria-label={`${t('sourcePlugins.up')} ${plugin.name}`} onclick={() => move(plugin, -1)}>↑</button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === plugins.length - 1} aria-label={`${t('sourcePlugins.down')} ${plugin.name}`} onclick={() => move(plugin, 1)}>↓</button>
 
-            <button type="button" onkeydown={handleButtonKeydown} class="source-remove" onclick={() => remove(plugin)}><span class="settings-button-label">{t('sourcePlugins.remove')}</span></button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-remove" onclick={() => remove(plugin)}>{t('sourcePlugins.remove')}</button>
 
               {/if}
             </div>
           {:else}
           <div class="source-plugin-actions">
-            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === 0} aria-label={`${t('sourcePlugins.up')} ${plugin.name}`} onclick={() => move(plugin, -1)}><span class="settings-button-label">↑</span></button>
-            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === plugins.length - 1} aria-label={`${t('sourcePlugins.down')} ${plugin.name}`} onclick={() => move(plugin, 1)}><span class="settings-button-label">↓</span></button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === 0} aria-label={`${t('sourcePlugins.up')} ${plugin.name}`} onclick={() => move(plugin, -1)}>↑</button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-order" disabled={index === plugins.length - 1} aria-label={`${t('sourcePlugins.down')} ${plugin.name}`} onclick={() => move(plugin, 1)}>↓</button>
             <button
               type="button" onkeydown={handleButtonKeydown}
               class="source-toggle"
@@ -142,7 +142,7 @@
               aria-pressed={plugin.enabled}
               onclick={() => toggle(plugin)}
             ><span>{plugin.enabled ? t('common.on') : t('common.off')}</span></button>
-            <button type="button" onkeydown={handleButtonKeydown} class="source-remove" onclick={() => remove(plugin)}><span class="settings-button-label">{t('sourcePlugins.remove')}</span></button>
+            <button type="button" onkeydown={handleButtonKeydown} class="source-remove" onclick={() => remove(plugin)}>{t('sourcePlugins.remove')}</button>
           </div>
           {/if}
         </div>
@@ -154,7 +154,7 @@
 
 
   {#if mobile}
-    <button class="source-add-open" type="button" aria-haspopup="dialog" onclick={() => { status = ''; addOpen = true }}><span class="settings-button-label">{t('sourcePlugins.add')}</span></button>
+    <button class="source-add-open" type="button" aria-haspopup="dialog" onclick={() => { status = ''; addOpen = true }}>{t('sourcePlugins.add')}</button>
     {#if status}<p class="source-plugin-status" class:error={statusError} role="status">{t(status)}</p>{/if}
   {:else}
     {@render addForm()}
@@ -166,7 +166,7 @@
   <div class="source-add-portal" use:portal>
     <button class="source-add-backdrop" type="button" aria-label="关闭添加音源" onclick={() => addOpen = false}></button>
     <div class="source-add-dialog" role="dialog" aria-modal="true" aria-label="添加音源插件" tabindex="-1" data-bottom-panel use:dialogFocus={() => addOpen = false}>
-      <header><h2>添加音源插件</h2><button type="button" onclick={() => addOpen = false}><span class="settings-button-label">取消</span></button></header>
+      <header><h2>添加音源插件</h2><button type="button" onclick={() => addOpen = false}>取消</button></header>
       {@render addForm()}
     </div>
   </div>

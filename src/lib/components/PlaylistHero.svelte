@@ -29,7 +29,6 @@
     detailType = '歌单',
     coverIsBundled = false,
     coverTiles,
-    showPlayingRecord = true,
     totalCount = 0,
     visibleCount = 0,
     totalDuration = 0,
@@ -54,7 +53,6 @@
     detailType?: string
     coverIsBundled?: boolean
     coverTiles?: string[]
-    showPlayingRecord?: boolean
     totalCount?: number
     visibleCount?: number
     totalDuration?: number
@@ -170,7 +168,7 @@
         <Icon name="music" size={42} strokeWidth={1.3} />
       </div>
     {/if}
-    {#if $responsive.isMobile && showPlayingRecord && !useCoverFalls}
+    {#if $responsive.isMobile && !useCoverFalls}
       <div class="playlist-playing-record" class:visible={containsCurrentTrack && player.playing} aria-hidden="true">
         <div class="playlist-playing-record__disc">
           {#if player.cover}<img src={coverUrl(player.cover, 200)} alt="" referrerpolicy="no-referrer" />{/if}
@@ -193,7 +191,7 @@
       </div>
       {#if detail.description && (!$responsive.isMobile || descriptionExpanded)}
         {#if $responsive.isMobile}
-          <div class="playlist-desc-wrap"><div class="playlist-desc" class:is-expanded={descriptionExpanded}>{detail.description}</div><button class="playlist-desc-toggle" type="button" aria-label={descriptionExpanded ? '收起简介' : '展开简介'} aria-expanded={descriptionExpanded} onclick={() => descriptionExpanded = !descriptionExpanded}>{descriptionExpanded ? '收起' : '展开'}</button></div>
+          <div class="playlist-desc-wrap"><div class="playlist-desc" class:is-expanded={descriptionExpanded}>{detail.description}</div><button class="playlist-desc-toggle" type="button" aria-label={descriptionExpanded ? '收起简介' : '展开简介'} aria-expanded={descriptionExpanded} onclick={() => descriptionExpanded = !descriptionExpanded}>{descriptionExpanded ? '收起' : '展开'}<Icon name="chevron-down" size={16} /></button></div>
         {:else}
           <div class="playlist-desc" title={detail.description}>{detail.description}</div>
         {/if}
@@ -432,6 +430,7 @@
   :global(html.mobile-runtime) .playlist-desc { font-size: 14px; }
   :global(html.mobile-runtime) .playlist-desc.is-expanded { display: block; overflow: visible; white-space: pre-line; }
   :global(html.mobile-runtime) .playlist-desc-toggle { min-width: 48px; min-height: 48px; border: 0; color: var(--md-primary); background: transparent; font-size: 13px; }
+  :global(html.mobile-runtime) .playlist-desc-toggle[aria-expanded="true"] :global(svg) { transform: rotate(180deg); }
   :global(html.mobile-runtime) .playlist-hero-actions { display: grid; grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 16px; width: 100%; margin-top: 12px; }
   :global(html.mobile-runtime) .playlist-play-btn { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 12px; border-radius: 999px; font-size: 18px; background: var(--text); color: var(--bg); box-shadow: none; }
   :global(html.mobile-runtime) .playlist-shuffle-btn, :global(html.mobile-runtime) .playlist-more-btn { display: grid; place-items: center; width: 48px; height: 48px; align-self: center; padding: 0; border: 0; border-radius: 999px; background: var(--bg-surface); color: var(--text); }

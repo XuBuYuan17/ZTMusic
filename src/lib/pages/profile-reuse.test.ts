@@ -14,8 +14,8 @@ const shells = await Promise.all([
 ])
 
 // ── 1) 按真实重复点复用 ──
-assert.ok(artist.includes("import PlaylistTrackTable from '../components/PlaylistTrackTable.svelte'"), 'artist songs use the playlist track adapter')
-assert.ok(artist.includes('showHeader={false}') && artist.includes('tracks={visibleSongs}'), 'artist keeps the headerless layout and its own hot-song selection')
+assert.ok(artist.includes("import SongList from '../components/SongList.svelte'"), 'artist songs use the shared list')
+assert.ok(artist.includes('toSongRows(visibleSongs)'), 'artist normalizes its own songs')
 assert.ok(artist.includes('rowActions={songActions?.bindRow ?? null}'), 'artist keeps the shared row menu')
 assert.ok(!artist.includes('<table class="track-table">'), 'artist no longer renders its own table')
 

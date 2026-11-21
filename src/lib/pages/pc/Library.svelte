@@ -511,6 +511,7 @@
         <button class="library-mobile-report" type="button" onclick={() => onNavigate?.('listeningStats')}>
           <span class="library-mobile-report__icon" aria-hidden="true"><Icon name="audio-quality" size={20} /></span>
           <span class="library-mobile-report__copy"><strong>我的听歌报告</strong><small>回顾每一段聆听</small></span>
+          <Icon name="chevron-right" size={18} aria-hidden="true" />
         </button>
       </section>
       <div class="library-mobile-recent"><RecentTracksModule limit={3} onOpenAll={() => onNavigate?.('recent')} /></div>
@@ -550,7 +551,7 @@
               {@const expanded = expandedCollection === group.id}
               <section class="collection-group" class:expanded data-group-id={group.id} aria-label={group.title}>
                 {#if expanded}
-                  <header class="collection-group__header"><div><strong>{group.title}</strong><span>{group.items.length} 张歌单</span></div><button type="button" aria-label={`收起${group.title}分组`} aria-expanded="true" onclick={() => openCollection(group.id)}>收起歌单</button></header>
+                  <header class="collection-group__header"><div><strong>{group.title}</strong><span>{group.items.length} 张歌单</span></div><button type="button" aria-label={`收起${group.title}分组`} aria-expanded="true" onclick={() => openCollection(group.id)}><Icon name="chevron-right" size={16} />收起歌单</button></header>
                 {/if}
                 <div class="collection-group__grid">
                   {#each (expanded ? group.items : group.items.slice(0, 3)) as item, i (item.pl.id as SongId)}
@@ -725,6 +726,7 @@
   .collection-group__header strong { font-size: 18px; line-height: 1.35; }
   .collection-group__header button { min-height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 999px; background: var(--accent-bg); color: var(--accent); font-size: 13px; font-weight: 500; transition: background-color 160ms ease; }
   .collection-group__header button:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-surface)); }
+  .collection-group__header button :global(svg) { transform: rotate(-90deg); }
   .collection-group__grid { display: grid; grid-template-columns: minmax(0, 1fr); height: 192px; }
   .collection-group.expanded .collection-group__grid { height: auto; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 18px; }
   .collection-item { position: relative; min-width: 0; }
@@ -748,14 +750,6 @@
   .library-management-portal { display: contents; }
   @media (max-width: 800px) { .library-identity { grid-template-columns: minmax(0, 1fr); gap: 18px; } .library-identity__stats { padding-top: 16px; border-top: 1px solid var(--border); } .library-identity::after { width: 150px; right: -60px; opacity: .45; } }
   :global(html.mobile-runtime) .library-page { max-width: 560px; }
-  :global(html.mobile-runtime) .collection-group:not(.expanded) .collection-item { width: min(68%, 112px); margin-top: 6px; }
-  :global(html.mobile-runtime) .collection-group:not(.expanded) .collection-group__grid { height: clamp(118px, 34vw, 132px); }
-  :global(html.mobile-runtime) .collection-group__copy { justify-items: center; text-align: center; }
-  :global(html.mobile-runtime .collection-group:has(> .collection-group__trigger[data-mobile-pressed])) .collection-item__cover { scale: .95; }
-  :global(html.mobile-runtime) .collection-group:not(.expanded) .collection-item__cover { transition: scale var(--motion-release) var(--ease-out); }
-  @media (prefers-reduced-motion: reduce) {
-    :global(html.mobile-runtime .collection-group:has(> .collection-group__trigger[data-mobile-pressed])) .collection-item__cover { scale: 1; }
-  }
   :global(html.mobile-runtime) .library-unified { gap: 18px; }
   :global(html.mobile-runtime) .library-identity { width: 100%; gap: 16px; padding: 0 0 16px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
   :global(html.mobile-runtime) .library-identity::after { display: none; }

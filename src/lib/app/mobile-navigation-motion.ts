@@ -6,7 +6,7 @@ export function isDetailSheetView(view: string | undefined): boolean {
   return view === 'playlist' || view === 'album' || view === 'recommendation' || view === 'artist' || view === 'dailyHistory'
 }
 export const mobileMotion = {
-  tab: 260,
+  tab: 220,
   page: 360,
   expand: 460,
   dismiss: 400,
@@ -67,7 +67,6 @@ export function mobilePageFrames(
   surface = false,
   surfaceClip?: string | null,
   bottomEntrance = false,
-  tabDirection: -1 | 1 = 1,
 ): [Keyframe, Keyframe, ...Keyframe[]] {
   if (surface) {
     const fullSurface = { opacity: 1, transform: 'none', clipPath: 'inset(0 0 0 0 round 0px)' }
@@ -89,8 +88,8 @@ export function mobilePageFrames(
 
   if (kind === 'tab') {
     return entering
-      ? [{ opacity: .55, transform: `translate3d(${tabDirection * 12}px,0,0)` }, { opacity: 1, transform: 'none' }]
-      : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translate3d(${tabDirection * -8}px,0,0)` }]
+      ? [{ opacity: .18, transform: 'translate3d(14px,0,0)' }, { opacity: 1, transform: 'none' }]
+      : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translate3d(-8px,0,0)' }]
   }
 
   const offset = kind === 'pop' ? 'translate3d(-24px,0,0)' : 'translate3d(24px,0,0)'
@@ -338,7 +337,7 @@ export function createMobileNavigationMotion() {
       hero: HTMLImageElement | null
       heroRect: RectLike | null
       heroRadius: string
-    }, tabDirection: -1 | 1 = 1) {
+    }) {
       cancel()
       const current = generation
       const incomingSheet = isDetailSheetView(incoming.dataset?.routeKey?.split(':', 1)[0])
@@ -447,7 +446,7 @@ export function createMobileNavigationMotion() {
         const entering = index === 0
         if (surface && playlistTransition && ((kind === 'pop' && entering) || (kind === 'push' && bottomEntrance && !entering))) return Promise.resolve()
         const clip = entering ? incomingClip : outgoingClip
-        const frames = playlistTransition && surface ? playlistSheetFrames(kind !== 'pop') : mobilePageFrames(kind, entering, sharedCover, surface, clip, bottomEntrance, tabDirection)
+        const frames = playlistTransition && surface ? playlistSheetFrames(kind !== 'pop') : mobilePageFrames(kind, entering, sharedCover, surface, clip, bottomEntrance)
         const animation = node.animate(frames, {
           duration,
           easing,

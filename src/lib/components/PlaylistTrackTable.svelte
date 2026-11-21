@@ -36,11 +36,9 @@
     error = '',
     currentId = null,
     showFooter = false,
-    showHeader = true,
-    skeletonLabel = '加载详情歌曲',
     emptyText = '没有匹配的歌曲',
-    sort = 'added',
-    direction = 'desc',
+    sort,
+    direction,
     rowActions = null,
     onSort,
     onPlay,
@@ -60,12 +58,10 @@
     currentId?: SongId | number | null
     /** 是否渲染底部「加载更多/追加失败」行（由页面的分页状态决定） */
     showFooter?: boolean
-    showHeader?: boolean
-    skeletonLabel?: string
     /** 空态文案由页面决定：歌单为空 / 已加载范围内没有匹配 */
     emptyText?: string
-    sort?: PlaylistSortKey
-    direction?: PlaylistSortDir
+    sort: PlaylistSortKey
+    direction: PlaylistSortDir
     rowActions?: RowBinder | null
     onSort?: (sort: PlaylistSortKey) => void
     /** 上层决定「播放哪一串」：这里把当前可见列表原样回传 */
@@ -85,7 +81,7 @@
   {loading}
   {currentId}
   {rowActions}
-  {skeletonLabel}
+  skeletonLabel="加载详情歌曲"
   {emptyText}
   {showFooter}
   {hasMore}
@@ -98,7 +94,6 @@
   onRowMenu={(row, event) => rowActions?.(row.source).oncontextmenu(event)}
 >
   {#snippet header()}
-    {#if showHeader}
     <tr>
       <th class="col-num">#</th>
       <th class="col-cover"></th>
@@ -132,7 +127,6 @@
         </th>
       {/if}
     </tr>
-    {/if}
   {/snippet}
 </SongList>
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { flushSync, onDestroy, onMount, tick, untrack } from 'svelte'
+  import { flushSync, onDestroy, tick, untrack } from 'svelte'
   import { mobileDock } from './lib/stores/mobile-dock.svelte.ts'
   import { desktopFeedback, reducedMotion, rememberCardOrigin, dismissTopDialog } from './lib/app/desktop-motion.ts'
   import { configureBackNavigation, registerBackLayers, requestBack } from './lib/app/back-navigation.ts'
-  import { initialAndroidTheme, syncAndroidTheme, useLightStatusIcons } from './lib/app/android-startup.ts'
+  import { initialAndroidTheme, syncAndroidTheme, announceAndroidFrame, useLightStatusIcons } from './lib/app/android-startup.ts'
   import { getStartupTrack } from './lib/app/startup-track.ts'
   import { loadCachedExploreData } from './lib/services/explore.ts'
   import { ncm } from './lib/api/client.ts'
@@ -58,10 +58,6 @@
   type MessageTargetUser = { userId: SongId; nickname?: unknown; avatarUrl?: unknown }
 
   const isMobileRuntime = (): boolean => isMobileDevice()
-  let { onReady }: { onReady?: () => void } = $props()
-  const notifyShellReady = (_node?: HTMLElement) => { onReady?.() }
-  onMount(() => { if (!isMobileRuntime()) notifyShellReady() })
-
   const hasCustomTitlebar = isTauriDesktop()
   // 同步打标（不能等 $effect，否则首帧内容会顶到标题栏下）；供 fixed overlay 避让
   if (hasCustomTitlebar) document.documentElement.classList.add('desktop-titlebar')
@@ -433,7 +429,6 @@
       {#await loadMobileApp() then module}
         <module.default
           activeView={router.activeView}
-          onReady={notifyShellReady}
           {theme}
           onNavigate={router.handleNav}
           onOpenPlaylist={openPlaylistRef}
@@ -451,7 +446,7 @@
           onUnreadChange={(count: unknown) => { notificationUnread = count as number }}
         />
       {:catch}
-        <div class="loading-state" role="alert" use:notifyShellReady>移动端界面加载失败，请重启应用</div>
+        <div class="loading-state" role="alert" use:announceAndroidFrame>移动端界面加载失败，请重启应用</div>
       {/await}
     {:else}
       <DesktopPageHost

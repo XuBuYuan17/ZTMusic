@@ -316,41 +316,41 @@
   }
 
   /* 窄布局：表格结构变卡片。td 在 SongRow 里，单列出来整段 global */
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-table,
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-table tbody {
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-table,
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-table tbody {
     display: block;
   }
 
-  :global(html.mobile-runtime .playlist-track-surface .track-table td) {
+  :global(html.mobile-runtime .playlist-detail-page .track-table td) {
     display: block;
   }
 
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-table {
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-table {
     width: 100%;
     table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
   }
 
-  :global(html.mobile-runtime .playlist-track-surface .track-table thead),
-  :global(html.mobile-runtime .playlist-track-surface .track-table .col-num),
-  :global(html.mobile-runtime .playlist-track-surface .track-table .col-added) {
+  :global(html.mobile-runtime .playlist-detail-page .track-table thead),
+  :global(html.mobile-runtime .playlist-detail-page .track-table .col-num),
+  :global(html.mobile-runtime .playlist-detail-page .track-table .col-added) {
     display: none !important;
   }
 
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-table tbody {
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-table tbody {
     display: grid;
     gap: 4px;
   }
 
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-empty-row,
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .loading-more-row {
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-empty-row,
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .loading-more-row {
     display: block !important;
     min-height: 76px !important;
   }
 
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .track-empty-row td,
-  :global(html.mobile-runtime) :global(.playlist-track-surface) .loading-more-row td {
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .track-empty-row td,
+  :global(html.mobile-runtime) :global(.playlist-detail-page) .loading-more-row td {
     display: flex !important;
     justify-content: center;
     padding: 22px 0 !important;

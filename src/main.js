@@ -27,17 +27,14 @@ import './styles/mobile/playlist-layout.css'
 import './styles/mobile/action-panels.css'
 import './styles/mobile/interaction-polish.css'
 import './styles/mobile/library-appearance.css'
-import { mount, unmount } from 'svelte'
-import LaunchAnimation from './lib/components/LaunchAnimation.svelte'
 import { isMobileDevice } from './lib/utils/responsive.ts'
-import { isAndroidRuntime } from './lib/utils/runtime.ts'
 import { announceAndroidFrame, prepareAndroidStartup } from './lib/app/android-startup.ts'
 import { installNativeShell } from './lib/app/native-shell.ts'
 import { installMobileResumeGuard } from './lib/app/mobile-resume.ts'
 
 installNativeShell()
 installMobileResumeGuard()
-if (isAndroidRuntime()) prepareAndroidStartup()
+prepareAndroidStartup()
 
 const viewport = document.querySelector('meta[name="viewport"]')
 viewport?.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
@@ -107,46 +104,22 @@ installDevErrorReporter()
 document.documentElement.classList.toggle('mobile-runtime', isMobileDevice())
 
 ;(async () => {
-  const appTarget = document.getElementById('app')
-  const launchTarget = document.getElementById('launch-animation-root')
-  let launch
-
   try {
-    let completeAnimation
-    const animationReady = new Promise(resolve => { completeAnimation = resolve })
-    performance.mark('ztmusic:launch-start')
-    launch = mount(LaunchAnimation, { target: launchTarget, props: { onComplete: completeAnimation } })
-    appTarget.inert = true
-    requestAnimationFrame(() => requestAnimationFrame(() => announceAndroidFrame()))
-
     const mobile = isMobileDevice()
     // 移动壳（含全部共享页面）必须和 App.svelte 并行取。App.svelte 有 45 个静态 import，
     // 等它整个模块图求值完才执行 App 里的 loadMobileApp()，移动壳就只能串行排在后面，
     // Android 冷启动首帧会明显靠后。这里先起同一次 import，App 里的调用命中模块缓存。
-    const [{ default: App }] = await Promise.all([
+    const [{ mount }, { default: App }] = await Promise.all([
+      import('svelte'),
       import('./App.svelte'),
       mobile ? import('./lib/components/MobileApp.svelte') : null,
     ])
-    if (launchTarget.hidden) {
-      await unmount(launch)
-      return
-    }
-
-    let completeShell
-    const shellReady = new Promise(resolve => { completeShell = resolve })
-    mount(App, { target: appTarget, props: { onReady: completeShell } })
-    await shellReady
-    performance.mark('ztmusic:launch-shell-ready')
+    mount(App, { target: document.getElementById('app') })
+    // MobileApp reports when its lazy mobile shell is mounted. Desktop/landscape layouts
+    // have no MobileApp, so release Android's static launch surface immediately here.
+    if (!mobile) announceAndroidFrame()
     window.dispatchEvent(new Event('ztmusic:startup-ready'))
-
-    await animationReady
-    await unmount(launch, { outro: !launchTarget.hidden })
-    document.documentElement.removeAttribute('data-launch-pending')
-    appTarget.inert = false
-    performance.mark('ztmusic:launch-finished')
   } catch (e) {
-    if (launch) void unmount(launch)
-    if (appTarget) appTarget.inert = false
     console.error('[哲听] 初始加载错误:', e)
     if (import.meta.hot) {
       import.meta.hot.on('vite:error', () => window.location.reload())
