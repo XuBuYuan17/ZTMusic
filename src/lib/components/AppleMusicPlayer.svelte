@@ -16,6 +16,8 @@
   import { QUALITY_LABELS } from '../player/quality.ts';
   import { shareSong } from '../share/song-share.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
+  import { useLyrics } from '../composables/useLyrics.svelte.ts';
+  import { playerPresentation, type PlayerTheme } from '../stores/player-presentation.svelte.ts';
   import AppleMusicControls from './AppleMusicControls.svelte';
   import AppleMusicProgressBar from './AppleMusicProgressBar.svelte';
   import ArtistNames from './ArtistNames.svelte';
@@ -34,6 +36,7 @@
     action?: () => void;
     disabled?: boolean;
     keepOpen?: boolean;
+    checked?: boolean;
     group?: string;
   }
 
@@ -93,12 +96,12 @@
   });
   let showMoreMenu = $state(false);
   let moreMenuElement = $state<HTMLDivElement | null>(null);
-  let playlistTrack = $state<{ id: SongId; title: string; cover: string; artist: string } | null>(null);
+  let playlistTrack = $state<{ id: SongId; title: string; cover: string; artist: string; mode: 'add' | 'remove' } | null>(null);
   let menuMessage = $state('');
   let actionBusy = $state('');
   let contextPanelRequest = $state<StripPanel | null>(null);
   let secondaryPanel = $state<Panel | null>(null);
-  let playerTheme = $state('card');
+  const lyricState = useLyrics();
   let entered = $state(false);
   let closing = $state(false);
   let swipeStartX = 0;
@@ -119,14 +122,17 @@
   const canAddToPlaylist = $derived(Boolean(player.currentTrack && (!player.currentTrack.source || player.currentTrack.source === 'online') && /^[1-9]\d*$/.test(String(player.id))));
   let moreMenuItems = $derived<MenuItem[]>([
     { label: like.liked ? '取消收藏' : '收藏', icon: like.liked ? 'heart-filled' : 'heart', action: like.toggle, disabled: !player.id || like.busy, group: '播放与收藏' },
-    { label: '添加到歌单', icon: 'add', action: openPlaylistPicker, disabled: !canAddToPlaylist, keepOpen: true },
+    { label: '添加到歌单', icon: 'add', action: () => openPlaylistPicker('add'), disabled: !canAddToPlaylist, keepOpen: true },
+    { label: '从歌单移除', icon: 'trash', action: () => openPlaylistPicker('remove'), disabled: !canAddToPlaylist, keepOpen: true },
     { label: '播放队列', icon: 'queue-music', action: handleToggleLocalQueue, disabled: !player.id },
     { label: '分享', icon: 'share', action: shareTrack, disabled: !player.id || actionBusy === 'share' },
     { label: '专辑', icon: 'disc', action: openAlbum, disabled: !album?.id, group: '歌曲内容' },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
     { label: '热评', icon: 'messages', action: () => openSecondaryPanel('comments'), disabled: !player.id, keepOpen: $responsive.isMobile },
+    { label: '相似歌曲', icon: 'music', action: () => openSecondaryPanel('songs'), disabled: !player.id, keepOpen: $responsive.isMobile },
     { label: '相似歌单', icon: 'library-music', action: () => openSecondaryPanel('playlists'), disabled: !player.id, keepOpen: $responsive.isMobile },
     { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'audio-quality', action: () => openSecondaryPanel('quality'), group: '播放与外观', keepOpen: $responsive.isMobile },
+    ...(lyricState.lyrics.some(line => line.translation) ? [{ label: '显示译文', icon: 'lyrics', action: () => { playerPresentation.showTranslation = !playerPresentation.showTranslation }, keepOpen: true, checked: playerPresentation.showTranslation }] : []),
     { label: '播放器主题', icon: 'palette', action: () => openSecondaryPanel('theme'), keepOpen: $responsive.isMobile },
     { label: '切换应用外观', icon: 'moon', action: toggleTheme },
   ]);
@@ -207,25 +213,26 @@
     else closeMoreMenu();
   }
 
-  async function openPlaylistPicker(): Promise<void> {
+  async function openPlaylistPicker(mode: 'add' | 'remove'): Promise<void> {
     if (!auth.isLoggedIn || !auth.cookieOk) { showMenuMessage('请先登录'); return; }
     const id = player.id;
     if (!id || !canAddToPlaylist) return;
-    playlistTrack = { id, title: displayTitle, cover: displayCover, artist: player.artist || '' };
+    playlistTrack = { id, title: displayTitle, cover: displayCover, artist: player.artist || '', mode };
     if ($responsive.isMobile) return;
     await tick();
     moreMenuElement?.querySelector<HTMLElement>('.song-menu__panel-head button')?.focus({ preventScroll: true });
   }
 
   function closePlaylistPicker(): void {
+    const label = playlistTrack?.mode === 'remove' ? '从歌单移除' : '添加到歌单';
     playlistTrack = null;
-    if (!$responsive.isMobile) void tick().then(() => moreMenuElement?.querySelector<HTMLElement>('.am-more-item[aria-label="添加到歌单"]')?.focus({ preventScroll: true }));
+    if (!$responsive.isMobile) void tick().then(() => moreMenuElement?.querySelector<HTMLElement>('.am-more-item[aria-label="' + label + '"]')?.focus({ preventScroll: true }));
   }
 
   function openSecondaryPanel(panel: Panel): void {
     if (!$responsive.isMobile) showMoreMenu = false;
     secondaryPanel = panel;
-    if (panel === 'comments' || panel === 'playlists') contextPanelRequest = panel;
+    if (panel === 'comments' || panel === 'playlists' || panel === 'songs') contextPanelRequest = panel;
   }
 
   function closeSecondaryPanel(): void {
@@ -331,13 +338,13 @@
     onToggleTheme?.();
   }
 
-  function setPlayerTheme(theme: string): void {
-    playerTheme = theme;
+  function setPlayerTheme(theme: PlayerTheme): void {
+    playerPresentation.theme = theme;
   }
 
 </script>
 
-<div class="apple-music-player" style:--player-surface={surfaceColor} bind:this={playerRoot} class:empty-player={!displayCover} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerTheme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
+<div class="apple-music-player" style:--player-surface={surfaceColor} bind:this={playerRoot} class:empty-player={!displayCover} class:lyrics-mode={lyricsMode} class:entered={entered} class:closing={closing} class:vinyl-theme={playerPresentation.theme === 'vinyl'} class:playing={player.playing} role="region" aria-label="播放器" onpointerdown={handlePlayerPointerDown} onpointerup={handlePlayerPointerUp} onpointercancel={() => { swipeActive = false; swipeStartX = 0; swipeStartY = 0; }}>
 
   <!-- Blurred background -->
   <div class="am-bg">
@@ -360,14 +367,14 @@
   >
     {#if playlistTrack && !$responsive.isMobile}
       <div class="song-menu__playlist-page">
-        <SongPlaylistPanel active trackId={playlistTrack.id} trackName={playlistTrack.title} onBack={closePlaylistPicker} onToast={showMenuMessage} />
+        <SongPlaylistPanel active mode={playlistTrack.mode} trackId={playlistTrack.id} trackName={playlistTrack.title} onBack={closePlaylistPicker} onToast={showMenuMessage} />
       </div>
     {/if}
     {#snippet nested()}
       {#if $responsive.isMobile}
         {#if playlistTrack}
-          <NestedActionSheet title="添加到歌单" onBack={closePlaylistPicker} fill>
-            <SongPlaylistPanel active showHeader={false} trackId={playlistTrack.id} onBack={closePlaylistPicker} onToast={showMenuMessage} />
+          <NestedActionSheet title={playlistTrack.mode === 'remove' ? '从歌单移除' : '添加到歌单'} onBack={closePlaylistPicker} fill>
+            <SongPlaylistPanel active mode={playlistTrack.mode} showHeader={false} trackId={playlistTrack.id} onBack={closePlaylistPicker} onToast={showMenuMessage} />
           </NestedActionSheet>
         {:else}
           {@render playerSecondary(true)}
@@ -379,7 +386,7 @@
   {#snippet coverArtwork()}
     {#if !displayCover}<StartupArtwork />{/if}
     {#if displayCover}
-      {#if $responsive.isMobile && playerTheme === 'vinyl'}
+      {#if $responsive.isMobile && playerPresentation.theme === 'vinyl'}
         {#key displayTrack?.id ?? displayCover}
           <div class="am-record-change" aria-hidden="true"><div class="am-record"><img src={coverUrl(displayCover, 300)} alt="" draggable="false" referrerpolicy="no-referrer" /></div></div>
         {/key}
@@ -435,7 +442,7 @@
     panel={secondaryPanel}
     {nested}
     onClose={closeSecondaryPanel}
-    {playerTheme}
+    playerTheme={playerPresentation.theme}
     onSetPlayerTheme={setPlayerTheme}
     onToggleTheme={toggleTheme}
     onSetQuality={setQuality}
@@ -445,7 +452,7 @@
   />
   {/snippet}
 
-  <PlayerLyrics active={lyricsMode} />
+  <PlayerLyrics active={lyricsMode} {lyricState} />
 
   {#if $responsive.isMobile}
     <button class="am-mobile-like" aria-label={like.liked ? '取消收藏' : '收藏'} aria-pressed={like.liked} disabled={!player.id || like.busy} onclick={like.toggle}>

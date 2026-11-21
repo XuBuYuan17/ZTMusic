@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import https from 'node:https'
+import { createDevicePairingRelay } from './scripts/device-pairing-relay.mjs'
 
 const PROXY_TARGET = 'https://music.xubuyuan.top'
 const httpsAgent = new https.Agent({
@@ -65,6 +66,7 @@ export default defineConfig({
   plugins: [
     svelte(),
     stripCrossorigin(),
+    { name: 'device-pairing-dev', configureServer(server) { server.middlewares.use(createDevicePairingRelay()) } },
   ],
   resolve: {
     alias: {

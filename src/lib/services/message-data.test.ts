@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {
   extractMessageList,
+  extractChatHistory,
   getNoticeSummary,
   getMessageKindLabel,
   isConversationMessage,
@@ -33,4 +34,7 @@ assert.equal(isConversationMessage(messages[1]), true)
 assert.equal(getNoticeSummary({ notice: JSON.stringify({ type: 6, comment: { content: '收到' } }) }), '回复了你的评论：收到')
 assert.equal(getNoticeSummary({ notice: '{invalid' }), '新的互动通知')
 
-console.log('message data self-check: 9 assertions passed')
+const history = [{ time: '1970-01-01T00:00:00.300Z', id: 'recent' }, { time: 100, id: 'old' }, { lastMsgTime: '200', id: 'middle' }, null]
+assert.deepEqual(extractChatHistory({ msgs: history }).map(item => item.id), ['old', 'middle', 'recent'])
+assert.equal(history[0]?.id, 'recent', 'sorting the conversation leaves the API response untouched')
+console.log('message data self-check: 11 assertions passed')

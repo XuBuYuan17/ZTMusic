@@ -95,7 +95,7 @@
 <section class="messages-card">
   {#if auth.isLoggedIn && (messagesLoaded || loading)}
     <div class="messages-toolbar">
-      <div class="filter-tabs" role="tablist" aria-label="提醒分类">
+      <div class="filter-tabs" role="tablist" aria-label="通知分类">
         {#each filterTabs as filter}
           <button
             type="button"
@@ -112,9 +112,9 @@
     </div>
   {/if}
   {#if !auth.isLoggedIn}
-    <div class="empty-state">登录后查看提醒</div>
+    <div class="empty-state">登录后查看通知</div>
   {:else if loading}
-    <div class="messages-skeleton" aria-label="正在加载提醒" aria-busy="true">
+    <div class="messages-skeleton" aria-label="正在加载通知" aria-busy="true">
       {#each Array(6) as _, i}
         <div class="message-item skeleton-row" aria-hidden="true">
           <span class="msg-avatar skeleton-block"></span>
@@ -132,7 +132,7 @@
       <button class="plain-btn" onclick={() => onRetry?.()}>重试</button>
     </div>
   {:else if filteredMessages.length === 0}
-    <div class="empty-state">{messages.length === 0 ? '暂无提醒' : '此分类暂无提醒'}</div>
+    <div class="empty-state">{messages.length === 0 ? '暂无通知' : '此分类暂无通知'}</div>
   {:else}
     <div class="messages-list">
       {#each filteredMessages as msg}

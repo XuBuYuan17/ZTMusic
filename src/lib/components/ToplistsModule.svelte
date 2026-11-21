@@ -1,5 +1,6 @@
 <script lang="ts">
   import PreviewCard from './PreviewCard.svelte'
+  import MobileCoverRows from './MobileCoverRows.svelte'
 
   // 榜单：沿用页面的 toplists 数据与缓存，失败只在本模块内提示。
   interface ChartItem {
@@ -45,15 +46,11 @@
           {#if onRetry}<button type="button" onclick={() => onRetry?.()}>重试</button>{/if}
         </div>
       {:else}
-        <div class="mobile-cover-rail mobile-cover-rail--two-rows">
-          {#if loading && !toplists.length}
-            {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
-          {:else}
-            {#each visible as chart (chart.id)}
-              <PreviewCard mobile title={String(chart.name ?? '')} meta={String(chart.updateFrequency ?? '') || '持续更新'} cover={String(chart.coverImgUrl ?? '')} onSelect={() => onOpenPlaylist?.(chart)} />
-            {/each}
-          {/if}
-        </div>
+        <MobileCoverRows items={visible} loading={loading && !toplists.length}>
+          {#snippet children(chart)}
+            <PreviewCard mobile title={String(chart.name ?? '')} meta={String(chart.updateFrequency ?? '') || '持续更新'} cover={String(chart.coverImgUrl ?? '')} onSelect={() => onOpenPlaylist?.(chart)} />
+          {/snippet}
+        </MobileCoverRows>
       {/if}
     </section>
   {:else}

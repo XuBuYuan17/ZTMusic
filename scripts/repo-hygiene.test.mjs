@@ -57,7 +57,7 @@ for (const path of tracked) {
   const absolute = resolve(root, path)
   if (existsSync(absolute)) scan(path, readFileSync(absolute), 'working tree')
   if (staged.has(path)) {
-    scan(path, execFileSync('git', ['show', `:${path}`], { cwd: root }), 'index')
+    scan(path, execFileSync('git', ['show', `:${path}`], { cwd: root, maxBuffer: 32 * 1024 * 1024 }), 'index')
   }
 }
 if (failures.length) {

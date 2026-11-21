@@ -388,14 +388,39 @@ html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-list {
 html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item {
   min-height: 52px;
   gap: 9px;
-  padding: 6px 8px;
+  padding: 6px var(--queue-actions-width) 6px 8px;
   border-radius: var(--radius-md);
+  transition: background-color 140ms var(--ease-out), opacity 150ms var(--ease-out);
 }
 
-html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item.active {
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item:is(.active, .pending) {
   width: 100%;
   margin: 0;
-  border-radius: var(--radius-md);
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item:has(.queue-item-open[data-mobile-pressed]) {
+  background: color-mix(in srgb, var(--md-primary) 13%, var(--md-container));
+  transition-duration: 70ms, 150ms;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item:has(.queue-item-open[data-mobile-pressed]).active {
+  background: color-mix(in srgb, var(--md-primary) 14%, var(--md-primary-container));
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item :is(.queue-item-open, .queue-item-playnext, .queue-item-remove, .queue-drag-handle)[data-mobile-pressed] {
+  scale: 1;
+  transform: none;
+  opacity: 1;
+}
+
+html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item :is(.queue-item-playnext, .queue-item-remove, .queue-drag-handle)[data-mobile-pressed] {
+  background: var(--bg-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item { transition: none; }
 }
 
 html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-cover {
@@ -413,13 +438,6 @@ html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-art
 html.mobile-runtime body .queue-panel.queue-panel-mobile-visible .queue-item-duration {
   font-size: 11px;
   line-height: 15px;
-}
-
-html.mobile-runtime body .queue-panel.queue-panel-mobile-visible :is(.queue-item-playnext, .queue-item-remove) {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
 }
 
 /* Secondary player sheets share the same compact controls; detail content gets a little more room. */

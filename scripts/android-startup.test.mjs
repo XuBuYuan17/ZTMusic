@@ -129,6 +129,8 @@ try {
   assert.equal(gradle.match(/core-splashscreen/g).length, 1)
   assert.equal(manifest.match(/Theme.ZTMusic.Starting/g).length, 1)
   assert.equal(manifest.match(/<activity /g).length, 1)
+  assert.equal(manifest.match(/android\.permission\.CAMERA/g).length, 1, 'the optional pairing camera permission is declared once')
+  assert.match(manifest, /android\.hardware\.camera" android:required="false"/)
   const generatedMain = await readFile(join(project, 'app/src/main/java/com/zheting/music/androidtest/MainActivity.kt'), 'utf8')
   assert.ok(generatedMain.startsWith('package com.zheting.music.androidtest'))
   assert.ok(!generatedMain.includes('__PACKAGE__'))

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick, untrack, onDestroy, onMount } from 'svelte'
-  import { announceAndroidFrame } from '../app/android-startup.ts'
-  onMount(() => { announceAndroidFrame(); onReady?.() })
+  onMount(() => { onReady?.() })
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, isDetailSheetView, mobileNavigationKind, outgoingViewportClipTop } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport, mobileEdgeBack } from '../app/mobile-interaction.ts'
@@ -73,7 +72,7 @@
   const titles: Record<string, string> = $derived({
     home: '我的主页', explore: '发现', library: '资料库', search: '搜索', settings: t('settings.title'),
     about: '关于哲听', liked: '喜欢的音乐', recent: '最近播放', dailyHistory: '历史日推', recommendation: '歌单',
-    messages: '提醒', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单', 'settings-dock': '底栏',
+    messages: '通知', localMusic: '本地音乐', listeningStats: '听歌统计', playlist: '歌单', 'settings-dock': '底栏',
     ...Object.fromEntries(SETTINGS_CATEGORIES.map(item => [settingsView(item.id), t(item.titleKey)])),
     album: '专辑', artist: '歌手', user: '个人主页',
   })
@@ -81,6 +80,7 @@
   let contentEl = $state<HTMLElement | null>(null)
   let rootEl = $state<HTMLElement | null>(null)
   const dockItems = $derived(buildDockItems(mobileDock.config))
+  const activeDockIndex = $derived(dockItems.findIndex(item => item.id === selectedTab))
   $effect(() => {
     document.documentElement.classList.toggle('mobile-floating-dock', mobileDock.config.layout === 'floating')
     return () => document.documentElement.classList.remove('mobile-floating-dock')
@@ -189,8 +189,11 @@
         scrollTop = position
         showChrome()
         const page = [...scroller.querySelectorAll<HTMLElement>('[data-route-key]')].find(node => node.dataset.routeKey === key)
+        const oldTabIndex = dockItems.findIndex(item => item.id === oldKey)
+        const newTabIndex = dockItems.findIndex(item => item.id === key)
+        const tabDirection = oldTabIndex >= 0 && newTabIndex >= 0 && newTabIndex < oldTabIndex ? -1 : 1
         if (page) observer.observe(page)
-        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot)
+        if (page && oldKey) navigationMotion.play(page, oldPage, kind, sharedCover, coverDetail, reduced, () => { leavingKey = null; playlistSourceKey = null }, coverSnapshot, tabDirection)
         else { leavingKey = null; playlistSourceKey = null }
         playlistEnteringKey = null
       })
@@ -302,7 +305,7 @@
   </header>
   {/if}
 
-  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={handleContentScroll} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: () => activeView === 'settings-dock' ? router.goBack() : router.goSettingsHome() }}>
+  <main class="mobile-page-content" id="main-content" bind:this={contentEl} onscroll={handleContentScroll} use:settingsBackGesture={{ enabled: () => settingsCategory(activeView) !== null, back: router.goSettingsHome }}>
     <div class="mobile-page-content__inner" class:primary-content={isPrimaryView || coverHeaderless}>
       {#if activeView === 'explore' || mountedViews.includes('explore')}
         <div class="mobile-shared-page mobile-route-page" data-route-key="explore" class:mobile-route-outgoing={leavingKey === 'explore'} class:playlist-source-outgoing={playlistSourceKey === 'explore'} style:display={activeView === 'explore' ? 'block' : 'none'} inert={activeView !== 'explore'} aria-hidden={activeView !== 'explore'}>
@@ -318,7 +321,6 @@
         <div class="mobile-shared-page mobile-route-page" data-route-key="library" class:mobile-route-outgoing={leavingKey === 'library'} class:playlist-source-outgoing={playlistSourceKey === 'library'} style:display={activeView === 'library' ? 'block' : 'none'} inert={activeView !== 'library'} aria-hidden={activeView !== 'library'}>
           <div class="library-mobile-header">
             <h1 class="mobile-large-title">{titles.library}</h1>
-            <div class="library-mobile-header__actions"><button type="button" aria-label="搜索音乐" onclick={() => handleNav('search')}><Icon name="search" size={22} /></button><button type="button" aria-label="打开设置" onclick={() => handleNav('settings')}><Icon name="settings" size={22} /></button></div>
           </div>
           <LibraryPage onOpenLogin={onOpenLogin}
             onOpenPlaylist={(id, push, preview) => openFromCurrentView(onOpenPlaylist, id, push, preview)} onNavigate={handleNav} />
@@ -343,18 +345,13 @@
       {#each detailPages as page (page.key)}
       <div class="mobile-route-page mobile-detail-page" class:playlist-sheet-page={isDetailSheetView(page.view)} data-route-key={page.key} class:mobile-route-outgoing={leavingKey === page.key} class:playlist-source-outgoing={playlistSourceKey === page.key}
         style:display={viewKey === page.key ? 'block' : 'none'} style:transform={playlistEnteringKey === page.key ? 'translate3d(0,100vh,0)' : undefined} inert={viewKey !== page.key} aria-hidden={viewKey !== page.key}>
-      {#if page.view === 'dailyHistory'}
-        <header class="mobile-page-bar daily-history-page-bar">
-          <button class="mobile-page-bar__button" type="button" aria-label="返回上一页" onclick={() => onBack?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
-          <h1>{titles.dailyHistory}</h1>
-        </header>
-      {:else if isDetailSheetView(page.view)}
+      {#if isDetailSheetView(page.view)}
         <div class="cover-page-controls">
           <button type="button" aria-label="返回上一页" onclick={() => (activeChrome?.back ?? onBack)?.()}><Icon name="arrow-left" fill="none" size={24} /></button>
         </div>
       {/if}
       {#if settingsCategory(page.view) && viewKey === page.key}
-        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={page.view === 'settings-dock' ? router.goBack : router.goSettingsHome} />
+        <SettingsPage {theme} {accentTheme} {onSetTheme} {onSetAccentTheme} category={settingsCategory(page.view)} onNavigate={handleNav} onBack={router.goSettingsHome} />
       {:else if page.view === 'about'}
         <AboutPage />
       {:else if page.view === 'liked'}
@@ -362,7 +359,7 @@
       {:else if page.view === 'recent'}
         <RecentPage {onOpenArtist} {onOpenAlbum} />
       {:else if page.view === 'localMusic'}
-        <LocalMusicPage />
+        <LocalMusicPage mobile active={viewKey === page.key} />
       {:else if page.view === 'listeningStats'}
         <ListeningReportPage />
       {:else if page.view === 'dailyHistory'}
@@ -388,7 +385,13 @@
     </div>
   </main>
 
-  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels} style:--dock-count={dockItems.length} aria-label="主导航" use:swipeChrome>
+  <nav class="mobile-tab-bar" class:floating={mobileDock.config.layout === 'floating'} class:icons-only={!mobileDock.config.labels}
+    style:--dock-count={dockItems.length} style:--dock-active={Math.max(0, activeDockIndex)} aria-label="主导航" use:swipeChrome>
+    {#if chromeCanHide}
+      <span class="dock-selection-track" aria-hidden="true">
+        <span class="dock-selection" class:unselected={activeDockIndex < 0}></span>
+      </span>
+    {/if}
     {#each dockItems as item (item.id)}{@render dockTab(item)}{/each}
   </nav>
 </div>
@@ -401,10 +404,8 @@
   .settings-view.secondary :global(.mobile-page-content) { touch-action: pan-y; }
   :global(html.mobile-runtime) .primary-content { padding-top: calc(16px + env(safe-area-inset-top)); }
   .settings-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
-  .library-mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 560px; margin: 0 auto 16px; padding-block: 4px 10px; border-bottom: 1px solid var(--border); }
+  .library-mobile-header { max-width: 560px; margin: 0 auto 16px; padding-block: 4px 10px; border-bottom: 1px solid var(--border); }
   .library-mobile-header :global(.mobile-large-title) { margin: 0; padding: 0; border: 0; font-size: 30px; }
-  .library-mobile-header__actions { display: flex; flex: none; }
-  .library-mobile-header__actions button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text); }
   .settings-title-row :global(.mobile-large-title) { flex: 1; min-width: 0; margin: 0; padding: 0; border: 0; }
   .settings-menu-button { display: grid; place-items: center; flex: none; width: 48px; height: 48px; color: var(--accent); background: transparent; }
   .settings-menu-button :global(svg) { rotate: 90deg; }
@@ -415,7 +416,6 @@
   .mobile-route-page { min-height: 100%; }
   .playlist-sheet-page { position: relative; z-index: 2; isolation: isolate; min-height: calc(var(--mobile-viewport-height, 100dvh) - var(--mobile-page-bar-height, 64px)); box-sizing: border-box; width: calc(100% + max(var(--mobile-content-gutter), env(safe-area-inset-left)) + max(var(--mobile-content-gutter), env(safe-area-inset-right))); margin: -16px calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-right))) 0 calc(-1 * max(var(--mobile-content-gutter), env(safe-area-inset-left))); padding: 16px max(var(--mobile-content-gutter), env(safe-area-inset-right)) 0 max(var(--mobile-content-gutter), env(safe-area-inset-left)); border-radius: var(--radius-xl) var(--radius-xl) 0 0; overflow: clip; background: var(--bg); }
   .playlist-sheet-page.mobile-route-outgoing { z-index: 3; margin: 0; }
-  .playlist-sheet-page .daily-history-page-bar { padding-inline: 0; }
   .mobile-route-outgoing { display: block !important; position: fixed; top: var(--route-outgoing-top, 0px); left: var(--route-outgoing-left, 0px); width: var(--route-outgoing-width, 100%); right: auto; z-index: 1; pointer-events: none; }
   :global(html.mobile-runtime) .mobile-shared-page.mobile-route-outgoing { width: var(--route-outgoing-width, 100%); }
   .mobile-route-outgoing.playlist-source-outgoing { z-index: 0; clip-path: inset(var(--route-outgoing-clip-top, 0px) 0 0); }
@@ -423,15 +423,24 @@
 
   :global(html.mobile-runtime) .mobile-tab-bar:not(.floating) { grid-template-columns: repeat(var(--dock-count), minmax(0, 1fr)); }
   :global(html.mobile-runtime) .mobile-tab-bar.icons-only .mobile-tab__label { display: none; }
+  .dock-selection-track { position: absolute; inset: 4px var(--floating-dock-pad-inline); pointer-events: none; }
+  .dock-selection {
+    display: block; width: calc(100% / var(--dock-count)); height: 100%;
+    border-radius: 999px; background: var(--md-primary-container);
+    transform: translateX(calc(var(--dock-active) * 100%));
+    transition: transform 320ms cubic-bezier(.22, .72, .24, 1), opacity 160ms ease;
+  }
+  .dock-selection.unselected { opacity: 0; }
+  .mobile-tab-bar > .mobile-tab { position: relative; z-index: 1; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating {
-    width: auto; height: var(--mobile-floating-height); display: flex; align-items: center; gap: 0; padding: 4px;
+    --floating-dock-pad-inline: 4px;
+    width: auto; height: var(--mobile-floating-height); display: flex; align-items: center; gap: 0; padding: 4px var(--floating-dock-pad-inline);
     border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface);
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
     box-shadow: 0 4px 18px rgb(0 0 0 / .14); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
     touch-action: none;
   }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab { flex: 1 1 0; min-width: 44px; height: 50px; gap: 2px; border-radius: 999px; }
-  :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab.active { color: var(--md-primary); background: var(--md-primary-container); }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__icon { transform: none; }
   :global(html.mobile-runtime) .mobile-tab-bar.floating .mobile-tab__label { font-size: 10px; }
   @media (orientation: landscape) and (max-height: 720px) {
@@ -440,7 +449,8 @@
     :global(html.mobile-runtime.mobile-floating-dock) .mobile-app { padding-left: 0; }
   }
   @media (max-width: 360px) {
-    :global(html.mobile-runtime) .mobile-tab-bar.floating { padding-inline: 2px; }
+    :global(html.mobile-runtime) .mobile-tab-bar.floating { --floating-dock-pad-inline: 2px; }
   }
+  @media (prefers-reduced-motion: reduce) { .dock-selection { transition: none; } }
   @media (prefers-reduced-transparency: reduce) { :global(html.mobile-runtime) .mobile-tab-bar.floating { background: var(--bg-surface); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 </style>

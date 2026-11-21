@@ -8,6 +8,7 @@
   import { coverUrl } from '../utils/image.ts';
   import { useLyrics } from '../composables/useLyrics.svelte.ts';
   import { useLike } from '../composables/useLike.svelte.ts';
+  import { PLAYER_THEME_OPTIONS, playerPresentation } from '../stores/player-presentation.svelte.ts';
   import { QUALITY_LABELS } from '../player/quality.ts';
   import { scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import PlaybackControls from './PlaybackControls.svelte';
@@ -24,7 +25,7 @@
   import { QUALITY_ORDER } from '../utils/constants.ts';
 
   type ContextPanel = 'songs' | 'playlists' | 'comments';
-  type MenuView = 'main' | 'add' | 'remove' | 'quality';
+  type MenuView = 'main' | 'add' | 'remove' | 'quality' | 'theme';
 
   let { onClose, onOpenArtist, onOpenAlbum, onOpenPlaylist, showLocalQueue = false, toggleLocalQueue }: {
     onClose?: () => void
@@ -52,7 +53,6 @@
   let menuWidth = $derived(menuView === 'main' ? 240 : 300);
   let menuMessage = $state('');
   let actionBusy = $state('');
-  let showTranslation = $state(true);
   let menuAnchor = $state<HTMLButtonElement | null>(null);
   let menuEl = $state<HTMLDivElement | null>(null);
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
@@ -81,7 +81,7 @@
   $effect(() => {
     if (!lyricsEl) return;
     const index = lyricState.highlightIndex;
-    void showTranslation;
+    void playerPresentation.showTranslation;
     let cancelled = false;
     tick().then(() => {
       if (!cancelled) scrollLyricIntoView(lyricsEl, index, '.ly-line', 0.32, reducedMotion() ? 'instant' : 'smooth');
@@ -112,7 +112,7 @@
   function openMenuView(view: MenuView): void {
     // 歌单面板要账号态。不在这里挡的话 SongPlaylistPanel 会先弹「请先登录」再显示
     // 「没有可用歌单」，两句互相打架
-    if (view !== 'quality' && !auth.isLoggedIn) { showMenuMessage('请先登录'); return }
+    if ((view === 'add' || view === 'remove') && !auth.isLoggedIn) { showMenuMessage('请先登录'); return }
     menuView = view;
   }
 
@@ -200,7 +200,8 @@
     { label: '专辑', icon: 'music', action: openAlbum, disabled: !album?.id },
     { label: '歌手', icon: 'user', action: openArtist, disabled: !firstArtist?.id },
     { label: `音质：${qualityLabels[player.preferredLevel] || '标准'}`, icon: 'settings', action: () => openMenuView('quality'), disabled: !player.id, keepOpen: true },
-    ...(lyricState.lyrics.some(line => line.translation) ? [{ label: '显示译文', icon: 'lyrics', action: () => { showTranslation = !showTranslation }, keepOpen: true, checked: showTranslation }] : []),
+    ...(lyricState.lyrics.some(line => line.translation) ? [{ label: '显示译文', icon: 'lyrics', action: () => { playerPresentation.showTranslation = !playerPresentation.showTranslation }, keepOpen: true, checked: playerPresentation.showTranslation }] : []),
+    { label: '播放器主题', icon: 'palette', action: () => openMenuView('theme'), keepOpen: true },
     { label: '热评', icon: 'messages', action: () => openContextPanel('comments'), disabled: !player.id },
     { label: '相似歌曲', icon: 'music', action: () => openContextPanel('songs'), disabled: !player.id },
     { label: '相似歌单', icon: 'list', action: () => openContextPanel('playlists'), disabled: !player.id },
@@ -236,7 +237,7 @@
   <!-- LEFT COLUMN: Cover + Controls -->
   <div class="ly-left" use:closeDrag>
     <div class="ly-left-cover">
-      <div class="ly-cover-wrap">
+      <div class="ly-cover-wrap" class:vinyl-theme={playerPresentation.theme === 'vinyl'} class:playing={player.playing}>
           {#if player.cover}<img class="ly-cover" src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer" />{:else}<span class="ly-cover ly-cover-placeholder"><Icon name="music" size={64} /></span>{/if}
 
       </div>
@@ -269,6 +270,14 @@
                 {#each QUALITY_ORDER as level}
                   <button type="button" role="menuitemradio" aria-checked={player.preferredLevel === level} onclick={() => pickQuality(level)}>
                     <Icon name={player.preferredLevel === level ? 'check' : 'music'} size={16} /><span>{qualityLabels[level] || level}</span>
+                  </button>
+                {/each}
+              </div>
+              <div class="pc-more-quality" hidden={menuView !== 'theme'}>
+                <button class="ly-song-menu-back" type="button" onclick={() => menuView = 'main'}><Icon name="chevron-left" size={16} /><span>播放器主题</span></button>
+                {#each PLAYER_THEME_OPTIONS as option (option.value)}
+                  <button type="button" role="menuitemradio" aria-checked={playerPresentation.theme === option.value} onclick={() => playerPresentation.theme = option.value}>
+                    <Icon name={playerPresentation.theme === option.value ? 'check' : option.icon} size={16} /><span>{option.label}</span>
                   </button>
                 {/each}
               </div>
@@ -318,7 +327,7 @@
                 aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
                 onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
                 <span class="ly-line-text">{line.text || '...'}</span>
-                {#if showTranslation && line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
+                {#if playerPresentation.showTranslation && line.translation}<span class="ly-line-trans">{line.translation}</span>{/if}
               </button>
             {/each}
           {:else}

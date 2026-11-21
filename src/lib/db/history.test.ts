@@ -31,4 +31,15 @@ assert.equal(entry.localId, 'local:demo')
 assert.equal(entry.fileName, 'demo.mp3')
 assert.equal(entry.playCount, 1)
 
-console.log('db history local source self-check: 6 assertions passed')
+const imported = {
+  id: 42, name: '迁移测试在线歌曲', source: 'online', artists: [], album: {},
+  picUrl: null, pic_url: null, duration: 90_000, dt: 90_000, playedAt: 1, playCount: 2, fileSize: 0,
+}
+assert.equal(await dbHistory.mergeImported([imported, imported]), 1)
+assert.equal(await dbHistory.mergeImported([imported]), 0)
+const merged = await dbHistory.list()
+assert.equal(merged.length, 2)
+assert.equal(merged[0]?.id, 'local:demo', 'the existing local file record is preserved')
+assert.equal(merged[1]?.playedAt, 1, 'the original timestamp survives migration')
+
+console.log('db history local source self-check: 11 assertions passed')

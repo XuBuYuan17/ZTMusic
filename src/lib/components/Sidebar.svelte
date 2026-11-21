@@ -116,13 +116,13 @@
       <span class="nav-label">本地音乐</span>
     </button>
 
-    <button class="nav-item" class:active={activeView === 'messages'} aria-current={activeView === 'messages' ? 'page' : undefined} title="提醒" onclick={() => nav('messages')}>
+    <button class="nav-item" class:active={activeView === 'messages'} aria-current={activeView === 'messages' ? 'page' : undefined} title="通知" onclick={() => nav('messages')}>
       <span class="nav-icon">
         <Icon name="messages" size={22} strokeWidth={1.5}/>
-        {#if notificationUnread > 0}<span class="nav-badge" aria-label={`${notificationUnread} 条未读提醒`}>{notificationUnread > 99 ? '99+' : notificationUnread}</span>{/if}
+        {#if notificationUnread > 0}<span class="nav-badge" aria-label={`${notificationUnread} 条未读通知`}>{notificationUnread > 99 ? '99+' : notificationUnread}</span>{/if}
       </span>
       <span class="nav-label">
-        <span class="nav-title">提醒</span>
+        <span class="nav-title">通知</span>
         <span class="nav-subtitle">新歌与音乐分享</span>
       </span>
     </button>

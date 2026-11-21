@@ -1,5 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { fade } from 'svelte/transition'
+  import { dialogFocus, reducedMotion } from '../app/desktop-motion.ts'
+  import { mobileDrag, mobileSheet } from '../app/mobile-interaction.ts'
+  import { playlistPortal } from '../components/PlaylistActionSheet.svelte'
   import { formatDuration } from '../format.ts'
   import { player } from '../stores/player.svelte.ts'
   import { localMusic } from '../stores/local-music.svelte.ts'
@@ -8,6 +12,29 @@
 
   type LocalTrack = (typeof localMusic.tracks)[number]
 
+  let { mobile = false, active = true }: { mobile?: boolean; active?: boolean } = $props()
+  let sourceFilter = $state<'all' | 'local' | 'webdav'>('all')
+  let sheet = $state<'import' | 'sources' | 'track'>('import')
+  let sheetOpen = $state(false)
+  let selectedTrack = $state<LocalTrack | null>(null)
+  const sourceFilters = [{ id: 'all', label: '全部' }, { id: 'local', label: '本机' }, { id: 'webdav', label: 'WebDAV' }] as const
+  const hasBothSources = $derived(localMusic.localTracks.length > 0 && localMusic.webdavTracks.length > 0)
+  const effectiveSource = $derived(mobile && hasBothSources ? sourceFilter : 'all')
+  const sheetTitle = $derived(sheet === 'import' ? '导入音乐' : sheet === 'sources' ? '音乐来源' : selectedTrack?.name || '歌曲操作')
+  const sourceSummary = $derived(localMusic.webdavLoading ? '扫描中…' : localMusic.webdavConnected ? localMusic.webdavTracks.length + ' 首歌曲' : '未连接')
+
+  function openSheet(kind: typeof sheet): void {
+    sheet = kind
+    sheetOpen = true
+  }
+  function closeSheet(): void { sheetOpen = false }
+  function chooseImport(input: HTMLInputElement | null): void {
+    closeSheet()
+    input?.click()
+  }
+
+  $effect(() => { if (!active) closeSheet() })
+
   let fileInput = $state<HTMLInputElement | null>(null)
   let folderInput = $state<HTMLInputElement | null>(null)
   let query = $state('')
@@ -15,8 +42,9 @@
   let showClearConfirm = $state(false)
   let filteredTracks = $derived.by<LocalTrack[]>(() => {
     const keyword = query.trim().toLowerCase()
-    if (!keyword) return localMusic.tracks
-    return localMusic.tracks.filter((track) => [
+    const tracks = effectiveSource === 'local' ? localMusic.localTracks : effectiveSource === 'webdav' ? localMusic.webdavTracks : localMusic.tracks
+    if (!keyword) return tracks
+    return tracks.filter((track) => [
       track.name,
       track.ar?.map((artist) => artist.name).join(' '),
       track.al?.name,
@@ -66,112 +94,198 @@
   }
 </script>
 
-<div class="local-page fade-in">
-  <header class="local-header">
-    <div>
-      <span class="local-kicker">On this device</span>
-      <h1>本地音乐</h1>
-      <p>{localMusic.tracks.length} 首 · 本机 {localMusic.localTracks.length} 首 · WebDAV {localMusic.webdavTracks.length} 首</p>
+{#snippet webdavForm()}
+  <div class="local-webdav-form">
+    <label>
+      <span>地址</span>
+      <input type="url" bind:value={localMusic.webdavUrl} placeholder="https://example.com/dav/music/" autocomplete="url" />
+    </label>
+    <label>
+      <span>用户名</span>
+      <input type="text" bind:value={localMusic.webdavUsername} placeholder="可留空" autocomplete="username" />
+    </label>
+    <label>
+      <span>密码</span>
+      <input type="password" bind:value={localMusic.webdavPassword} placeholder="仅保存到本次会话" autocomplete="current-password" />
+    </label>
+    <button class="local-btn local-btn--secondary" disabled={localMusic.webdavLoading || !localMusic.webdavUrl.trim()} onclick={connectWebDav}>
+      <Icon name="link" size={17} /> {localMusic.webdavLoading ? '扫描中…' : localMusic.webdavConnected ? '重新扫描' : '连接'}
+    </button>
+    {#if localMusic.webdavConnected}
+      <button class="local-btn local-btn--ghost" disabled={localMusic.webdavLoading} onclick={() => localMusic.disconnectWebDav()}>
+        断开
+      </button>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet statusMessage()}
+  {#if localMusic.error || localMusic.message}
+    <div class="local-message" class:error={localMusic.error} role="status">{localMusic.error || localMusic.message}</div>
+  {/if}
+{/snippet}
+
+{#snippet searchBox()}
+  <label class="local-search">
+    <Icon name="search" size={17} />
+    <input type="search" bind:value={query} placeholder="搜索歌曲、歌手或专辑" aria-label="搜索本地音乐" />
+  </label>
+{/snippet}
+
+{#snippet musicSources()}
+  <button class="local-source-entry" type="button" aria-haspopup="dialog" onclick={() => openSheet('sources')}>
+    <span class="local-source-label"><Icon name="link" size={18} /><strong>音乐来源</strong></span>
+    <span class="local-source-status">WebDAV · {sourceSummary}</span>
+  </button>
+{/snippet}
+
+<div class="local-page fade-in" class:mobile>
+  <input bind:this={fileInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple onchange={importSelection} />
+  <input bind:this={folderInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple webkitdirectory={true} onchange={importSelection} />
+
+  {#if !mobile}
+    <header class="local-header">
+      <div>
+        <span class="local-kicker">On this device</span>
+        <h1>本地音乐</h1>
+        <p>{localMusic.tracks.length} 首 · 本机 {localMusic.localTracks.length} 首 · WebDAV {localMusic.webdavTracks.length} 首</p>
+      </div>
+      <div class="local-header-actions">
+        <button class="local-btn local-btn--secondary" disabled={localMusic.importing} onclick={() => fileInput?.click()}>
+          <Icon name="add" size={17} /> 导入文件
+        </button>
+        <button class="local-btn local-btn--secondary" disabled={localMusic.importing} onclick={() => folderInput?.click()}>
+          <Icon name="folder" size={17} /> 导入文件夹
+        </button>
+        <button class="local-btn local-btn--primary" disabled={!filteredTracks.length || localMusic.importing} onclick={playAll}>
+          <Icon name="play" size={17} /> 播放全部
+        </button>
+      </div>
+    </header>
+  {:else if localMusic.tracks.length}
+    <div class="local-mobile-controls">
+      <span class="local-count">{localMusic.tracks.length} 首</span>
+      <button class="local-btn local-btn--secondary" type="button" aria-haspopup="dialog" disabled={localMusic.importing} onclick={() => openSheet('import')}>
+        <Icon name="add" size={16} /> 导入
+      </button>
+      <button class="local-btn local-btn--primary" type="button" disabled={!filteredTracks.length || localMusic.importing} onclick={playAll}>
+        <Icon name="play" size={16} /> 播放全部
+      </button>
     </div>
-    <div class="local-header-actions">
-      <input bind:this={fileInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple onchange={importSelection} />
-      <input bind:this={folderInput} class="local-file-input" type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.opus,.m4a,.aac" multiple webkitdirectory={true} onchange={importSelection} />
-      <button class="local-btn local-btn--secondary" disabled={localMusic.importing} onclick={() => fileInput?.click()}>
-        <Icon name="add" size={17} /> 导入文件
-      </button>
-      <button class="local-btn local-btn--secondary" disabled={localMusic.importing} onclick={() => folderInput?.click()}>
-        <Icon name="folder" size={17} /> 导入文件夹
-      </button>
-      <button class="local-btn local-btn--primary" disabled={!filteredTracks.length || localMusic.importing} onclick={playAll}>
-        <Icon name="play" size={17} /> 播放全部
-      </button>
-    </div>
-  </header>
+  {/if}
 
   {#if localMusic.importing}
     <div class="local-import-status" role="status">
       <span>正在导入 {localMusic.importCurrent} / {localMusic.importTotal}</span>
-      <div><i style:width={`${localMusic.importTotal ? localMusic.importCurrent / localMusic.importTotal * 100 : 0}%`}></i></div>
+      <div><i style:width={localMusic.importTotal ? (localMusic.importCurrent / localMusic.importTotal * 100) + '%' : '0%'}></i></div>
     </div>
-  {:else if localMusic.error || localMusic.message}
-    <div class="local-message" class:error={localMusic.error} role="status">{localMusic.error || localMusic.message}</div>
+  {:else if !mobile || !sheetOpen || sheet !== 'sources'}
+    {@render statusMessage()}
   {/if}
 
-  <section class="local-webdav">
-    <div>
-      <span class="local-kicker">Remote library</span>
-      <h2>WebDAV 曲库</h2>
-      <p>连接 NAS、AList、坚果云等 WebDAV 目录，扫描到的音频会进入同一个播放队列。</p>
-    </div>
-    <div class="local-webdav-form">
-      <label>
-        <span>地址</span>
-        <input type="url" bind:value={localMusic.webdavUrl} placeholder="https://example.com/dav/music/" autocomplete="url" />
-      </label>
-      <label>
-        <span>用户名</span>
-        <input type="text" bind:value={localMusic.webdavUsername} placeholder="可留空" autocomplete="username" />
-      </label>
-      <label>
-        <span>密码</span>
-        <input type="password" bind:value={localMusic.webdavPassword} placeholder="仅保存到本次会话" autocomplete="current-password" />
-      </label>
-      <button class="local-btn local-btn--secondary" disabled={localMusic.webdavLoading || !localMusic.webdavUrl.trim()} onclick={connectWebDav}>
-        <Icon name="link" size={17} /> {localMusic.webdavLoading ? '扫描中…' : localMusic.webdavConnected ? '刷新' : '连接'}
-      </button>
-      {#if localMusic.webdavTracks.length}
-        <button class="local-btn local-btn--ghost" disabled={localMusic.webdavLoading} onclick={() => localMusic.disconnectWebDav()}>
-          断开
-        </button>
-      {/if}
-    </div>
-  </section>
+  {#if !mobile}
+    <section class="local-webdav">
+      <div>
+        <span class="local-kicker">Remote library</span>
+        <h2>WebDAV 曲库</h2>
+        <p>连接 NAS、AList、坚果云等 WebDAV 目录，扫描到的音频会进入同一个播放队列。</p>
+      </div>
+      {@render webdavForm()}
+    </section>
+  {/if}
 
   {#if localMusic.tracks.length}
     <div class="local-toolbar">
-      <label class="local-search">
-        <Icon name="search" size={17} />
-        <input type="search" bind:value={query} placeholder="搜索本地歌曲、歌手或专辑" />
-      </label>
-      <button class="local-clear" disabled={!localMusic.localTracks.length} onclick={() => showClearConfirm = true}>清空本机导入</button>
+      {@render searchBox()}
+      {#if !mobile}
+        <button class="local-clear" disabled={!localMusic.localTracks.length} onclick={() => showClearConfirm = true}>清空本机导入</button>
+      {/if}
     </div>
+    {#if mobile}
+      {#if hasBothSources}
+        <div class="local-source-filters" role="group" aria-label="歌曲来源">
+          {#each sourceFilters as filter (filter.id)}
+            <button type="button" aria-pressed={effectiveSource === filter.id} onclick={() => sourceFilter = filter.id}>{filter.label}</button>
+          {/each}
+        </div>
+      {/if}
+      {@render musicSources()}
+    {/if}
   {/if}
 
-  {#if localMusic.loading}
-    <div class="local-empty" aria-busy="true">正在读取本地曲库…</div>
+  {#if localMusic.loading || !localMusic.initialized}
+    <div class="local-empty" role="status">正在读取本地曲库…</div>
   {:else if !localMusic.tracks.length}
     <div class="local-empty">
-      <span class="local-empty-icon"><Icon name="music" size={34} /></span>
-      <h2>还没有本地音乐</h2>
-      <p>导入音频文件或文件夹后，就能和在线歌曲使用同一套播放队列。</p>
-      <button class="local-btn local-btn--primary" onclick={() => fileInput?.click()}>选择音乐文件</button>
+      <span class="local-empty-icon"><Icon name="music" size={30} /></span>
+      <h2>还没有本地歌曲</h2>
+      <p>导入音频文件或文件夹后，就可以在这里播放。</p>
+      <button class="local-btn local-btn--primary" type="button" aria-haspopup={mobile ? 'dialog' : undefined} disabled={localMusic.importing}
+        onclick={() => { if (mobile) openSheet('import'); else fileInput?.click() }}>
+        {#if mobile}<Icon name="add" size={18} /> 导入音乐{:else}选择音乐文件{/if}
+      </button>
     </div>
+    {#if mobile}{@render musicSources()}{/if}
   {:else if !filteredTracks.length}
-    <div class="local-empty local-empty--compact">没有匹配“{query}”的本地歌曲</div>
+    <div class="local-empty local-empty--compact">没有匹配“{query.trim()}”的本地歌曲</div>
   {:else}
     <div class="local-list" role="list">
       {#each filteredTracks as track, index (track.id)}
         <div class="local-track" class:active={player.id === track.id} role="listitem">
-          <button class="local-track-main" onclick={() => playTrack(track)} aria-label={`播放 ${track.name}`}>
-            <span class="local-track-index">{player.id === track.id && player.playing ? '▶' : index + 1}</span>
+          <button class="local-track-main" onclick={() => playTrack(track)} aria-label={'播放 ' + track.name}>
+            {#if !mobile}<span class="local-track-index">{player.id === track.id && player.playing ? '▶' : index + 1}</span>{/if}
             <span class="local-track-cover"><Icon name="music-note" size={20} /></span>
             <span class="local-track-copy">
               <strong>{track.name}</strong>
-              <small>{track.source === 'webdav' ? 'WebDAV' : track.ar?.map((artist) => artist.name).join(' / ') || '未知歌手'}</small>
-              <small class="mobile-track-meta"><span>{track.al?.name || ''}</span>{#if track.dt}<time>{formatDuration(track.dt)}</time>{/if}</small>
+              <small>{track.ar?.map((artist) => artist.name).join(' / ') || (track.source === 'webdav' ? 'WebDAV' : '未知歌手')}</small>
             </span>
-            <span class="local-track-album">{track.al?.name || '本地音乐'}</span>
-            <span class="local-track-size">{formatSize(track.fileSize)}</span>
-            <span class="local-track-duration">{track.dt ? formatDuration(track.dt) : '--:--'}</span>
+            {#if !mobile}
+              <span class="local-track-album">{track.al?.name || '本地音乐'}</span>
+              <span class="local-track-size">{formatSize(track.fileSize)}</span>
+              <span class="local-track-duration">{track.dt ? formatDuration(track.dt) : '--:--'}</span>
+            {/if}
           </button>
-          <button class="local-track-delete" onclick={() => deleteTarget = track} aria-label={`从曲库移除 ${track.name}`} title={track.source === 'webdav' ? '移除本次 WebDAV 结果' : '从曲库移除'}>
-            <Icon name="trash" size={17} />
-          </button>
+          {#if mobile}
+            <button class="local-track-menu" type="button" aria-label={'更多操作：' + track.name} aria-haspopup="dialog"
+              onclick={() => { selectedTrack = track; openSheet('track') }}><Icon name="more" size={20} /></button>
+          {:else}
+            <button class="local-track-delete" onclick={() => deleteTarget = track} aria-label={'从曲库移除 ' + track.name} title={track.source === 'webdav' ? '移除本次 WebDAV 结果' : '从曲库移除'}>
+              <Icon name="trash" size={17} />
+            </button>
+          {/if}
         </div>
       {/each}
     </div>
   {/if}
+  {#if mobile && localMusic.localTracks.length}
+    <button class="local-clear" onclick={() => showClearConfirm = true}>清空本机导入</button>
+  {/if}
 </div>
+
+{#if mobile && active && sheetOpen}
+  <div use:playlistPortal>
+    <button class="mobile-choice-backdrop" type="button" aria-label={'关闭' + sheetTitle} onclick={closeSheet} transition:fade={{ duration: reducedMotion() ? 0 : 200 }}></button>
+    <div class="mobile-choice-sheet local-sheet" data-bottom-panel role="dialog" aria-modal="true" aria-label={sheetTitle} tabindex="-1"
+      use:dialogFocus={closeSheet} in:mobileSheet out:mobileSheet>
+      <button class="m-sheet-handle" type="button" aria-label={'收起' + sheetTitle} onclick={closeSheet} use:mobileDrag={{ close: closeSheet, panel: true }}></button>
+      <header><h2>{sheetTitle}</h2><button class="mobile-choice-done" type="button" onclick={closeSheet}>完成</button></header>
+      <div class="mobile-choice-body">
+        {#if sheet === 'import'}
+          <button class="mobile-choice-option" type="button" onclick={() => chooseImport(fileInput)}><Icon name="add" size={20} /><span>导入文件</span></button>
+          <button class="mobile-choice-option" type="button" onclick={() => chooseImport(folderInput)}><Icon name="folder" size={20} /><span>导入文件夹</span></button>
+        {:else if sheet === 'sources'}
+          <p class="local-source-note">连接 WebDAV，扫描到的歌曲会显示在本地音乐里。</p>
+          {@render webdavForm()}
+          {@render statusMessage()}
+        {:else if selectedTrack}
+          <button class="mobile-choice-option local-remove-action" type="button" onclick={() => { deleteTarget = selectedTrack; closeSheet() }}>
+            <Icon name="trash" size={19} /><span>从曲库移除</span>
+          </button>
+        {/if}
+      </div>
+    </div>
+  </div>
+{/if}
 
 <ConfirmDialog
   show={Boolean(deleteTarget)}
@@ -252,21 +366,37 @@
     .local-webdav-form label:first-child { grid-column: 1 / -1; }
   }
 
-  :global(html.mobile-runtime) .local-page { gap: 16px; padding-bottom: 24px; }
-  :global(html.mobile-runtime) .local-header { align-items: stretch; flex-direction: column; gap: 14px; }
-  :global(html.mobile-runtime) .local-header h1 { font-size: 30px; }
-  :global(html.mobile-runtime) .local-header-actions { display: grid; grid-template-columns: 1fr 1fr; }
-  :global(html.mobile-runtime) .local-header-actions .local-btn--primary { grid-column: 1 / -1; }
-  :global(html.mobile-runtime) .local-webdav { grid-template-columns: 1fr; padding: 14px; border-radius: var(--radius-md); }
-  :global(html.mobile-runtime) .local-webdav-form { grid-template-columns: 1fr; }
-  :global(html.mobile-runtime) .local-toolbar { align-items: stretch; flex-direction: column; }
-  :global(html.mobile-runtime) .local-search { width: 100%; }
-  :global(html.mobile-runtime) .local-clear { align-self: flex-end; }
-  :global(html.mobile-runtime) .local-list { border-radius: var(--radius-md); }
-  :global(html.mobile-runtime) .local-track { grid-template-columns: minmax(0, 1fr) 40px; }
-  :global(html.mobile-runtime) .local-track-main { grid-template-columns: 38px minmax(0, 1fr) 48px; gap: 10px; padding-left: 10px; }
-  :global(html.mobile-runtime) .local-track-index, :global(html.mobile-runtime) .local-track-album, :global(html.mobile-runtime) .local-track-size { display: none; }
-  :global(html.mobile-runtime) .local-track-cover { width: 38px; height: 38px; }
-  :global(html.mobile-runtime) .local-track-delete { opacity: 1; }
-  :global(html.mobile-runtime) .local-empty { min-height: 260px; padding: 24px 18px; }
+  .mobile.local-page { gap: 12px; padding-bottom: 24px; }
+  .local-mobile-controls { display: flex; align-items: center; gap: 8px; }
+  .local-mobile-controls .local-btn { min-height: 40px; padding: 0 12px; white-space: nowrap; }
+  .local-count { flex: 1; color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
+  .mobile .local-search { width: 100%; min-height: 44px; }
+  .local-source-entry { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--bg-surface); text-align: start; }
+  .local-source-label { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text); }
+  .local-source-label strong { font-size: 14px; font-weight: 500; }
+  .local-source-status { color: var(--text-secondary); font-size: 12px; text-align: end; }
+  .local-source-filters { display: flex; gap: 6px; }
+  .local-source-filters button { min-height: 44px; padding: 0 14px; border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary); font-size: 13px; }
+  .local-source-filters button[aria-pressed="true"] { background: var(--accent-bg); color: var(--accent); }
+  .mobile .local-empty { min-height: 0; padding: 30px 14px 24px; gap: 10px; border: none; }
+  .mobile .local-empty-icon { width: 56px; height: 56px; color: var(--accent); }
+  .mobile .local-empty h2 { font-size: 18px; }
+  .mobile .local-empty p { max-width: 26ch; }
+  .mobile .local-empty .local-btn { min-height: 44px; margin-top: 5px; }
+  .mobile .local-list { border-radius: var(--radius-md); background: var(--md-container-highest); }
+  .mobile .local-track { position: relative; grid-template-columns: minmax(0, 1fr) 44px; border-bottom: 0; }
+  .mobile .local-track:not(:last-child)::after { position: absolute; inset: auto 8px 0 58px; height: 1px; background: var(--border); content: ''; pointer-events: none; }
+  .mobile .local-track-main { min-height: 58px; padding: 8px 0 8px 8px; grid-template-columns: 40px minmax(0, 1fr); }
+  .mobile .local-track-copy strong { font-size: 15px; font-weight: 400; }
+  .mobile .local-track-copy small { color: var(--text-secondary); }
+  .mobile .local-track.active { background: transparent; color: var(--md-primary); }
+  .local-track-menu { display: grid; place-items: center; width: 44px; height: 44px; color: var(--text-secondary); }
+  .local-track-menu :global(svg) { rotate: 90deg; }
+  .mobile .local-clear { justify-self: end; }
+  .local-sheet h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .local-sheet :global(.mobile-choice-option) { justify-content: flex-start; }
+  .local-sheet .local-webdav-form { grid-template-columns: 1fr; margin: 4px 8px 8px; }
+  .local-sheet .local-webdav-form input { height: 44px; }
+  .local-source-note { padding: 4px 8px; color: var(--text-secondary); font-size: 13px; }
+  .local-sheet .local-remove-action { color: var(--danger); }
 </style>

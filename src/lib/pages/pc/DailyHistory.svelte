@@ -13,7 +13,6 @@
   import { auth } from '../../stores/auth.svelte.ts'
   import { ncm } from '../../api/client.ts'
   import { loadDailyHistoryDatesData, loadDailyHistoryDetailData } from '../../services/dailyHistory.ts'
-  import { coverUrl } from '../../utils/image.ts'
   import dailyCover from '../../../assets/discovery/daily.svg'
   import PlaylistHero from '../../components/PlaylistHero.svelte'
   import SongListActions from '../../components/SongListActions.svelte'
@@ -39,7 +38,6 @@
   let error = $state('')
   let selectedDailyDate = $state(initial?.selectedDate ?? '')
   let ownerId = auth.user?.userId
-  let coverFailed = $state(false)
 
   function save(): void {
     dailySnapshot = { userId: auth.user?.userId, dates: [...dailyHistoryDates], selectedDate: selectedDailyDate, songs: [...dailyHistorySongs] }
@@ -95,7 +93,11 @@
 
   const rows = $derived(toSongRows(dailyHistorySongs))
 
-  function playAll(): void { if (dailyHistorySongs.length) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], 0) }
+  function playAll(shuffled = false): void {
+    if (dailyHistoryLoading || !dailyHistorySongs.length) return
+    if (shuffled) player.setMode('shuffle')
+    player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], 0)
+  }
   function playTrack(track: NormalizedSong): void {
     const idx = dailyHistorySongs.findIndex(t => t.id === track.id)
     if (idx >= 0) player.playQueue(dailyHistorySongs as unknown as CompactTrackInput[], idx); else player.playTrack(track as unknown as CompactTrackInput, 0)
@@ -119,23 +121,27 @@
     return summary ? `${Number(match[1])} 月 ${Number(match[2])} 日` : `${match[1]}.${match[2]}`
   }
 
-  const dailyDetail = $derived({ name: '每日推荐', picUrl: rows.find(row => row.cover)?.cover || '', creator: selectedDailyDate || '历史日推' })
-  const summaryCover = $derived(coverUrl(dailyDetail.picUrl, 120))
-  $effect(() => { summaryCover; coverFailed = false })
+  const dailyArtwork = $derived(rows.find(row => row.cover)?.cover || '')
+  const dailyDetail = $derived({
+    name: mobile ? selectedDailyDate ? `${formatDateLabel(selectedDailyDate, true)}的日推` : '历史日推' : '每日推荐',
+    picUrl: dailyArtwork || (mobile ? dailyCover : ''),
+    creator: mobile ? '历史日推' : selectedDailyDate || '历史日推',
+  })
+  const availableCount = $derived(dailyHistoryLoading ? 0 : dailyHistorySongs.length)
   function retry(): void {
     if (selectedDailyDate && dailyHistoryDates.length) void loadDetail(selectedDailyDate)
     else void load()
   }
 </script>
 
-<div class="daily-page fade-in" class:daily-page--mobile={mobile}>
-  {#if !mobile}
-    <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading} totalCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} visibleCount={dailyHistoryLoading ? 0 : dailyHistorySongs.length} onPlayAll={playAll} />
-  {/if}
+<div class="daily-page fade-in" class:daily-page--mobile={mobile} class:playlist-detail-page={mobile}>
+  <PlaylistHero detail={dailyDetail} detailType="历史日推" loading={dailyHistoryLoading}
+    showPlayingRecord={false} coverIsBundled={mobile && !dailyArtwork} totalCount={availableCount}
+    visibleCount={availableCount} onPlayAll={() => playAll()} onShuffle={mobile ? () => playAll(true) : undefined} />
 
   {#if dailyHistoryLoading && dailyHistoryDates.length === 0}
     <section class="daily-date-surface" aria-label="加载历史日期">
-      <div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>
+      {#if !mobile}<div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>{/if}
       <div class="daily-date-scroll">
         {#each Array(7) as _}
           <div class="daily-date-chip skeleton-row">
@@ -147,7 +153,7 @@
     </section>
   {:else if dailyHistoryDates.length > 0}
     <section class="daily-date-surface" aria-label="历史日期">
-      <div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>
+      {#if !mobile}<div class="daily-date-heading"><strong>选择日期</strong><span>左右滑动查看更多</span></div>{/if}
       <div class="daily-date-scroll">
         {#each dailyHistoryDates as item (item.date)}
           {@const date = item.date}
@@ -160,25 +166,14 @@
     </section>
   {/if}
 
-  {#if mobile && (selectedDailyDate || dailyHistoryLoading)}
-    <section class="daily-summary" aria-label="选中日期的日推">
-      <img src={summaryCover && !coverFailed ? summaryCover : dailyCover} alt="" referrerpolicy="no-referrer" onerror={() => coverFailed = true} />
-      <div class="daily-summary__text">
-        <strong>{selectedDailyDate ? formatDateLabel(selectedDailyDate, true) : '每日推荐'}</strong>
-        <small>{dailyHistoryLoading ? '正在加载…' : error ? '加载失败' : `${dailyHistorySongs.length} 首歌曲`}</small>
-      </div>
-      <button class="daily-summary__play" type="button" onclick={playAll} disabled={dailyHistoryLoading || !dailyHistorySongs.length}><Icon name="play" size={16} />播放全部</button>
-    </section>
-  {/if}
-
   {#if dailyHistoryLoading}
     {#if !mobile}<div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>正在同步</span></div>{/if}
-    <div class="daily-track-surface">
+    <div class="daily-track-surface" class:playlist-track-surface={mobile}>
       <SongList skeleton rows={[]} skeletonLabel="加载每日推荐" />
     </div>
   {:else if dailyHistorySongs.length > 0}
     {#if !mobile}<div class="daily-toolbar"><strong>{selectedDailyDate || '每日推荐'} 的歌曲</strong><span>{dailyHistorySongs.length} 首</span></div>{/if}
-    <div class="daily-track-surface">
+    <div class="daily-track-surface" class:playlist-track-surface={mobile}>
       <SongList
         {rows}
         currentId={player.id}
@@ -233,25 +228,12 @@
   @keyframes dailyPageIn { from { opacity: 0; transform: translateY(12px) scale(0.992); } to { opacity: 1; transform: translateY(0) scale(1); } }
   @keyframes dailySurfaceIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  .daily-page--mobile :is(.daily-date-surface, .daily-track-surface) { padding: 0; border: 0; border-radius: 0; background: transparent; animation: none; }
-  .daily-page--mobile .daily-date-surface { gap: 8px; }
-  .daily-page--mobile .daily-date-heading { margin: 0; }
-  .daily-page--mobile .daily-date-heading strong { font-size: 13px; }
-  .daily-page--mobile .daily-date-chip { min-width: 64px; min-height: 44px; padding: 5px 9px; background: var(--md-container); }
-  .daily-page--mobile .daily-date-chip.active { background: var(--md-primary-container); }
-  .daily-page--mobile .daily-date-chip.active small { color: var(--md-primary); }
-  .daily-summary { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 64px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--md-container); }
-  .daily-summary img { display: block; width: 48px; height: 48px; border-radius: var(--radius-sm); object-fit: cover; }
-  .daily-summary__text { display: grid; min-width: 0; gap: 3px; }
-  .daily-summary__text :is(strong, small) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .daily-summary__text strong { font-size: 15px; font-weight: 700; }
-  .daily-summary__text small { color: var(--text-secondary); font-size: 12px; }
-  .daily-summary__play { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 0 10px; border-radius: 999px; background: var(--md-primary); color: var(--md-on-primary); font-size: 13px; font-weight: 500; white-space: nowrap; }
-  .daily-summary__play:disabled { opacity: .48; }
-  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table tbody tr) { grid-template-columns: 40px minmax(0, 1fr) 44px; min-height: 76px; }
-  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table .col-cover) { width: 40px; }
-  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table .col-cover :is(.track-cover-img, .track-cover-placeholder)) { width: 100%; height: 40px; }
-  :global(html.mobile-runtime .mobile-page-content) .daily-page--mobile :global(.track-table tbody tr + tr) { border-top: 1px solid var(--border); }
+  .daily-page--mobile .daily-date-surface { padding: 0; border: 0; background: transparent; }
+  .daily-page--mobile .daily-date-scroll { gap: 4px; }
+  .daily-page--mobile .daily-date-chip { min-width: 58px; min-height: 44px; padding: 4px 10px; justify-items: center; border: 0; border-radius: 999px; background: transparent; color: var(--text-secondary); }
+  .daily-page--mobile .daily-date-chip:hover { background: var(--bg-hover); }
+  .daily-page--mobile .daily-date-chip.active { background: var(--md-primary-container); color: var(--md-primary); }
+  .daily-page--mobile .daily-date-chip.active small { color: inherit; }
 
   @media (prefers-reduced-motion: reduce) {
     .daily-page, .daily-date-surface, .daily-toolbar, .daily-track-surface { animation: none; opacity: 1; transform: none; }

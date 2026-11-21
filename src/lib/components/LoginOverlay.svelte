@@ -5,8 +5,9 @@
   import { auth } from '../stores/auth.svelte.ts'
   import { fade } from 'svelte/transition'
   import Spinner from './Spinner.svelte'
+  import DevicePairing from './DevicePairing.svelte'
 
-  type LoginMode = 'qr' | 'phone' | 'email'
+  type LoginMode = 'qr' | 'phone' | 'email' | 'device'
 
   let { showLogin = false, onClose, onLoginSuccess }: {
     showLogin?: boolean
@@ -171,8 +172,16 @@
         <button class="tab" class:active={mode === 'email'} aria-pressed={mode === 'email'} onpointerdown={holdTabFocus} onpointerup={(e) => releaseTabFocus(e, 'email')} onpointercancel={() => tabPointer = null} onclick={(e) => { if (!suppressFollowupClick(e)) switchMode('email') }}>邮箱</button>
       </div>
 
+      <div class="login-device-link">
+        <button class="retry-btn" type="button" aria-pressed={mode === 'device'} onclick={() => switchMode(mode === 'device' ? 'qr' : 'device')}>
+          {mode === 'device' ? '返回网易云扫码' : '从另一台哲听登录'}
+        </button>
+      </div>
+
       <div class="login-body">
-        {#if mode === 'qr'}
+        {#if mode === 'device'}
+          <DevicePairing role="receive" onComplete={() => { onLoginSuccess?.(); onClose?.() }} />
+        {:else if mode === 'qr'}
           <div class="qr-section">
             <div class="qr-frame">
               {#if qrImg}
@@ -222,6 +231,7 @@
 {/if}
 
 <style>
+  .login-device-link { display: flex; justify-content: center; margin: 8px 0; }
   .login-overlay {
     position: fixed; inset: 0; z-index: 600;
     display: flex; align-items: center; justify-content: center;
@@ -263,6 +273,7 @@
   .qr-status { margin-top: 18px; font-size: 13px; color: var(--text-secondary); }
   .qr-fallback { margin-top: 12px; font-size: 11px; color: var(--text-secondary); }
   .qr-fallback summary { cursor: pointer; }
+  :global(html.mobile-runtime) .qr-fallback summary { list-style: none; }
   .qr-url-fallback { display: block; font-size: 10px; word-break: break-all; color: var(--text-disabled); margin-top: 4px; user-select: all; }
   .retry-btn { margin-top: 12px; padding: 6px 20px; border-radius: var(--radius-lg); font-size: 12px; color: var(--accent); background: var(--accent-bg); border: none; cursor: pointer; transition: opacity 0.15s; }
   .retry-btn:hover { opacity: 0.8; }

@@ -7,10 +7,11 @@
   import { QUALITY_ORDER } from '../utils/constants.ts';
   import { QUALITY_LABELS } from '../player/quality.ts';
   import SongContextStrip from './SongContextStrip.svelte';
+  import { PLAYER_THEME_OPTIONS, type PlayerTheme } from '../stores/player-presentation.svelte.ts';
   import Icon from './ui/Icon.svelte';
   import NestedActionSheet from './NestedActionSheet.svelte';
 
-  export type Panel = 'quality' | 'comments' | 'playlists' | 'theme';
+  export type Panel = 'quality' | 'comments' | 'playlists' | 'songs' | 'theme';
   // 与 SongContextStrip 本地 ContextPanel 同型（该类型未导出）
   export type StripPanel = 'songs' | 'playlists' | 'comments';
 
@@ -29,8 +30,8 @@
     panel: Panel | null
     nested?: boolean
     onClose?: () => void
-    playerTheme: string
-    onSetPlayerTheme: (theme: string) => void
+    playerTheme: PlayerTheme
+    onSetPlayerTheme: (theme: PlayerTheme) => void
     onToggleTheme?: () => void
     onSetQuality: (level: string) => void
     contextPanel?: StripPanel | null
@@ -39,15 +40,12 @@
   } = $props();
 
   const qualityLabels: Record<string, string> = QUALITY_LABELS;
-  const playerThemeOptions: Array<{ value: string; label: string; icon: string }> = [
-    { value: 'card', label: '卡片封面', icon: 'music' },
-    { value: 'vinyl', label: '黑胶唱片', icon: 'disc' },
-  ];
 
   let title = $derived.by(() => {
     if (panel === 'quality') return '音质';
     if (panel === 'comments') return '热评';
     if (panel === 'playlists') return '相似歌单';
+    if (panel === 'songs') return '相似歌曲';
     if (panel === 'theme') return '播放器主题';
     return '';
   });
@@ -55,17 +53,18 @@
   let activeContextPanel = $derived.by<StripPanel | null>(() => {
     if (panel === 'comments') return contextPanel || 'comments';
     if (panel === 'playlists') return contextPanel || 'playlists';
+    if (panel === 'songs') return contextPanel || 'songs';
     return null;
   });
 </script>
 
 {#if panel && nested}
-  <NestedActionSheet {title} onBack={() => onClose?.()} fill={panel === 'comments' || panel === 'playlists'}>
+  <NestedActionSheet {title} onBack={() => onClose?.()} fill={panel === 'comments' || panel === 'playlists' || panel === 'songs'}>
     {@render content()}
   </NestedActionSheet>
 {:else if panel}
   <div class="am-secondary-backdrop" transition:fade={{ duration: document.documentElement.classList.contains('mobile-runtime') && !reducedMotion() ? 240 : 0 }} role="presentation" onclick={() => onClose?.()}></div>
-  <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists'} aria-label={title}>
+  <div class="am-secondary-sheet" data-bottom-panel in:desktopPanel out:desktopPanel use:dialogFocus={() => onClose?.()} tabindex="-1" role="dialog" aria-modal="true" class:compact={panel === 'quality' || panel === 'theme'} class:detail={panel === 'comments' || panel === 'playlists' || panel === 'songs'} aria-label={title}>
     <button class="m-sheet-handle" aria-label="关闭面板" onclick={() => onClose?.()} use:mobileDrag={{ close: () => onClose?.(), panel: true }}></button>
     <div class="am-secondary-header">
       <div class="am-secondary-title">{title}</div>
@@ -89,7 +88,7 @@
       </div>
     {:else if panel === 'theme'}
       <div class="am-secondary-list">
-        {#each playerThemeOptions as option}
+        {#each PLAYER_THEME_OPTIONS as option (option.value)}
           <button class="am-secondary-row" class:active={playerTheme === option.value} aria-pressed={playerTheme === option.value} type="button" onclick={() => onSetPlayerTheme(option.value)}>
             <Icon name={playerTheme === option.value ? 'check' : option.icon} size={18} strokeWidth={1.8} />
             <span>{option.label}</span>

@@ -257,9 +257,9 @@
             : '只有你主动开启桌面歌词时才会进入系统授权页，不会在进入设置页时打扰你。'}</p>
       </div>
       <div class="permission-actions">
-        <button class="permission-button" type="button" disabled={awaitingPermission} onclick={() => requestPermission(true)}>{awaitingPermission ? '等待返回' : uiState === 'permission-revoked' ? '恢复权限' : '打开系统设置'}</button>
+        <button class="permission-button" type="button" disabled={awaitingPermission} onclick={() => requestPermission(true)}><span class="settings-button-label">{awaitingPermission ? '等待返回' : uiState === 'permission-revoked' ? '恢复权限' : '打开系统设置'}</span></button>
         {#if uiState === 'permission-revoked'}
-          <button class="text-button" type="button" onclick={() => setEnabled(false)}>取消开启</button>
+          <button class="text-button" type="button" onclick={() => setEnabled(false)}><span class="settings-button-label">取消开启</span></button>
         {/if}
       </div>
     </div>
@@ -267,7 +267,7 @@
     <div class="permission-panel revoked">
       <div class="permission-mark" aria-hidden="true">!</div>
       <div class="permission-copy"><strong>原生服务暂不可用</strong><p>这不会影响普通音乐播放。可以重试同步桌面歌词权限和服务状态。</p></div>
-      <button class="permission-button" type="button" onclick={refresh}>重新检查</button>
+      <button class="permission-button" type="button" onclick={refresh}><span class="settings-button-label">重新检查</span></button>
     </div>
   {/if}
 
@@ -278,9 +278,9 @@
           <div><strong>交互方式</strong><span>控制悬浮歌词是否可移动、可点击，以及是否显示翻译</span></div>
         </div>
         <div class="choice-row" class:mobile-interaction-rows={mobile} role="group" aria-label="桌面歌词交互方式">
-          <button aria-pressed={locked} class:active={locked} onclick={() => { locked = !locked; void saveSettings() }}>锁定位置</button>
-          <button aria-pressed={through} class:active={through} onclick={() => { through = !through; void saveSettings() }}>点击穿透</button>
-          <button aria-pressed={bilingual} class:active={bilingual} onclick={() => { bilingual = !bilingual; void saveSettings() }}>双语歌词</button>
+          <button aria-pressed={locked} class:active={locked} onclick={() => { locked = !locked; void saveSettings() }}><span class="settings-button-label">锁定位置</span></button>
+          <button aria-pressed={through} class:active={through} onclick={() => { through = !through; void saveSettings() }}><span class="settings-button-label">点击穿透</span></button>
+          <button aria-pressed={bilingual} class:active={bilingual} onclick={() => { bilingual = !bilingual; void saveSettings() }}><span class="settings-button-label">双语歌词</span></button>
         </div>
       </div>
 
@@ -298,7 +298,7 @@
         <div class="section-heading"><div><strong>字体风格</strong><span>仅影响 Android 桌面悬浮歌词</span></div></div>
         <div class="choice-row" role="radiogroup" aria-label="桌面歌词字体">
           {#each [['sans-serif', '默认'], ['serif', '衬线'], ['monospace', '等宽']] as [value, label]}
-            <button role="radio" aria-checked={font === value} class:active={font === value} onclick={() => { font = value || 'sans-serif'; void saveSettings() }}>{label}{#if mobile && font === value}<Icon name="check" size={20} />{/if}</button>
+            <button role="radio" aria-checked={font === value} class:active={font === value} onclick={() => { font = value || 'sans-serif'; void saveSettings() }}><span class="settings-button-label">{label}</span>{#if mobile && font === value}<Icon name="check" size={20} />{/if}</button>
           {/each}
         </div>
       </div>

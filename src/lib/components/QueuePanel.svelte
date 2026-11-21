@@ -33,9 +33,10 @@
     player.clearQueue()
   }
 
-  function handlePlayNext(e: MouseEvent, track: CompactTrack): void {
+  function handlePlayNext(e: MouseEvent, index: number): void {
     e.stopPropagation()
-    player.playNext(track)
+    const current = player.queueIndex
+    if (index !== current) player.moveQueueItem(index, index < current ? current : current + 1)
   }
 
   function handleRemove(e: MouseEvent, index: number): void {
@@ -112,6 +113,67 @@
     dragOverIndex = null
   }
 
+  let touchDrag: { pointer: number; queue: readonly CompactTrack[]; y: number } | null = null
+  let scrollFrame = 0
+
+  function beginTouchDrag(event: PointerEvent, index: number): void {
+    if (event.button !== 0 || touchDrag || player.queue.length < 2) return
+    event.stopPropagation()
+    const handle = event.currentTarget as HTMLElement
+    handle.setPointerCapture(event.pointerId)
+    touchDrag = { pointer: event.pointerId, queue: player.queue, y: event.clientY }
+    dragIndex = index
+    dragOverIndex = index
+  }
+
+  function updateTouchDrag(): void {
+    scrollFrame = 0
+    const list = queueListEl
+    if (!touchDrag || !list || touchDrag.queue !== player.queue) return
+    const bounds = list.getBoundingClientRect()
+    const edge = 40
+    const y = touchDrag.y
+    const speed = y < bounds.top + edge ? -Math.min(12, (bounds.top + edge - y) / 4)
+      : y > bounds.bottom - edge ? Math.min(12, (y - bounds.bottom + edge) / 4) : 0
+    const previous = list.scrollTop
+    if (speed) list.scrollTop += speed
+    const hit = document.elementFromPoint(bounds.left + bounds.width / 2, Math.max(bounds.top + 1, Math.min(y, bounds.bottom - 1)))
+      ?.closest<HTMLElement>('[data-queue-index]')
+    if (hit && list.contains(hit)) dragOverIndex = Number(hit.dataset.queueIndex)
+    if (list.scrollTop !== previous) scrollFrame = requestAnimationFrame(updateTouchDrag)
+  }
+
+  function moveTouchDrag(event: PointerEvent): void {
+    if (!touchDrag || event.pointerId !== touchDrag.pointer) return
+    touchDrag.y = event.clientY
+    if (scrollFrame) cancelAnimationFrame(scrollFrame)
+    updateTouchDrag()
+  }
+
+  function finishTouchDrag(event?: PointerEvent, cancelled = false): void {
+    if (!touchDrag || (event && event.pointerId !== touchDrag.pointer)) return
+    const from = dragIndex
+    const to = dragOverIndex
+    const sameQueue = touchDrag.queue === player.queue
+    touchDrag = null
+    if (scrollFrame) cancelAnimationFrame(scrollFrame)
+    scrollFrame = 0
+    handleDragEnd()
+    if (!cancelled && sameQueue && from !== null && to !== null && from !== to) player.moveQueueItem(from, to)
+  }
+
+  function moveByKey(event: KeyboardEvent, index: number): void {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    event.preventDefault()
+    event.stopPropagation()
+    const target = index + (event.key === 'ArrowUp' ? -1 : 1)
+    if (player.moveQueueItem(index, target)) {
+      requestAnimationFrame(() => queueListEl?.querySelector<HTMLElement>('[data-queue-index="' + target + '"] .queue-drag-handle')?.focus())
+    }
+  }
+
+  $effect(() => { if (show && mobileVisible) return () => finishTouchDrag(undefined, true) })
+
   $effect(() => {
     if (show && player.queue.length) {
       requestAnimationFrame(() => requestAnimationFrame(() => scrollToCurrent(mobileVisible ? 'auto' : 'smooth')))
@@ -161,6 +223,8 @@
             class:pending={pendingIndex === i && player.loading}
             class:drag-over={dragOverIndex === i}
             class:dragging={dragIndex === i}
+            class:drag-after={mobileVisible && dragIndex !== null && dragIndex < i}
+            data-queue-index={i}
             draggable={!mobileVisible}
             role={mobileVisible ? 'group' : 'button'}
             tabindex={mobileVisible ? -1 : 0}
@@ -196,9 +260,17 @@
             <div class="queue-item-duration">
               {formatDuration(track.dt || (track as CompactTrack & { duration?: number }).duration || 0)}
             </div>
-            <button class="queue-item-playnext" onclick={(e) => handlePlayNext(e, track)} aria-label="下一首播放" title="下一首播放">
+            <button class="queue-item-playnext" onclick={(e) => handlePlayNext(e, i)} disabled={i === player.queueIndex} aria-label="下一首播放" title="下一首播放">
               <Icon name="arrow-up" size={14} />
             </button>
+            {#if mobileVisible}
+              <button class="queue-drag-handle" type="button" aria-label={'拖动调整 ' + track.name + ' 的顺序'} disabled={player.queue.length < 2}
+                onclick={event => event.stopPropagation()} onpointerdown={event => beginTouchDrag(event, i)}
+                onpointermove={moveTouchDrag} onpointerup={event => finishTouchDrag(event)} onpointercancel={event => finishTouchDrag(event, true)}
+                onlostpointercapture={event => finishTouchDrag(event, true)} onkeydown={event => moveByKey(event, i)}>
+                <Icon name="menu" size={16} />
+              </button>
+            {/if}
             <button class="queue-item-remove" onclick={(e) => handleRemove(e, i)} aria-label="移除" title="移除">
               <Icon name="trash" size={17} />
             </button>

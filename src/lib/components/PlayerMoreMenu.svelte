@@ -102,9 +102,10 @@
       {#if showItems}{#each groups as group}
         <div class="am-more-group" role={group.label ? 'group' : undefined} aria-label={group.label || undefined}>
         {#each group.items as item}
-        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-label={item.label} aria-checked={item.checked} onclick={() => handleItem(item)} disabled={item.disabled}>
+        <button class="am-more-item" type="button" role={$responsive.isMobile ? undefined : item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'} aria-label={item.label} aria-checked={$responsive.isMobile ? undefined : item.checked} aria-pressed={$responsive.isMobile ? item.checked : undefined} onclick={() => handleItem(item)} disabled={item.disabled}>
           <Icon name={item.icon} size={18} strokeWidth={1.8} />
           <span>{item.label}</span>
+          {#if item.checked}<Icon name="check" size={16} class="am-more-check" aria-hidden="true" />{/if}
         </button>
         {/each}
         </div>
@@ -120,6 +121,7 @@
 </div>
 
 <style>
+  .am-more-item :global(.am-more-check) { margin-inline-start: auto; }
   .am-more-body { display: contents; }
   .am-more-shell {
     position: absolute;

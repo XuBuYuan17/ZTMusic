@@ -1,5 +1,6 @@
 <script lang="ts">
   import PreviewCard from './PreviewCard.svelte'
+  import MobileCoverRows from './MobileCoverRows.svelte'
 
   // 推荐歌单预览（主列表与次级列表共用一个模块），数据与动作都由页面给。
   interface PlaylistItem {
@@ -45,15 +46,11 @@
 {#if mobile}
   <section class="mobile-discovery-section" aria-label={label}>
     <h2>{title}</h2>
-    <div class="mobile-cover-rail mobile-cover-rail--two-rows">
-      {#if loading && !playlists.length}
-        {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
-      {:else}
-        {#each visible as playlist (playlist.id)}
-          <PreviewCard mobile title={String(playlist.name ?? '')} meta={metaOf(playlist)} cover={String(playlist.picUrl ?? '')} onSelect={() => onOpenPlaylist?.(playlist)} />
-        {/each}
-      {/if}
-    </div>
+    <MobileCoverRows items={visible} loading={loading && !playlists.length}>
+      {#snippet children(playlist)}
+        <PreviewCard mobile title={String(playlist.name ?? '')} meta={metaOf(playlist)} cover={String(playlist.picUrl ?? '')} onSelect={() => onOpenPlaylist?.(playlist)} />
+      {/snippet}
+    </MobileCoverRows>
   </section>
 {:else}
   <section class="music-discovery-section">

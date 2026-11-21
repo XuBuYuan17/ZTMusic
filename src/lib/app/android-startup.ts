@@ -41,7 +41,7 @@ export function syncAndroidTheme(theme: string, lightStatusIcons = theme === 'da
   void invoke('plugin:zt-player|execute', { payload: { action: 'appTheme', data: { theme, lightStatusIcons } } }).catch(() => {})
 }
 
-/** Called once the mounted mobile shell can draw; this immediately releases Android's system launch screen. */
+/** Called once the first WebView surface can draw; this immediately releases Android's system launch screen. */
 export function announceAndroidFrame(_node?: HTMLElement): void {
   if (!android() || frameAnnounced) return
   frameAnnounced = true

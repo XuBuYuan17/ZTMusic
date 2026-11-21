@@ -318,6 +318,7 @@ html.mobile-runtime[data-theme="dark"] .player-bar-wrap::before {
 
 html.mobile-runtime.mobile-floating-dock {
   --mobile-floating-edge: 8px;
+  --mobile-floating-max-width: 520px;
   --mobile-floating-height: 60px;
   --mobile-floating-step: calc(var(--mobile-floating-height) + 8px);
   --mobile-floating-bottom: calc(var(--app-bottom-inset) + var(--mobile-floating-edge));
@@ -329,6 +330,8 @@ html.mobile-runtime.mobile-floating-dock {
 html.mobile-runtime :is(.player-bar-wrap.floating-dock, .mobile-tab-bar.floating) {
   left: max(var(--mobile-floating-edge), env(safe-area-inset-left));
   right: max(var(--mobile-floating-edge), env(safe-area-inset-right));
+  max-width: var(--mobile-floating-max-width);
+  margin-inline: auto;
   bottom: var(--mobile-floating-bottom);
 }
 
@@ -748,9 +751,9 @@ html.mobile-runtime .mobile-feature-image { display: grid; place-items: center; 
 html.mobile-runtime :is(.mobile-feature-image, .mobile-cover-image, .mobile-song-cover) img { width: 100%; height: 100%; object-fit: cover; }
 html.mobile-runtime .mobile-cover-rail { grid-auto-columns: 40%; gap: 12px; }
 html.mobile-runtime .mobile-cover-image { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: var(--radius-sm); background: var(--bg-surface); overflow: hidden; margin-bottom: 4px; }
-html.mobile-runtime .mobile-cover-rail--two-rows { grid-template-rows: repeat(2, auto); align-items: start; gap: 18px 12px; padding: 2px 2px 8px; }
-html.mobile-runtime .mobile-cover-rail--two-rows .mobile-cover-image { position: relative; border-radius: var(--radius-md); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent); }
-html.mobile-runtime .mobile-cover-rail--two-rows .mobile-cover-image::after { content: ''; position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); border-radius: inherit; box-shadow: inset 0 0 5px rgb(255 255 255 / .25); pointer-events: none; }
+html.mobile-runtime .mobile-cover-rail--single-row { grid-template-rows: auto; align-items: start; padding: 2px 2px 8px; }
+html.mobile-runtime .mobile-cover-rail--single-row .mobile-cover-image { position: relative; border-radius: var(--radius-md); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 12%, transparent); }
+html.mobile-runtime .mobile-cover-rail--single-row .mobile-cover-image::after { content: ''; position: absolute; inset: 0; border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); border-radius: inherit; box-shadow: inset 0 0 5px rgb(255 255 255 / .25); pointer-events: none; }
 html.mobile-runtime .mobile-cover-item strong { min-height: 40px; font-size: 15px; font-weight: 400; line-height: 20px; }
 html.mobile-runtime .mobile-cover-item small { font-size: 13px; color: var(--text-secondary); line-height: 18px; }
 html.mobile-runtime .mobile-cover-item :is(strong, small) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
@@ -795,6 +798,40 @@ html.mobile-runtime :is(.mobile-cover-item, .mobile-feature-item)[data-mobile-pr
 html.mobile-runtime :is(.mobile-cover-image, .mobile-feature-image) { transition: transform 240ms cubic-bezier(.22,.82,.28,1.04); }
 html.mobile-runtime :is(.mobile-cover-item, .mobile-feature-item)[data-mobile-pressed="control"] :is(.mobile-cover-image, .mobile-feature-image) { transform: scale(.97); }
 html.mobile-runtime [data-mobile-pressed="row"]:not(.am-flying-cover) { opacity: .8; }
+
+html.mobile-runtime :is(.m-settings, .mobile-choice-sheet, .source-add-dialog) .settings-button-label { display: inline-block; }
+
+html.mobile-runtime :is(.m-settings, .settings-title-row, .mobile-choice-sheet, .source-add-dialog) button[data-mobile-pressed] {
+  scale: 1;
+  opacity: 1;
+}
+
+html.mobile-runtime :is(.m-settings :is(button.m-settings-row, .about-row, .dock-settings__choice-button, .mobile-setting-select), .mobile-choice-option:not(.active))[data-mobile-pressed] {
+  background: var(--bg-hover);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.mobile-runtime :is(.m-settings, .settings-title-row, .mobile-choice-sheet, .source-add-dialog) button:not(.primary-switch, .dock-settings__handle, .m-sheet-handle, .mobile-setting-select--row) > * {
+    transform-origin: left center;
+    transition: transform var(--motion-release) var(--ease-out);
+  }
+
+  html.mobile-runtime :is(.m-settings, .settings-title-row, .mobile-choice-sheet, .source-add-dialog) button:not(.primary-switch, .dock-settings__handle, .m-sheet-handle, .mobile-setting-select--row)[data-mobile-pressed] > * {
+    transform: translateY(2px) scale(.97);
+    transition-duration: var(--motion-press);
+  }
+
+  html.mobile-runtime .m-settings :is(.m-switch, .source-toggle, .mobile-interaction-rows button)::after,
+  html.mobile-runtime .m-settings .primary-switch > span::after {
+    transition: transform 160ms var(--ease-out), scale var(--motion-release) var(--ease-out);
+  }
+
+  html.mobile-runtime .m-settings :is(.m-switch, .source-toggle, .mobile-interaction-rows button)[data-mobile-pressed]::after,
+  html.mobile-runtime .m-settings .primary-switch[data-mobile-pressed] > span::after {
+    scale: .88;
+    transition-duration: 160ms, var(--motion-press);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html.mobile-runtime [data-mobile-pressed="control"] { scale: 1; }
   html.mobile-runtime :is(.mobile-cover-image, .mobile-feature-image) { transition: none; }
@@ -836,20 +873,20 @@ html.mobile-runtime .mobile-detail-actions { grid-column: 2 / 4; grid-row: 1; di
 html.mobile-runtime .mobile-detail-actions button { width: 48px; height: 48px; display: grid; place-items: center; background: transparent; color: var(--text); }
 html.mobile-runtime .mobile-detail-actions button:last-child svg { rotate: 90deg; }
 html.mobile-runtime .mobile-page-bar h1.mobile-playlist-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr { grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: 20px 16px; min-height: 58px; padding: 8px 44px 8px 8px; gap: 1px 10px; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 15px; font-weight: 400; line-height: 20px; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 12px; line-height: 16px; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .col-cover { grid-row: 1 / 3; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table :is(.col-album, .col-dur) { display: none; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr::after { content: ''; position: absolute; left: 60px; right: 0; bottom: 0; height: 1px; background: var(--border); }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active { background: transparent; }
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table tbody tr.active .col-title { color: var(--md-primary); }
-/* 歌单页与历史日推共用歌曲表：行末三点竖排 */
-html.mobile-runtime .mobile-page-content :is(.playlist-detail-page, .daily-page) .track-table .m-track-more svg { rotate: 90deg; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table tbody tr { grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: 20px 16px; min-height: 58px; padding: 8px 44px 8px 8px; gap: 1px 10px; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table .col-title { grid-column: 2; grid-row: 1; font-size: 15px; font-weight: 400; line-height: 20px; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table .col-artist { grid-column: 2; grid-row: 2; font-size: 12px; line-height: 16px; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table .col-cover { grid-row: 1 / 3; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table :is(.col-album, .col-dur) { display: none; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table tbody tr::after { content: ''; position: absolute; left: 60px; right: 0; bottom: 0; height: 1px; background: var(--border); }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table tbody tr.active { background: transparent; }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table tbody tr.active .col-title { color: var(--md-primary); }
+/* 共用歌曲表：行末三点竖排 */
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table .m-track-more svg { rotate: 90deg; }
 
 html.mobile-runtime .library-card > .library-card-info > .library-card-creator { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-html.mobile-runtime .mobile-page-content .playlist-detail-page .track-table .artist-link { color: var(--text-secondary); }
+html.mobile-runtime .mobile-page-content .playlist-track-surface .track-table .artist-link { color: var(--text-secondary); }
 
 /* The native system splash and the first WebView frame share the same base surface. */
 html.mobile-runtime.android-startup-pending,
@@ -860,20 +897,19 @@ html.mobile-runtime.android-startup-pending .app-shell {
 html.mobile-runtime.android-startup-pending .wallpaper-layer { opacity: 0; }
 
 @media (orientation: landscape) and (max-height: 720px) {
-  html.mobile-runtime {
+  html.mobile-runtime { --mobile-page-bar-h: 48px; }
+  html.mobile-runtime:not(.mobile-floating-dock) {
     --mobile-landscape-rail: calc(72px + env(safe-area-inset-left));
-    --mobile-page-bar-h: 48px;
     --mobile-tabs-space: 0px;
   }
-  html.mobile-runtime .mobile-app { padding-left: var(--mobile-landscape-rail); }
-  html.mobile-runtime .mobile-tab-bar {
+  html.mobile-runtime:not(.mobile-floating-dock) .mobile-app { padding-left: var(--mobile-landscape-rail); }
+  html.mobile-runtime .mobile-tab-bar:not(.floating) {
     inset: 0 auto 0 0; width: var(--mobile-landscape-rail); height: auto;
     grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(48px, 1fr));
     padding: 0 0 var(--app-bottom-inset) env(safe-area-inset-left);
     border-top: 0; border-right: 1px solid var(--border);
   }
-  html.mobile-runtime .player-bar-wrap,
-  html.mobile-runtime .player-bar-wrap.sidebar-collapsed { left: var(--mobile-landscape-rail); }
+  html.mobile-runtime .player-bar-wrap:not(.floating-dock) { left: var(--mobile-landscape-rail); }
 }
 
 html.android-runtime.mobile-runtime .app-shell {

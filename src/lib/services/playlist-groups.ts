@@ -27,6 +27,18 @@ function write(userId: unknown, groups: PlaylistGroup[]): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(PLAYLIST_GROUPS_CHANGE))
 }
 
+export function mergeImportedPlaylistGroups(userId: unknown, incoming: PlaylistGroup[]): number {
+  const groups = readPlaylistGroups(userId)
+  let added = 0
+  for (const row of incoming) {
+    const match = groups.find(group => group.id === row.id || group.name.toLocaleLowerCase() === row.name.toLocaleLowerCase())
+    if (match) match.playlistIds = [...new Set([...match.playlistIds, ...row.playlistIds])]
+    else { groups.push(row); added++ }
+  }
+  write(userId, groups)
+  return added
+}
+
 function validName(name: string, groups: PlaylistGroup[], except = ''): string {
   const value = name.trim()
   if (!value || value.length > 30) throw new Error('分组名称需为 1–30 个字符')

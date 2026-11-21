@@ -40,6 +40,8 @@ for (const view of ['explore', 'search', 'library', 'settings']) assert.ok(dockC
 assert.ok(sidebar.includes("nav('search')") && sidebar.includes("nav('explore')") && sidebar.includes("nav('library')"), 'primary destinations remain reachable through navigation menu')
 assert.ok(mobileApp.includes("classList.toggle('mobile-chrome-hidden', chromeHidden && chromeCanHide)") && mobileApp.includes('use:swipeChrome'), 'floating player and navigation share the same hide state')
 assert.match(mobileCss, /:is\(\.player-bar-wrap\.floating-dock, \.mobile-tab-bar\.floating\)\s*\{[^}]*left:[^}]*right:/, 'both capsules use the same horizontal safe-area insets')
+assert.match(mobileCss, /:is\(\.player-bar-wrap\.floating-dock, \.mobile-tab-bar\.floating\)\s*\{[^}]*max-width:\s*var\(--mobile-floating-max-width\);[^}]*margin-inline:\s*auto/, 'the floating bars share a centered width cap')
+assert.match(mobileCss, /@media \(orientation: landscape\) and \(max-height: 720px\)[\s\S]*?\.mobile-tab-bar:not\(\.floating\)\s*\{[^}]*inset:/, 'the landscape navigation rail applies to classic mode')
 assert.ok(mobileCss.includes('transition: translate var(--mobile-floating-motion)') && mobileCss.includes('transition: transform var(--mobile-floating-motion)'), 'the two rows move on the same timing curve')
 assert.ok(mobileApp.includes('onOpenPlaylist={(id, push, preview)'), 'playlist callbacks must preserve push and preview arguments')
 assert.ok(!app.includes('aria-label="正在加载移动端界面"'), 'mobile shell must not render the ZT loading placeholder')

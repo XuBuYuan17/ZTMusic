@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { DisplayLyricLine } from '../services/lyrics-loader.ts';
   import { player } from '../stores/player.svelte.ts';
-  import { useLyrics } from '../composables/useLyrics.svelte.ts';
+  import type { useLyrics } from '../composables/useLyrics.svelte.ts';
+  import { playerPresentation } from '../stores/player-presentation.svelte.ts';
   import { cancelLyricScroll, scrollLyricIntoView } from '../utils/scroll-lyric.ts';
   import { mobilePlayerTiming } from '../app/mobile-player-motion.ts';
   import LyricWords from './LyricWords.svelte';
 
-  let { active = false }: { active?: boolean } = $props();
+  let { active = false, lyricState }: { active?: boolean; lyricState: ReturnType<typeof useLyrics> } = $props();
 
   let lyricsEl = $state<HTMLElement | null>(null);
-  const lyricState = useLyrics();
   let hasPositionedActiveLyrics = false;
   let introSettlesAt = 0;
 
@@ -23,6 +23,7 @@
       if (lyricsEl) cancelLyricScroll(lyricsEl);
       return;
     }
+    void playerPresentation.showTranslation;
     const index = lyricState.highlightIndex;
     if (index < 0) return;
     const firstPosition = !hasPositionedActiveLyrics;
@@ -38,7 +39,7 @@
     aria-current={i === lyricState.highlightIndex ? 'true' : undefined}
     onclick={() => { if (player.duration) player.seek(Math.max(0, Math.min(player.duration, Number(line.time)))); }}>
     <span class="am-lyric-text">{#if active && i === lyricState.highlightIndex && line.words?.length}<LyricWords words={line.words} />{:else}{line.text || '...'}{/if}</span>
-    {#if line.translation}
+    {#if playerPresentation.showTranslation && line.translation}
       <span class="am-lyric-trans">{line.translation}</span>
     {/if}
   </button>

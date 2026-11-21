@@ -87,9 +87,11 @@ html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-clear-btn { p
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-close-btn { color: var(--text-secondary); }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-list { padding: 4px 12px calc(12px + env(safe-area-inset-bottom)); }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item {
+  --queue-action-size: 44px;
+  --queue-actions-width: calc(3 * var(--queue-action-size));
   min-height: 68px;
   gap: 12px;
-  padding: 10px 48px 10px 4px;
+  padding: 10px var(--queue-actions-width) 10px 4px;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
   color: var(--text);
@@ -99,7 +101,7 @@ html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item:hover { 
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-title { font-size: 15px; line-height: 20px; font-weight: 500; }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-artist { margin-top: 2px; font-size: 13px; line-height: 18px; }
-html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-open { inset: 0 48px 0 0; border-radius: var(--radius-md); }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-open { inset: 0 var(--queue-actions-width) 0 0; border-radius: var(--radius-md); }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-open:focus-visible {
   outline: 0;
   background: transparent;
@@ -111,16 +113,25 @@ html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item:has(.que
   background: color-mix(in srgb, var(--md-primary) 6%, var(--bg));
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--md-primary) 38%, transparent);
 }
-html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-playnext { display: none; }
-html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-remove {
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible :is(.queue-item-playnext, .queue-item-remove, .queue-drag-handle) {
   position: absolute;
-  right: 0;
-  top: 10px;
-  width: 48px;
-  height: 48px;
-  color: var(--text-tertiary);
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: var(--queue-action-size);
+  min-width: var(--queue-action-size);
+  height: var(--queue-action-size);
+  min-height: var(--queue-action-size);
+  color: var(--text-secondary);
   border-radius: 999px;
 }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-remove { right: 0; }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item-playnext { right: var(--queue-action-size); }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-drag-handle { right: calc(2 * var(--queue-action-size)); touch-action: none; cursor: grab; }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible :is(.queue-drag-handle, .queue-item-playnext):disabled { opacity: .4; }
+html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item.drag-after.drag-over::before { top: auto; bottom: 0; }
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item.active {
   width: 100%;
   margin: 4px 0;
@@ -157,14 +168,10 @@ html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item.active .
 html.mobile-runtime .queue-panel.queue-panel-mobile-visible .queue-item.active .queue-item-remove { color: var(--md-primary); }
 
 /* Secondary pages retain their desktop content and use the shell's mobile heading. */
-html.mobile-runtime .mobile-page-content .page-header h1,
-html.mobile-runtime .local-header h1,
-html.mobile-runtime .local-header > div > .local-kicker { display: none; }
+html.mobile-runtime .mobile-page-content .page-header h1 { display: none; }
 html.mobile-runtime .messages-page { padding: 0; height: auto; min-height: 50dvh; overflow: visible; }
 html.mobile-runtime .messages-page .page-header { display: none; }
 html.mobile-runtime .messages-page :is(.icon-btn, .plain-btn) { min-height: 48px; min-width: 48px; }
-html.mobile-runtime .local-track { grid-template-columns: minmax(0, 1fr) 44px; }
-html.mobile-runtime .local-track-delete { width: 44px; height: 44px; }
 html.mobile-runtime :is(.local-btn, .local-clear, .user-profile-hero__actions button) { min-height: 44px; }
 html.mobile-runtime .listening-poster-page { padding: 0; }
 html.mobile-runtime .listening-poster { padding: 24px 20px; border-radius: var(--radius-xl); }
@@ -283,20 +290,24 @@ html.mobile-runtime .chat-modal-backdrop.from-item .chat-dialog {
   background: var(--bg);
   box-shadow: none;
   overflow: hidden;
-  animation: mobile-chat-in 300ms cubic-bezier(.2,.8,.2,1) both;
+  animation: none;
 }
 html.mobile-runtime .chat-titlebar {
   height: calc(60px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 12px 0 16px;
+  padding: env(safe-area-inset-top) 12px 0 4px;
+  justify-content: flex-start;
+  gap: 8px;
   background: var(--bg);
   border-bottom-color: var(--border);
 }
-html.mobile-runtime .chat-titlebar .title-avatar { width: 40px; height: 40px; border-radius: var(--radius-sm); box-shadow: none; }
+html.mobile-runtime .chat-titlebar .title-avatar { width: 36px; height: 36px; border-radius: var(--radius-sm); box-shadow: none; }
 html.mobile-runtime .chat-titlebar .title-meta h2 { font-size: 16px; font-weight: 700; }
-html.mobile-runtime .chat-titlebar .close-btn { width: 48px; height: 48px; border: 0; background: transparent; }
-html.mobile-runtime .chat-scroll { padding: 18px 16px 24px; overscroll-behavior: contain; }
-html.mobile-runtime .chat-list { gap: 16px; }
+html.mobile-runtime .chat-titlebar .close-btn { order: -1; flex: none; width: 44px; height: 44px; border: 0; background: transparent; }
+html.mobile-runtime .chat-scroll { display: flex; flex-direction: column; padding: 12px 14px; overscroll-behavior: contain; background: var(--bg); }
+html.mobile-runtime .chat-list { flex: none; margin-top: auto; gap: 12px; }
 html.mobile-runtime .chat-message-content { max-width: 88%; }
+html.mobile-runtime .chat-bubble { box-shadow: none; }
+html.mobile-runtime .chat-message.mine .chat-bubble { background: var(--md-primary-container); color: var(--text); }
 html.mobile-runtime .shared-card { width: min(72vw, 280px); border-radius: var(--radius-lg); }
 html.mobile-runtime .chat-composer {
   gap: 8px;
@@ -310,10 +321,6 @@ html.mobile-runtime.mobile-keyboard-open .chat-modal-backdrop {
   top: var(--mobile-viewport-top, 0px);
   bottom: auto;
   height: var(--mobile-viewport-height, 100dvh);
-}
-@keyframes mobile-chat-in {
-  from { opacity: 0; transform: translateX(24px); }
-  to { opacity: 1; transform: none; }
 }
 html.mobile-runtime :is(.am-secondary-sheet, .am-more-menu) { animation-duration: 280ms; }
 html.mobile-runtime :is(.login-card, .library-modal, .confirm-card) { padding: 24px; }
@@ -480,11 +487,6 @@ html.mobile-runtime .mobile-page-content .mobile-track-meta { display: flex; ali
 html.mobile-runtime .mobile-track-meta > span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html.mobile-runtime .mobile-track-meta time { flex: none; font-variant-numeric: tabular-nums; }
 html.mobile-runtime .mobile-page-content :is(.playlist-detail-page, .playlist-track-surface, .playlist-toolbar, .playlist-track-row, .playlist-skeleton-row) { animation: none; opacity: 1; }
-html.mobile-runtime .mobile-page-content .local-track { min-height: 80px; box-sizing: border-box; grid-template-columns: minmax(0, 1fr) 48px; border: 0; border-radius: var(--radius-xs); }
-html.mobile-runtime .mobile-page-content .local-track-main { min-height: 80px; box-sizing: border-box; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
-html.mobile-runtime .mobile-page-content .local-track-cover { width: 48px; height: 48px; border-radius: var(--radius-sm); }
-html.mobile-runtime .mobile-page-content .local-track-duration { display: none; }
-html.mobile-runtime .mobile-page-content .local-track-delete { width: 48px; height: 48px; }
 html.mobile-runtime .mobile-page-content .user-profile-hero__stats div { border: 0; background: transparent; backdrop-filter: none; }
 html.mobile-runtime .mobile-page-content .user-profile-hero__content { padding: 12px 0; }
 html.mobile-runtime .mobile-page-content .user-profile-hero h1 { font-size: 24px; }

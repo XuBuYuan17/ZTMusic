@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import { classifyLoginStatus } from './login-status.ts'
+import { normalizeCookieForRequest } from '../api/session.ts'
 import { fetchVipInfo, normalizeVipInfo } from './vip.ts'
 
 const source = readFileSync(new URL('../stores/auth.svelte.ts', import.meta.url), 'utf8')
@@ -18,18 +19,21 @@ function deferred() {
 function createAuth(stored = {}) {
   const storage = new Map(Object.entries(stored).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]))
   let cookieClears = 0
+  let acceptedCookie = null
   const ncm = {
     loginStatus: async () => ({ code: 200 }),
     vipInfoV2: async () => ({ code: 200, data: { vipType: 0 } }),
     vipInfo: async () => { throw new Error('unexpected VIP fallback') },
     logout: async () => {},
-    setCookie() {},
+    setCookie(cookie) { acceptedCookie = cookie },
     clearCookie() { cookieClears++ },
   }
   const context = {
     $state: value => value,
     ncm,
     classifyLoginStatus,
+    normalizeCookieForRequest,
+    apiSession: { getVersion: () => 1 },
     fetchVipInfo,
     normalizeVipInfo,
     getStorage: (key, fallback) => storage.get(key) ?? fallback,
@@ -38,7 +42,7 @@ function createAuth(stored = {}) {
     removeStorage: key => storage.delete(key),
   }
   runInNewContext(script + '\nglobalThis.auth = auth', context)
-  return { auth: context.auth, ncm, storage, get cookieClears() { return cookieClears } }
+  return { auth: context.auth, ncm, storage, get cookieClears() { return cookieClears }, get acceptedCookie() { return acceptedCookie } }
 }
 
 const accountA = { userId: 1, nickname: 'A' }
@@ -270,6 +274,32 @@ await test('startup QR login preserves an in-flight first song and only replaces
     if (originalState) Object.defineProperty(globalThis, '$state', originalState)
     else delete globalThis.$state
   }
+})
+
+await test('a paired credential is saved only after its account matches the confirmed account', async () => {
+  const fixture = createAuth()
+  const synthetic = 'MUSIC_U=fixture'
+  fixture.ncm.verifyPairedCookie = async () => ({ code: 200, data: { profile: accountB } })
+  await assert.rejects(fixture.auth.acceptPairedSession(synthetic, '1'), /不同的账号/)
+  assert.equal(fixture.acceptedCookie, null)
+  assert.equal(fixture.auth.user, null)
+  fixture.ncm.verifyPairedCookie = async () => ({ code: 200, data: { profile: accountA } })
+  await fixture.auth.acceptPairedSession(synthetic, '1')
+  assert.equal(fixture.auth.user.userId, 1)
+  assert.equal(fixture.acceptedCookie, normalizeCookieForRequest(synthetic))
+})
+
+await test('closing device pairing before validation completes leaves login state unchanged', async () => {
+  const fixture = createAuth()
+  const response = deferred()
+  const controller = new AbortController()
+  fixture.ncm.verifyPairedCookie = () => response.promise
+  const login = fixture.auth.acceptPairedSession('MUSIC_U=fixture', '1', controller.signal)
+  controller.abort()
+  response.resolve({ code: 200, data: { profile: accountA } })
+  await assert.rejects(login, { name: 'AbortError' })
+  assert.equal(fixture.acceptedCookie, null)
+  assert.equal(fixture.auth.user, null)
 })
 
 console.log(`\n${passed} auth session race scenarios passed`)

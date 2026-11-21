@@ -480,6 +480,12 @@ export const ncm = {
     return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', cookie ? { cookie } : {}, { randomCNIP: false })
   },
 
+  verifyPairedCookie(cookie: string, signal?: AbortSignal) {
+    return request('/login/status', { timestamp: Date.now(), ua: 'pc' }, 'POST', { cookie }, {
+      signal, noCookie: true, saveCookie: false, browserCredentials: 'omit', randomCNIP: false, cache: false,
+    })
+  },
+
   like(id: SongId, like = true, uid?: SongId) {
     const timestamp = Date.now()
     if (uid) return request('/song/like', { id, uid, like, timestamp })

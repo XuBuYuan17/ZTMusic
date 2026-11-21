@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { dialogFocus } from '../../app/desktop-motion.ts'
+  import { onDestroy } from 'svelte'
+  import { cubicOut } from 'svelte/easing'
+  import { dialogFocus, reducedMotion } from '../../app/desktop-motion.ts'
+  import { responsive } from '../../utils/responsive.ts'
   import type { CompactTrackInput } from '../../player/queue.ts'
   import { player } from '../../stores/player.svelte.ts'
   import { auth } from '../../stores/auth.svelte.ts'
@@ -7,7 +10,7 @@
   import Spinner from '../Spinner.svelte'
   import { coverUrl } from '../../utils/image.ts'
   import {
-    extractMessageList,
+    extractChatHistory,
     formatMessageTime,
     getMessageAvatar,
     getMessageNickname,
@@ -41,6 +44,11 @@
   let chatScrollEl = $state<HTMLElement | null>(null)
   let shouldScrollToBottom = $state(false)
   let loadRequestId = 0
+  let followLatest = true
+  let cancelKeyboardClose: (() => void) | undefined
+  const mobile = $derived($responsive.isMobile)
+
+  onDestroy(() => { loadRequestId++; cancelKeyboardClose?.() })
 
   let draft = $state('')
   let sending = $state(false)
@@ -54,6 +62,7 @@
     const requestId = ++loadRequestId
     chatMessages = []
     chatError = ''
+    followLatest = true
     const uid = getMessageUserId(current)
     if (!uid) {
       chatError = '无法获取用户 ID'
@@ -63,7 +72,7 @@
     ncm.msgPrivateHistory(uid, 50)
       .then((res) => {
         if (requestId !== loadRequestId) return
-        chatMessages = extractMessageList(res) as Msg[]
+        chatMessages = extractChatHistory(res)
       })
       .catch((e) => {
         if (requestId !== loadRequestId) return
@@ -86,6 +95,47 @@
       })
     }
   })
+
+  $effect(() => {
+    const el = chatScrollEl
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => { if (followLatest) el.scrollTop = el.scrollHeight })
+    observer.observe(el)
+    return () => observer.disconnect()
+  })
+
+  function onChatScroll(event: Event & { currentTarget: HTMLElement }): void {
+    const el = event.currentTarget
+    followLatest = el.scrollHeight - el.clientHeight - el.scrollTop <= 24
+  }
+
+  function slideConversation(_node: HTMLElement, { leaving = false } = {}) {
+    return {
+      duration: !mobile || reducedMotion() ? 0 : leaving ? 200 : 240,
+      easing: cubicOut,
+      css: (_t: number, remaining: number) => mobile ? 'transform:translate3d(' + (remaining * 100) + '%,0,0)' : '',
+    }
+  }
+
+  function dismissChat(): void {
+    if (cancelKeyboardClose) return
+    const root = document.documentElement
+    const input = document.activeElement
+    if (!mobile || !root.classList.contains('mobile-keyboard-open') || !(input instanceof HTMLTextAreaElement)) {
+      onClose?.()
+      return
+    }
+    const complete = () => { cancelKeyboardClose?.(); onClose?.() }
+    const observer = new MutationObserver(() => { if (!root.classList.contains('mobile-keyboard-open')) complete() })
+    const fallback = setTimeout(complete, 250)
+    cancelKeyboardClose = () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+      cancelKeyboardClose = undefined
+    }
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
+    input.blur()
+  }
 
   function stopEvent(e: Event): void {
     e.stopPropagation()
@@ -141,7 +191,7 @@
   async function send(): Promise<void> {
     const text = draft.trim()
     const uid = getMessageUserId(msg)
-    if (!text || sending || !uid) return
+    if (!text || sending || chatLoading || !uid) return
     sending = true
     sendError = ''
     try {
@@ -156,6 +206,7 @@
         msg: { msg: text },
         time: Date.now(),
       }]
+      followLatest = true
       shouldScrollToBottom = true
       onSent?.()
     } catch (e) {
@@ -174,8 +225,9 @@
   }
 </script>
 
-<div class="chat-modal-backdrop" use:portal onclick={() => onClose?.()} role="presentation" class:from-item={fromItem}>
-  <div class="chat-dialog" use:dialogFocus={() => onClose?.()} role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getMessageNickname(msg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
+<div class="chat-modal-backdrop" use:portal onclick={dismissChat} role="presentation" class:from-item={fromItem}
+  in:slideConversation|global out:slideConversation|global={{ leaving: true }}>
+  <div class="chat-dialog" use:dialogFocus={dismissChat} role="dialog" tabindex="-1" aria-modal="true" aria-label="与 {getMessageNickname(msg)} 的私信" onclick={stopEvent} onkeydown={stopEvent}>
     <div class="chat-titlebar">
       <div class="dialog-user">
         {#if getMessageAvatar(msg)}
@@ -189,17 +241,17 @@
         {/if}
         <div class="title-meta">
           <h2>{getMessageNickname(msg)}</h2>
-          <p>私人会话</p>
+          {#if !mobile}<p>私人会话</p>{/if}
         </div>
       </div>
-      <button class="close-btn" onclick={() => onClose?.()} aria-label="关闭对话框">
+      <button class="close-btn" onclick={dismissChat} aria-label={mobile ? '返回通知列表' : '关闭对话框'}>
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-          <path d="M18 6 6 18M6 6l12 12"/>
+          {#if mobile}<path d="M19 12H5m7 7-7-7 7-7"/>{:else}<path d="M18 6 6 18M6 6l12 12"/>{/if}
         </svg>
       </button>
     </div>
 
-    <div class="chat-scroll" bind:this={chatScrollEl}>
+    <div class="chat-scroll" bind:this={chatScrollEl} onscroll={onChatScroll}>
       {#if chatLoading}
         <div class="dialog-state"><Spinner size="md" label="加载聊天记录..." /></div>
       {:else if chatError}
@@ -288,7 +340,7 @@
         aria-label="消息内容"
         onkeydown={handleComposerKeydown}
       ></textarea>
-      <button class="chat-send-btn" type="submit" disabled={sending || !draft.trim()} aria-label="发送">
+      <button class="chat-send-btn" type="submit" disabled={sending || chatLoading || !draft.trim()} aria-label="发送">
         {#if sending}
           <Spinner size="sm" />
         {:else}

@@ -50,7 +50,7 @@ export function getMessageKindLabel(msg: unknown): string {
     notice: '通知',
     mention: '提及',
   }
-  return labels[getMessageKind(msg)] || '提醒'
+  return labels[getMessageKind(msg)] || '通知'
 }
 
 export function isConversationMessage(msg: unknown): boolean {
@@ -104,6 +104,19 @@ export function getMessageNickname(msg: unknown): string {
   const user = getMessageUser(msg)
   const nickname = user.nickname || user.name
   return typeof nickname === 'string' ? nickname : '未知用户'
+}
+
+function chatTime(item: Loose): number {
+  const value = item.time ?? item.lastMsgTime
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value !== 'string' || !value.trim()) return 0
+  const timestamp = Number(value)
+  return Number.isFinite(timestamp) ? timestamp : Date.parse(value) || 0
+}
+
+export function extractChatHistory(response: unknown): Loose[] {
+  return extractMessageList(response).map(asRecord).filter(item => Object.keys(item).length > 0)
+    .sort((a, b) => chatTime(a) - chatTime(b))
 }
 
 export function formatMessageTime(ts: unknown): string {

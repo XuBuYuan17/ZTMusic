@@ -1,5 +1,6 @@
 import type { SongId } from '../types/music.ts'
 import { ncm } from '../api/client.ts'
+import { apiSession, normalizeCookieForRequest } from '../api/session.ts'
 import { fetchVipInfo, normalizeVipInfo } from '../auth/vip.ts'
 import { classifyLoginStatus } from '../auth/login-status.ts'
 import { getStorage, getStorageJson, removeStorage, setStorage } from '../utils/storage.ts'
@@ -224,6 +225,28 @@ export const auth = {
     this.setUser(profile, 'account')
     await this.refreshVipInfo()
     return profile
+  },
+
+  async acceptPairedSession(rawCookie: string, expectedUser: string, signal?: AbortSignal): Promise<void> {
+    const cookie = normalizeCookieForRequest(rawCookie)
+    if (!cookie || cookie.length > 8192 || /[\u0000-\u001f\u007f]/.test(cookie)) throw new Error('配对会话凭据无效')
+    const session = _sessionVersion
+    const apiVersion = apiSession.getVersion()
+    if (this.isLoggedIn) throw new Error('请先退出新设备上的已有账号')
+    const status = await ncm.verifyPairedCookie(cookie, signal)
+    signal?.throwIfAborted()
+    if (session !== _sessionVersion || apiVersion !== apiSession.getVersion() || this.isLoggedIn) {
+      throw new Error('当前登录状态已变化，请重新配对')
+    }
+    const root = asRecord(status)
+    const data = asRecord(root?.data)
+    const account = root?.profile || data?.profile || root?.account || data?.account
+    if (classifyLoginStatus(status) !== 'valid' || String(normalizeUser(account)?.userId) !== expectedUser) {
+      throw new Error('旧设备会话已失效，或网易云返回了不同的账号')
+    }
+    setCookie(cookie)
+    this.setUser(account, 'account')
+    void this.refreshVipInfo()
   },
 
   async qrLogin(cookie = ''): Promise<unknown> {

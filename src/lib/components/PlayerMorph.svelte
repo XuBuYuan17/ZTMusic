@@ -5,6 +5,7 @@
   import { coverFrame } from '../player-motion/geometry.ts'
   import { coverUrl } from '../utils/image.ts'
   import { player } from '../stores/player.svelte.ts'
+  import { playerPresentation } from '../stores/player-presentation.svelte.ts'
   import PCPlayer from './PCPlayer.svelte'
   import { closeDrag } from '../app/close-drag.ts'
   import { getSetting } from '../utils/settings.ts'
@@ -40,7 +41,9 @@
     const cover = document.querySelector('.player-morph .ly-cover-wrap')
     if (cover) {
       const img = cover.querySelector('.ly-cover')
-      playerMorph.targetCover = elementRect(cover, img ? parseFloat(getComputedStyle(img).borderRadius) || 0 : 0)
+      const radius = playerPresentation.theme === 'vinyl' ? cover.getBoundingClientRect().width / 2
+        : img ? parseFloat(getComputedStyle(img).borderRadius) || 0 : 0
+      playerMorph.targetCover = elementRect(cover, radius)
     }
     const title = document.querySelector('.player-morph .ly-track-title')
     if (title) {
@@ -99,6 +102,7 @@
 <div class="player-morph" class:active={playerMorph.active} class:is-open={playerMorph.isOpen} class:has-shared-title={!!playerMorph.sourceTitle} class:ly-no-text-blur={!textBlur} style="--p:{playerMorph.p}">
   {#if playerMorph.active}
     {@const r = playerMorph.surfaceRect}
+    {@const insets = [r.top, r.right, r.bottom, r.left].map(value => value + 'px').join(' ')}
     {@const sourceCover = playerMorph.sourceCover}
     {@const targetCover = playerMorph.targetCover ?? sourceCover}
     {@const c = sourceCover && targetCover ? coverFrame(playerMorph.p, sourceCover, targetCover, sourceCover.radius, targetCover.radius) : null}
@@ -107,7 +111,8 @@
       <button class="pm-close" type="button" use:closeDrag={true} onclick={() => playerMorph.close()} aria-label="收起歌词页" title="点击或向下拖动收起">
       </button>
       <div class="pm-scrim"></div>
-      <div class="pm-surface" style="clip-path: inset({r.top}px {r.right}px {r.bottom}px {r.left}px round {r.radius}px)">
+      <div class="pm-outline" aria-hidden="true" style:inset={insets} style:border-radius={r.radius + 'px'}></div>
+      <div class="pm-surface" style="clip-path: inset({insets} round {r.radius}px)">
         <div class="pm-glass"></div>
         <div class="pm-solid"></div>
         {#if player.cover}<div class="pm-art"><img src={coverUrl(player.cover, 600)} alt="" referrerpolicy="no-referrer"></div>{/if}
@@ -124,7 +129,7 @@
           />
         </div>
         {#if c && targetCover}
-          <div class="pm-fcover" style="left:0;top:0;width:{targetCover.width}px;height:{targetCover.height}px;transform:translate({c.left}px, {c.top}px) scale({c.scale});border-radius:{c.radius}px">
+          <div class="pm-fcover" class:vinyl-theme={playerPresentation.theme === 'vinyl'} style="left:0;top:0;width:{targetCover.width}px;height:{targetCover.height}px;transform:translate({c.left}px, {c.top}px) scale({c.scale});border-radius:{c.radius}px">
             {#if fcoverSrc}<img src={fcoverSrc} alt="" referrerpolicy="no-referrer">{/if}
           </div>
         {/if}

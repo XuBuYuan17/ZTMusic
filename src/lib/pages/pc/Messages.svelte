@@ -87,7 +87,7 @@
         if (messages.length === 0) error = '登录已失效，请重新登录'
       } else {
         const detail = (typeof err?.message === 'string' ? err.message : '') || (typeof e === 'string' ? e : '')
-        if (messages.length === 0) error = detail ? `加载提醒失败：${detail}` : '加载提醒失败'
+        if (messages.length === 0) error = detail ? `加载通知失败：${detail}` : '加载通知失败'
       }
       console.error(e)
     }
@@ -165,7 +165,7 @@
 <div class="messages-page">
   <div class="page-header">
     <div>
-      <h1>提醒</h1>
+      <h1>通知</h1>
       <p>查看新歌提醒、系统通知与音乐分享</p>
     </div>
     {#if auth.isLoggedIn}
@@ -173,7 +173,7 @@
         {#if unreadTotal > 0}
           <button class="plain-btn" onclick={markAllRead}>全部已读 · {unreadTotal > 99 ? '99+' : unreadTotal}</button>
         {/if}
-        <button class="icon-btn" aria-busy={refreshing} onclick={() => loadMessages(true)} disabled={loading || refreshing} aria-label="刷新提醒">
+        <button class="icon-btn" aria-busy={refreshing} onclick={() => loadMessages(true)} disabled={loading || refreshing} aria-label="刷新通知">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>

@@ -46,6 +46,23 @@ export const listeningDB = {
     for (const row of rows) tx.objectStore('records').put(row)
     await done
   },
+  async mergeImported(rows: ListeningRecord[]): Promise<number> {
+    const db = await open()
+    const tx = db.transaction('records', 'readwrite')
+    const done = complete(tx)
+    const store = tx.objectStore('records')
+    let added = 0
+    for (const row of new Map(rows.map(item => [item.key, item])).values()) {
+      const request = store.get(row.key)
+      request.onsuccess = () => {
+        if (request.result) return
+        store.put(row)
+        added++
+      }
+    }
+    await done
+    return added
+  },
   async read(): Promise<{ records: ListeningRecord[]; archive: ListeningArchive | undefined }> {
     const db = await open()
     const tx = db.transaction(['records', 'metadata'], 'readonly')

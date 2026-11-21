@@ -19,6 +19,9 @@ await copyFile(resolve(root, 'src-tauri/icons/icon.png'), resolve(mainDirectory,
 
 const manifestPath = resolve(mainDirectory, 'AndroidManifest.xml')
 let manifest = await readFile(manifestPath, 'utf8')
+if (!manifest.includes('android.permission.CAMERA')) {
+  manifest = manifest.replace(/<application\b/, '<uses-permission android:name="android.permission.CAMERA" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <application')
+}
 const launcher = manifest.match(/<activity\b[^>]*android:name="\.MainActivity"[^>]*>/s)?.[0]
 if (!launcher) throw new Error('Generated MainActivity launcher was not found')
 const themed = launcher.replace(/\s+android:theme="[^"]*"/, '').replace(/>$/, '\n            android:theme="@style/Theme.ZTMusic.Starting">')

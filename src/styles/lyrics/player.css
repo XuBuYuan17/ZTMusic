@@ -509,6 +509,10 @@ html:not(.mobile-runtime) .pm-scrim {
   background: rgb(0 0 0 / 32%);
   opacity: var(--p);
 }
+html:not(.mobile-runtime) .pm-outline {
+  z-index: 4;
+  opacity: calc(1 - clamp(0, var(--p) / 0.75, 1));
+}
 html:not(.mobile-runtime) .pm-glass {
   position: absolute; inset: 0;
   background: rgba(245, 245, 247, 0.82);
@@ -564,6 +568,38 @@ html:not(.mobile-runtime) .pm-ftitle {
 }
 html:not(.mobile-runtime) .pm-fcover { overflow: hidden; transform-origin: 0 0; background: #252529; }
 html:not(.mobile-runtime) .pm-fcover img { width: 100%; height: 100%; object-fit: cover; }
+html:not(.mobile-runtime) :is(.ly-cover-wrap, .pm-fcover).vinyl-theme {
+  display: grid;
+  place-items: center;
+  background: repeating-radial-gradient(circle, #151518 0 3px, #1a1a20 4px 5px);
+}
+html:not(.mobile-runtime) .ly-cover-wrap.vinyl-theme {
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 26px 70px rgba(0,0,0,.24);
+}
+html:not(.mobile-runtime) .ly-cover-wrap.vinyl-theme .ly-cover {
+  width: 44%;
+  height: 44%;
+  border-radius: 50%;
+  box-shadow: none;
+}
+html:not(.mobile-runtime) .player-morph:not(.is-open) .ly-cover-wrap.vinyl-theme { visibility: hidden; }
+html:not(.mobile-runtime) .pm-fcover.vinyl-theme img {
+  width: calc(100% - 56% * var(--p));
+  height: calc(100% - 56% * var(--p));
+  --radius-artwork: calc(50% * var(--p));
+  border-radius: var(--radius-artwork);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.mobile-runtime) .ly-cover-wrap.vinyl-theme img {
+    animation: desktop-vinyl-spin 24s linear infinite;
+    animation-play-state: paused;
+  }
+  html:not(.mobile-runtime) .ly-cover-wrap.vinyl-theme.playing img { animation-play-state: running; }
+}
+@keyframes desktop-vinyl-spin { to { rotate: 1turn; } }
+
 html:not(.mobile-runtime) .pm-ftitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html:not(.mobile-runtime) .player-morph.is-open .pm-fcover,
 html:not(.mobile-runtime) .player-morph.is-open .pm-ftitle { visibility: hidden; }
@@ -576,7 +612,10 @@ html:not(.mobile-runtime) .pm-bar-snapshot {
 html:not(.mobile-runtime) .pm-bar-snapshot .player-bar {
   position: relative; inset: auto; width: 100%; height: 100%;
   max-width: none; margin: 0; transform: none; pointer-events: none;
+  background: transparent; box-shadow: none;
 }
+html:not(.mobile-runtime) .pm-bar-snapshot .player-bar::before,
+html:not(.mobile-runtime) .pm-bar-snapshot .player-bar::after { content: none; }
 html:not(.mobile-runtime) .pm-bar-snapshot .lcd-artwork,
 html:not(.mobile-runtime) .pm-bar-snapshot.has-title .lcd-meta__title { visibility: hidden; }
 html:not(.mobile-runtime) .player-bar,

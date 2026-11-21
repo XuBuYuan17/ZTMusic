@@ -2,6 +2,7 @@
   import { mobileDock } from '../stores/mobile-dock.svelte.ts'
   import { toast } from '../stores/toast.svelte.ts'
   import { DOCK_TABS, MAX_DOCK_TABS, type DockTabId } from '../settings/mobile-dock.ts'
+  import { responsive } from '../utils/responsive.ts'
   import SettingSelect from './SettingSelect.svelte'
   import Icon from './ui/Icon.svelte'
 
@@ -68,12 +69,12 @@
 <div class="dock-settings">
   <section class="dock-settings__section" aria-label="底栏样式">
     <div class="dock-settings__row">
-      <span><strong>底栏样式</strong><small>悬浮底栏将播放器和导航放在一起</small></span>
-      <SettingSelect label="底栏样式" value={mobileDock.config.layout} options={[{ value: 'classic', label: '经典' }, { value: 'floating', label: '悬浮' }]} onChange={value => mobileDock.setLayout(value === 'floating' ? 'floating' : 'classic')} />
+      {#if !$responsive.isMobile}<span><strong>底栏样式</strong><small>悬浮底栏将播放器和导航放在一起</small></span>{/if}
+      <SettingSelect fullRow label="底栏样式" rowHint="悬浮底栏将播放器和导航放在一起" value={mobileDock.config.layout} options={[{ value: 'classic', label: '经典' }, { value: 'floating', label: '悬浮' }]} onChange={value => mobileDock.setLayout(value === 'floating' ? 'floating' : 'classic')} />
     </div>
     <div class="dock-settings__row">
-      <span><strong>图标文字</strong></span>
-      <SettingSelect label="图标文字" value={mobileDock.config.labels ? 'labels' : 'icons'} options={[{ value: 'labels', label: '显示' }, { value: 'icons', label: '仅图标' }]} onChange={value => mobileDock.setLabels(value === 'labels')} />
+      {#if !$responsive.isMobile}<span><strong>图标文字</strong></span>{/if}
+      <SettingSelect fullRow label="图标文字" value={mobileDock.config.labels ? 'labels' : 'icons'} options={[{ value: 'labels', label: '显示' }, { value: 'icons', label: '仅图标' }]} onChange={value => mobileDock.setLabels(value === 'labels')} />
     </div>
   </section>
 
@@ -100,13 +101,14 @@
   <span class="dock-settings__sr-only" aria-live="polite">{announcement}</span>
   <p class="dock-settings__note">未显示的页面可从设置页右上角的导航菜单进入。</p>
   {#if mobileDock.error}<p class="dock-settings__error" role="alert">{mobileDock.error}</p>{/if}
-  <button class="dock-settings__reset" type="button" onclick={() => mobileDock.reset()}>恢复默认</button>
+  <button class="dock-settings__reset" type="button" onclick={() => mobileDock.reset()}><span class="settings-button-label">恢复默认</span></button>
 </div>
 
 <style>
   .dock-settings { display: grid; gap: 16px; }
   .dock-settings__section { overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 65%, transparent); border-radius: var(--radius-lg); background: var(--settings-group, var(--bg-surface)); }
   .dock-settings__row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; }
+  :global(html.mobile-runtime) .dock-settings__row { padding: 0; }
   .dock-settings__row + .dock-settings__row { border-top: 1px solid var(--border); }
   .dock-settings__row > span { min-width: 0; display: grid; gap: 4px; }
   .dock-settings__row strong, .dock-settings__choice { font-size: 15px; font-weight: 400; }

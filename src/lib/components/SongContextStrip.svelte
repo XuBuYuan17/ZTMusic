@@ -334,7 +334,29 @@
 
         <div class="ly-context-detail-body">
           {#if contextPanel === 'songs'}
-            {#if similarSongs.length > 0}
+            {#if similarSongs.length > 0 && variant === 'mobile'}
+              <div class="similar-song-list">
+                {#each similarSongs as track (track.id)}
+                  {@const name = String(track.name || '未知歌曲')}
+                  <div class="similar-song-row">
+                    <span class="similar-song-cover" aria-hidden="true">
+                      {#if track.picUrl}
+                        <img src={coverUrl(track.picUrl, 96)} alt="" loading="lazy" referrerpolicy="no-referrer" />
+                      {:else}
+                        <Icon name="music-note" size={19} />
+                      {/if}
+                    </span>
+                    <div class="similar-song-copy">
+                      <strong>{name}</strong>
+                      <span class="similar-song-artists"><ArtistNames artists={track.ar || []} onOpenArtist={openArtist} /></span>
+                    </div>
+                    <button class="similar-song-play" type="button" aria-label={'播放 ' + name} onclick={() => playSimilarSong(track)}>
+                      <Icon name="play" size={17} />
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {:else if similarSongs.length > 0}
               <div class="ly-context-detail-list">
                 {#each similarSongs as track, i (track.id)}
                   <button class="ly-context-detail-row" onclick={() => playSimilarSong(track)}>
@@ -348,6 +370,7 @@
                   </button>
                 {/each}
               </div>
+            {:else if loading}<div class="ly-context-empty" role="status">正在加载相似歌曲…</div>
             {:else}<div class="ly-context-empty">暂时没有找到相似歌曲</div>{/if}
           {:else if contextPanel === 'playlists'}
             {#if selectedSimilarPlaylist}
@@ -373,7 +396,6 @@
                 <button class="ly-context-detail-playlist" onclick={() => loadSimilarPlaylist(pl)}>
                   <span class="ly-context-playlist-art">
                     {#if pl.coverImgUrl}<img src={coverUrl(pl.coverImgUrl, 240)} alt="" loading="lazy" referrerpolicy="no-referrer"/>{:else}<span class="ly-context-cover-ph">♫</span>{/if}
-                    <span><Icon name="chevron-right" size={15}/></span>
                   </span>
                   <strong>{pl.name}</strong>
                   <em>{pl.creator?.nickname || (pl.trackCount ? `${pl.trackCount} 首歌曲` : '为你推荐')}</em>
@@ -426,3 +448,69 @@
     {/if}
   {/if}
 {/if}
+
+<style>
+  .similar-song-list {
+    height: 100%;
+    padding: 4px 6px 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .similar-song-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    align-items: center;
+    gap: 10px;
+    min-height: 60px;
+    padding: 8px 6px;
+    color: var(--text);
+  }
+
+  .similar-song-row + .similar-song-row::before {
+    content: '';
+    position: absolute;
+    inset: 0 6px auto 56px;
+    height: 1px;
+    background: var(--border);
+    pointer-events: none;
+  }
+
+  .similar-song-cover {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+
+  .similar-song-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .similar-song-copy { min-width: 0; display: grid; gap: 2px; }
+  .similar-song-copy strong, .similar-song-artists { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .similar-song-copy strong { font-size: 15px; line-height: 20px; font-weight: 500; }
+  .similar-song-artists { position: relative; z-index: 1; pointer-events: none; font-size: 12px; line-height: 18px; color: var(--text-secondary); }
+  .similar-song-artists :global(.artist-link) { pointer-events: auto; color: inherit; }
+  .similar-song-artists :global(.artist-link:focus-visible) { outline-offset: -2px; }
+
+  .similar-song-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-inline: 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    background: transparent;
+  }
+
+  .similar-song-play:focus-visible { outline-offset: -2px; }
+  .similar-song-row:has(.similar-song-play:active) { background: var(--bg-hover); }
+
+  @media (hover: hover) {
+    .similar-song-row:has(.similar-song-play:hover) { background: var(--bg-hover); }
+  }
+</style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import PreviewCard from './PreviewCard.svelte'
+  import MobileCoverRows from './MobileCoverRows.svelte'
 
   // 新专辑预览：只接收数据与动作，不自己请求。
   interface AlbumItem {
@@ -34,15 +35,11 @@
 {#if mobile}
   <section class="mobile-discovery-section" aria-label="新专辑">
     <h2>{title}</h2>
-    <div class="mobile-cover-rail mobile-cover-rail--two-rows">
-      {#if loading && !albums.length}
-        {#each Array(4) as _, index (index)}<div class="mobile-cover-item"><span class="mobile-cover-image skeleton-block"></span><span class="skeleton-line"></span></div>{/each}
-      {:else}
-        {#each visible as album (album.id)}
-          <PreviewCard mobile title={String(album.name ?? '')} meta={String(album.artistName ?? '') || '新专辑'} cover={String(album.picUrl ?? '')} onSelect={() => onOpenAlbum?.(album.id)} />
-        {/each}
-      {/if}
-    </div>
+    <MobileCoverRows items={visible} loading={loading && !albums.length}>
+      {#snippet children(album)}
+        <PreviewCard mobile title={String(album.name ?? '')} meta={String(album.artistName ?? '') || '新专辑'} cover={String(album.picUrl ?? '')} onSelect={() => onOpenAlbum?.(album.id)} />
+      {/snippet}
+    </MobileCoverRows>
   </section>
 {:else}
   <section class="music-discovery-section music-new-albums-panel">

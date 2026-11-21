@@ -154,6 +154,31 @@ export const dbHistory = {
     }
   },
 
+  async mergeImported(rows: readonly HistoryEntry[]): Promise<number> {
+    await ensureDB()
+    const db = getDB()
+    const existing = await this.list(LIMITS.MAX_HISTORY, true)
+    const ids = new Set(existing.map(row => String(row.id)))
+    const incoming = rows.filter(row => {
+      const id = String(row.id)
+      if (ids.has(id)) return false
+      ids.add(id)
+      return true
+    }).slice(0, Math.max(0, LIMITS.MAX_HISTORY - existing.length))
+    if (!incoming.length) return 0
+    if (!db) {
+      const merged = [...existing, ...incoming].sort((a, b) => b.playedAt - a.playedAt)
+      localStorage.setItem(FALLBACK_KEY, JSON.stringify(merged))
+    } else {
+      for (const row of incoming) {
+        await db.sql("INSERT INTO play_history (song_id, name, artists, album, pic_url, duration, played_at, play_count, source) SELECT ?, ?, ?, ?, ?, ?, ?, ?, 'online' WHERE NOT EXISTS (SELECT 1 FROM play_history WHERE song_id = ?)",
+          [row.id, row.name, JSON.stringify(row.artists), JSON.stringify(row.album), row.picUrl, row.dt, row.playedAt, row.playCount, row.id])
+      }
+    }
+    notifyHistoryChange()
+    return incoming.length
+  },
+
   /** 获取播放历史 */
   async list(limit: number = 200, strict = false): Promise<HistoryEntry[]> {
     await ensureDB()

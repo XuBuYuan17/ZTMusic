@@ -19,6 +19,7 @@
   import PlaylistGroupsSettings from '../components/PlaylistGroupsSettings.svelte'
   import AboutPage from './AboutPage.svelte'
   import MobileDockSettings from '../components/MobileDockSettings.svelte'
+  import DevicePairing from '../components/DevicePairing.svelte'
   import { getBooleanSetting, setBooleanSetting } from '../utils/settings.ts'
 
   let { theme = 'dark', accentTheme = 'red', onSetTheme, onSetAccentTheme, category = null, onNavigate, onBack }: {
@@ -31,6 +32,7 @@
     onSetAccentTheme?: (theme: string) => void
   } = $props()
 
+  let showDevicePairing = $state(false)
   const settings = useSettings()
   let loudnessNormalization = $state(getBooleanSetting('loudness_normalization', 'false'))
   let loudnessBusy = $state(false)
@@ -99,7 +101,7 @@
     <div class="m-settings-list">
       <button class="m-settings-row m-settings-entry m-settings-back" type="button" onclick={() => onBack?.()}>
         <Icon name="chevron-left" fill="none" size={20} />
-        <strong>{category === 'dock' ? '返回外观' : t('settings.back')}</strong>
+        <strong>{t('settings.back')}</strong>
       </button>
     </div>
   {:else}
@@ -110,8 +112,14 @@
             <span class="m-entry-icon"><Icon name={item.icon} fill="none" size={21} /></span>
             <strong>{t(item.titleKey)}</strong>
             <span class="m-row-value">{summaries[item.id]}</span>
-            <Icon name="chevron-right" fill="none" size={17} />
           </button>
+          {#if $responsive.isMobile && item.id === 'appearance'}
+            <button class="m-settings-row m-settings-entry" type="button" onclick={() => onNavigate?.(settingsView('dock'))}>
+              <span class="m-entry-icon"><Icon name="grid" fill="none" size={21} /></span>
+              <strong>底栏样式</strong>
+              <span class="m-row-value">布局、导航图标与数量</span>
+            </button>
+          {/if}
         {/each}
       </div>
     {/each}
@@ -129,17 +137,24 @@
       {:else}
         <div class="m-settings-list">
           {#each fields as field (field.key)}
-            <div class="m-settings-row" data-setting-key={field.key}>
-              <div class="m-settings-copy">
-                <strong>{t(field.labelKey)}</strong>
-                {#if field.descriptionKey}<span>{t(field.descriptionKey)}</span>{/if}
+            {#if $responsive.isMobile && field.kind !== 'boolean'}
+              <div class="m-settings-row m-settings-row--select" data-setting-key={field.key}>
+                <SettingSelect fullRow label={t(field.labelKey)} rowHint={field.descriptionKey ? t(field.descriptionKey) : undefined}
+                  value={selectedValue(field)} options={fieldOptions(field)} onChange={value => changeField(field, value)} />
               </div>
-              {#if field.kind === 'boolean'}
-                <button class="m-switch" type="button" class:on={fieldValue(field) === true} aria-label={t(field.labelKey)} aria-pressed={fieldValue(field) === true} onclick={() => changeField(field, !fieldValue(field))}><span>{t(fieldValue(field) ? 'common.on' : 'common.off')}</span></button>
-              {:else}
-                <SettingSelect label={t(field.labelKey)} value={selectedValue(field)} options={fieldOptions(field)} onChange={value => changeField(field, value)} />
-              {/if}
-            </div>
+            {:else}
+              <div class="m-settings-row" data-setting-key={field.key}>
+                <div class="m-settings-copy">
+                  <strong>{t(field.labelKey)}</strong>
+                  {#if field.descriptionKey}<span>{t(field.descriptionKey)}</span>{/if}
+                </div>
+                {#if field.kind === 'boolean'}
+                  <button class="m-switch" type="button" class:on={fieldValue(field) === true} aria-label={t(field.labelKey)} aria-pressed={fieldValue(field) === true} onclick={() => changeField(field, !fieldValue(field))}><span>{t(fieldValue(field) ? 'common.on' : 'common.off')}</span></button>
+                {:else}
+                  <SettingSelect label={t(field.labelKey)} value={selectedValue(field)} options={fieldOptions(field)} onChange={value => changeField(field, value)} />
+                {/if}
+              </div>
+            {/if}
           {/each}
           {#if category === 'playback'}
             <div class="m-settings-row">
@@ -149,25 +164,30 @@
           {/if}
           {#if category === 'appearance'}
       <div class="m-settings-subhead">配色</div>
-      <div class="m-settings-row m-settings-row--palette">
-        <div class="m-settings-copy">
-          <strong>强调色</strong>
-          <span>也可以跟随正在播放的封面</span>
+      {#if $responsive.isMobile}
+        <SettingSelect fullRow label="强调色" description="也可以跟随正在播放的封面" value={accentTheme} options={ACCENT_THEME_OPTIONS}
+          onChange={value => onSetAccentTheme?.(value)} />
+      {:else}
+        <div class="m-settings-row m-settings-row--palette">
+          <div class="m-settings-copy">
+            <strong>强调色</strong>
+            <span>也可以跟随正在播放的封面</span>
+          </div>
+          <div class="m-accent-picker" role="radiogroup" aria-label="主题配色">
+            {#each ACCENT_THEME_OPTIONS as option}
+              <button
+                type="button"
+                role="radio"
+                aria-label={option.label}
+                aria-checked={accentTheme === option.value}
+                class:active={accentTheme === option.value}
+                title={option.label}
+                onclick={() => onSetAccentTheme?.(option.value)}
+              ><span style={`--accent-preview:${option.preview}`}></span></button>
+            {/each}
+          </div>
         </div>
-        <div class="m-accent-picker" role="radiogroup" aria-label="主题配色">
-          {#each ACCENT_THEME_OPTIONS as option}
-            <button
-              type="button"
-              role="radio"
-              aria-label={option.label}
-              aria-checked={accentTheme === option.value}
-              class:active={accentTheme === option.value}
-              title={option.label}
-              onclick={() => onSetAccentTheme?.(option.value)}
-            ><span style={`--accent-preview:${option.preview}`}></span></button>
-          {/each}
-        </div>
-      </div>
+      {/if}
 
       <div class="m-settings-subhead">背景</div>
       <div class="m-settings-row m-settings-row--wallpaper">
@@ -178,10 +198,10 @@
         <div class="m-inline-actions">
           <input bind:this={wallpaperInput} class="m-file-input" type="file" accept="image/*,video/*" onchange={handleWallpaperFile} />
           <button class="m-text-action" type="button" disabled={wallpaper.loading} onclick={() => wallpaperInput?.click()}>
-            {wallpaper.loading ? '处理中…' : wallpaper.active ? '更换' : '选择'}
+            <span class="settings-button-label">{wallpaper.loading ? '处理中…' : wallpaper.active ? '更换' : '选择'}</span>
           </button>
           {#if wallpaper.active}
-            <button class="m-text-action muted" type="button" disabled={wallpaper.loading} onclick={() => wallpaper.clear()}>移除</button>
+            <button class="m-text-action muted" type="button" disabled={wallpaper.loading} onclick={() => wallpaper.clear()}><span class="settings-button-label">移除</span></button>
           {/if}
         </div>
       </div>
@@ -196,13 +216,6 @@
         </div>
       {/if}
 
-      {#if $responsive.isMobile}
-      <div class="m-settings-subhead">底栏</div>
-      <button class="m-settings-row m-settings-row--button" type="button" onclick={() => onNavigate?.('settings-dock')}>
-        <div class="m-settings-copy"><strong>底栏样式</strong><span>布局、导航图标与数量</span></div>
-        <Icon name="chevron-right" size={18} />
-      </button>
-      {/if}
 
           {:else if category === 'sources'}
             <SourcePluginSettings mobile={$responsive.isMobile} />
@@ -216,6 +229,11 @@
       </button>
 
       {#if auth.isLoggedIn}
+        <button class="m-settings-row m-settings-row--button" type="button" aria-expanded={showDevicePairing} onclick={() => showDevicePairing = !showDevicePairing}>
+          <div class="m-settings-copy"><strong>授权另一台哲听</strong><span>扫码登录并迁移所选数据</span></div>
+        </button>
+        {#if showDevicePairing}<div class="m-device-pairing"><DevicePairing role="approve" /></div>{/if}
+
         <button class="m-settings-row m-settings-row--button" type="button" onclick={() => auth.refreshVipInfo()}>
           <div class="m-settings-copy">
             <strong>会员状态</strong>
@@ -261,11 +279,12 @@
   {#if category === 'data'}<PlaylistGroupsSettings />{/if}
   {#if category === 'playback'}<p class="m-settings-note">{t('settings.playbackNote')}</p>{/if}
   {#if category === 'data' && auth.isLoggedIn}
-    <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} />退出登录</button>
+    <button class="m-logout" type="button" onclick={() => auth.logout()}><Icon name="logout" size={17} /><span class="settings-button-label">退出登录</span></button>
   {/if}
 </div>
 
 <style>
+  .m-device-pairing { padding: 0 16px 10px; }
   .m-settings { --settings-group: #fff; display: grid; gap: 24px; max-width: 840px; margin-inline: auto; padding-bottom: 24px; }
   :global(html[data-theme="dark"]) .m-settings { --settings-group: #1c1c1e; }
   :global(html:not(.mobile-runtime)) .m-settings { --md-primary: var(--accent); --md-primary-container: color-mix(in srgb, var(--accent) 12%, var(--settings-group)); --md-surface: var(--settings-group); }
@@ -279,7 +298,7 @@
   .m-settings-note { margin: 0; padding: 0 16px; color: var(--text-secondary); font-size: .8125rem; line-height: 1.5; }
   .m-settings-list { overflow: hidden; border-radius: var(--radius-md); background: var(--settings-group, var(--bg)); }
   .m-settings-row { position: relative; box-sizing: border-box; width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border: 0; color: var(--text); background: transparent; font: inherit; text-align: left; }
-  .m-settings-row + .m-settings-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); }
+  .m-settings-row + .m-settings-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); z-index: 1; pointer-events: none; }
   .m-settings-row--button, .m-settings-entry { cursor: pointer; }
   .m-settings-row--button:active, .m-settings-entry:active { background: var(--bg-hover); }
   .m-settings-copy { min-width: 0; flex: 1; display: grid; gap: 4px; overflow-wrap: anywhere; }
@@ -298,7 +317,7 @@
   .m-settings-entry + .m-settings-entry::before { left: 58px; }
   .m-text-action { min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; color: var(--md-primary); background: var(--md-primary-container); font: inherit; font-size: .875rem; font-weight: 500; }
   .m-settings-subhead { position: relative; padding: 16px 16px 6px; color: var(--text-secondary); font-size: .75rem; font-weight: 500; letter-spacing: .02em; }
-  .m-settings-subhead::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); }
+  .m-settings-subhead::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; height: 1px; background: var(--border); z-index: 1; pointer-events: none; }
   .m-settings-row--palette, .m-settings-row--wallpaper { flex-wrap: wrap; gap: 10px; }
   .m-accent-picker { display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 4px; width: 100%; }
   .m-accent-picker button { width: 40px; height: 40px; display: grid; place-items: center; padding: 0; border: 2px solid transparent; border-radius: 50%; background: transparent; }
@@ -316,6 +335,7 @@
   .m-switch span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   :global(.m-settings .mobile-setting-select) { min-width: 0; min-height: 44px; max-width: 48%; gap: 4px; padding: 4px 0 4px 8px; border: 0; color: var(--text-secondary); background: transparent; font-size: .9375rem; box-shadow: none; }
   :global(.m-settings .mobile-setting-select span) { white-space: normal; overflow-wrap: anywhere; }
+  .m-settings-row--select { padding: 0; }
   .m-settings-row--stacked { align-items: stretch; flex-direction: column; gap: 8px; }
   .m-settings-input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--bg); font: inherit; font-size: 1rem; }
   .m-settings-input:focus { outline: 2px solid var(--md-primary); }
