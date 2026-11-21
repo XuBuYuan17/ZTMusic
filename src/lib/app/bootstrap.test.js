@@ -7,7 +7,11 @@ const main = await readFile(new URL('../../main.js', import.meta.url), 'utf8')
 
 assert.ok(main.includes("import('./App.svelte')"), 'application code should still be loaded dynamically')
 assert.ok(!main.includes('minimumDuration'), 'startup must not impose an artificial minimum duration')
-assert.ok(!main.includes('hideSplash'), 'startup must not coordinate an animated splash')
+const launchMount = main.indexOf('mount(LaunchAnimation')
+const appMount = main.indexOf('mount(App,')
+assert.ok(launchMount >= 0 && launchMount < appMount, 'the launch overlay is available before the app shell loads')
+assert.ok(appMount < main.indexOf('await animationReady'), 'startup animation must not block app mounting')
+assert.match(main, /await shellReady[\s\S]*?await animationReady[\s\S]*?unmount\(launch, \{ outro:/, 'the overlay only fades after both the shell and animation are ready')
 assert.ok(!main.includes('bootstrapStartedAt'), 'startup should mount as soon as modules are ready')
 assert.ok(main.includes("window.dispatchEvent(new Event('ztmusic:startup-ready'))"), 'successful mount must close the startup error window')
 
@@ -32,14 +36,16 @@ assert.ok(index.indexOf('function showStartupError') < index.indexOf('type="modu
 
 function startupHarness() {
   const handlers = new Map()
-  const app = { textContent: '', children: [], appendChild(node) { this.children.push(node) } }
+  const app = { inert: true, textContent: '', children: [], appendChild(node) { this.children.push(node) } }
+  const launch = { hidden: false }
   const document = {
-    getElementById(id) { return id === 'app' ? app : null },
+    documentElement: { removeAttribute() {} },
+    getElementById(id) { return id === 'app' ? app : id === 'launch-animation-root' ? launch : null },
     createElement(tagName) { return { tagName, style: {}, textContent: '', setAttribute() {} } },
   }
   const window = { addEventListener(name, handler) { handlers.set(name, handler) } }
   runInNewContext(startupScript, { document, window })
-  return { handlers, app }
+  return { handlers, app, launch }
 }
 
 for (const [event, payload, expected] of [
@@ -48,8 +54,10 @@ for (const [event, payload, expected] of [
   ['unhandledrejection', { reason: new Error('Safari initialization failed') }, 'Safari initialization failed'],
   ['error', { target: { tagName: 'SCRIPT', src: '/src/main.js' } }, '/src/main.js'],
 ]) {
-  const { handlers, app } = startupHarness()
+  const { handlers, app, launch } = startupHarness()
   handlers.get(event)(payload)
+  assert.equal(launch.hidden, true, 'a startup error must be visible above the animation')
+  assert.equal(app.inert, false, 'the error view must remain accessible')
   assert.equal(app.children.length, 1, `${event} must show one startup diagnostic`)
   assert.ok(app.children[0].textContent.startsWith('哲听启动失败'))
   assert.ok(app.children[0].textContent.includes(expected))

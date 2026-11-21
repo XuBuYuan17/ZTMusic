@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick, untrack, onDestroy, onMount } from 'svelte'
-  import { announceAndroidFrame } from '../app/android-startup.ts'
-  onMount(() => { announceAndroidFrame(); onReady?.() })
+  onMount(() => { onReady?.() })
   import { reducedMotion } from '../app/desktop-motion.ts'
   import { createMobileNavigationMotion, isDetailSheetView, mobileNavigationKind, outgoingViewportClipTop } from '../app/mobile-navigation-motion.ts'
   import { mobileViewport, mobileEdgeBack } from '../app/mobile-interaction.ts'

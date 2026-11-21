@@ -23,6 +23,8 @@
         -moz-osx-font-smoothing: grayscale;
       }
 
+      html[data-launch-pending] body { background: var(--launch-base, #0a0a0a); transition: none; }
+
       @media (max-width: 600px) {
         html:not(.mobile-runtime) body { overflow-x: hidden; }
       }
@@ -30,6 +32,7 @@
     <script>
       ;(function () {
         // 在模块和完整 CSS 之前同步设置移动布局与上次主题，避免首帧白闪/错布局。
+        document.documentElement.setAttribute('data-launch-pending', '')
         if (window.innerWidth <= 600 || window.location.search.includes('mobile')) {
           document.documentElement.classList.add('mobile-runtime')
         }
@@ -37,18 +40,17 @@
           var nativeAndroid = !!window.__TAURI_INTERNALS__ && /Android/i.test(navigator.userAgent)
           var mobile = document.documentElement.classList.contains('mobile-runtime') || nativeAndroid
           if (nativeAndroid) document.documentElement.classList.add('mobile-runtime', 'android-startup-pending')
-          var theme = localStorage.getItem('zheting-theme')
-          if (theme !== 'light' && theme !== 'dark') theme = nativeAndroid && !matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'
+          var theme
+          try { theme = localStorage.getItem('zheting-theme') } catch (_) {}
+          if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
           if (theme === 'light' || theme === 'dark') {
             var color = mobile ? (theme === 'light' ? '#ffffff' : '#111113') : (theme === 'light' ? '#e8e8ed' : '#0a0a0a')
             document.documentElement.dataset.theme = theme
             document.documentElement.style.colorScheme = theme
             document.documentElement.style.backgroundColor = color
+            document.documentElement.style.setProperty('--launch-base', color)
             var themeMeta = document.querySelector('meta[name="theme-color"]')
             if (themeMeta) themeMeta.setAttribute('content', color)
-            document.addEventListener('DOMContentLoaded', function () {
-              document.body.style.backgroundColor = color
-            }, { once: true })
           }
         } catch (_) {}
       })()
@@ -56,6 +58,7 @@
   </head>
   <body>
     <div id="app"></div>
+    <div id="launch-animation-root"></div>
     <script>
       ;(function () {
         'use strict'
@@ -77,6 +80,10 @@
           startupPending = false
           var app = document.getElementById('app')
           if (!app) return
+          var launch = document.getElementById('launch-animation-root')
+          if (launch) launch.hidden = true
+          document.documentElement.removeAttribute('data-launch-pending')
+          app.inert = false
           app.textContent = ''
           var panel = document.createElement('pre')
           panel.setAttribute('role', 'alert')
